@@ -11,7 +11,7 @@ import {
 import { HUDStatusIndicator } from './HUDStatusIndicator';
 import { useAuth } from '../hooks/useAuth';
 import { fetchRTOById } from '../types/rto';
-import nytroLogo from '../assets/nytro-logo.jpeg';
+import nytroLogo from '../assets/nytro-logo.svg';
 
 interface NavigationProps {
   currentView: string;

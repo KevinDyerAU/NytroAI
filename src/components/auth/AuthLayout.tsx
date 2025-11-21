@@ -1,5 +1,5 @@
 import React from 'react';
-import nytroLogo from '../../assets/nytro-logo.jpeg';
+import nytroLogo from '../../assets/nytro-logo.svg';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
