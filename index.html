@@ -3,24 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AlphaQubit: Quantum Error Decoding</title>
+    <title>Nytro | Smart RTO Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              serif: ['"Playfair Display"', 'serif'],
-              sans: ['"Inter"', 'sans-serif'],
+              sans: ['"Outfit"', 'sans-serif'],
+              body: ['"Inter"', 'sans-serif'],
             },
             colors: {
-              nobel: {
-                gold: '#C5A059',
-                dark: '#1a1a1a',
-                cream: '#F9F8F4',
+              nytro: {
+                mint: '#2DD4BF', // Teal-400 approx
+                blue: '#2563EB', // Blue-600 approx
+                dark: '#0F172A', // Slate-900
+                light: '#F8FAFC', // Slate-50
+              }
+            },
+            animation: {
+              'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
               }
             }
           }
@@ -33,13 +43,17 @@
         scroll-padding-top: 100px;
       }
       body {
-        background-color: #F9F8F4;
-        color: #1a1a1a;
+        background-color: #F8FAFC;
+        color: #0F172A;
       }
-      @media print {
-        nav, footer, button {
-          display: none !important;
-        }
+      /* Gradient Text Utility */
+      .text-gradient {
+        background: linear-gradient(135deg, #2DD4BF 0%, #2563EB 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .bg-gradient-brand {
+        background: linear-gradient(135deg, #2DD4BF 0%, #2563EB 100%);
       }
     </style>
   <script type="importmap">

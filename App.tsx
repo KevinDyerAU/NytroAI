@@ -7,14 +7,16 @@
 import React, { useState, useEffect } from 'react';
 import { HeroScene, QuantumComputerScene } from './components/QuantumScene';
 import { SurfaceCodeDiagram, TransformerDecoderDiagram, PerformanceMetricDiagram } from './components/Diagrams';
-import { ArrowDown, Menu, X, BookOpen } from 'lucide-react';
+import { ArrowDown, Menu, X, CheckCircle2, ShieldCheck, Zap, Users, BookOpen, PlayCircle } from 'lucide-react';
 
-const AuthorCard = ({ name, role, delay }: { name: string, role: string, delay: string }) => {
+const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any, title: string, description: string, delay: string }) => {
   return (
-    <div className="flex flex-col group animate-fade-in-up items-center p-8 bg-white rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-all duration-300 w-full max-w-xs hover:border-nobel-gold/50" style={{ animationDelay: delay }}>
-      <h3 className="font-serif text-2xl text-stone-900 text-center mb-3">{name}</h3>
-      <div className="w-12 h-0.5 bg-nobel-gold mb-4 opacity-60"></div>
-      <p className="text-xs text-stone-500 font-bold uppercase tracking-widest text-center leading-relaxed">{role}</p>
+    <div className="flex flex-col group animate-fade-in-up p-8 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-teal-200 transition-all duration-300 w-full" style={{ animationDelay: delay }}>
+      <div className="w-14 h-14 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:bg-gradient-brand group-hover:text-white transition-all duration-300">
+        <Icon size={28} />
+      </div>
+      <h3 className="font-sans font-bold text-xl text-slate-900 mb-3">{title}</h3>
+      <p className="text-slate-500 leading-relaxed">{description}</p>
     </div>
   );
 };
@@ -34,7 +36,6 @@ const App: React.FC = () => {
     setMenuOpen(false);
     const element = document.getElementById(id);
     if (element) {
-      // Account for fixed header offset
       const headerOffset = 100;
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
@@ -47,34 +48,29 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F8F4] text-stone-800 selection:bg-nobel-gold selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-200 selection:text-teal-900 font-sans">
       
       {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#F9F8F4]/90 backdrop-blur-md shadow-sm py-4' : 'bg-transparent py-6'}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-4' : 'bg-transparent py-6'}`}>
         <div className="container mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="w-8 h-8 bg-nobel-gold rounded-full flex items-center justify-center text-white font-serif font-bold text-xl shadow-sm pb-1">α</div>
-            <span className={`font-serif font-bold text-lg tracking-wide transition-opacity ${scrolled ? 'opacity-100' : 'opacity-0 md:opacity-100'}`}>
-              ALPHAQUBIT <span className="font-normal text-stone-500">2024</span>
+          {/* Logo */}
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <span className="font-sans font-extrabold text-3xl tracking-tight text-gradient lowercase">
+              nytro
             </span>
           </div>
           
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide text-stone-600">
-            <a href="#introduction" onClick={scrollToSection('introduction')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">Introduction</a>
-            <a href="#science" onClick={scrollToSection('science')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">The Surface Code</a>
-            <a href="#impact" onClick={scrollToSection('impact')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">Impact</a>
-            <a href="#authors" onClick={scrollToSection('authors')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">Authors</a>
-            <a 
-              href="https://doi.org/10.1038/s41586-024-08148-8" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="px-5 py-2 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-colors shadow-sm cursor-pointer"
-            >
-              View Paper
-            </a>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+            <a href="#features" onClick={scrollToSection('features')} className="hover:text-blue-600 transition-colors cursor-pointer">Features</a>
+            <a href="#validation" onClick={scrollToSection('validation')} className="hover:text-blue-600 transition-colors cursor-pointer">Validation</a>
+            <a href="#support" onClick={scrollToSection('support')} className="hover:text-blue-600 transition-colors cursor-pointer">Support</a>
+            <a href="#contact" onClick={scrollToSection('contact')} className="hover:text-blue-600 transition-colors cursor-pointer">Contact</a>
+            <button className="px-6 py-2.5 bg-slate-900 text-white rounded-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl font-semibold">
+              Get Started
+            </button>
           </div>
 
-          <button className="md:hidden text-stone-900 p-2" onClick={() => setMenuOpen(!menuOpen)}>
+          <button className="md:hidden text-slate-900 p-2" onClick={() => setMenuOpen(!menuOpen)}>
             {menuOpen ? <X /> : <Menu />}
           </button>
         </div>
@@ -82,87 +78,120 @@ const App: React.FC = () => {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="fixed inset-0 z-40 bg-[#F9F8F4] flex flex-col items-center justify-center gap-8 text-xl font-serif animate-fade-in">
-            <a href="#introduction" onClick={scrollToSection('introduction')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">Introduction</a>
-            <a href="#science" onClick={scrollToSection('science')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">The Science</a>
-            <a href="#impact" onClick={scrollToSection('impact')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">Impact</a>
-            <a href="#authors" onClick={scrollToSection('authors')} className="hover:text-nobel-gold transition-colors cursor-pointer uppercase">Authors</a>
-            <a 
-              href="https://doi.org/10.1038/s41586-024-08148-8" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              onClick={() => setMenuOpen(false)} 
-              className="px-6 py-3 bg-stone-900 text-white rounded-full shadow-lg cursor-pointer"
-            >
-              View Paper
-            </a>
+        <div className="fixed inset-0 z-40 bg-white flex flex-col items-center justify-center gap-8 text-xl font-bold animate-fade-in">
+            <a href="#features" onClick={scrollToSection('features')}>Features</a>
+            <a href="#validation" onClick={scrollToSection('validation')}>Validation</a>
+            <a href="#support" onClick={scrollToSection('support')}>Support</a>
+            <a href="#contact" onClick={scrollToSection('contact')}>Contact</a>
+            <button className="px-8 py-3 bg-gradient-brand text-white rounded-full shadow-lg">
+              Get Started
+            </button>
         </div>
       )}
 
       {/* Hero Section */}
-      <header className="relative h-screen flex items-center justify-center overflow-hidden">
+      <header className="relative min-h-screen flex items-center justify-center overflow-hidden bg-white pt-20">
+        {/* 3D Background */}
         <HeroScene />
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(249,248,244,0.92)_0%,rgba(249,248,244,0.6)_50%,rgba(249,248,244,0.3)_100%)]" />
+        {/* Gradient Overlay for Text Readability */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent via-white/50 to-white pointer-events-none" />
 
         <div className="relative z-10 container mx-auto px-6 text-center">
-          <div className="inline-block mb-4 px-3 py-1 border border-nobel-gold text-nobel-gold text-xs tracking-[0.2em] uppercase font-bold rounded-full backdrop-blur-sm bg-white/30">
-            Nature • Nov 2024
+          <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 border border-teal-200 bg-teal-50 text-teal-700 text-xs uppercase font-bold rounded-full shadow-sm">
+            <ShieldCheck size={14} />
+            Ready for 2025 Standards
           </div>
-          <h1 className="font-serif text-5xl md:text-7xl lg:text-9xl font-medium leading-tight md:leading-[0.9] mb-8 text-stone-900 drop-shadow-sm">
-            AlphaQubit <br/><span className="italic font-normal text-stone-600 text-3xl md:text-5xl block mt-4">AI for Quantum Error Correction</span>
+          <h1 className="font-sans font-bold text-5xl md:text-7xl leading-tight mb-8 text-slate-900 drop-shadow-sm max-w-5xl mx-auto">
+            Meet the 2025 Standards <br/>
+            <span className="text-gradient">with confidence</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-lg md:text-xl text-stone-700 font-light leading-relaxed mb-12">
-            A recurrent, transformer-based neural network that learns to decode the surface code with unprecedented accuracy.
+          <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-600 leading-relaxed mb-10">
+            Nytro is not a CRM or an LMS. It is built to support RTOs by providing validation before delivery and ongoing validation of units, learner guides & student documents.
           </p>
           
-          <div className="flex justify-center">
-             <a href="#introduction" onClick={scrollToSection('introduction')} className="group flex flex-col items-center gap-2 text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors cursor-pointer">
-                <span>DISCOVER</span>
-                <span className="p-2 border border-stone-300 rounded-full group-hover:border-stone-900 transition-colors bg-white/50">
-                    <ArrowDown size={16} />
-                </span>
-             </a>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+             <button className="group px-8 py-4 bg-slate-900 text-white rounded-full font-semibold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-3">
+                <PlayCircle size={20} className="text-teal-400 group-hover:text-white transition-colors"/>
+                Watch Video
+             </button>
+             <button onClick={scrollToSection('features')} className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-full font-semibold hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center">
+                Explore Features
+             </button>
           </div>
         </div>
       </header>
 
       <main>
-        {/* Introduction */}
-        <section id="introduction" className="py-24 bg-white">
-          <div className="container mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-12 gap-12 items-start">
-            <div className="md:col-span-4">
-              <div className="inline-block mb-3 text-xs font-bold tracking-widest text-stone-500 uppercase">Introduction</div>
-              <h2 className="font-serif text-4xl mb-6 leading-tight text-stone-900">The Noise Barrier</h2>
-              <div className="w-16 h-1 bg-nobel-gold mb-6"></div>
+        {/* Introduction / Main Value Prop */}
+        <section id="features" className="py-24 bg-white">
+          <div className="container mx-auto px-6">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">Everything Your RTO Needs in One Smart System</h2>
+                <p className="text-slate-600 text-lg">
+                    The system delivers clear feedback that improves consistency, aligns with the principles of assessment and rules of evidence, and enables RTOs to demonstrate effective validation processes at audit.
+                </p>
             </div>
-            <div className="md:col-span-8 text-lg text-stone-600 leading-relaxed space-y-6">
-              <p>
-                <span className="text-5xl float-left mr-3 mt-[-8px] font-serif text-nobel-gold">B</span>uilding a large-scale quantum computer requires correcting the errors that inevitably arise in physical systems. The state of the art is the <strong>surface code</strong>, which encodes information redundantly across many physical qubits.
-              </p>
-              <p>
-                However, interpreting the noisy signals from these codes—a task called "decoding"—is a massive challenge. Complex noise effects like cross-talk and leakage confuse standard algorithms. <strong className="text-stone-900 font-medium">AlphaQubit</strong> uses machine learning to learn these complex error patterns directly from the quantum processor, achieving accuracy far beyond human-designed algorithms.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <FeatureCard 
+                    icon={ShieldCheck}
+                    title="Unit Validation"
+                    description="Enhance accuracy & efficiency. Ensure every unit meets compliance standards before delivery."
+                    delay="0s"
+                />
+                <FeatureCard 
+                    icon={BookOpen}
+                    title="Learner Guide Validation"
+                    description="Create stronger educational outcomes with guides that are automatically checked for alignment."
+                    delay="0.1s"
+                />
+                <FeatureCard 
+                    icon={CheckCircle2}
+                    title="Student Validation"
+                    description="Simple, ongoing validation of student documents to maintain audit readiness."
+                    delay="0.2s"
+                />
+                <FeatureCard 
+                    icon={Zap}
+                    title="Pre-Marking"
+                    description="Save time and improve accuracy with automated pre-marking analysis."
+                    delay="0.3s"
+                />
+                 <FeatureCard 
+                    icon={Users}
+                    title="Student Support System"
+                    description="24/7 learning assistance powered by Nytro to help students succeed anytime."
+                    delay="0.4s"
+                />
             </div>
           </div>
         </section>
 
-        {/* The Science: Surface Code */}
-        <section id="science" className="py-24 bg-white border-t border-stone-100">
+        {/* Interactive Feature: Validation */}
+        <section id="validation" className="py-24 bg-slate-50 overflow-hidden">
             <div className="container mx-auto px-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-100 text-stone-600 text-xs font-bold tracking-widest uppercase rounded-full mb-6 border border-stone-200">
-                            <BookOpen size={14}/> THE SYSTEM
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold uppercase rounded-full mb-6">
+                            Compliance First
                         </div>
-                        <h2 className="font-serif text-4xl md:text-5xl mb-6 text-stone-900">The Surface Code</h2>
-                        <p className="text-lg text-stone-600 mb-6 leading-relaxed">
-                           In a surface code, "Data Qubits" hold the quantum information, while "Stabilizer Qubits" interspersed between them act as watchdogs. They measure parity checks (X and Z type) to detect errors without destroying the quantum state.
+                        <h2 className="text-4xl font-bold mb-6 text-slate-900">Validation That Enhances Accuracy</h2>
+                        <p className="text-lg text-slate-600 mb-6 leading-relaxed">
+                           Navigating the 2025 Standards requires precision. Nytro provides instant feedback on your assessment tools and learner resources.
                         </p>
-                        <p className="text-lg text-stone-600 mb-6 leading-relaxed">
-                            When a data qubit flips, adjacent stabilizers light up. The pattern of these lights is the "syndrome." The decoder's job is to look at the syndrome and guess which data qubit flipped.
-                        </p>
+                        <ul className="space-y-4 mb-8">
+                            {[
+                                "Aligns with Principles of Assessment",
+                                "Checks Rules of Evidence",
+                                "Demonstrates effective validation at audit"
+                            ].map((item, i) => (
+                                <li key={i} className="flex items-center gap-3 text-slate-700 font-medium">
+                                    <CheckCircle2 className="text-teal-500" size={20} />
+                                    {item}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                     <div>
                         <SurfaceCodeDiagram />
@@ -171,12 +200,11 @@ const App: React.FC = () => {
             </div>
         </section>
 
-        {/* The Science: Transformer Decoder */}
-        <section className="py-24 bg-stone-900 text-stone-100 overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                {/* Decorative background pattern - Gold/Stone theme */}
-                <div className="w-96 h-96 rounded-full bg-stone-600 blur-[100px] absolute top-[-100px] left-[-100px]"></div>
-                <div className="w-96 h-96 rounded-full bg-nobel-gold blur-[100px] absolute bottom-[-100px] right-[-100px]"></div>
+        {/* Interactive Feature: Student Support */}
+        <section id="support" className="py-24 bg-slate-900 text-white relative">
+            {/* Abstract shapes */}
+            <div className="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none overflow-hidden">
+                 <div className="w-[600px] h-[600px] bg-blue-600 rounded-full blur-[120px] absolute -top-32 -right-32"></div>
             </div>
 
             <div className="container mx-auto px-6 relative z-10">
@@ -185,123 +213,104 @@ const App: React.FC = () => {
                         <TransformerDecoderDiagram />
                      </div>
                      <div className="order-1 lg:order-2">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-800 text-nobel-gold text-xs font-bold tracking-widest uppercase rounded-full mb-6 border border-stone-700">
-                            THE INNOVATION
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-teal-900 text-teal-300 text-xs font-bold uppercase rounded-full mb-6 border border-teal-800">
+                            Always On
                         </div>
-                        <h2 className="font-serif text-4xl md:text-5xl mb-6 text-white">Neural Decoding</h2>
-                        <p className="text-lg text-stone-400 mb-6 leading-relaxed">
-                            Standard decoders assume simple, independent errors. Real hardware is messier. AlphaQubit treats decoding as a sequence prediction problem, using a <strong>Recurrent Transformer</strong> architecture.
+                        <h2 className="text-4xl font-bold mb-6">Nytro Student Support</h2>
+                        <p className="text-lg text-slate-300 mb-6 leading-relaxed">
+                            Your trainers can't be available 24/7, but Nytro can. Our intelligent support system guides students through their learner guides, providing hints and clarifications without giving away the answers.
                         </p>
-                        <p className="text-lg text-stone-400 leading-relaxed">
-                            It ingests the history of stabilizer measurements and uses "soft" analog information—probabilities rather than just binary 0s and 1s—to make highly informed predictions about logical errors.
-                        </p>
+                        <div className="p-6 bg-slate-800 rounded-xl border border-slate-700">
+                             <p className="text-teal-400 font-semibold mb-2">Real Impact</p>
+                             <p className="text-slate-400">"It's like having a tutor available at midnight when I'm actually doing my study."</p>
+                        </div>
                      </div>
                 </div>
             </div>
         </section>
 
-        {/* The Science: Results */}
-        <section className="py-24 bg-[#F9F8F4]">
-            <div className="container mx-auto px-6">
-                <div className="max-w-4xl mx-auto text-center mb-12">
-                    <h2 className="font-serif text-4xl md:text-5xl mb-6 text-stone-900">Outperforming the Standard</h2>
-                    <p className="text-lg text-stone-600 leading-relaxed">
-                        AlphaQubit was tested on Google's Sycamore processor and accurate simulations. It consistently outperforms "Minimum-Weight Perfect Matching" (MWPM), the industry standard, effectively making the quantum computer appear cleaner than it actually is.
+        {/* Efficiency / Impact */}
+        <section className="py-24 bg-white">
+            <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6">Pre-Marking That Saves Time</h2>
+                    <p className="text-lg text-slate-600 mb-8">
+                        Free up your trainers to focus on teaching. Nytro pre-analyzes student submissions, highlighting potential issues and ensuring completeness before a trainer even looks at the page.
                     </p>
-                </div>
-                <div className="max-w-3xl mx-auto">
                     <PerformanceMetricDiagram />
+                </div>
+                <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-2xl bg-slate-100">
+                    <QuantumComputerScene />
+                    <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-900/80 to-transparent text-white">
+                        <p className="font-bold text-xl">Streamlined Operations</p>
+                        <p className="text-sm text-slate-200">Drive growth with efficient compliance.</p>
+                    </div>
                 </div>
             </div>
         </section>
 
-        {/* Impact */}
-        <section id="impact" className="py-24 bg-white border-t border-stone-200">
-             <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-12 gap-12">
-                <div className="md:col-span-5 relative">
-                    <div className="aspect-square bg-[#F5F4F0] rounded-xl overflow-hidden relative border border-stone-200 shadow-inner">
-                        <QuantumComputerScene />
-                        <div className="absolute bottom-4 left-0 right-0 text-center text-xs text-stone-400 font-serif italic">Simulation of the Sycamore Processor environment</div>
-                    </div>
-                </div>
-                <div className="md:col-span-7 flex flex-col justify-center">
-                    <div className="inline-block mb-3 text-xs font-bold tracking-widest text-stone-500 uppercase">IMPACT</div>
-                    <h2 className="font-serif text-4xl mb-6 text-stone-900">Towards Fault Tolerance</h2>
-                    <p className="text-lg text-stone-600 mb-6 leading-relaxed">
-                        AlphaQubit maintains its advantage even as the code distance increases (up to distance 11). It handles realistic noise including cross-talk and leakage, effects that often cripple standard decoders.
-                    </p>
-                    <p className="text-lg text-stone-600 mb-8 leading-relaxed">
-                        By learning from data directly, machine learning decoders can adapt to the unique quirks of each quantum processor, potentially reducing the hardware requirements for useful quantum computing.
-                    </p>
-                    
-                    <div className="p-6 bg-[#F9F8F4] border border-stone-200 rounded-lg border-l-4 border-l-nobel-gold">
-                        <p className="font-serif italic text-xl text-stone-800 mb-4">
-                            "Our work illustrates the ability of machine learning to go beyond human-designed algorithms by learning from data directly, highlighting machine learning as a strong contender for decoding in quantum computers."
-                        </p>
-                        <span className="text-sm font-bold text-stone-500 tracking-wider uppercase">— Bausch et al., Nature (2024)</span>
-                    </div>
-                </div>
-             </div>
-        </section>
-
-        {/* Authors */}
-        <section id="authors" className="py-24 bg-[#F5F4F0] border-t border-stone-300">
+        {/* Testimonial */}
+        <section className="py-24 bg-slate-50 border-y border-slate-200">
            <div className="container mx-auto px-6">
-                <div className="text-center mb-16">
-                    <div className="inline-block mb-3 text-xs font-bold tracking-widest text-stone-500 uppercase">RESEARCH TEAM</div>
-                    <h2 className="font-serif text-3xl md:text-5xl mb-4 text-stone-900">Key Contributors</h2>
-                    <p className="text-stone-500 max-w-2xl mx-auto">A collaboration between Google DeepMind and Google Quantum AI.</p>
-                </div>
-                
-                <div className="flex flex-col md:flex-row gap-8 justify-center items-center flex-wrap">
-                    <AuthorCard 
-                        name="Johannes Bausch" 
-                        role="Google DeepMind" 
-                        delay="0s" 
-                    />
-                    <AuthorCard 
-                        name="Andrew W. Senior" 
-                        role="Google DeepMind" 
-                        delay="0.1s" 
-                    />
-                    <AuthorCard 
-                        name="Francisco J. H. Heras" 
-                        role="Google DeepMind" 
-                        delay="0.2s" 
-                    />
-                    <AuthorCard 
-                        name="Thomas Edlich" 
-                        role="Google DeepMind" 
-                        delay="0.3s" 
-                    />
-                    <AuthorCard 
-                        name="Alex Davies" 
-                        role="Google DeepMind" 
-                        delay="0.4s" 
-                    />
-                    <AuthorCard 
-                        name="Michael Newman" 
-                        role="Google Quantum AI" 
-                        delay="0.5s" 
-                    />
-                </div>
-                <div className="text-center mt-12">
-                    <p className="text-stone-500 italic">And many others contributing to hardware, theory, and engineering.</p>
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-white p-10 md:p-14 rounded-3xl shadow-sm border border-slate-100 relative">
+                        <div className="absolute top-10 left-10 text-6xl font-serif text-teal-200 opacity-50">"</div>
+                        <p className="text-xl md:text-2xl text-slate-700 leading-relaxed italic text-center relative z-10 mb-8">
+                            As a trainer in the VET sector, I’m always on the lookout for tools that make compliance easier and help me focus more on my students. Nytro looks like a real game-changer—it’s designed to save time and keep everything running smoothly. I’m excited to see how it can transform the way RTOs work!
+                        </p>
+                        <div className="flex flex-col items-center">
+                            <div className="w-16 h-16 bg-slate-200 rounded-full mb-4 overflow-hidden">
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Chris" alt="Chris J" />
+                            </div>
+                            <h4 className="font-bold text-slate-900">Chris J.</h4>
+                            <p className="text-sm text-slate-500 font-medium">Trainer, Sydney</p>
+                        </div>
+                    </div>
                 </div>
            </div>
         </section>
 
       </main>
 
-      <footer className="bg-stone-900 text-stone-400 py-16">
-        <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="text-center md:text-left">
-                <div className="text-white font-serif font-bold text-2xl mb-2">AlphaQubit</div>
-                <p className="text-sm">Visualizing "Learning high-accuracy error decoding for quantum processors"</p>
+      {/* Footer */}
+      <footer id="contact" className="bg-slate-900 text-slate-300 py-20">
+        <div className="container mx-auto px-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 className="text-3xl font-bold text-white mb-6">Get In Touch</h2>
+                    <p className="text-lg text-slate-400 mb-8">Driving your success with innovation and expertise.</p>
+                    
+                    <div className="space-y-4">
+                        <a href="mailto:info@nytro.com.au" className="flex items-center gap-3 hover:text-teal-400 transition-colors">
+                            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            </div>
+                            info@nytro.com.au
+                        </a>
+                        <a href="https://nytro.com.au" target="_blank" rel="noreferrer" className="flex items-center gap-3 hover:text-teal-400 transition-colors">
+                             <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                            </div>
+                            nytro.com.au
+                        </a>
+                    </div>
+                </div>
+
+                <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700">
+                    <div className="mb-4">
+                         <span className="font-sans font-extrabold text-3xl tracking-tight text-white lowercase">
+                            nytro
+                        </span>
+                    </div>
+                    <p className="text-slate-400 leading-relaxed">
+                        Empowering your RTO with cutting-edge technology and expert solutions to streamline operations, drive growth, and achieve seamless compliance.
+                    </p>
+                </div>
             </div>
-        </div>
-        <div className="text-center mt-12 text-xs text-stone-600">
-            Based on research published in Nature (2024). Generated by AI.
+            
+            <div className="mt-16 pt-8 border-t border-slate-800 text-center text-sm text-slate-600">
+                &copy; 2025 Nytro. All rights reserved.
+            </div>
         </div>
       </footer>
     </div>
