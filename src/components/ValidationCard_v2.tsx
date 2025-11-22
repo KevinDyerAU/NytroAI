@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card } from './ui/card';
-import { StatusBadge } from './StatusBadge';
-import { GlowButton } from './GlowButton';
-import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
-import { ChevronDown, ChevronUp, MessageSquare, Sparkles, Save, X, RefreshCw, Lightbulb } from 'lucide-react';
+import { Textarea } from './ui/textarea';
+import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { regenerateSmartQuestions, validateRegenerationRequest } from '../services/ValidationService_v2';
+import { ChevronDown, ChevronUp, MessageSquare, Sparkles, Save, X, RefreshCw, Lightbulb } from 'lucide-react';
+import { StatusBadge } from './StatusBadge';
+import { GlowButton } from './GlowButton';
 
 interface ValidationResult {
   id: string;
@@ -56,8 +58,8 @@ export function ValidationCard_v2({
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   /**
-   * Regenerate SMART question using the new dedicated edge function
-   * This calls the standalone regenerate-smart-questions function
+   * Regenerate SMART question using the new ValidationService_v2
+   * This calls the standalone regenerate-smart-questions function with robust error handling
    */
   const handleRegenerateQuestion = async () => {
     if (!aiCreditsAvailable) {
@@ -68,43 +70,32 @@ export function ValidationCard_v2({
     setIsRegenerating(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/regenerate-smart-questions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            validationResultId: result.id,
-            userContext: userContext || undefined,
-            currentQuestion: editedQuestion,
-            currentAnswer: editedAnswer,
-            options: {
-              difficultyLevel: 'intermediate',
-              questionCount: 1,
-            },
-          }),
-        }
-      );
+      const regenerationRequest = {
+        validationResultId: result.id,
+        userContext: userContext || undefined,
+        currentQuestion: editedQuestion,
+        currentAnswer: editedAnswer,
+        options: {
+          difficultyLevel: 'intermediate',
+          questionCount: 1,
+        },
+      };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to regenerate question');
+      // Validate request parameters
+      const requestValidation = validateRegenerationRequest(regenerationRequest);
+      if (!requestValidation.isValid) {
+        throw new Error(requestValidation.error);
       }
 
-      const data = await response.json();
+      const response = await regenerateSmartQuestions(regenerationRequest);
       
-      if (data.success && data.question) {
-        setEditedQuestion(data.question.question);
-        setEditedAnswer(data.question.benchmark_answer || data.question.answer);
-        toast.success('Question regenerated successfully!');
+      if (response.success && response.question) {
+        setEditedQuestion(response.question.question);
+        setEditedAnswer(response.question.benchmark_answer || response.question.answer);
+        toast.success(response.message || 'Question regenerated successfully!');
         setUserContext(''); // Clear context after successful regeneration
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(response.message || 'Failed to regenerate question');
       }
     } catch (error) {
       console.error('Error regenerating question:', error);
