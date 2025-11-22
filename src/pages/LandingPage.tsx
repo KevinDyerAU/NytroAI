@@ -301,7 +301,8 @@ export const LandingPage: React.FC = () => {
         {/* Testimonial */}
         <section className="py-24 bg-slate-50 border-y border-slate-200">
            <div className="container mx-auto px-6">
-                <div className="max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+                    {/* First Testimonial */}
                     <div className="bg-white p-10 md:p-14 rounded-3xl shadow-sm border border-slate-100 relative">
                         <div className="absolute top-10 left-10 text-6xl font-serif text-teal-200 opacity-50">"</div>
                         <p className="text-xl md:text-2xl text-slate-700 leading-relaxed italic text-center relative z-10 mb-8">
@@ -313,6 +314,21 @@ export const LandingPage: React.FC = () => {
                             </div>
                             <h4 className="font-bold text-slate-900">Chris J.</h4>
                             <p className="text-sm text-slate-500 font-medium">Trainer, Sydney</p>
+                        </div>
+                    </div>
+
+                    {/* Second Testimonial */}
+                    <div className="bg-white p-10 md:p-14 rounded-3xl shadow-sm border border-slate-100 relative">
+                        <div className="absolute top-10 left-10 text-6xl font-serif text-teal-200 opacity-50">"</div>
+                        <p className="text-xl md:text-2xl text-slate-700 leading-relaxed italic text-center relative z-10 mb-8">
+                            Managing compliance across multiple campuses has always been challenging, but Nytro has made it seamless. It's a must-have for any RTO looking to simplify their processes.
+                        </p>
+                        <div className="flex flex-col items-center">
+                            <div className="w-16 h-16 bg-slate-200 rounded-full mb-4 overflow-hidden">
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah" alt="Sarah H" />
+                            </div>
+                            <h4 className="font-bold text-slate-900">Sarah H.</h4>
+                            <p className="text-sm text-slate-500 font-medium">Compliance Coordinator, Perth</p>
                         </div>
                     </div>
                 </div>
