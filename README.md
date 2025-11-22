@@ -5,11 +5,13 @@
 
 **AI-Powered Training Package Validation Platform**
 
-[![Built with Google AI Studio](https://img.shields.io/badge/Built%20with-Google%20AI%20Studio-4285F4?logo=google)](https://ai.studio)
+[![Built with Figma](https://img.shields.io/badge/Designed%20in-Figma-F24E1E?logo=figma)](https://figma.com)
+[![Built with Builder.io](https://img.shields.io/badge/Built%20with-Builder.io-6B4FBB?logo=builder.io)](https://builder.io)
+[![Built with Windsurf](https://img.shields.io/badge/Built%20with-Windsurf-00ADD8)](https://windsurf.ai)
 [![Powered by Gemini](https://img.shields.io/badge/Powered%20by-Gemini%202.0-8E75B2)](https://deepmind.google/technologies/gemini/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E?logo=supabase)](https://supabase.com)
 
-[View in AI Studio](https://ai.studio/apps/drive/16sxgqilGVYjVnHeBSrweLo7P3P22lTmD) • [Documentation](./docs) • [Report Issue](https://github.com/KevinDyerAU/NytroAI/issues)
+[Documentation](./docs) • [Report Issue](https://github.com/KevinDyerAU/NytroAI/issues)
 
 </div>
 
@@ -72,13 +74,11 @@ NytroAI is an intelligent validation platform that uses Google's Gemini 2.0 AI t
    ```
 
    **Configure automatic validation trigger (recommended):**
-   ```sql
-   -- In Supabase SQL Editor, set database credentials:
-   ALTER DATABASE postgres SET app.supabase_url = 'https://your-project.supabase.co';
-   ALTER DATABASE postgres SET app.supabase_anon_key = 'your_anon_key';
-   ```
    
-   See [Database Trigger Setup Guide](./docs/guides/DATABASE_TRIGGER_SETUP.md) for details.
+   The migration includes hardcoded credentials (safe - anon key is already public in frontend).
+   No additional configuration needed!
+   
+   See [Quick Start Guide](./QUICK_START.md) for 5-minute setup.
 
 5. **Deploy edge functions**
    ```bash
@@ -147,9 +147,9 @@ NytroAI is an intelligent validation platform that uses Google's Gemini 2.0 AI t
 - Gemini File Search API
 
 **Infrastructure:**
-- Google AI Studio hosting
 - Supabase cloud database
-- Edge function deployment
+- Supabase Edge Functions (Deno runtime)
+- Google Gemini 2.0 API
 
 ### System Flow
 
@@ -195,12 +195,7 @@ For detailed architecture documentation, see [docs/ARCHITECTURE.md](./docs/ARCHI
    - Reduces API calls by 97% (1 vs 30-60 polling requests)
    - Works even if browser is closed
    
-   **Setup:**
-   ```sql
-   -- In Supabase SQL Editor:
-   ALTER DATABASE postgres SET app.supabase_url = 'https://your-project.supabase.co';
-   ALTER DATABASE postgres SET app.supabase_anon_key = 'your_anon_key';
-   ```
+   **Setup:** Just run the migration - credentials are already included!
    
    **Benefits:**
    - ⚡ **10-20x faster** - Validation starts in <1s vs 1-2s polling
@@ -208,7 +203,7 @@ For detailed architecture documentation, see [docs/ARCHITECTURE.md](./docs/ARCHI
    - 🔒 **100% reliable** - Works even if user closes browser
    - 🎯 **Zero overhead** - Minimal database impact
    
-   See [Database Trigger Setup Guide](./docs/guides/DATABASE_TRIGGER_SETUP.md) for complete instructions.
+   See [Quick Start Guide](./QUICK_START.md) for 5-minute setup.
 
 ---
 
@@ -355,7 +350,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Built with ❤️ using Google AI Studio and Gemini 2.0**
+**Built with ❤️ using Figma, Builder.io, Windsurf, and Gemini 2.0**
 
 [⬆ Back to Top](#nytroai)
 
