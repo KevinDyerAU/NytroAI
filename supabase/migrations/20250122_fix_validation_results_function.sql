@@ -49,7 +49,7 @@ BEGIN
             '[]'::jsonb
         )::text as mapped_questions,
         ''::text as unmapped_reasoning,  -- Legacy field, no longer used
-        COALESCE(vr.document_references::text, '[]'::text) as document_references,
+        COALESCE(vr.doc_references::text, '[]'::text) as document_references,
         COALESCE(
             (SELECT (jsonb_array_elements(vr.smart_questions)->>'question')::text LIMIT 1),
             ''::text

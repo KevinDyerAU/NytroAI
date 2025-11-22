@@ -639,10 +639,14 @@ export interface ValidationEvidenceRecord {
   type: string;
 }
 
+/**
+ * @deprecated Use getValidationResults from lib/validationResults.ts instead for comprehensive error handling
+ */
 export async function getValidationResults(validationId: string, valDetailId?: number): Promise<ValidationEvidenceRecord[]> {
   try {
+    // Use BigInt casting to avoid PostgreSQL function signature ambiguity
     const { data, error } = await supabase.rpc('get_validation_results', {
-      p_val_detail_id: valDetailId ? parseInt(String(valDetailId), 10) : null,
+      p_val_detail_id: valDetailId ? BigInt(valDetailId) : null,
     });
 
     if (error) {
@@ -857,7 +861,7 @@ export async function fetchUnitsOfCompetency(): Promise<UnitOfCompetencyData[]> 
     console.log('[FetchUnits] 2. Creating query');
     const query = supabase
       .from('UnitOfCompetency')
-      .select('id, unitCode, Title')
+      .select('id, unitCode, Title, created_at, Link, Type, Status, qualificationLink, unit_identifier')
       .order('unitCode', { ascending: true });
 
     console.log('[FetchUnits] 3. Executing query');
