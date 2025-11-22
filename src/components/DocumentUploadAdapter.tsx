@@ -223,11 +223,41 @@ export function DocumentUploadAdapter({
       // The handleUploadComplete callback will call onValidationSubmit after all files are uploaded
     } catch (error) {
       console.error('[DocumentUploadAdapter] Error starting validation:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
-      // Dismiss loading toast and show error
+      // Dismiss loading toast
       toast.dismiss(loadingToast);
-      toast.error(`Failed to start validation: ${errorMessage}`, { duration: 5000 });
+      
+      // Show detailed error with actions
+      toast.error(
+        <div className="space-y-2">
+          <p className="font-semibold">Failed to Start Validation</p>
+          <p className="text-sm">{errorMessage}</p>
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={() => {
+                toast.dismiss();
+                handleStartValidation();
+              }}
+              className="text-xs px-2 py-1 bg-white text-gray-900 rounded hover:bg-gray-100"
+            >
+              Retry
+            </button>
+            <a
+              href="https://supabase.com/dashboard/project/dfqxmjmggokneiuljkta/functions"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-2 py-1 bg-white text-gray-900 rounded hover:bg-gray-100"
+            >
+              Check Functions
+            </a>
+          </div>
+        </div>,
+        { 
+          duration: 10000,
+          style: { maxWidth: '500px' }
+        }
+      );
       
       // If we have a validationDetailId (record was created), mark it as failed
       if (validationDetailId) {

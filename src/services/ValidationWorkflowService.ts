@@ -47,13 +47,16 @@ export class ValidationWorkflowService {
     console.log('[ValidationWorkflow] Generated namespace:', this.currentNamespace);
 
     try {
-      // Add timeout wrapper
+      // Add timeout wrapper with increased timeout
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000);
+        setTimeout(() => {
+          reject(new Error('⏱️ Request timed out. The server may be slow or the edge function is not deployed. Please check Supabase dashboard or try again.'));
+        }, 45000); // Increased to 45 seconds
       });
 
       // Try the deployed function first (create-validation-record)
       console.log('[ValidationWorkflow] Calling edge function: create-validation-record');
+      const startTime = Date.now();
       const requestPromise = supabase.functions.invoke('create-validation-record', {
         body: {
           rtoCode: params.rtoCode,
@@ -66,22 +69,52 @@ export class ValidationWorkflowService {
 
       console.log('[ValidationWorkflow] Waiting for edge function response...');
       const { data, error } = await Promise.race([requestPromise, timeoutPromise]) as any;
+      const duration = Date.now() - startTime;
+      console.log(`[ValidationWorkflow] Response received in ${duration}ms`);
 
       if (error) {
         console.error('[ValidationWorkflow] Error creating validation record:', error);
-        throw new Error(`Failed to create validation record: ${error.message || 'Unknown error'}`);
+        
+        // Provide specific error messages based on error type
+        let userMessage = 'Failed to create validation record';
+        
+        if (error.message?.includes('fetch')) {
+          userMessage = '🌐 Network error: Unable to reach Supabase. Please check your internet connection.';
+        } else if (error.message?.includes('timeout')) {
+          userMessage = '⏱️ Request timed out: The edge function may not be deployed. Please contact support.';
+        } else if (error.message?.includes('404') || error.message?.includes('not found')) {
+          userMessage = '❌ Edge function not found: The "create-validation-record" function needs to be deployed to Supabase.';
+        } else if (error.message?.includes('401') || error.message?.includes('unauthorized')) {
+          userMessage = '🔒 Authorization error: Please refresh the page and try again.';
+        } else if (error.message) {
+          userMessage = `❌ ${error.message}`;
+        }
+        
+        throw new Error(userMessage);
       }
 
       console.log('[ValidationWorkflow] Edge function response:', data);
 
       if (!data) {
-        throw new Error('No response from edge function');
+        throw new Error('⚠️ No response from edge function. The function may not be deployed correctly.');
       }
 
       if (!data.success) {
         const errorMsg = data.error || 'Edge function returned success=false';
         console.error('[ValidationWorkflow] Edge function error:', errorMsg);
-        throw new Error(`Failed to create validation record: ${errorMsg}`);
+        console.error('[ValidationWorkflow] Full response data:', data);
+        
+        // Provide user-friendly error message
+        let userMessage = `❌ ${errorMsg}`;
+        if (errorMsg.includes('validation_summary')) {
+          userMessage = '🗃️ Database error: Unable to create validation summary. Please try again.';
+        } else if (errorMsg.includes('validation_type')) {
+          userMessage = '🗃️ Database error: Unable to create validation type. Please try again.';
+        } else if (errorMsg.includes('validation_detail')) {
+          userMessage = '🗃️ Database error: Unable to create validation detail. Please try again.';
+        }
+        
+        throw new Error(userMessage);
       }
 
       // Handle both response formats (older and newer functions)
@@ -91,7 +124,8 @@ export class ValidationWorkflowService {
 
       if (!detailId) {
         console.error('[ValidationWorkflow] Missing detailId in response:', data);
-        throw new Error('Failed to create validation record: Missing detail ID in response');
+        console.error('[ValidationWorkflow] Response structure:', JSON.stringify(data, null, 2));
+        throw new Error('⚠️ Invalid response: The validation record was created but no ID was returned. Please contact support.');
       }
 
       console.log('[ValidationWorkflow] Validation record created successfully:', {
@@ -109,7 +143,15 @@ export class ValidationWorkflowService {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('[ValidationWorkflow] Exception creating validation record:', errorMsg);
       console.error('[ValidationWorkflow] Full error:', err);
-      throw new Error(`Failed to create validation record: ${errorMsg}`);
+      console.error('[ValidationWorkflow] Stack trace:', err instanceof Error ? err.stack : 'No stack trace');
+      
+      // If error already has a user-friendly message (starts with emoji), use it
+      if (errorMsg.match(/^[🌐⏱️❌🔒⚠️🗃️]/)) {
+        throw err;
+      }
+      
+      // Otherwise, wrap it with a generic message
+      throw new Error(`❌ Failed to create validation record: ${errorMsg}`);
     }
   }
 
@@ -163,78 +205,111 @@ export class ValidationWorkflowService {
   async triggerValidation(validationDetailId: number): Promise<void> {
     console.log('[ValidationWorkflow] Triggering validation for:', validationDetailId);
 
-    // First, get the file_search_store_id from any document in this validation
-    const { data: documents, error: docsError } = await supabase
-      .from('documents')
-      .select('file_search_store_id')
-      .eq('validation_detail_id', validationDetailId)
-      .limit(1)
-      .single();
+    try {
+      // First, get the file_search_store_id from any document in this validation
+      const { data: documents, error: docsError } = await supabase
+        .from('documents')
+        .select('file_search_store_id')
+        .eq('validation_detail_id', validationDetailId)
+        .limit(1)
+        .single();
 
-    if (docsError || !documents?.file_search_store_id) {
-      console.error('[ValidationWorkflow] No file_search_store_id found:', docsError);
-      throw new Error('No file search store found for this validation');
-    }
-
-    // Update validation_detail with required fields and set status to processing
-    const { error: updateError } = await supabase
-      .from('validation_detail')
-      .update({
-        docExtracted: true,
-        file_search_store_id: documents.file_search_store_id,
-        extractStatus: 'ProcessingInBackground', // This shows Stage 3 on dashboard
-      })
-      .eq('id', validationDetailId);
-
-    if (updateError) {
-      console.error('[ValidationWorkflow] Error updating validation_detail:', updateError);
-      throw new Error(`Failed to update validation: ${updateError.message}`);
-    }
-
-    console.log('[ValidationWorkflow] Updated validation_detail with docExtracted and file_search_store_id');
-
-    // Now trigger validation
-    const { data, error } = await supabase.functions.invoke('trigger-validation', {
-      body: {
-        validationDetailId,
-      },
-    });
-
-    console.log('[ValidationWorkflow] Raw response data:', data);
-    console.log('[ValidationWorkflow] Raw response error:', error);
-
-    if (error) {
-      console.error('[ValidationWorkflow] Error triggering validation:', error);
-      
-      // Extract actual error from Response body
-      let actualError = error.message;
-      
-      if (error.context && error.context instanceof Response) {
-        try {
-          const responseText = await error.context.text();
-          console.error('[ValidationWorkflow] Edge function response body:', responseText);
-          
-          try {
-            const responseJson = JSON.parse(responseText);
-            actualError = responseJson.error || responseJson.message || responseText;
-            console.error('[ValidationWorkflow] Parsed error:', actualError);
-          } catch {
-            actualError = responseText;
-          }
-        } catch (e) {
-          console.error('[ValidationWorkflow] Could not read response body:', e);
-        }
+      if (docsError) {
+        console.error('[ValidationWorkflow] Error fetching documents:', docsError);
+        throw new Error(`📄 Unable to fetch uploaded documents: ${docsError.message}`);
       }
       
-      throw new Error(`Failed to trigger validation: ${actualError}`);
-    }
+      if (!documents?.file_search_store_id) {
+        console.error('[ValidationWorkflow] No file_search_store_id found');
+        throw new Error('📄 No documents found for this validation. Please ensure files were uploaded successfully.');
+      }
 
-    if (!data?.success) {
-      console.error('[ValidationWorkflow] Validation failed:', data);
-      throw new Error(`Validation failed: ${data?.message || 'Unknown error'}`);
-    }
+      // Update validation_detail with required fields and set status to processing
+      const { error: updateError } = await supabase
+        .from('validation_detail')
+        .update({
+          docExtracted: true,
+          file_search_store_id: documents.file_search_store_id,
+          extractStatus: 'ProcessingInBackground', // This shows Stage 3 on dashboard
+        })
+        .eq('id', validationDetailId);
 
-    console.log('[ValidationWorkflow] Validation triggered successfully:', data);
+      if (updateError) {
+        console.error('[ValidationWorkflow] Error updating validation_detail:', updateError);
+        throw new Error(`🗃️ Failed to update validation status: ${updateError.message}`);
+      }
+
+      console.log('[ValidationWorkflow] Updated validation_detail with docExtracted and file_search_store_id');
+
+      // Now trigger validation with timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('⏱️ Validation trigger timed out. The process may be taking longer than expected.'));
+        }, 60000); // 60 second timeout for validation trigger
+      });
+      
+      const validationPromise = supabase.functions.invoke('trigger-validation', {
+        body: {
+          validationDetailId,
+        },
+      });
+      
+      const { data, error } = await Promise.race([validationPromise, timeoutPromise]) as any;
+
+      console.log('[ValidationWorkflow] Raw response data:', data);
+      console.log('[ValidationWorkflow] Raw response error:', error);
+
+      if (error) {
+        console.error('[ValidationWorkflow] Error triggering validation:', error);
+        
+        // Extract actual error from Response body
+        let actualError = error.message;
+        
+        if (error.context && error.context instanceof Response) {
+          try {
+            const responseText = await error.context.text();
+            console.error('[ValidationWorkflow] Edge function response body:', responseText);
+            
+            try {
+              const responseJson = JSON.parse(responseText);
+              actualError = responseJson.error || responseJson.message || responseText;
+              console.error('[ValidationWorkflow] Parsed error:', actualError);
+            } catch {
+              actualError = responseText;
+            }
+          } catch (e) {
+            console.error('[ValidationWorkflow] Could not read response body:', e);
+          }
+        }
+        
+        // Provide user-friendly error messages
+        if (actualError.includes('404') || actualError.includes('not found')) {
+          throw new Error('❌ Validation function not found. Please ensure "trigger-validation" is deployed.');
+        } else if (actualError.includes('timeout')) {
+          throw new Error('⏱️ Validation trigger timed out. Please try again or contact support.');
+        }
+        
+        throw new Error(`❌ Failed to trigger validation: ${actualError}`);
+      }
+
+      if (!data?.success) {
+        console.error('[ValidationWorkflow] Validation failed:', data);
+        const failureMsg = data?.message || data?.error || 'Unknown error';
+        throw new Error(`❌ Validation failed: ${failureMsg}`);
+      }
+
+      console.log('[ValidationWorkflow] Validation triggered successfully:', data);
+    } catch (err) {
+      // Re-throw user-friendly errors
+      if (err instanceof Error && err.message.match(/^[📄🗃️⏱️❌]/)) {
+        throw err;
+      }
+      
+      // Wrap unexpected errors
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('[ValidationWorkflow] Unexpected error in triggerValidation:', err);
+      throw new Error(`❌ Unexpected error triggering validation: ${errorMsg}`);
+    }
   }
 
   /**
