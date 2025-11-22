@@ -67,8 +67,8 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
     setIsLoggingOut(true);
     try {
       await logout();
-      console.log('[Navigation] Logout complete, navigating to login');
-      navigate('/login');
+      console.log('[Navigation] Logout complete, navigating to landing page');
+      navigate('/');
     } catch (err) {
       console.error('[Navigation] Logout failed:', err);
       setIsLoggingOut(false);
