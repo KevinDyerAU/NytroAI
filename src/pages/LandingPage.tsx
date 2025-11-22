@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { HeroScene, QuantumComputerScene } from '../components/QuantumScene';
 import { SurfaceCodeDiagram, TransformerDecoderDiagram, PerformanceMetricDiagram } from '../components/Diagrams';
 import { ArrowDown, Menu, X, CheckCircle2, ShieldCheck, Zap, Users, BookOpen, PlayCircle } from 'lucide-react';
+import { LoginDialog } from '../components/auth/LoginDialog';
+import { SignUpDialog } from '../components/auth/SignUpDialog';
 
 const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any, title: string, description: string, delay: string }) => {
   return (
@@ -25,6 +27,8 @@ export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [signUpDialogOpen, setSignUpDialogOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -49,7 +53,21 @@ export const LandingPage: React.FC = () => {
   };
 
   const handleLogin = () => {
-    navigate('/login');
+    setLoginDialogOpen(true);
+  };
+
+  const handleSignUp = () => {
+    setSignUpDialogOpen(true);
+  };
+
+  const switchToSignUp = () => {
+    setLoginDialogOpen(false);
+    setSignUpDialogOpen(true);
+  };
+
+  const switchToLogin = () => {
+    setSignUpDialogOpen(false);
+    setLoginDialogOpen(true);
   };
 
   return (
@@ -72,9 +90,15 @@ export const LandingPage: React.FC = () => {
             <a href="#contact" onClick={scrollToSection('contact')} className="hover:text-blue-600 transition-colors cursor-pointer">Contact</a>
             <button 
               onClick={handleLogin}
-              className="px-6 py-2.5 bg-slate-900 text-white rounded-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl font-semibold"
+              className="px-6 py-2.5 bg-gradient-brand text-white rounded-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl font-semibold"
             >
               Login
+            </button>
+            <button 
+              onClick={handleSignUp}
+              className="px-6 py-2.5 bg-gradient-brand text-white rounded-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl font-semibold"
+            >
+              Sign Up
             </button>
           </div>
 
@@ -96,6 +120,12 @@ export const LandingPage: React.FC = () => {
               className="px-8 py-3 bg-gradient-brand text-white rounded-full shadow-lg"
             >
               Login
+            </button>
+            <button 
+              onClick={handleSignUp}
+              className="px-8 py-3 bg-gradient-brand text-white rounded-full shadow-lg"
+            >
+              Sign Up
             </button>
         </div>
       )}
@@ -122,9 +152,12 @@ export const LandingPage: React.FC = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-             <button className="group px-8 py-4 bg-slate-900 text-white rounded-full font-semibold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-3">
-                <PlayCircle size={20} className="text-teal-400 group-hover:text-white transition-colors"/>
-                Watch Video
+             <button onClick={handleLogin} className="group px-8 py-4 bg-gradient-brand text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3">
+                <PlayCircle size={20} className="text-white group-hover:text-white transition-colors"/>
+                Login
+             </button>
+             <button onClick={handleSignUp} className="px-8 py-4 bg-gradient-brand text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center">
+                Create Account
              </button>
              <button onClick={scrollToSection('features')} className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-full font-semibold hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center">
                 Explore Features
@@ -311,6 +344,18 @@ export const LandingPage: React.FC = () => {
             </div>
         </div>
       </footer>
+
+      {/* Auth Dialogs */}
+      <LoginDialog 
+        open={loginDialogOpen} 
+        onOpenChange={setLoginDialogOpen} 
+        onSwitchToSignUp={switchToSignUp} 
+      />
+      <SignUpDialog 
+        open={signUpDialogOpen} 
+        onOpenChange={setSignUpDialogOpen} 
+        onSwitchToLogin={switchToLogin} 
+      />
     </div>
   );
 };
