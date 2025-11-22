@@ -98,9 +98,32 @@ export function useValidationStatus(validationId: number | null): UseValidationS
           setStatus(payload.new as ValidationStatus);
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'validation_detail',
+          filter: `id=eq.${validationId}`,
+        },
+        (payload) => {
+          console.log('[useValidationStatus] Validation deleted:', payload.old);
+          // Clear status and show error
+          setStatus(null);
+          setError('This validation has been deleted');
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[useValidationStatus] Subscribed to validation ${validationId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[useValidationStatus] Subscription error, attempting to reconnect...');
+          fetchStatus();
+        }
+      });
 
     return () => {
+      console.log(`[useValidationStatus] Unsubscribing from validation ${validationId}`);
       subscription.unsubscribe();
     };
   }, [validationId, fetchStatus]);
@@ -134,7 +157,12 @@ export function useValidationStatusList(rtoCode: string | null): {
     }
 
     try {
-      setIsLoading(true);
+      // Don't set loading during background refreshes triggered by subscriptions
+      // Only set loading on initial fetch or manual refresh
+      const isInitialLoad = validations.length === 0;
+      if (isInitialLoad) {
+        setIsLoading(true);
+      }
       setError(null);
 
       const { data, error: fetchError } = await supabase
@@ -144,10 +172,18 @@ export function useValidationStatusList(rtoCode: string | null): {
         .order('last_updated_at', { ascending: false });
 
       if (fetchError) {
-        throw new Error(`Failed to fetch validations: ${fetchError.message}`);
+        // Log error but don't throw - prevents breaking the refresh cycle
+        console.error('[useValidationStatusList] Fetch error:', fetchError);
+        
+        // Only throw on initial load, otherwise just log and keep existing data
+        if (isInitialLoad) {
+          throw new Error(`Failed to fetch validations: ${fetchError.message}`);
+        }
+        return;
       }
 
       setValidations(data || []);
+      console.log(`[useValidationStatusList] Fetched ${data?.length || 0} validations`);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to fetch validations';
       setError(errorMsg);
@@ -155,7 +191,7 @@ export function useValidationStatusList(rtoCode: string | null): {
     } finally {
       setIsLoading(false);
     }
-  }, [rtoCode]);
+  }, [rtoCode, validations.length]);
 
   useEffect(() => {
     if (!rtoCode) {
@@ -173,19 +209,68 @@ export function useValidationStatusList(rtoCode: string | null): {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'validation_detail',
         },
         (payload) => {
-          console.log('[useValidationStatusList] Validation changed:', payload);
-          // Refresh the entire list (could be optimized to update only the changed item)
-          fetchValidations();
+          console.log('[useValidationStatusList] Validation inserted:', payload.new);
+          // Refresh the entire list to get computed fields from view
+          fetchValidations().catch(err => {
+            console.error('[useValidationStatusList] Failed to refresh after INSERT:', err);
+          });
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'validation_detail',
+        },
+        (payload) => {
+          console.log('[useValidationStatusList] Validation updated:', payload.new);
+          // Refresh the entire list to get computed fields from view
+          fetchValidations().catch(err => {
+            console.error('[useValidationStatusList] Failed to refresh after UPDATE:', err);
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'validation_detail',
+        },
+        (payload) => {
+          console.log('[useValidationStatusList] Validation deleted:', payload.old);
+          // Remove deleted item from local state immediately for responsiveness
+          setValidations(prev => prev.filter(v => v.id !== payload.old.id));
+          // Also refresh to ensure consistency
+          fetchValidations().catch(err => {
+            console.error('[useValidationStatusList] Failed to refresh after DELETE:', err);
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[useValidationStatusList] Subscribed to validation changes');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[useValidationStatusList] Subscription error, attempting to reconnect...');
+          // Refresh data on subscription error
+          fetchValidations().catch(err => {
+            console.error('[useValidationStatusList] Failed to refresh after error:', err);
+          });
+        } else if (status === 'TIMED_OUT') {
+          console.error('[useValidationStatusList] Subscription timed out');
+        } else if (status === 'CLOSED') {
+          console.log('[useValidationStatusList] Subscription closed');
+        }
+      });
 
     return () => {
+      console.log('[useValidationStatusList] Unsubscribing from validation changes');
       subscription.unsubscribe();
     };
   }, [rtoCode, fetchValidations]);

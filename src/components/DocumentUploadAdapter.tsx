@@ -228,40 +228,32 @@ export function DocumentUploadAdapter({
       // Dismiss loading toast
       toast.dismiss(loadingToast);
       
-      // Show detailed error with actions
-      toast.error(
-        <div className="space-y-2">
-          <p className="font-semibold">Failed to Start Validation</p>
-          <p className="text-sm">{errorMessage}</p>
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={() => {
-                toast.dismiss();
-                handleStartValidation();
-              }}
-              className="text-xs px-2 py-1 bg-white text-gray-900 rounded hover:bg-gray-100"
-            >
-              Retry
-            </button>
-            <a
-              href="https://supabase.com/dashboard/project/dfqxmjmggokneiuljkta/functions"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs px-2 py-1 bg-white text-gray-900 rounded hover:bg-gray-100"
-            >
-              Check Functions
-            </a>
-          </div>
-        </div>,
-        { 
-          duration: 10000,
-          style: { maxWidth: '500px' }
-        }
-      );
+      // Show detailed error with action buttons using Sonner's action API
+      toast.error(`Failed to Start Validation: ${errorMessage}`, {
+        duration: 15000,
+        action: {
+          label: 'Retry',
+          onClick: () => {
+            console.log('[DocumentUploadAdapter] User clicked Retry');
+            handleStartValidation();
+          },
+        },
+        description: 'Check if edge functions are deployed in Supabase Dashboard',
+        cancel: {
+          label: 'Check Functions',
+          onClick: () => {
+            window.open('https://supabase.com/dashboard/project/dfqxmjmggokneiuljkta/functions', '_blank');
+          },
+        },
+      });
       
       // If we have a validationDetailId (record was created), mark it as failed
       if (validationDetailId) {
-        await validationWorkflowService.markValidationError(validationDetailId, errorMessage);
+        try {
+          await validationWorkflowService.markValidationError(validationDetailId, errorMessage);
+        } catch (markError) {
+          console.error('[DocumentUploadAdapter] Failed to mark validation as failed:', markError);
+        }
       }
     } finally {
       setIsTriggeringValidation(false);
