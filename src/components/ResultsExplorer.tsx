@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './ui/card';
-import { ValidationCard_v2 } from './ValidationCard_v2';
+import { ValidationCard } from './ValidationCard';
 import { AIChat } from './AIChat';
 import { GlowButton } from './GlowButton';
 import { Input } from './ui/input';
@@ -643,7 +643,7 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                 <div className="space-y-4">
                   {filteredResults.length > 0 ? (
                     filteredResults.map((result) => (
-                      <ValidationCard_v2
+                      <ValidationCard
                         key={result.id}
                         result={result}
                         onChatClick={handleChatClick}

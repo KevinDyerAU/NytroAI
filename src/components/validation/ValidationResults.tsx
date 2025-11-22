@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { SearchIcon, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import { ValidationCard_v2 } from '../ValidationCard_v2';
+import { ValidationCard } from '../ValidationCard';
 
 interface ValidationResult {
   id: string | number;
@@ -219,7 +219,7 @@ export function ValidationResults({
         <div className="space-y-4">
           {filteredResults.length > 0 ? (
             filteredResults.map((result) => (
-              <ValidationCard_v2
+              <ValidationCard
                 key={result.id}
                 result={result}
                 onChatClick={handleChatClick}
