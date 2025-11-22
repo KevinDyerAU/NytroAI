@@ -89,6 +89,7 @@ export function ResultsExplorer_v2({
   const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
   const [evidenceError, setEvidenceError] = useState<ValidationResultsError | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lastLoadedValidationId, setLastLoadedValidationId] = useState<string | null>(null);
 
   // Load AI credits
   useEffect(() => {
@@ -176,12 +177,25 @@ export function ResultsExplorer_v2({
         setValidationEvidenceData([]);
         setEvidenceError(null);
         setIsProcessing(false);
+        setLastLoadedValidationId(null);
+        return;
+      }
+
+      // Only reload if validation ID actually changed
+      if (selectedValidation.id === lastLoadedValidationId) {
+        console.log('[ResultsExplorer] Same validation, skipping reload');
         return;
       }
 
       // Find the validation record
       const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidation.id);
       if (!currentRecord) {
+        // If records aren't loaded yet, wait for them
+        if (isLoadingValidations) {
+          console.log('[ResultsExplorer] Waiting for validation records to load...');
+          return;
+        }
+        
         setEvidenceError({
           code: 'NOT_FOUND',
           message: 'Validation record not found',
@@ -194,6 +208,7 @@ export function ResultsExplorer_v2({
 
       setIsLoadingEvidence(true);
       setEvidenceError(null);
+      setLastLoadedValidationId(selectedValidation.id);
 
       try {
         console.log('[ResultsExplorer] Fetching validation results for ID:', valDetailId);
@@ -241,11 +256,12 @@ export function ResultsExplorer_v2({
     return () => {
       cancelled = true;
     };
-  }, [selectedValidation, validationRecords]);
+  }, [selectedValidation, validationRecords, isLoadingValidations, lastLoadedValidationId]);
 
   // Retry loading evidence
   const handleRetryEvidence = useCallback(() => {
-    // Trigger re-fetch by updating a dependency
+    // Reset the last loaded ID to force a reload
+    setLastLoadedValidationId(null);
     setEvidenceError(null);
     setIsLoadingEvidence(true);
     
@@ -302,20 +318,42 @@ export function ResultsExplorer_v2({
 
   // Render validation evidence section
   const renderValidationEvidence = () => {
-    // Loading state
-    if (isLoadingEvidence) {
-      return <ValidationStatusMessage type="loading" />;
-    }
+    // Get progress info from current validation record
+    const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidation?.id);
+    const progressInfo = currentRecord ? {
+      completed: currentRecord.completed_count || 0,
+      total: currentRecord.req_total || 0,
+      status: currentRecord.extract_status || 'Unknown',
+    } : undefined;
 
-    // Processing state
-    if (isProcessing) {
+    console.log('[ResultsExplorer] Progress info:', {
+      selectedValidationId: selectedValidation?.id,
+      currentRecord,
+      progressInfo,
+      totalRecords: validationRecords.length,
+      isProcessing,
+      isLoadingEvidence
+    });
+
+    // Check if validation is still processing based on extract_status
+    const isCurrentlyProcessing = progressInfo?.status && 
+      ['DocumentProcessing', 'ProcessingInBackground', 'pending', 'Uploading'].includes(progressInfo.status);
+
+    // Processing state takes priority over loading - show status even while loading
+    if (isProcessing || isCurrentlyProcessing) {
       return (
         <ValidationStatusMessage 
           type="processing" 
           error={evidenceError || undefined}
           onRefresh={handleRefreshStatus}
+          validationProgress={progressInfo}
         />
       );
+    }
+
+    // Loading state (only if not processing)
+    if (isLoadingEvidence) {
+      return <ValidationStatusMessage type="loading" validationProgress={progressInfo} />;
     }
 
     // Error state
@@ -325,6 +363,7 @@ export function ResultsExplorer_v2({
           type="error" 
           error={evidenceError}
           onRetry={evidenceError.retryable ? handleRetryEvidence : undefined}
+          validationProgress={progressInfo}
         />
       );
     }
@@ -336,6 +375,7 @@ export function ResultsExplorer_v2({
           type="no-results"
           error={evidenceError || undefined}
           onRefresh={handleRefreshStatus}
+          validationProgress={progressInfo}
         />
       );
     }

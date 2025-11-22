@@ -11,7 +11,7 @@ import { Progress } from './ui/progress';
 import { ValidationStatusIndicator } from './ValidationStatusIndicator';
 import { ValidationProgressTracker } from './ValidationProgressTracker';
 import { supabase } from '../lib/supabase';
-import { getRTOById, fetchRTOById } from '../types/rto';
+import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rto';
 import { getValidationStage } from '../types/validation';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
 import {
@@ -37,6 +37,7 @@ export function Dashboard_v3({
   const [rtoCode, setRtoCode] = useState<string | null>(null);
   const [validations, setValidations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -64,57 +65,41 @@ export function Dashboard_v3({
     loadRTOCode();
   }, [selectedRTOId]);
 
-  // Fetch validations
+  // Fetch validations using the same method as original Dashboard
   useEffect(() => {
-    const fetchValidations = async () => {
+    const loadActiveValidations = async (isInitial = false) => {
       if (!rtoCode) return;
 
-      setIsLoading(true);
+      // Only show loading spinner on initial load, not on background refreshes
+      if (isInitial) {
+        setIsLoading(true);
+      }
+
       try {
-        const { data, error } = await supabase
-          .from('validation_detail')
-          .select(`
-            *,
-            validation_summary!inner(rtoCode, unitCode),
-            validation_type(validation_type)
-          `)
-          .eq('validation_summary.rtoCode', rtoCode)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const formatted = data?.map(v => ({
-          id: v.id,
-          unit_code: v.validation_summary?.unitCode || 'N/A',
-          qualification_code: v.validation_summary?.qualificationCode || null,
-          validation_type: v.validation_type?.validation_type || 'Unknown',
-          extractStatus: v.extractStatus || 'pending',
-          docExtracted: v.docExtracted || false,
-          req_extracted: v.reqExtracted || false,
-          num_of_req: v.numOfReq || 0,
-          req_total: v.reqTotal || 0,
-          completed_count: v.completedCount || 0,
-          created_at: v.created_at,
-          error_message: v.error_message,
-          // Keep old names for compatibility
-          extract_status: v.extractStatus || 'pending',
-          doc_extracted: v.docExtracted || false,
-        })) || [];
-
-        setValidations(formatted);
+        const data = await getActiveValidationsByRTO(rtoCode);
+        setValidations(data);
+        
+        if (isInitial) {
+          setIsInitialLoad(false);
+        }
       } catch (error) {
         console.error('[Dashboard_v3] Error fetching validations:', error);
-        toast.error('Failed to load validations');
+        if (isInitial) {
+          toast.error('Failed to load validations');
+        }
       } finally {
-        setIsLoading(false);
+        if (isInitial) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchValidations();
+    // Initial load
+    loadActiveValidations(true);
 
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('validation_changes')
+    // Set up real-time subscription for validation status updates
+    const subscription = supabase
+      .channel('validation_detail_changes')
       .on(
         'postgres_changes',
         {
@@ -122,14 +107,20 @@ export function Dashboard_v3({
           schema: 'public',
           table: 'validation_detail',
         },
-        () => {
-          fetchValidations();
+        (payload: any) => {
+          console.log('[Dashboard_v3] Validation detail changed:', payload);
+          // Background refresh without loading spinner
+          loadActiveValidations(false);
         }
       )
       .subscribe();
 
+    // Reduced polling to 30 seconds as a fallback (real-time subscription handles most updates)
+    const interval = setInterval(() => loadActiveValidations(false), 30000);
+
     return () => {
-      supabase.removeChannel(channel);
+      subscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [rtoCode, creditsRefreshTrigger]);
 
@@ -137,14 +128,14 @@ export function Dashboard_v3({
   const localMetrics = useMemo(() => {
     const total = validations.length;
     const completed = validations.filter(v => 
-      v.extractStatus === 'Completed' || 
+      v.extract_status === 'Completed' || 
       (v.req_total > 0 && v.completed_count === v.req_total)
     ).length;
     const inProgress = validations.filter(v => 
-      v.extractStatus === 'ProcessingInBackground' || 
-      v.extractStatus === 'DocumentProcessing'
+      v.extract_status === 'ProcessingInBackground' || 
+      v.extract_status === 'DocumentProcessing'
     ).length;
-    const failed = validations.filter(v => v.extractStatus === 'Failed').length;
+    const failed = validations.filter(v => v.extract_status === 'Failed').length;
 
     return {
       total,
@@ -157,9 +148,9 @@ export function Dashboard_v3({
 
   // Filter active validations
   const activeValidations = validations.filter(v => 
-    v.extractStatus === 'ProcessingInBackground' ||
-    v.extractStatus === 'DocumentProcessing' ||
-    v.extractStatus === 'Uploading'
+    v.extract_status === 'ProcessingInBackground' ||
+    v.extract_status === 'DocumentProcessing' ||
+    v.extract_status === 'Uploading'
   );
 
   // Pagination
@@ -179,7 +170,8 @@ export function Dashboard_v3({
     });
   };
 
-  if (isLoading) {
+  // Only show loading screen on initial load
+  if (isLoading && isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -241,28 +233,28 @@ export function Dashboard_v3({
       {/* Progress Bars Section */}
       <div className="grid grid-cols-2 gap-6 mb-8">
         {/* Validation Credits */}
-        <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="uppercase tracking-wide font-poppins text-[#64748b]">
+        <Card className="border border-[#dbeafe] bg-white p-4 shadow-soft">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs uppercase tracking-wide font-poppins text-[#64748b]">
               Validation Credits
             </h3>
-            <FileText className={`w-5 h-5 ${(validationCredits?.current || 0) > 0 ? 'text-[#3b82f6]' : 'text-[#ef4444]'}`} />
+            <FileText className={`w-4 h-4 ${(validationCredits?.current || 0) > 0 ? 'text-[#3b82f6]' : 'text-[#ef4444]'}`} />
           </div>
 
-          <div className="mb-4">
-            <div className="flex justify-between items-baseline mb-2">
-              <span className={`font-poppins text-3xl ${(validationCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
+          <div className="mb-2">
+            <div className="flex justify-between items-baseline mb-1">
+              <span className={`font-poppins text-xl ${(validationCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
                 {validationCredits?.current || 0}
               </span>
-              <span className="text-sm text-[#64748b]">/ {validationCredits?.total || 0}</span>
+              <span className="text-xs text-[#64748b]">/ {validationCredits?.total || 0}</span>
             </div>
             <Progress
               value={validationCredits?.total ? (validationCredits.current / validationCredits.total) * 100 : 0}
-              className="h-3"
+              className="h-2"
             />
           </div>
 
-          <div className="flex justify-between items-center text-xs text-[#94a3b8]">
+          <div className="flex justify-between items-center text-[10px] text-[#94a3b8]">
             <span>
               {validationCredits?.percentageText || '0% available'}
             </span>
@@ -271,28 +263,28 @@ export function Dashboard_v3({
         </Card>
 
         {/* AI Credits */}
-        <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="uppercase tracking-wide font-poppins text-[#64748b]">
+        <Card className="border border-[#dbeafe] bg-white p-4 shadow-soft">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs uppercase tracking-wide font-poppins text-[#64748b]">
               AI Credits
             </h3>
-            <Zap className={`w-5 h-5 ${(aiCredits?.current || 0) > 0 ? 'text-[#3b82f6]' : 'text-[#ef4444]'}`} />
+            <Zap className={`w-4 h-4 ${(aiCredits?.current || 0) > 0 ? 'text-[#3b82f6]' : 'text-[#ef4444]'}`} />
           </div>
 
-          <div className="mb-4">
-            <div className="flex justify-between items-baseline mb-2">
-              <span className={`font-poppins text-3xl ${(aiCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
+          <div className="mb-2">
+            <div className="flex justify-between items-baseline mb-1">
+              <span className={`font-poppins text-xl ${(aiCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
                 {aiCredits?.current || 0}
               </span>
-              <span className="text-sm text-[#64748b]">/ {aiCredits?.total || 0}</span>
+              <span className="text-xs text-[#64748b]">/ {aiCredits?.total || 0}</span>
             </div>
             <Progress
               value={aiCredits?.total ? (aiCredits.current / aiCredits.total) * 100 : 0}
-              className="h-3"
+              className="h-2"
             />
           </div>
 
-          <div className="flex justify-between items-center text-xs text-[#94a3b8]">
+          <div className="flex justify-between items-center text-[10px] text-[#94a3b8]">
             <span>
               {aiCredits?.percentageText || '0% available'}
             </span>
@@ -309,7 +301,7 @@ export function Dashboard_v3({
         </h3>
 
         {/* Processing Information Banner */}
-        {activeValidations.some(v => v.extractStatus === 'ProcessingInBackground' || v.extractStatus === 'DocumentProcessing') && (
+        {activeValidations.some(v => v.extract_status === 'ProcessingInBackground' || v.extract_status === 'DocumentProcessing') && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900 flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0" />
@@ -322,8 +314,8 @@ export function Dashboard_v3({
           {activeValidations.length > 0 ? (
             paginatedValidations.map((validation) => {
               const stage = getValidationStage(
-                validation.extractStatus,
-                validation.docExtracted,
+                validation.extract_status,
+                validation.doc_extracted,
                 validation.req_extracted,
                 validation.num_of_req,
                 validation.req_total
@@ -356,27 +348,27 @@ export function Dashboard_v3({
                       <p className="text-sm text-[#64748b] mb-1 flex items-center gap-2">
                         <span>Status:</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          (validation.extractStatus === 'ProcessingInBackground' || validation.extractStatus === 'DocumentProcessing')
+                          (validation.extract_status === 'ProcessingInBackground' || validation.extract_status === 'DocumentProcessing')
                             ? 'bg-blue-100 text-blue-800'
-                            : validation.extractStatus === 'Uploading'
+                            : validation.extract_status === 'Uploading'
                             ? 'bg-yellow-100 text-yellow-800'
-                            : validation.extractStatus === 'Failed'
+                            : validation.extract_status === 'Failed'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {validation.extractStatus === 'DocumentProcessing'
+                          {validation.extract_status === 'DocumentProcessing'
                             ? 'Stage 2: Document Processing'
-                            : validation.extractStatus === 'ProcessingInBackground'
+                            : validation.extract_status === 'ProcessingInBackground'
                             ? 'Stage 3: Validations'
-                            : validation.extractStatus === 'Uploading'
+                            : validation.extract_status === 'Uploading'
                             ? 'Uploading'
-                            : validation.extractStatus || 'Pending'}
+                            : validation.extract_status || 'Pending'}
                         </span>
                       </p>
                       <p className="text-xs text-[#94a3b8]">
                         Created: {formatValidationDate(validation.created_at)}
                       </p>
-                      {validation.extractStatus === 'Failed' && validation.error_message && (
+                      {validation.extract_status === 'Failed' && validation.error_message && (
                         <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
                           <p className="text-xs text-red-800 flex items-center gap-1">
                             <span className="font-semibold">Error:</span>
@@ -395,9 +387,9 @@ export function Dashboard_v3({
                   </div>
 
                   {/* Show progress tracker for all active validations */}
-                  {(validation.extractStatus === 'DocumentProcessing' || 
-                    validation.extractStatus === 'ProcessingInBackground' ||
-                    validation.extractStatus === 'Uploading') && (
+                  {(validation.extract_status === 'DocumentProcessing' || 
+                    validation.extract_status === 'ProcessingInBackground' ||
+                    validation.extract_status === 'Uploading') && (
                     <div className="mt-3">
                       <ValidationProgressTracker
                         validationDetailId={validation.id}
@@ -411,20 +403,20 @@ export function Dashboard_v3({
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs text-[#64748b]">
                       <span>
-                        {validation.extractStatus === 'DocumentProcessing'
+                        {validation.extract_status === 'DocumentProcessing'
                           ? 'Document Processing'
                           : 'Validations Progress'
                         }
                       </span>
                       <span>
-                        {validation.extractStatus === 'DocumentProcessing'
+                        {validation.extract_status === 'DocumentProcessing'
                           ? 'AI Learning...'
                           : `${validation.completed_count || 0} / ${validation.req_total || 0}`
                         }
                       </span>
                     </div>
                     <Progress
-                      value={validation.extractStatus === 'DocumentProcessing' ? 0 : progress}
+                      value={validation.extract_status === 'DocumentProcessing' ? 0 : progress}
                       className="h-2 bg-[#dbeafe]"
                     />
                   </div>

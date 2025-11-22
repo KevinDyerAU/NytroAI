@@ -11,9 +11,11 @@ import {
   FileText, 
   RefreshCw,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Zap
 } from 'lucide-react';
 import { Button } from './ui/button';
+import { Progress } from './ui/progress';
 import type { ValidationResultsError } from '../lib/validationResults';
 
 interface ValidationStatusMessageProps {
@@ -22,6 +24,11 @@ interface ValidationStatusMessageProps {
   onRetry?: () => void;
   onBack?: () => void;
   onRefresh?: () => void;
+  validationProgress?: {
+    completed: number;
+    total: number;
+    status: string;
+  };
 }
 
 export function ValidationStatusMessage({
@@ -30,6 +37,7 @@ export function ValidationStatusMessage({
   onRetry,
   onBack,
   onRefresh,
+  validationProgress,
 }: ValidationStatusMessageProps) {
   
   // Loading state
@@ -49,21 +57,57 @@ export function ValidationStatusMessage({
 
   // Processing state (validation not ready yet)
   if (type === 'processing') {
+    const hasProgress = validationProgress && validationProgress.total > 0;
+    const progressPercent = hasProgress 
+      ? Math.round((validationProgress.completed / validationProgress.total) * 100)
+      : 0;
+
     return (
       <div className="flex flex-col items-center justify-center h-96 bg-blue-50 rounded-lg border border-blue-200 p-8">
         <div className="relative mb-4">
-          <Clock className="w-12 h-12 text-blue-600" />
+          <Zap className="w-12 h-12 text-blue-600" />
           <Loader2 className="w-6 h-6 text-blue-600 animate-spin absolute -top-1 -right-1" />
         </div>
         <h3 className="text-lg font-semibold text-blue-900 mb-2">
-          Validation In Progress
+          🤖 Validation In Progress
         </h3>
-        <p className="text-sm text-blue-700 text-center mb-1">
-          {error?.message || 'AI is currently processing your documents and generating validation results.'}
-        </p>
-        <p className="text-xs text-blue-600 text-center mb-4">
-          This typically takes 30-90 seconds depending on document size.
-        </p>
+        
+        {hasProgress ? (
+          <>
+            <p className="text-sm text-blue-700 text-center mb-3">
+              {error?.message || 'AI is validating your requirements against the evidence...'}
+            </p>
+            
+            <div className="w-full max-w-md mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-blue-900">
+                  Progress: {validationProgress.completed} / {validationProgress.total} requirements
+                </span>
+                <span className="text-sm font-semibold text-blue-900">
+                  {progressPercent}%
+                </span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+            </div>
+            
+            <p className="text-xs text-blue-600 text-center mb-2">
+              Status: <span className="font-semibold">{validationProgress.status}</span>
+            </p>
+            <p className="text-xs text-blue-600 text-center mb-4">
+              Estimated time: {Math.max(1, Math.ceil((validationProgress.total - validationProgress.completed) * 2 / 60))} minute(s)
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-blue-700 text-center mb-1">
+              {error?.message || 'AI is currently processing your documents and generating validation results.'}
+            </p>
+            <p className="text-xs text-blue-600 text-center mb-4">
+              This typically takes 30-90 seconds depending on document size.
+            </p>
+          </>
+        )}
+        
         {onRefresh && (
           <Button onClick={onRefresh} variant="outline" size="sm" className="mt-2">
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -119,22 +163,63 @@ export function ValidationStatusMessage({
 
   // No results state (validation complete but no data)
   if (type === 'no-results') {
+    const hasProgress = validationProgress && validationProgress.total > 0;
+    const isStillProcessing = validationProgress && 
+      (validationProgress.status === 'ProcessingInBackground' || 
+       validationProgress.status === 'DocumentProcessing');
+
     return (
       <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-lg border border-gray-200 p-8">
-        <FileText className="w-12 h-12 text-gray-400 mb-4" />
+        {isStillProcessing ? (
+          <Clock className="w-12 h-12 text-blue-500 mb-4" />
+        ) : (
+          <FileText className="w-12 h-12 text-gray-400 mb-4" />
+        )}
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          No Results Available
+          {isStillProcessing ? '⏳ Validation In Progress' : 'No Results Available'}
         </h3>
-        <p className="text-sm text-gray-600 text-center mb-1">
-          {error?.message || 'This validation has no results yet.'}
-        </p>
-        <p className="text-xs text-gray-500 text-center mb-4">
-          The validation may still be processing, or there may have been an issue during validation.
-        </p>
+        
+        {hasProgress ? (
+          <>
+            <p className="text-sm text-gray-600 text-center mb-3">
+              {isStillProcessing 
+                ? 'Your validation is being processed. Results will appear here as they become available.'
+                : error?.message || 'This validation has no results yet.'}
+            </p>
+            
+            <div className="bg-white rounded-lg p-4 border border-gray-200 mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Progress:
+                </span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {validationProgress.completed} / {validationProgress.total} requirements
+                </span>
+              </div>
+              <Progress 
+                value={(validationProgress.completed / validationProgress.total) * 100} 
+                className="h-2 mb-2" 
+              />
+              <p className="text-xs text-gray-500 text-center">
+                Status: <span className="font-medium">{validationProgress.status}</span>
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-600 text-center mb-1">
+              {error?.message || 'This validation has no results yet.'}
+            </p>
+            <p className="text-xs text-gray-500 text-center mb-4">
+              The validation may still be processing, or there may have been an issue during validation.
+            </p>
+          </>
+        )}
+        
         {onRefresh && (
           <Button onClick={onRefresh} variant="outline" size="sm">
             <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+            Refresh Status
           </Button>
         )}
       </div>

@@ -44,11 +44,16 @@ export async function checkValidationStatus(validationDetailId: number): Promise
   message: string;
 }> {
   try {
+    console.log('[checkValidationStatus] Checking validation status for ID:', validationDetailId);
+    
+    // Mixed naming: extractStatus (camelCase) + validation_count, validation_status (snake_case)
     const { data, error } = await supabase
       .from('validation_detail')
-      .select('extractStatus, validationStatus, validationCount, validationTotal')
+      .select('extractStatus, validation_status, validation_count')
       .eq('id', validationDetailId)
       .single();
+
+    console.log('[checkValidationStatus] Query result:', { data, error });
 
     if (error) {
       console.error('[checkValidationStatus] Database error:', error);
@@ -60,6 +65,7 @@ export async function checkValidationStatus(validationDetailId: number): Promise
     }
 
     if (!data) {
+      console.log('[checkValidationStatus] No data returned for validation ID:', validationDetailId);
       return {
         isReady: false,
         status: 'not_found',
@@ -67,9 +73,16 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       };
     }
 
+    console.log('[checkValidationStatus] Validation data:', {
+      extractStatus: data.extractStatus,
+      validation_status: data.validation_status,
+      validation_count: data.validation_count
+    });
+
     // Check if still processing
     const processingStatuses = ['pending', 'DocumentProcessing', 'Uploading', 'ProcessingInBackground'];
     if (processingStatuses.includes(data.extractStatus)) {
+      console.log('[checkValidationStatus] Validation still processing:', data.extractStatus);
       return {
         isReady: false,
         status: data.extractStatus,
@@ -78,7 +91,8 @@ export async function checkValidationStatus(validationDetailId: number): Promise
     }
 
     // Check if validation has results
-    if (data.validationCount === 0) {
+    if (data.validation_count === 0) {
+      console.log('[checkValidationStatus] No validation results yet, count is 0');
       return {
         isReady: false,
         status: 'no_results',
@@ -86,9 +100,10 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       };
     }
 
+    console.log('[checkValidationStatus] Validation results ready');
     return {
       isReady: true,
-      status: data.validationStatus || 'completed',
+      status: data.validation_status || 'completed',
       message: 'Validation results are ready',
     };
   } catch (error) {
