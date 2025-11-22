@@ -46,7 +46,7 @@ export async function checkValidationStatus(validationDetailId: number): Promise
   try {
     const { data, error } = await supabase
       .from('validation_detail')
-      .select('extract_status, validation_status, validation_count, validation_total')
+      .select('extractStatus, validationStatus, validationCount, validationTotal')
       .eq('id', validationDetailId)
       .single();
 
@@ -69,16 +69,16 @@ export async function checkValidationStatus(validationDetailId: number): Promise
 
     // Check if still processing
     const processingStatuses = ['pending', 'DocumentProcessing', 'Uploading', 'ProcessingInBackground'];
-    if (processingStatuses.includes(data.extract_status)) {
+    if (processingStatuses.includes(data.extractStatus)) {
       return {
         isReady: false,
-        status: data.extract_status,
+        status: data.extractStatus,
         message: 'Validation is still processing. Please check back in a moment.',
       };
     }
 
     // Check if validation has results
-    if (data.validation_count === 0) {
+    if (data.validationCount === 0) {
       return {
         isReady: false,
         status: 'no_results',
@@ -88,7 +88,7 @@ export async function checkValidationStatus(validationDetailId: number): Promise
 
     return {
       isReady: true,
-      status: data.validation_status || 'completed',
+      status: data.validationStatus || 'completed',
       message: 'Validation results are ready',
     };
   } catch (error) {

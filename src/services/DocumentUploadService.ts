@@ -246,39 +246,88 @@ export class DocumentUploadService {
     onProgress?: (progress: number) => void
   ): Promise<void> {
     let attempts = 0;
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 5;
+
+    console.log(`[Upload] Starting to poll operation ${operationId}, max attempts: ${this.maxPollAttempts}`);
 
     while (attempts < this.maxPollAttempts) {
       await this.sleep(this.pollInterval);
       attempts++;
 
-      const { data, error } = await supabase.functions.invoke('check-operation-status', {
-        body: { operationId },
-      });
+      try {
+        console.log(`[Upload] Poll attempt ${attempts}/${this.maxPollAttempts} for operation ${operationId}`);
 
-      if (error) {
-        console.error('Error checking operation status:', error);
-        continue; // Retry
+        const { data, error } = await supabase.functions.invoke('check-operation-status', {
+          body: { operationId },
+        });
+
+        if (error) {
+          consecutiveErrors++;
+          console.error(`[Upload] Error checking operation status (consecutive error ${consecutiveErrors}/${maxConsecutiveErrors}):`, error);
+          
+          // Fail fast after multiple consecutive errors
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            throw new Error(
+              `❌ Unable to check indexing status after ${maxConsecutiveErrors} attempts. ` +
+              `Error: ${error.message}. The 'check-operation-status' edge function may not be deployed. ` +
+              `Please check Supabase dashboard at https://supabase.com/dashboard`
+            );
+          }
+          continue;
+        }
+
+        // Reset error counter on successful response
+        consecutiveErrors = 0;
+
+        const operation = data?.operation;
+        if (!operation) {
+          console.error('[Upload] Invalid operation response:', data);
+          throw new Error('⚠️ Invalid operation status response - operation data missing');
+        }
+
+        console.log(`[Upload] Operation ${operationId} status:`, {
+          status: operation.status,
+          progress: operation.progress || 0,
+          error: operation.error,
+          attempts: attempts
+        });
+
+        onProgress?.(operation.progress || 0);
+
+        if (operation.status === 'completed') {
+          console.log(`[Upload] ✅ Operation ${operationId} completed successfully after ${attempts} attempts (${attempts * this.pollInterval / 1000}s)`);
+          return;
+        }
+
+        if (operation.status === 'failed' || operation.status === 'timeout') {
+          const errorMsg = operation.error || 'Unknown error occurred during indexing';
+          console.error(`[Upload] ❌ Operation ${operationId} failed:`, errorMsg);
+          throw new Error(`❌ Document indexing failed: ${errorMsg}`);
+        }
+
+        // Continue polling if status is 'processing' or 'pending'
+      } catch (err) {
+        // If we explicitly threw an error with emoji, re-throw it
+        if (err instanceof Error && (err.message.includes('❌') || err.message.includes('⚠️'))) {
+          throw err;
+        }
+        // Otherwise log and continue
+        console.error('[Upload] Unexpected error in polling:', err);
+        consecutiveErrors++;
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          throw new Error(`❌ Polling failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
       }
-
-      const operation = data?.operation;
-      if (!operation) {
-        throw new Error('Invalid operation status response');
-      }
-
-      onProgress?.(operation.progress || 0);
-
-      if (operation.status === 'completed') {
-        return; // Success
-      }
-
-      if (operation.status === 'failed' || operation.status === 'timeout') {
-        throw new Error(operation.error || 'Operation failed');
-      }
-
-      // Continue polling if status is 'processing'
     }
 
-    throw new Error('Operation polling timeout - exceeded maximum attempts');
+    const timeoutSeconds = this.maxPollAttempts * this.pollInterval / 1000;
+    console.error(`[Upload] ⏱️ Operation ${operationId} timed out after ${attempts} attempts (${timeoutSeconds}s)`);
+    throw new Error(
+      `⏱️ Document indexing timeout: Exceeded ${timeoutSeconds}s waiting for completion. ` +
+      `The operation may still be processing. Operation ID: ${operationId}. ` +
+      `Please check the dashboard or try again later.`
+    );
   }
 
   /**
