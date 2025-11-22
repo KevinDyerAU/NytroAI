@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle } from 'lucide-react';
-import nytroLogo from '../assets/nytro-logo.jpeg';
+import wizardLogo from '../assets/wizard-logo.png';
 
 interface WelcomeSplashProps {
   onComplete: () => void;
@@ -48,7 +48,7 @@ export function WelcomeSplash({ onComplete }: WelcomeSplashProps) {
         <div className="mb-8">
           <div className="w-64 h-32 mx-auto mb-6 flex items-center justify-center">
             <img 
-              src={nytroLogo} 
+              src={wizardLogo} 
               alt="Nytro Logo" 
               className="w-full h-full object-contain animate-pulse"
             />

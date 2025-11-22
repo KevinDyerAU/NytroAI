@@ -10,6 +10,8 @@ import { SurfaceCodeDiagram, TransformerDecoderDiagram, PerformanceMetricDiagram
 import { ArrowDown, Menu, X, CheckCircle2, ShieldCheck, Zap, Users, BookOpen, PlayCircle } from 'lucide-react';
 import { LoginDialog } from '../components/auth/LoginDialog';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
+import { VideoDialog } from '../components/VideoDialog';
+import wizardLogo from '../assets/wizard-logo.png';
 
 const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any, title: string, description: string, delay: string }) => {
   return (
@@ -29,6 +31,7 @@ export const LandingPage: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [signUpDialogOpen, setSignUpDialogOpen] = useState(false);
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -60,6 +63,10 @@ export const LandingPage: React.FC = () => {
     setSignUpDialogOpen(true);
   };
 
+  const handleWatchVideo = () => {
+    setVideoDialogOpen(true);
+  };
+
   const switchToSignUp = () => {
     setLoginDialogOpen(false);
     setSignUpDialogOpen(true);
@@ -78,9 +85,11 @@ export const LandingPage: React.FC = () => {
         <div className="container mx-auto px-6 flex justify-between items-center">
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <span className="font-sans font-extrabold text-3xl tracking-tight text-gradient lowercase">
-              nytro
-            </span>
+            <img
+              src={wizardLogo}
+              alt="Nytro Logo"
+              className="h-20 w-auto object-contain"
+            />
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
@@ -144,20 +153,16 @@ export const LandingPage: React.FC = () => {
             Ready for 2025 Standards
           </div>
           <h1 className="font-sans font-bold text-5xl md:text-7xl leading-tight mb-8 text-slate-900 drop-shadow-sm max-w-5xl mx-auto">
-            Meet the 2025 Standards <br/>
-            <span className="text-gradient">with confidence</span>
+            Transform the way your operation runs.
           </h1>
           <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-600 leading-relaxed mb-10">
             Nytro is not a CRM or an LMS. It is built to support RTOs by providing validation before delivery and ongoing validation of units, learner guides & student documents.
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-             <button onClick={handleLogin} className="group px-8 py-4 bg-gradient-brand text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3">
+             <button onClick={handleWatchVideo} className="group px-8 py-4 bg-gradient-brand text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3">
                 <PlayCircle size={20} className="text-white group-hover:text-white transition-colors"/>
-                Login
-             </button>
-             <button onClick={handleSignUp} className="px-8 py-4 bg-gradient-brand text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center">
-                Create Account
+                Watch Video
              </button>
              <button onClick={scrollToSection('features')} className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-full font-semibold hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center">
                 Explore Features
@@ -355,6 +360,12 @@ export const LandingPage: React.FC = () => {
         open={signUpDialogOpen} 
         onOpenChange={setSignUpDialogOpen} 
         onSwitchToLogin={switchToLogin} 
+      />
+      
+      {/* Video Dialog */}
+      <VideoDialog 
+        open={videoDialogOpen} 
+        onOpenChange={setVideoDialogOpen} 
       />
     </div>
   );
