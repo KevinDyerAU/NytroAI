@@ -4,6 +4,7 @@ import { handleCors, createErrorResponse, createSuccessResponse } from '../_shar
 import { createDefaultGeminiClient } from '../_shared/gemini.ts';
 import { getValidationPrompt } from '../_shared/validation-prompts.ts';
 import { formatLearnerGuideValidationPrompt } from '../_shared/learner-guide-validation-prompt.ts';
+import { storeValidationResults as storeValidationResultsNew, storeSingleValidationResult } from '../_shared/store-validation-results.ts';
 
 /**
  * Fetch prompt from database based on validation type
@@ -322,12 +323,13 @@ serve(async (req) => {
           if (!reqError && reqData && reqData.length > 0) {
             allTablesEmpty = false;
             console.log(`[Validate Assessment] Storing ${reqData.length} ${type} validations`);
-            await storeValidationResults(
+            await storeValidationResultsNew(
               supabase,
               type,
               validationDetailId,
               reqData,
-              validationResult
+              validationResult,
+              namespace
             );
             totalInserted += reqData.length;
           }
@@ -388,12 +390,13 @@ serve(async (req) => {
         console.log(`[Validate Assessment] ${validationLabel} complete - ${totalInserted} total validations stored`);
       } else if (requirements.length > 0) {
         // Single validation type
-        await storeValidationResults(
+        await storeValidationResultsNew(
           supabase,
           validationType,
           validationDetailId,
           requirements,
-          validationResult
+          validationResult,
+          namespace
         );
       }
     }
@@ -595,6 +598,9 @@ function parseValidationResponse(
   };
 }
 
+// DEPRECATED: This function has been replaced by storeValidationResultsNew in _shared/store-validation-results.ts
+// Keeping for reference during migration
+/*
 async function storeValidationResults(
   supabase: any,
   validationType: string,
@@ -709,6 +715,7 @@ async function storeValidationResults(
     console.log(`[Store Results] Successfully stored ${records.length} records in ${tableName}`);
   }
 }
+*/
 
 function formatCitationsForStorage(citations: Citation[]): string {
   // Return empty JSON array if no citations
