@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './ui/card';
-import { GlowButton } from './GlowButton';
-import { Input } from './ui/input';
-import { Upload, CheckCircle, Play, Search, Target, AlertCircle, XCircle, FileText, Loader2 } from 'lucide-react';
-import { Progress } from './ui/progress';
+import { Button } from './ui/button';
+import { Upload, File, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
+import { validateAssessmentV2, validateValidationRequest } from '../services/ValidationService_v2';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { getRTOById, getValidationCredits, consumeValidationCredit, fetchUnitsOfCompetency } from '../types/rto';
-import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 interface Unit {
@@ -253,20 +253,29 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit }: DocumentUp
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+      // Trigger validation using new v2 service with robust error handling
+      const validationRequest = {
+        documentId: documentIds[0],
+        unitCode: selectedUnit.code,
+        validationType: 'full_validation',
+        options: {
+          includeSmartQuestions: true,
+          difficultyLevel: 'intermediate',
+          enableRegeneration: true
+        }
+      };
+
+      // Validate request parameters
+      const requestValidation = validateValidationRequest(validationRequest);
+      if (!requestValidation.isValid) {
+        throw new Error(requestValidation.error);
+      }
+
       // Start validation in background - don't wait for completion
-      fetch(`${supabaseUrl}/functions/v1/validate-assessment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
-          documentId: documentIds[0],
-          unitCode: selectedUnit.code,
-          validationType: 'full_validation',
-        }),
-      }).catch(error => {
+      toast.info('Starting AI validation...');
+      validateAssessmentV2(validationRequest).catch(error => {
         console.error('Validation request failed:', error);
+        toast.error(error.message || 'Validation failed. Please try again.');
         // Don't throw - validation will be visible/retryable from dashboard
       });
 

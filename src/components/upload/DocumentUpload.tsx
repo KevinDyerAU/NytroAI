@@ -8,6 +8,7 @@ import { useFileUpload } from '../../hooks/useFileUpload';
 import { useAuthStore } from '../../store/auth.store';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../ui/utils';
+import { validateAssessmentV2, validateValidationRequest } from '../../services/ValidationService_v2';
 
 interface DocumentUploadProps {
   unitCode: string;
@@ -116,13 +117,27 @@ export function DocumentUpload({ unitCode, onUploadComplete }: DocumentUploadPro
 
         setUploadingFiles((prev) => new Map(prev).set(fileName, 75));
 
-        // Trigger validation Edge Function
-        await supabase.functions.invoke('validate-assessment', {
-          body: {
-            documentId: document.id,
-            unitCode: unitCode,
-          },
-        });
+        // Trigger validation using new v2 service with robust error handling
+        const validationRequest = {
+          documentId: document.id,
+          unitCode: unitCode,
+          options: {
+            includeSmartQuestions: true,
+            difficultyLevel: 'intermediate',
+            enableRegeneration: true
+          }
+        };
+
+        // Validate request parameters
+        const requestValidation = validateValidationRequest(validationRequest);
+        if (!requestValidation.isValid) {
+          throw new Error(requestValidation.error);
+        }
+
+        const validationResponse = await validateAssessmentV2(validationRequest);
+        if (!validationResponse.success) {
+          throw new Error(validationResponse.message);
+        }
 
         setUploadingFiles((prev) => new Map(prev).set(fileName, 100));
 

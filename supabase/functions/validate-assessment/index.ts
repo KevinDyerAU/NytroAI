@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
+import { parseUOCPage, formatRequirementsForPrompt } from '../_shared/uoc-parser.ts';
 import { createDefaultGeminiClient } from '../_shared/gemini.ts';
 import { getValidationPrompt } from '../_shared/validation-prompts.ts';
 import { formatLearnerGuideValidationPrompt } from '../_shared/learner-guide-validation-prompt.ts';
@@ -752,43 +753,19 @@ async function formatAllRequirements(supabase: any, unitCode: string): Promise<s
     console.log('[Validate Assessment] Using UOCpage for requirements (single-prompt mode)');
     
     try {
-      const uocPage = typeof uocData.UOCpage === 'string' 
-        ? JSON.parse(uocData.UOCpage) 
-        : uocData.UOCpage;
+      // Use safe UOC parser instead of JSON.parse
+      const parsedUOC = parseUOCPage(uocData.UOCpage);
+      
+      if (!parsedUOC) {
+        console.log('[Validate Assessment] Failed to parse UOCpage, falling back to requirement tables');
+      } else {
+        const uocPage = parsedUOC;
 
-      // Extract requirements from UOCpage JSON
-      if (uocPage.KnowledgeEvidence) {
-        sections.push('**Knowledge Evidence Requirements:**\n' + uocPage.KnowledgeEvidence);
-      } else if (uocData.ke) {
-        sections.push('**Knowledge Evidence Requirements:**\n' + uocData.ke);
-      }
-
-      if (uocPage.PerformanceEvidence) {
-        sections.push('\n**Performance Evidence Requirements:**\n' + uocPage.PerformanceEvidence);
-      } else if (uocData.pe) {
-        sections.push('\n**Performance Evidence Requirements:**\n' + uocData.pe);
-      }
-
-      if (uocPage.ElementsAndPerformanceCriteria) {
-        sections.push('\n**Elements and Performance Criteria:**\n' + uocPage.ElementsAndPerformanceCriteria);
-      } else if (uocData.epc) {
-        sections.push('\n**Elements and Performance Criteria:**\n' + uocData.epc);
-      }
-
-      if (uocPage.FoundationSkills) {
-        sections.push('\n**Foundation Skills Requirements:**\n' + uocPage.FoundationSkills);
-      } else if (uocData.fs) {
-        sections.push('\n**Foundation Skills Requirements:**\n' + uocData.fs);
-      }
-
-      if (uocPage.AssessmentConditions) {
-        sections.push('\n**Assessment Conditions Requirements:**\n' + uocPage.AssessmentConditions);
-      } else if (uocData.ac) {
-        sections.push('\n**Assessment Conditions Requirements:**\n' + uocData.ac);
-      }
-
-      if (sections.length > 0) {
-        return sections.join('\n');
+        // Use formatted requirements from parser
+        const formattedRequirements = formatRequirementsForPrompt(uocPage);
+        if (formattedRequirements) {
+          return formattedRequirements;
+        }
       }
     } catch (err) {
       console.log('[Validate Assessment] Error parsing UOCpage JSON, falling back to requirement tables:', err);
@@ -888,17 +865,18 @@ async function formatAllRequirementsForLearnerGuide(supabase: any, unitCode: str
 
   if (!uocError && uocData && uocData.UOCpage) {
     try {
-      const uocPage = typeof uocData.UOCpage === 'string' 
-        ? JSON.parse(uocData.UOCpage) 
-        : uocData.UOCpage;
-
-      return {
-        knowledgeEvidence: uocPage.KnowledgeEvidence || uocData.ke || 'No knowledge evidence requirements found',
-        performanceEvidence: uocPage.PerformanceEvidence || uocData.pe || 'No performance evidence requirements found',
-        foundationSkills: uocPage.FoundationSkills || uocData.fs || 'No foundation skills requirements found',
-        elementsPerformanceCriteria: uocPage.ElementsAndPerformanceCriteria || uocPage.Elements || uocData.epc || 'No elements/criteria requirements found',
-        assessmentConditions: uocPage.AssessmentConditions || uocData.ac || 'No assessment conditions requirements found',
-      };
+      // Use safe UOC parser instead of JSON.parse
+      const parsedUOC = parseUOCPage(uocData.UOCpage);
+      
+      if (parsedUOC) {
+        return {
+          knowledgeEvidence: parsedUOC.knowledgeEvidence || uocData.ke || 'No knowledge evidence requirements found',
+          performanceEvidence: parsedUOC.performanceEvidence || uocData.pe || 'No performance evidence requirements found',
+          foundationSkills: parsedUOC.foundationSkills || uocData.fs || 'No foundation skills requirements found',
+          elementsPerformanceCriteria: parsedUOC.elementsAndPerformanceCriteria || uocData.epc || 'No elements/criteria requirements found',
+          assessmentConditions: parsedUOC.assessmentConditions || uocData.ac || 'No assessment conditions requirements found',
+        };
+      }
     } catch (error) {
       console.error('[Validate Assessment] Error parsing UOCpage:', error);
     }
