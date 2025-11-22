@@ -88,17 +88,17 @@ export function Dashboard_v3({
           unit_code: v.validation_summary?.unitCode || 'N/A',
           qualification_code: v.validation_summary?.qualificationCode || null,
           validation_type: v.validation_type?.validation_type || 'Unknown',
-          extractStatus: v.extractStatus || 'pending',
-          docExtracted: v.docExtracted || false,
-          req_extracted: v.reqExtracted || false,
-          num_of_req: v.numOfReq || 0,
-          req_total: v.reqTotal || 0,
-          completed_count: v.completedCount || 0,
+          extract_status: v.extract_status || 'pending',
+          doc_extracted: v.doc_extracted || false,
+          req_extracted: v.req_extracted || false,
+          num_of_req: v.num_of_req || 0,
+          req_total: v.req_total || 0,
+          completed_count: v.completed_count || 0,
           created_at: v.created_at,
           error_message: v.error_message,
-          // Keep old names for compatibility
-          extract_status: v.extractStatus || 'pending',
-          doc_extracted: v.docExtracted || false,
+          // Keep camelCase aliases for backward compatibility
+          extractStatus: v.extract_status || 'pending',
+          docExtracted: v.doc_extracted || false,
         })) || [];
 
         setValidations(formatted);
@@ -137,14 +137,14 @@ export function Dashboard_v3({
   const localMetrics = useMemo(() => {
     const total = validations.length;
     const completed = validations.filter(v => 
-      v.extractStatus === 'Completed' || 
+      v.extract_status === 'Completed' || 
       (v.req_total > 0 && v.completed_count === v.req_total)
     ).length;
     const inProgress = validations.filter(v => 
-      v.extractStatus === 'ProcessingInBackground' || 
-      v.extractStatus === 'DocumentProcessing'
+      v.extract_status === 'ProcessingInBackground' || 
+      v.extract_status === 'DocumentProcessing'
     ).length;
-    const failed = validations.filter(v => v.extractStatus === 'Failed').length;
+    const failed = validations.filter(v => v.extract_status === 'Failed').length;
 
     return {
       total,
@@ -157,9 +157,9 @@ export function Dashboard_v3({
 
   // Filter active validations
   const activeValidations = validations.filter(v => 
-    v.extractStatus === 'ProcessingInBackground' ||
-    v.extractStatus === 'DocumentProcessing' ||
-    v.extractStatus === 'Uploading'
+    v.extract_status === 'ProcessingInBackground' ||
+    v.extract_status === 'DocumentProcessing' ||
+    v.extract_status === 'pending'
   );
 
   // Pagination
@@ -309,7 +309,7 @@ export function Dashboard_v3({
         </h3>
 
         {/* Processing Information Banner */}
-        {activeValidations.some(v => v.extractStatus === 'ProcessingInBackground' || v.extractStatus === 'DocumentProcessing') && (
+        {activeValidations.some(v => v.extract_status === 'ProcessingInBackground' || v.extract_status === 'DocumentProcessing') && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900 flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0" />
@@ -322,8 +322,8 @@ export function Dashboard_v3({
           {activeValidations.length > 0 ? (
             paginatedValidations.map((validation) => {
               const stage = getValidationStage(
-                validation.extractStatus,
-                validation.docExtracted,
+                validation.extract_status,
+                validation.doc_extracted,
                 validation.req_extracted,
                 validation.num_of_req,
                 validation.req_total
