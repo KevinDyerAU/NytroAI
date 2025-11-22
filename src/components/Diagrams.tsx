@@ -156,7 +156,7 @@ export const PerformanceMetricDiagram: React.FC = () => {
                 <div className="flex flex-col items-center w-1/2 h-full justify-end">
                      <span className="mb-2 font-bold text-teal-600">With Nytro</span>
                      <div className="w-full bg-gradient-brand rounded-t-lg relative shadow-[0_0_20px_rgba(45,212,191,0.3)]" style={{ height: '30%' }}>
-                        <div className="absolute -top-8 left-0 right-0 text-center text-blue-600 font-bold text-xl">15 hrs</div>
+                        <div className="absolute top-2 left-0 right-0 text-center text-white font-bold text-lg">15 hrs</div>
                      </div>
                 </div>
             </div>
