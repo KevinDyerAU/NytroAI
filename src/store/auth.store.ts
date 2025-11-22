@@ -116,8 +116,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false });
       }
     } catch (err) {
-      console.log('[AuthStore] Auth check error:', err instanceof Error ? err.message : String(err));
-      set({ isLoading: false });
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      // Only log as error if it's not a normal "no session" state
+      if (errorMessage === 'Auth session missing!' || errorMessage.includes('session_not_found')) {
+        console.log('[AuthStore] No active session - user not logged in');
+      } else {
+        console.error('[AuthStore] Unexpected error during auth check:', errorMessage);
+      }
+
+      set({ isLoading: false, user: null, isAuthenticated: false });
     }
   },
 }));
