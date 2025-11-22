@@ -63,17 +63,46 @@ export function ResultsExplorer_v2({
   aiCreditsAvailable = true, 
   selectedRTOId 
 }: ResultsExplorerProps) {
-  // State management
-  const [selectedValidation, setSelectedValidation] = useState<Validation | null>(null);
-  const [searchValidationTerm, setSearchValidationTerm] = useState('');
+  // Load persisted state from sessionStorage
+  const loadPersistedState = () => {
+    try {
+      const saved = sessionStorage.getItem('resultsExplorerState');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const persistedState = loadPersistedState();
+
+  // State management with persistence
+  const [selectedValidation, setSelectedValidation] = useState<Validation | null>(
+    persistedState.selectedValidation || null
+  );
+  const [searchValidationTerm, setSearchValidationTerm] = useState(persistedState.searchValidationTerm || '');
   const [validationSearchOpen, setValidationSearchOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState(persistedState.searchTerm || '');
+  const [statusFilter, setStatusFilter] = useState(persistedState.statusFilter || 'all');
   const [selectedResult, setSelectedResult] = useState<any>(null);
   const [showChat, setShowChat] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+
+  // Save state to sessionStorage when it changes
+  useEffect(() => {
+    const stateToSave = {
+      selectedValidation,
+      searchValidationTerm,
+      searchTerm,
+      statusFilter,
+    };
+    try {
+      sessionStorage.setItem('resultsExplorerState', JSON.stringify(stateToSave));
+    } catch (error) {
+      console.warn('Failed to save Results Explorer state:', error);
+    }
+  }, [selectedValidation, searchValidationTerm, searchTerm, statusFilter]);
   
   // Credits state
   const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });
