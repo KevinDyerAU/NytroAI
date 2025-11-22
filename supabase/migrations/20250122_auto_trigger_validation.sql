@@ -76,21 +76,14 @@ BEGIN
     RAISE NOTICE '[Auto-Trigger] All operations complete! Triggering validation for validation_detail %', 
       v_validation_detail_id;
 
-    -- Get Supabase URL and anon key from environment
-    -- These should be set as database secrets in Supabase dashboard
-    BEGIN
-      v_supabase_url := current_setting('app.supabase_url', true);
-      v_supabase_anon_key := current_setting('app.supabase_anon_key', true);
-    EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING '[Auto-Trigger] Failed to get Supabase credentials: %', SQLERRM;
-      RAISE NOTICE '[Auto-Trigger] Please set app.supabase_url and app.supabase_anon_key in database secrets';
-      RETURN NEW;
-    END;
-
-    -- Validate credentials exist
+    -- Hardcode Supabase credentials (safe for anon key - it's public anyway)
+    -- Note: These are the same credentials used in the frontend
+    v_supabase_url := 'https://dfqxmjmggokneiuljkta.supabase.co';
+    v_supabase_anon_key := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmcXhtam1nZ29rbmVpdWxqa3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2MDg0NjIsImV4cCI6MjA3NzE4NDQ2Mn0.vPf2oAVXSZPNvWip08QLNvvHGx1dT8njRQdS568OxkE';
+    
+    -- Validate credentials are set
     IF v_supabase_url IS NULL OR v_supabase_anon_key IS NULL THEN
       RAISE WARNING '[Auto-Trigger] Missing Supabase credentials. Cannot trigger validation.';
-      RAISE NOTICE '[Auto-Trigger] Set credentials with: ALTER DATABASE postgres SET app.supabase_url = ''your_url'';';
       RETURN NEW;
     END IF;
 
@@ -145,7 +138,7 @@ BEGIN
       
     -- Update validation_detail status to indicate failure
     UPDATE validation_detail
-    SET extract_status = 'IndexingFailed'
+    SET "extractStatus" = 'IndexingFailed'
     WHERE id = v_validation_detail_id;
     
   ELSE
@@ -261,16 +254,9 @@ BEGIN
     );
   END IF;
   
-  -- Get credentials
-  v_supabase_url := current_setting('app.supabase_url', true);
-  v_supabase_anon_key := current_setting('app.supabase_anon_key', true);
-  
-  IF v_supabase_url IS NULL OR v_supabase_anon_key IS NULL THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', 'Missing Supabase credentials'
-    );
-  END IF;
+  -- Hardcode Supabase credentials (same as trigger function)
+  v_supabase_url := 'https://dfqxmjmggokneiuljkta.supabase.co';
+  v_supabase_anon_key := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmcXhtam1nZ29rbmVpdWxqa3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2MDg0NjIsImV4cCI6MjA3NzE4NDQ2Mn0.vPf2oAVXSZPNvWip08QLNvvHGx1dT8njRQdS568OxkE';
   
   -- Trigger validation
   BEGIN
@@ -343,9 +329,9 @@ GRANT SELECT ON validation_trigger_log TO authenticated;
 CREATE OR REPLACE VIEW validation_trigger_monitor AS
 SELECT
   vd.id AS validation_detail_id,
-  vd.extract_status,
-  vs.rtoCode,
-  vs.unitCode,
+  vd."extractStatus",
+  vs."rtoCode",
+  vs."unitCode",
   vts.total_operations,
   vts.completed_operations,
   vts.failed_operations,
@@ -358,7 +344,7 @@ SELECT
   vts.last_trigger_error,
   vd.created_at AS validation_created_at
 FROM validation_detail vd
-JOIN validation_summary vs ON vd.validation_summary_id = vs.id
+JOIN validation_summary vs ON vd.summary_id = vs.id
 CROSS JOIN LATERAL get_validation_trigger_status(vd.id) vts
 WHERE vd.created_at > NOW() - INTERVAL '7 days' -- Last 7 days
 ORDER BY vd.created_at DESC;
@@ -372,39 +358,42 @@ GRANT SELECT ON validation_trigger_monitor TO authenticated;
 -- Setup Instructions
 -- ============================================================================
 -- 
--- After running this migration, you MUST set the Supabase credentials:
+-- ✅ No additional setup required!
+-- 
+-- Supabase credentials are hardcoded in the trigger functions.
+-- (This is safe - the anon key is already public in your frontend code)
 --
--- 1. In Supabase Dashboard:
---    - Go to Project Settings > Database > Secrets
---    - Add secret: app.supabase_url = https://your-project.supabase.co
---    - Add secret: app.supabase_anon_key = your_anon_key
+-- Next steps:
 --
--- 2. Or via SQL:
---    ALTER DATABASE postgres SET app.supabase_url = 'https://your-project.supabase.co';
---    ALTER DATABASE postgres SET app.supabase_anon_key = 'your_anon_key';
+-- 1. Verify trigger exists:
+--    SELECT * FROM information_schema.triggers WHERE trigger_name = 'on_indexing_complete';
 --
--- 3. Verify setup:
---    SELECT current_setting('app.supabase_url', true);
---    SELECT current_setting('app.supabase_anon_key', true);
---
--- 4. Test trigger:
+-- 2. Test manual trigger (optional):
 --    SELECT * FROM manually_trigger_validation(123); -- Replace with real ID
 --
--- 5. Monitor triggers:
+-- 3. Monitor triggers:
 --    SELECT * FROM validation_trigger_monitor;
 --    SELECT * FROM validation_trigger_log ORDER BY triggered_at DESC LIMIT 10;
+--
+-- 4. Upload a document and watch it trigger automatically!
 --
 -- ============================================================================
 
 -- Success message
 DO $$
 BEGIN
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================================';
   RAISE NOTICE '✅ Auto-trigger validation migration complete!';
+  RAISE NOTICE '============================================================================';
   RAISE NOTICE '';
-  RAISE NOTICE '⚠️  IMPORTANT: Set Supabase credentials in database secrets:';
-  RAISE NOTICE '   ALTER DATABASE postgres SET app.supabase_url = ''https://your-project.supabase.co'';';
-  RAISE NOTICE '   ALTER DATABASE postgres SET app.supabase_anon_key = ''your_anon_key'';';
+  RAISE NOTICE '✅ Trigger installed and ready to use!';
+  RAISE NOTICE '✅ Credentials are hardcoded in the functions';
   RAISE NOTICE '';
-  RAISE NOTICE '📊 Monitor triggers with: SELECT * FROM validation_trigger_monitor;';
-  RAISE NOTICE '🧪 Test manually with: SELECT * FROM manually_trigger_validation(validation_detail_id);';
+  RAISE NOTICE 'Next steps:';
+  RAISE NOTICE '1. Verify: SELECT * FROM information_schema.triggers WHERE trigger_name = ''on_indexing_complete'';';
+  RAISE NOTICE '2. Test: Upload a document and check validation_trigger_log';
+  RAISE NOTICE '3. Monitor: SELECT * FROM validation_trigger_monitor;';
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================================';
 END $$;

@@ -106,9 +106,9 @@ END $$;
 -- ============================================================================
 SELECT 
   validation_detail_id,
-  extract_status,
-  rtoCode,
-  unitCode,
+  "extractStatus",
+  "rtoCode",
+  "unitCode",
   total_operations,
   completed_operations,
   failed_operations,
