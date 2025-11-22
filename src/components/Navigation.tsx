@@ -11,7 +11,7 @@ import {
 import { HUDStatusIndicator } from './HUDStatusIndicator';
 import { useAuth } from '../hooks/useAuth';
 import { fetchRTOById } from '../types/rto';
-import nytroLogo from '../assets/nytro-logo.svg';
+import wizardLogo from '../assets/wizard-logo.png';
 
 interface NavigationProps {
   currentView: string;
@@ -67,8 +67,8 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
     setIsLoggingOut(true);
     try {
       await logout();
-      console.log('[Navigation] Logout complete, navigating to login');
-      navigate('/login');
+      console.log('[Navigation] Logout complete, navigating to landing page');
+      navigate('/');
     } catch (err) {
       console.error('[Navigation] Logout failed:', err);
       setIsLoggingOut(false);
@@ -87,9 +87,9 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
       <div className="p-6 border-b border-[#dbeafe]">
         <div className="mb-4">
           <img
-            src={nytroLogo}
+            src={wizardLogo}
             alt="Nytro Logo"
-            className="w-40 h-auto object-contain mb-2"
+            className="w-full h-auto object-contain mb-2"
           />
           <p className="text-xs text-[#64748b] ml-1">Intelligence That Powers Performance</p>
         </div>

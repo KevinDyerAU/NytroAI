@@ -8,6 +8,10 @@ import { useNavigate } from 'react-router-dom';
 import { HeroScene, QuantumComputerScene } from '../components/QuantumScene';
 import { SurfaceCodeDiagram, TransformerDecoderDiagram, PerformanceMetricDiagram } from '../components/Diagrams';
 import { ArrowDown, Menu, X, CheckCircle2, ShieldCheck, Zap, Users, BookOpen, PlayCircle } from 'lucide-react';
+import { LoginDialog } from '../components/auth/LoginDialog';
+import { SignUpDialog } from '../components/auth/SignUpDialog';
+import { VideoDialog } from '../components/VideoDialog';
+import wizardLogo from '../assets/wizard-logo.png';
 
 const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any, title: string, description: string, delay: string }) => {
   return (
@@ -25,6 +29,9 @@ export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [signUpDialogOpen, setSignUpDialogOpen] = useState(false);
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -49,7 +56,25 @@ export const LandingPage: React.FC = () => {
   };
 
   const handleLogin = () => {
-    navigate('/login');
+    setLoginDialogOpen(true);
+  };
+
+  const handleSignUp = () => {
+    setSignUpDialogOpen(true);
+  };
+
+  const handleWatchVideo = () => {
+    setVideoDialogOpen(true);
+  };
+
+  const switchToSignUp = () => {
+    setLoginDialogOpen(false);
+    setSignUpDialogOpen(true);
+  };
+
+  const switchToLogin = () => {
+    setSignUpDialogOpen(false);
+    setLoginDialogOpen(true);
   };
 
   return (
@@ -60,9 +85,11 @@ export const LandingPage: React.FC = () => {
         <div className="container mx-auto px-6 flex justify-between items-center">
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <span className="font-sans font-extrabold text-3xl tracking-tight text-gradient lowercase">
-              nytro
-            </span>
+            <img
+              src={wizardLogo}
+              alt="Nytro Logo"
+              className="h-20 w-auto object-contain"
+            />
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
@@ -72,9 +99,15 @@ export const LandingPage: React.FC = () => {
             <a href="#contact" onClick={scrollToSection('contact')} className="hover:text-blue-600 transition-colors cursor-pointer">Contact</a>
             <button 
               onClick={handleLogin}
-              className="px-6 py-2.5 bg-slate-900 text-white rounded-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl font-semibold"
+              className="px-6 py-2.5 bg-gradient-brand text-white rounded-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl font-semibold"
             >
               Login
+            </button>
+            <button 
+              onClick={handleSignUp}
+              className="px-6 py-2.5 bg-gradient-brand text-white rounded-full hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl font-semibold"
+            >
+              Sign Up
             </button>
           </div>
 
@@ -97,6 +130,12 @@ export const LandingPage: React.FC = () => {
             >
               Login
             </button>
+            <button 
+              onClick={handleSignUp}
+              className="px-8 py-3 bg-gradient-brand text-white rounded-full shadow-lg"
+            >
+              Sign Up
+            </button>
         </div>
       )}
 
@@ -114,16 +153,15 @@ export const LandingPage: React.FC = () => {
             Ready for 2025 Standards
           </div>
           <h1 className="font-sans font-bold text-5xl md:text-7xl leading-tight mb-8 text-slate-900 drop-shadow-sm max-w-5xl mx-auto">
-            Meet the 2025 Standards <br/>
-            <span className="text-gradient">with confidence</span>
+            Transform the way your operation runs.
           </h1>
           <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-600 leading-relaxed mb-10">
             Nytro is not a CRM or an LMS. It is built to support RTOs by providing validation before delivery and ongoing validation of units, learner guides & student documents.
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-             <button className="group px-8 py-4 bg-slate-900 text-white rounded-full font-semibold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-3">
-                <PlayCircle size={20} className="text-teal-400 group-hover:text-white transition-colors"/>
+             <button onClick={handleWatchVideo} className="group px-8 py-4 bg-gradient-brand text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3">
+                <PlayCircle size={20} className="text-white group-hover:text-white transition-colors"/>
                 Watch Video
              </button>
              <button onClick={scrollToSection('features')} className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-full font-semibold hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center">
@@ -263,7 +301,8 @@ export const LandingPage: React.FC = () => {
         {/* Testimonial */}
         <section className="py-24 bg-slate-50 border-y border-slate-200">
            <div className="container mx-auto px-6">
-                <div className="max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+                    {/* First Testimonial */}
                     <div className="bg-white p-10 md:p-14 rounded-3xl shadow-sm border border-slate-100 relative">
                         <div className="absolute top-10 left-10 text-6xl font-serif text-teal-200 opacity-50">"</div>
                         <p className="text-xl md:text-2xl text-slate-700 leading-relaxed italic text-center relative z-10 mb-8">
@@ -275,6 +314,21 @@ export const LandingPage: React.FC = () => {
                             </div>
                             <h4 className="font-bold text-slate-900">Chris J.</h4>
                             <p className="text-sm text-slate-500 font-medium">Trainer, Sydney</p>
+                        </div>
+                    </div>
+
+                    {/* Second Testimonial */}
+                    <div className="bg-white p-10 md:p-14 rounded-3xl shadow-sm border border-slate-100 relative">
+                        <div className="absolute top-10 left-10 text-6xl font-serif text-teal-200 opacity-50">"</div>
+                        <p className="text-xl md:text-2xl text-slate-700 leading-relaxed italic text-center relative z-10 mb-8">
+                            Managing compliance across multiple campuses has always been challenging, but Nytro has made it seamless. It's a must-have for any RTO looking to simplify their processes.
+                        </p>
+                        <div className="flex flex-col items-center">
+                            <div className="w-16 h-16 bg-slate-200 rounded-full mb-4 overflow-hidden">
+                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah" alt="Sarah H" />
+                            </div>
+                            <h4 className="font-bold text-slate-900">Sarah H.</h4>
+                            <p className="text-sm text-slate-500 font-medium">Compliance Coordinator, Perth</p>
                         </div>
                     </div>
                 </div>
@@ -311,6 +365,24 @@ export const LandingPage: React.FC = () => {
             </div>
         </div>
       </footer>
+
+      {/* Auth Dialogs */}
+      <LoginDialog 
+        open={loginDialogOpen} 
+        onOpenChange={setLoginDialogOpen} 
+        onSwitchToSignUp={switchToSignUp} 
+      />
+      <SignUpDialog 
+        open={signUpDialogOpen} 
+        onOpenChange={setSignUpDialogOpen} 
+        onSwitchToLogin={switchToLogin} 
+      />
+      
+      {/* Video Dialog */}
+      <VideoDialog 
+        open={videoDialogOpen} 
+        onOpenChange={setVideoDialogOpen} 
+      />
     </div>
   );
 };
