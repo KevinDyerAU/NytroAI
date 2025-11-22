@@ -197,9 +197,9 @@ ON validation_detail(last_updated_at DESC);
 CREATE OR REPLACE VIEW validation_detail_with_stats AS
 SELECT 
   vd.*,
-  vt.name as validation_type_name,
-  vs.rtoCode,
-  vs.unitCode,
+  vt.code as validation_type_name,
+  vs."rtoCode",
+  vs."unitCode",
   CASE 
     WHEN vd.validation_status = 'completed' THEN 'success'
     WHEN vd.validation_status = 'partial' THEN 'warning'
@@ -218,8 +218,8 @@ SELECT
     ELSE 'Pending'
   END as status_description
 FROM validation_detail vd
-LEFT JOIN validation_type vt ON vd.validation_type_id = vt.id
-LEFT JOIN validation_summary vs ON vd.validation_summary_id = vs.id;
+LEFT JOIN validation_type vt ON vd."validationType_id" = vt.id
+LEFT JOIN validation_summary vs ON vd.summary_id = vs.id;
 
 COMMENT ON VIEW validation_detail_with_stats IS 'Enhanced view of validation_detail with computed statistics for dashboard display';
 

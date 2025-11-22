@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Navigation } from '../components/Navigation';
-import { Dashboard } from '../components/Dashboard';
+import { Dashboard_v2 as Dashboard } from '../components/Dashboard_v2';
 import { UnitAcquisition } from '../components/UnitAcquisition';
 import { DocumentUploadAdapter as DocumentUpload } from '../components/DocumentUploadAdapter';
 import { ResultsExplorer } from '../components/ResultsExplorer';
@@ -24,7 +24,6 @@ export function DashboardPage() {
   const [selectedValidationId, setSelectedValidationId] = useState<string | null>(null);
   const [creditsRefreshTrigger, setCreditsRefreshTrigger] = useState(0);
   const [maintenanceModule, setMaintenanceModule] = useState<string | null>(null);
-  const [showValidationSuccess, setShowValidationSuccess] = useState(false);
   const [rtosLoaded, setRtosLoaded] = useState(false);
 
   // Use user's RTO ID from auth instead of state
@@ -58,7 +57,6 @@ export function DashboardPage() {
   const handleValidationSubmit = () => {
     // Navigate to dashboard after validation starts
     setCurrentView('dashboard');
-    setShowValidationSuccess(true);
   };
 
   const handleCreditsAdded = () => {
@@ -168,8 +166,6 @@ export function DashboardPage() {
             onValidationDoubleClick={handleValidationDoubleClick}
             selectedRTOId={selectedRTOId}
             creditsRefreshTrigger={creditsRefreshTrigger}
-            showValidationSuccess={showValidationSuccess}
-            onValidationSuccessClose={() => setShowValidationSuccess(false)}
           />
         );
       case 'upload':
@@ -194,8 +190,6 @@ export function DashboardPage() {
             onValidationDoubleClick={handleValidationDoubleClick}
             selectedRTOId={selectedRTOId}
             creditsRefreshTrigger={creditsRefreshTrigger}
-            showValidationSuccess={showValidationSuccess}
-            onValidationSuccessClose={() => setShowValidationSuccess(false)}
           />
         );
     }

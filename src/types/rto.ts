@@ -642,7 +642,7 @@ export interface ValidationEvidenceRecord {
 export async function getValidationResults(validationId: string, valDetailId?: number): Promise<ValidationEvidenceRecord[]> {
   try {
     const { data, error } = await supabase.rpc('get_validation_results', {
-      p_val_detail_id: valDetailId,
+      p_val_detail_id: valDetailId ? parseInt(String(valDetailId), 10) : null,
     });
 
     if (error) {
