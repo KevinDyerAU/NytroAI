@@ -63,7 +63,7 @@ export function ValidationProgressTracker({
       if (showValidationProgress && false) {
         const { data: detailData, error: detailError} = await supabase
           .from('validation_detail')
-          .select('completed_count, req_total, extractStatus')
+          .select('completed_count, req_total, extract_status')  // ✅ Fixed: Use snake_case
           .eq('id', validationDetailId)
           .single();
 
@@ -224,11 +224,11 @@ export function ValidationProgressTracker({
                 />
               </div>
               <div className="text-xs text-gray-500 mt-1">
-                {validationDetail.extractStatus === 'ProcessingInBackground' 
+                {validationDetail.extract_status === 'ProcessingInBackground' 
                   ? 'Validating requirements...'
-                  : validationDetail.extractStatus === 'Completed'
+                  : validationDetail.extract_status === 'Completed'
                   ? '✓ Validation complete'
-                  : 'Waiting for document processing...'}
+                  : 'Waiting for document processing...'}  {/* ✅ Fixed: Use snake_case */}
               </div>
             </div>
           )}

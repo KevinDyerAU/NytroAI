@@ -57,7 +57,8 @@ serve(async (req) => {
     }
 
     // Check if documents are uploaded and indexed
-    if (!validationDetail.docExtracted || !validationDetail.file_search_store_id) {
+    // ✅ Fixed: Use snake_case column names to match database schema
+    if (!validationDetail.doc_extracted || !validationDetail.file_search_store_id) {
       return createErrorResponse('Documents not yet indexed. Please wait for upload to complete.');
     }
 
@@ -115,7 +116,7 @@ serve(async (req) => {
       await supabase
         .from('validation_detail')
         .update({
-          extractStatus: 'ValidationFailed',
+          extract_status: 'ValidationFailed',  // ✅ Fixed: Use snake_case
         })
         .eq('id', validationDetailId);
 
@@ -128,7 +129,7 @@ serve(async (req) => {
     await supabase
       .from('validation_detail')
       .update({
-        extractStatus: 'Completed',
+        extract_status: 'Completed',  // ✅ Fixed: Use snake_case
       })
       .eq('id', validationDetailId);
 

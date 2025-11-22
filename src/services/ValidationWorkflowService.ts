@@ -228,9 +228,9 @@ export class ValidationWorkflowService {
       const { error: updateError } = await supabase
         .from('validation_detail')
         .update({
-          docExtracted: true,
+          doc_extracted: true,  // ✅ Fixed: Use snake_case to match database schema
           file_search_store_id: documents.file_search_store_id,
-          extractStatus: 'ProcessingInBackground', // This shows Stage 3 on dashboard
+          extract_status: 'ProcessingInBackground', // ✅ Fixed: Use snake_case to match database schema
         })
         .eq('id', validationDetailId);
 
@@ -239,7 +239,7 @@ export class ValidationWorkflowService {
         throw new Error(`🗃️ Failed to update validation status: ${updateError.message}`);
       }
 
-      console.log('[ValidationWorkflow] Updated validation_detail with docExtracted and file_search_store_id');
+      console.log('[ValidationWorkflow] Updated validation_detail with doc_extracted and file_search_store_id');
 
       // Now trigger validation with timeout
       const timeoutPromise = new Promise((_, reject) => {
