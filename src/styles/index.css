@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 100px;
+  }
+  
+  body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+  }
+}
+
+@layer utilities {
+  /* Gradient Text Utility */
+  .text-gradient {
+    background: linear-gradient(135deg, #2DD4BF 0%, #2563EB 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .bg-gradient-brand {
+    background: linear-gradient(135deg, #2DD4BF 0%, #2563EB 100%);
+  }
+}

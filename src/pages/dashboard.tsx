@@ -54,8 +54,10 @@ export function DashboardPage() {
     setCurrentView('results');
   };
 
-  const handleValidationSubmit = () => {
+  const handleValidationSubmit = (validationData?: { validationId: number; documentName: string; unitCode: string }) => {
     // Navigate to dashboard after validation starts
+    console.log('[DashboardPage] handleValidationSubmit called with:', validationData);
+    console.log('[DashboardPage] Navigating to dashboard view...');
     setCurrentView('dashboard');
   };
 

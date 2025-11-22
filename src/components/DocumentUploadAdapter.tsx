@@ -187,29 +187,35 @@ export function DocumentUploadAdapter({
       
       // Validation triggered successfully
       toast.dismiss('indexing-progress');
-      toast.success('Validation started successfully!');
       console.log('[DocumentUploadAdapter] Validation triggered successfully');
+      
+      // Update status to DocumentProcessing before navigating
+      await validationWorkflowService.updateValidationStatus(validationDetailId, 'DocumentProcessing');
+      
+      // Navigate to dashboard - it will track progress via ValidationProgressTracker
+      if (onValidationSubmit && selectedUnit) {
+        console.log('[DocumentUploadAdapter] Navigating to dashboard...');
+        toast.success('Validation started! Redirecting to dashboard...', { duration: 2000 });
+        
+        // Small delay to show the success message
+        setTimeout(() => {
+          onValidationSubmit({
+            validationId: validationDetailId,
+            documentName: selectedUnit.code,
+            unitCode: selectedUnit.code,
+          });
+        }, 500);
+      } else {
+        console.warn('[DocumentUploadAdapter] Cannot navigate: onValidationSubmit or selectedUnit missing');
+      }
     } catch (error) {
       console.error('[DocumentUploadAdapter] Error triggering validation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Failed to start validation: ${errorMessage}`);
     } finally {
       setIsTriggeringValidation(false);
-    }
-    setShouldTriggerUpload(false);
-    setConfirmText('');
-    
-    // Update status to DocumentProcessing before navigating
-    await validationWorkflowService.updateValidationStatus(validationDetailId, 'DocumentProcessing');
-    
-    // Navigate to dashboard - it will track progress via ValidationProgressTracker
-    if (onValidationSubmit && selectedUnit) {
-      toast.success('Upload complete! Navigating to dashboard...');
-      onValidationSubmit({
-        validationId: validationDetailId,
-        documentName: selectedUnit.code,
-        unitCode: selectedUnit.code,
-      });
+      setShouldTriggerUpload(false);
+      setConfirmText('');
     }
   };
 
@@ -217,10 +223,18 @@ export function DocumentUploadAdapter({
   const handleStartValidation = async () => {
     if (!selectedUnit || selectedFiles.length === 0) return;
     
+    console.log('[DocumentUploadAdapter] ========== START VALIDATION ==========');
+    console.log('[DocumentUploadAdapter] Files:', selectedFiles.length);
+    console.log('[DocumentUploadAdapter] Unit:', selectedUnit.code);
+    console.log('[DocumentUploadAdapter] RTO:', selectedRTO?.code);
+    
     setIsTriggeringValidation(true);
     
     // Show loading toast
-    const loadingToast = toast.loading('Creating validation record...');
+    const loadingToast = toast.loading('Creating validation record...', { 
+      id: 'validation-loading',
+      description: 'This may take up to 30 seconds...'
+    });
     
     try {
       // Step 1: Create validation record
@@ -230,12 +244,14 @@ export function DocumentUploadAdapter({
       // Reset namespace for new validation session
       validationWorkflowService.resetNamespace();
       
+      console.log('[DocumentUploadAdapter] Calling createValidationRecord...');
       const record = await validationWorkflowService.createValidationRecord({
         rtoCode: selectedRTO!.code,
         unitCode: selectedUnit.code,
         validationType: validationType === 'learner_guide' ? 'learner_guide_validation' : 'full_validation',
       });
       
+      console.log('[DocumentUploadAdapter] Received record:', record);
       const detailId = record.detailId;
       setValidationDetailId(detailId);
       console.log('[DocumentUploadAdapter] Validation record created successfully:', detailId);
@@ -253,15 +269,21 @@ export function DocumentUploadAdapter({
       // Note: User will see upload progress and be navigated to dashboard after upload completes
       // The handleUploadComplete callback will call onValidationSubmit after all files are uploaded
     } catch (error) {
+      console.error('[DocumentUploadAdapter] ========== ERROR ==========');
       console.error('[DocumentUploadAdapter] Error starting validation:', error);
+      console.error('[DocumentUploadAdapter] Error type:', error?.constructor?.name);
+      console.error('[DocumentUploadAdapter] Error message:', error instanceof Error ? error.message : String(error));
+      console.error('[DocumentUploadAdapter] Error stack:', error instanceof Error ? error.stack : 'No stack');
+      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
       // Dismiss loading toast
       toast.dismiss(loadingToast);
       
       // Show detailed error with action buttons using Sonner's action API
-      toast.error(`Failed to Start Validation: ${errorMessage}`, {
+      toast.error(`Failed to Start Validation`, {
         duration: 15000,
+        description: errorMessage,
         action: {
           label: 'Retry',
           onClick: () => {
@@ -269,11 +291,14 @@ export function DocumentUploadAdapter({
             handleStartValidation();
           },
         },
-        description: 'Check if edge functions are deployed in Supabase Dashboard',
         cancel: {
-          label: 'Check Functions',
+          label: 'Check Console',
           onClick: () => {
-            window.open('https://supabase.com/dashboard/project/dfqxmjmggokneiuljkta/functions', '_blank');
+            console.log('[DocumentUploadAdapter] ========== DIAGNOSTIC INFO ==========');
+            console.log('[DocumentUploadAdapter] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+            console.log('[DocumentUploadAdapter] Has Anon Key:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+            console.log('[DocumentUploadAdapter] Edge function should be: create-validation-record');
+            console.log('[DocumentUploadAdapter] Check: https://supabase.com/dashboard/project/dfqxmjmggokneiuljkta/functions');
           },
         },
       });
@@ -287,7 +312,9 @@ export function DocumentUploadAdapter({
         }
       }
     } finally {
+      console.log('[DocumentUploadAdapter] Finally block - resetting state');
       setIsTriggeringValidation(false);
+      toast.dismiss('validation-loading'); // Ensure toast is dismissed
     }
   };
 
@@ -611,11 +638,16 @@ export function DocumentUploadAdapter({
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={handleCancelValidation}
-                      disabled={isTriggeringValidation}
+                      onClick={() => {
+                        console.log('[DocumentUploadAdapter] Force cancel clicked');
+                        setIsTriggeringValidation(false);
+                        setConfirmText('');
+                        toast.dismiss('validation-loading');
+                        toast.info('Validation cancelled. Check browser console for errors.');
+                      }}
                       className="border-[#ef4444] text-[#ef4444] hover:bg-[#fef2f2]"
                     >
-                      Cancel
+                      {isTriggeringValidation ? 'Force Cancel' : 'Cancel'}
                     </Button>
                   </div>
                 </div>

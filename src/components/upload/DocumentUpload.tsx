@@ -78,8 +78,8 @@ export function DocumentUpload({ unitCode, onUploadComplete }: DocumentUploadPro
       .from('validation_detail')
       .insert({
         namespace_code: `${rtoCode}-${unitCode}-${Date.now()}`,
-        doc_extracted: false,
-        extract_status: 'pending',
+        docExtracted: false,
+        extractStatus: 'pending',
       })
       .select()
       .single();

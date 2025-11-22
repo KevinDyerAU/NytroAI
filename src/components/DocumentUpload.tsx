@@ -632,8 +632,8 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
         const { error: updateError } = await supabase
           .from('validation_detail')
           .update({
-            doc_extracted: true,
-            extract_status: 'ProcessingInBackground',
+            docExtracted: true,
+            extractStatus: 'ProcessingInBackground',
           })
           .eq('id', validationDetailData.id);
 
@@ -674,8 +674,8 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
             const { error: updateError } = await supabase
               .from('validation_detail')
               .update({
-                doc_extracted: true,
-                extract_status: 'ProcessingInBackground',
+                docExtracted: true,
+                extractStatus: 'ProcessingInBackground',
               })
               .eq('id', validationDetailData.id);
 

@@ -48,10 +48,10 @@ export class ValidationWorkflowService {
 
     try {
       // Add timeout wrapper with increased timeout
-      const timeoutPromise = new Promise((_, reject) => {
+      const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           reject(new Error('⏱️ Request timed out. The server may be slow or the edge function is not deployed. Please check Supabase dashboard or try again.'));
-        }, 45000); // Increased to 45 seconds
+        }, 30000); // 30 second timeout
       });
 
       // Try the deployed function first (create-validation-record)
@@ -287,9 +287,9 @@ export class ValidationWorkflowService {
       const { error: updateError } = await supabase
         .from('validation_detail')
         .update({
-          doc_extracted: true,  // ✅ Fixed: Use snake_case to match database schema
+          docExtracted: true,  // ✅ Use camelCase to match database schema
           file_search_store_id: documents.file_search_store_id,
-          extract_status: 'ProcessingInBackground', // ✅ Fixed: Use snake_case to match database schema
+          extractStatus: 'ProcessingInBackground', // ✅ Use camelCase to match database schema
         })
         .eq('id', validationDetailId);
 

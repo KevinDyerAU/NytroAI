@@ -144,8 +144,8 @@ export async function startValidationWithGemini(
         .from('validation_detail')
         .update({
           file_search_store_id: firstFileSearchStoreId,
-          doc_extracted: true,
-          extract_status: 'DocumentsUploaded',
+          docExtracted: true,
+          extractStatus: 'DocumentsUploaded',
         })
         .eq('id', validationId);
 
@@ -166,7 +166,7 @@ export async function startValidationWithGemini(
     const { error: failError } = await supabase
       .from('validation_detail')
       .update({
-        extract_status: 'Failed',
+        extractStatus: 'Failed',
       })
       .eq('id', validationId);
 
