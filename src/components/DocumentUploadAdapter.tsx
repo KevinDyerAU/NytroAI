@@ -162,9 +162,40 @@ export function DocumentUploadAdapter({
       return;
     }
 
-    // This is the last file - clear upload state and navigate to dashboard
-    console.log('[DocumentUploadAdapter] All files uploaded! Clearing upload state...');
+    // This is the last file - start polling and trigger validation
+    console.log('[DocumentUploadAdapter] All files uploaded! Starting validation polling...');
     setSelectedFiles([]);
+    setIsTriggeringValidation(true);
+    
+    try {
+      // Poll indexing status and trigger validation when ready
+      await validationWorkflowService.pollIndexingAndTriggerValidation(
+        validationDetailId,
+        (status: IndexingStatus) => {
+          console.log('[DocumentUploadAdapter] Indexing progress:', status);
+          setIndexingStatus(status);
+          
+          // Show progress toast
+          if (status.total > 0) {
+            toast.info(
+              `Indexing documents... ${status.completed}/${status.total} complete`,
+              { id: 'indexing-progress' }
+            );
+          }
+        }
+      );
+      
+      // Validation triggered successfully
+      toast.dismiss('indexing-progress');
+      toast.success('Validation started successfully!');
+      console.log('[DocumentUploadAdapter] Validation triggered successfully');
+    } catch (error) {
+      console.error('[DocumentUploadAdapter] Error triggering validation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to start validation: ${errorMessage}`);
+    } finally {
+      setIsTriggeringValidation(false);
+    }
     setShouldTriggerUpload(false);
     setConfirmText('');
     

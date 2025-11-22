@@ -200,6 +200,65 @@ export class ValidationWorkflowService {
   }
 
   /**
+   * Poll indexing status and trigger validation when ready
+   */
+  async pollIndexingAndTriggerValidation(
+    validationDetailId: number,
+    onProgress?: (status: IndexingStatus) => void
+  ): Promise<void> {
+    console.log('[ValidationWorkflow] Starting polling for validation:', validationDetailId);
+
+    const maxAttempts = 150; // 5 minutes at 2s intervals
+    let attempt = 0;
+
+    while (attempt < maxAttempts) {
+      try {
+        const status = await this.getIndexingStatus(validationDetailId);
+
+        console.log(`[ValidationWorkflow] Polling attempt ${attempt + 1}/${maxAttempts}:`, status);
+
+        // Call progress callback
+        if (onProgress) {
+          onProgress(status);
+        }
+
+        // Check if all indexing is complete
+        if (status.allCompleted) {
+          console.log('[ValidationWorkflow] All indexing complete - triggering validation');
+          await this.triggerValidation(validationDetailId);
+          return;
+        }
+
+        // Check for failures
+        if (status.failed > 0) {
+          const errorMsg = `Indexing failed for ${status.failed} document(s). Please check the documents and try again.`;
+          console.error('[ValidationWorkflow]', errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        // Adaptive polling interval
+        const interval = attempt < 10 ? 1000 : 2000; // Fast for first 10 attempts, then slow
+        await new Promise(resolve => setTimeout(resolve, interval));
+        attempt++;
+      } catch (error) {
+        // If it's our error (failed indexing), rethrow it
+        if (error instanceof Error && error.message.includes('Indexing failed')) {
+          throw error;
+        }
+        // Otherwise, log and continue polling
+        console.error('[ValidationWorkflow] Error during polling:', error);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        attempt++;
+      }
+    }
+
+    // Timeout
+    const timeoutMsg = 'Indexing timed out after 5 minutes. Please check the status in the dashboard and try again.';
+    console.error('[ValidationWorkflow]', timeoutMsg);
+    throw new Error(timeoutMsg);
+  }
+
+  /**
    * Trigger validation once all documents are indexed
    */
   async triggerValidation(validationDetailId: number): Promise<void> {
