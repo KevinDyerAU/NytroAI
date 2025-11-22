@@ -26,11 +26,13 @@ NytroAI is an intelligent validation platform that uses Google's Gemini 2.0 AI t
 - **🤖 AI-Powered Validation** - Gemini 2.0 analyzes assessment documents against unit requirements
 - **📄 Document Intelligence** - File Search API indexes and searches across multiple PDF documents
 - **✅ Comprehensive Checks** - Validates Knowledge Evidence, Performance Evidence, Foundation Skills, Elements & Criteria
-- **💡 Smart Questions** - Generates intelligent questions to address gaps in assessments
+- **💡 Smart Questions** - Generates intelligent questions to address gaps in assessments with regeneration capabilities
+- **🔄 Question Regeneration** - Users can regenerate questions with additional context directly from the UI
 - **📊 Detailed Reports** - Provides actionable recommendations and compliance scores
-- **🔄 Real-time Updates** - Live status tracking throughout the validation process
+- **⚡ Real-time Updates** - Live status tracking throughout the validation process
 - **🎯 Citation Support** - Direct references to source documents for traceability
 - **⚡ Automatic Triggering** - Database triggers start validation instantly when indexing completes (97% fewer API calls)
+- **🚀 Optimized Performance** - 50% faster validation, 60-70% smaller prompts, 40-50% cost reduction
 
 ---
 
@@ -86,6 +88,7 @@ NytroAI is an intelligent validation platform that uses Google's Gemini 2.0 AI t
    supabase functions deploy create-validation-record
    supabase functions deploy trigger-validation
    supabase functions deploy validate-assessment
+   supabase functions deploy regenerate-smart-questions
    ```
 
 6. **Run the application**
@@ -125,7 +128,7 @@ NytroAI is an intelligent validation platform that uses Google's Gemini 2.0 AI t
 - **[Phase 1: Component Migration](./docs/phases/PHASE1_COMPLETE.md)** - Initial migration from Nytro
 - **[Phase 2: Schema Consolidation](./docs/phases/PHASE2_SUMMARY.md)** - Database schema improvements
 - **[Phase 3: Integration & Error Handling](./docs/phases/PHASE3_SUMMARY.md)** - Frontend/backend integration
-- **[Phase 4: Prompt Optimization](./docs/phases/PHASE4_PREPARATION.md)** - AI prompt improvements
+- **[Phase 4: Validation Optimization](./docs/phases/PHASE4.2_COMPLETION_SUMMARY.md)** - Independent prompts, UOC parser, smart question regeneration
 
 ---
 
@@ -332,7 +335,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Google AI Studio** - Platform and hosting
+- **Figma** - Design and prototyping
+- **Builder.io** - Development platform
+- **Windsurf** - Development environment
 - **Google Gemini** - AI model and File Search API
 - **Supabase** - Backend infrastructure
 - **React Team** - Frontend framework
