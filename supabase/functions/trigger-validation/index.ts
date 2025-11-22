@@ -96,6 +96,14 @@ serve(async (req) => {
 
     console.log(`[Trigger Validation] Calling validate-assessment for document ${firstDocument.id}...`);
 
+    // Update status to ProcessingInBackground when validation starts
+    await supabase
+      .from('validation_detail')
+      .update({
+        extract_status: 'ProcessingInBackground',
+      })
+      .eq('id', validationDetailId);
+
     const { data: validationResult, error: validationError } = await supabase.functions.invoke(
       'validate-assessment',
       {

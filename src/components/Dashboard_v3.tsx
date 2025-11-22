@@ -129,12 +129,16 @@ export function Dashboard_v3({
     const total = validations.length;
     const completed = validations.filter(v => 
       v.extract_status === 'Completed' || 
+      v.extract_status === 'Completed' || 
       (v.req_total > 0 && v.completed_count === v.req_total)
     ).length;
     const inProgress = validations.filter(v => 
       v.extract_status === 'ProcessingInBackground' || 
       v.extract_status === 'DocumentProcessing'
+      v.extract_status === 'ProcessingInBackground' || 
+      v.extract_status === 'DocumentProcessing'
     ).length;
+    const failed = validations.filter(v => v.extract_status === 'Failed').length;
     const failed = validations.filter(v => v.extract_status === 'Failed').length;
 
     return {
@@ -302,6 +306,7 @@ export function Dashboard_v3({
 
         {/* Processing Information Banner */}
         {activeValidations.some(v => v.extract_status === 'ProcessingInBackground' || v.extract_status === 'DocumentProcessing') && (
+        {activeValidations.some(v => v.extract_status === 'ProcessingInBackground' || v.extract_status === 'DocumentProcessing') && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900 flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0" />
@@ -314,6 +319,8 @@ export function Dashboard_v3({
           {activeValidations.length > 0 ? (
             paginatedValidations.map((validation) => {
               const stage = getValidationStage(
+                validation.extract_status,
+                validation.doc_extracted,
                 validation.extract_status,
                 validation.doc_extracted,
                 validation.req_extracted,
