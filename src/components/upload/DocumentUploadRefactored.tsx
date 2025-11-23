@@ -6,7 +6,7 @@ import { FilePreview } from './FilePreview';
 import { UploadProgress as UploadProgressComponent } from './UploadProgress';
 import { useAuthStore } from '../../store/auth.store';
 import { cn } from '../ui/utils';
-import { documentUploadServiceV2, UploadProgress } from '../../services/DocumentUploadService_v2';
+import { documentUploadServiceV2, UploadProgress } from '../../services/DocumentUploadService';
 import { uploadCancellationManager } from '../../lib/uploadCancellation';
 import { validateFile as validateFileAdvanced, validateBatch, formatFileSize } from '../../lib/fileValidation';
 import { checkStorageBucket } from '../../utils/storageCheck';

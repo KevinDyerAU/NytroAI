@@ -1,0 +1,92 @@
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3b82f6','primaryTextColor':'#fff','primaryBorderColor':'#2563eb','lineColor':'#64748b','secondaryColor':'#10b981','tertiaryColor':'#f59e0b'}}}%%
+
+graph TB
+    subgraph "User Interface"
+        UI[React Frontend<br/>Vite + TypeScript]
+        Landing[Landing Page]
+        Dashboard[Dashboard]
+        Upload[Document Upload]
+        Results[Results Explorer]
+    end
+
+    subgraph "Authentication"
+        Auth[Supabase Auth]
+    end
+
+    subgraph "Backend Services"
+        API[Supabase Database<br/>PostgreSQL]
+        Storage[Supabase Storage<br/>Document Files]
+        Functions[Edge Functions<br/>Deno Runtime]
+    end
+
+    subgraph "Edge Functions"
+        TriggerVal[trigger-validation]
+        ValidateAssess[validate-assessment]
+        RegenQuestions[regenerate-smart-questions]
+        UploadDoc[upload-document]
+        QueryDoc[query-document]
+    end
+
+    subgraph "AI Services"
+        Gemini[Google Gemini 2.0<br/>Flash Model]
+    end
+
+    subgraph "Database Tables"
+        ValDetail[validation_detail]
+        ValResults[validation_results]
+        GeminiOps[gemini_operations]
+        TriggerLog[validation_trigger_log]
+    end
+
+    %% User interactions
+    UI --> Landing
+    UI --> Dashboard
+    UI --> Upload
+    UI --> Results
+    
+    %% Authentication flow
+    Landing --> Auth
+    Dashboard --> Auth
+    Upload --> Auth
+    Results --> Auth
+    
+    %% Upload flow
+    Upload --> UploadDoc
+    UploadDoc --> Storage
+    UploadDoc --> GeminiOps
+    UploadDoc --> Gemini
+    
+    %% Validation trigger flow
+    GeminiOps -.Automatic Trigger.-> TriggerVal
+    TriggerVal --> ValidateAssess
+    ValidateAssess --> QueryDoc
+    QueryDoc --> Gemini
+    ValidateAssess --> ValResults
+    ValidateAssess --> TriggerLog
+    
+    %% Results flow
+    Dashboard --> ValDetail
+    Results --> ValResults
+    Results --> RegenQuestions
+    RegenQuestions --> Gemini
+    RegenQuestions --> ValResults
+    
+    %% Database relationships
+    ValDetail --> ValResults
+    ValDetail --> GeminiOps
+    ValDetail --> TriggerLog
+    
+    %% Styling
+    classDef uiClass fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    classDef authClass fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    classDef backendClass fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    classDef functionClass fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    classDef aiClass fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#fff
+    classDef dbClass fill:#64748b,stroke:#475569,stroke-width:2px,color:#fff
+    
+    class UI,Landing,Dashboard,Upload,Results uiClass
+    class Auth authClass
+    class API,Storage,Functions backendClass
+    class TriggerVal,ValidateAssess,RegenQuestions,UploadDoc,QueryDoc functionClass
+    class Gemini aiClass
+    class ValDetail,ValResults,GeminiOps,TriggerLog dbClass

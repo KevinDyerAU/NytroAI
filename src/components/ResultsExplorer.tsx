@@ -58,7 +58,7 @@ interface ResultsExplorerProps {
   selectedRTOId: string;
 }
 
-export function ResultsExplorer_v2({ 
+export function ResultsExplorer({ 
   selectedValidationId, 
   aiCreditsAvailable = true, 
   selectedRTOId 

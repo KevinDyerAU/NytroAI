@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Navigation } from '../components/Navigation';
-import { Dashboard_v3 as Dashboard } from '../components/Dashboard_v3';
+import { Dashboard } from '../components/Dashboard';
 import { UnitAcquisition } from '../components/UnitAcquisition';
 import { DocumentUploadAdapter as DocumentUpload } from '../components/DocumentUploadAdapter';
-import { ResultsExplorer_v2 as ResultsExplorer } from '../components/ResultsExplorer_v2';
+import { ResultsExplorer } from '../components/ResultsExplorer';
 import { Settings } from '../components/Settings';
 import { MaintenanceHub } from '../components/maintenance/MaintenanceHub';
 import { RTOMaintenance } from '../components/maintenance/RTOMaintenance';
