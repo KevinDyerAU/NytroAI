@@ -9,23 +9,26 @@ sequenceDiagram
     participant ValidateFn as validate-assessment<br/>Edge Function
     participant Dashboard
 
-    Note over User,Dashboard: Simplified Upload & Validation Flow
+    Note over User,Dashboard: Instant Upload & Background Validation Flow
 
     User->>Frontend: Select files
     Frontend->>Storage: Upload files
     Storage-->>Frontend: Storage paths
     
-    Frontend->>EdgeFn: Call with storage paths
+    rect rgb(144, 238, 144)
+        Note over Frontend,User: ✅ UPLOAD COMPLETE!<br/>User can continue working
+        Frontend-->>User: Success! Processing in background
+    end
+    
+    Note over EdgeFn,Dashboard: Background Processing (Fire-and-Forget)
+
+    Frontend--)EdgeFn: Call async (no wait)
     Note right of EdgeFn: Creates document record<br/>Uploads to Gemini<br/>Creates gemini_operation
     
     EdgeFn->>DB: INSERT document
     EdgeFn->>DB: INSERT gemini_operation<br/>(status: pending)
-    EdgeFn-->>Frontend: Document ID
     
-    Frontend-->>User: Upload complete!
-    Note over User: User can continue working
-
-    Note over DB,Trigger: Background Processing Begins
+    Note over DB,Trigger: Automatic Trigger System
 
     DB->>Trigger: Gemini completes indexing
     Note right of Trigger: UPDATE gemini_operation<br/>(status: completed)
@@ -48,6 +51,7 @@ sequenceDiagram
         TriggerFn->>DB: Log to validation_trigger_log
     end
 
+    User->>Dashboard: Check status (anytime)
     Dashboard->>DB: Poll for status updates
     DB-->>Dashboard: Show progress & results
     Dashboard-->>User: Display validation results

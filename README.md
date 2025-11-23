@@ -94,15 +94,16 @@ Open `http://localhost:5173` in your browser. Done! 🎉
 
 ## 📖 How It Works
 
-### Simple 3-Step Process
+### Instant Upload Process
 
 ```
-Upload Assessment → Background Processing → Get Results
+Upload (Instant) → Background Processing → Get Results
 ```
 
-1. **Upload** - Drag and drop your assessment PDF (completes instantly)
-2. **Automatic Processing** - AI indexes and validates in the background
-3. **Review Results** - Dashboard shows real-time progress and results
+1. **Upload** - Drag and drop your assessment PDF → **Completes in <1 second!**
+2. **Continue Working** - Close browser, upload more files, or check Dashboard
+3. **Automatic Processing** - AI indexes and validates in the background
+4. **Review Results** - Dashboard shows real-time progress and results
 
 ### What Happens Behind the Scenes
 
@@ -110,22 +111,26 @@ Upload Assessment → Background Processing → Get Results
 
 *Complete upload and validation flow showing DB trigger automation*
 
-**Upload Phase (Instant)**
+**Upload Phase (<1 Second)**
 - Files upload to secure storage
-- Document records created
-- You can continue working immediately
+- ✅ **Upload complete!** You can continue working immediately
+- No waiting for processing
+- Can close browser right away
 
-**Background Processing (Automatic)**
+**Background Processing (Automatic - Fire-and-Forget)**
+- Edge function creates document records (async)
 - AI indexes documents with Gemini File Search
 - Database trigger automatically starts validation
 - Requirements fetched as structured JSON
 - Each requirement validated individually
 - Results stored in database
+- **All happens in background - no user waiting required**
 
 **Results (Real-time)**
 - Dashboard polls for status updates
 - See progress as validation completes
-- Export detailed compliance report
+- Check anytime - processing continues even if browser closed
+- Export detailed compliance report when ready
 
 ---
 
@@ -237,11 +242,13 @@ For detailed architecture documentation, see [docs/ARCHITECTURE.md](./docs/ARCHI
    ```
    
    **Benefits:**
-   - ⚡ **Instant** - Validation starts immediately when indexing completes
-   - 📉 **Zero polling** - No frontend API calls needed
+   - ⚡ **Instant upload** - Completes in <1 second, no waiting
+   - 🚀 **Fire-and-forget** - Processing happens in background
+   - 📉 **Zero polling** - No frontend API calls during upload
    - 🔒 **100% reliable** - Database triggers are atomic and guaranteed
    - 🎯 **Zero overhead** - Minimal database impact
    - 🔄 **Automatic retry** - Failed validations can be retried easily
+   - 🚪 **Close browser** - Processing continues even if browser closed
    
    **Technical Details:**
    - Trigger monitors `gemini_operations` table
