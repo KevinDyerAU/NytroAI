@@ -68,10 +68,14 @@ CITATION REQUIREMENTS:
  * Knowledge Evidence validation prompt (from SimpleKEValidateUnit.json)
  */
 function getKnowledgeEvidencePrompt(unit: any, requirements?: any[]): string {
+  // If requirements array is provided, format it inline (legacy behavior)
+  // Otherwise, use {requirements} placeholder for JSON injection
   const keRequirements = requirements
-    ?.filter((r) => r.type === 'knowledge_evidence')
-    .map((r, i) => `${i + 1}. ${r.description}`)
-    .join('\n') || 'No specific requirements found in database';
+    ? requirements
+        .filter((r) => r.type === 'knowledge_evidence')
+        .map((r, i) => `${i + 1}. ${r.description}`)
+        .join('\n')
+    : '{requirements}';
 
   return `Your task is to analyze the assessment documents using the information retrieved through semantic search to create a JSON response mapping knowledge points to assessment questions. Follow these streamlined steps:
 
@@ -170,10 +174,14 @@ Return only the JSON structure.`;
  * Performance Evidence validation prompt (from SimplePEValidateUnit.json)
  */
 function getPerformanceEvidencePrompt(unit: any, requirements?: any[]): string {
+  // If requirements array is provided, format it inline (legacy behavior)
+  // Otherwise, use {requirements} placeholder for JSON injection
   const peRequirements = requirements
-    ?.filter((r) => r.type === 'performance_evidence')
-    .map((r, i) => `${i + 1}. ${r.description}`)
-    .join('\n') || 'No specific requirements found in database';
+    ? requirements
+        .filter((r) => r.type === 'performance_evidence')
+        .map((r, i) => `${i + 1}. ${r.description}`)
+        .join('\n')
+    : '{requirements}';
 
   return `Your task is to analyze the assessment documents using the information retrieved through semantic search to create a JSON response detailing the mapping between performance evidence requirements and assessment tasks or observations.
 
