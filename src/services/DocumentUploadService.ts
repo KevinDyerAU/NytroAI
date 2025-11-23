@@ -209,36 +209,15 @@ export class DocumentUploadServiceV2 {
 
       onProgress?.({
         stage: 'indexing',
-        progress: 50,
-        message: 'Indexing in progress...',
+        progress: 75,
+        message: 'Indexing complete',
         documentId,
         operationId: indexOperationId,
-        cancellable: true,
+        cancellable: false,
       });
 
-      // Stage 3: Poll Operation Status
-      await this.pollOperationStatus(
-        indexOperationId,
-        operationId,
-        file,
-        (pollProgress) => {
-          const progress = 50 + (pollProgress * 0.4); // 50% to 90%
-          onProgress?.({
-            stage: 'indexing',
-            progress,
-            message: `Indexing document... ${Math.floor(pollProgress)}%`,
-            documentId,
-            operationId: indexOperationId,
-            cancellable: true,
-          });
-
-          if (opts.showToasts && toastId) {
-            dismissToast(toastId);
-            toastId = showUploadProgressToast(file.name, progress);
-          }
-        },
-        opts
-      );
+      // Stage 3: Skip polling - upload-document is synchronous
+      // No need to poll for operation status since it's already complete
 
       // Stage 4: Complete
       onProgress?.({
@@ -376,7 +355,7 @@ export class DocumentUploadServiceV2 {
         fileName
       );
 
-      const { data, error } = await supabase.functions.invoke('upload-document-async', {
+      const { data, error } = await supabase.functions.invoke('upload-document', {
         body: {
           rtoCode,
           unitCode,
@@ -385,7 +364,6 @@ export class DocumentUploadServiceV2 {
           storagePath,
           displayName: fileName,
           metadata: {},
-          validationDetailId,
         },
       });
 
@@ -397,10 +375,18 @@ export class DocumentUploadServiceV2 {
         throw new Error(data?.error || 'Indexing failed');
       }
 
+      console.log('[Upload] Indexing response data:', data);
+      
+      // The upload-document function returns document.id, not operationId
+      // Since it's synchronous, we don't need to poll for status
+      if (!data.document?.id) {
+        throw new Error('Edge function did not return a document ID');
+      }
+
       return {
-        documentId: data.documentId,
-        operationId: data.operationId,
-        fileSearchStoreId: data.fileSearchStoreId,
+        documentId: data.document.id,
+        operationId: 0, // No operation ID needed for synchronous processing
+        fileSearchStoreId: data.document.fileSearchStoreId,
       };
     };
 
@@ -427,18 +413,15 @@ export class DocumentUploadServiceV2 {
     onProgress?: (progress: number) => void,
     options?: UploadOptions
   ): Promise<void> {
-    // Adaptive polling interval based on file size
-    let interval = 2000; // Default 2 seconds
-    
-    if (options?.adaptivePolling) {
-      const fileSizeMB = file.size / (1024 * 1024);
-      if (fileSizeMB < 1) {
-        interval = 500; // Small files: 500ms
-      } else if (fileSizeMB < 3) {
-        interval = 1000; // Medium files: 1s
-      } else {
-        interval = 2000; // Large files: 2s
-      }
+    // Safety check for operationId
+    if (!operationId) {
+      throw new Error('Operation ID is required for polling status');
+    }
+
+    // Determine polling interval based on file size
+    let interval = 1000; // Default 1s for small files
+    if (file.size > 5 * 1024 * 1024) { // > 5MB
+      interval = 2000; // Large files: 2s
     }
 
     const maxAttempts = 150; // 5 minutes max at 2s intervals

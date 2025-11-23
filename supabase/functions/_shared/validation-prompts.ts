@@ -1,8 +1,6 @@
 // Validation prompts extracted from production n8n workflows
 // Adapted for Gemini File Search API
 
-import { FULL_UNIT_VALIDATION_PROMPT_TEMPLATE } from './full-unit-validation-prompt.ts';
-
 export interface ValidationPromptConfig {
   validationType: string;
   variant: 'simple' | 'smart';

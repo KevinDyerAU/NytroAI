@@ -158,8 +158,8 @@ serve(async (req) => {
         await supabase
           .from('validation_detail')
           .update({
-            doc_extracted: status === 'completed',
-            extract_status: extractStatus,
+            docExtracted: status === 'completed',
+            extractStatus: extractStatus,
           })
           .eq('id', operation.validation_detail_id);
 

@@ -60,6 +60,28 @@ export function DocumentUploadAdapter({
   const [confirmText, setConfirmText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [shouldTriggerUpload, setShouldTriggerUpload] = useState(false);
+  
+  // Progress tracking states
+  const [recordCreated, setRecordCreated] = useState(false);
+  const [uploadStarted, setUploadStarted] = useState(false);
+  const [uploadCompleted, setUploadCompleted] = useState(false);
+  const [indexingStarted, setIndexingStarted] = useState(false);
+  const [validationStarted, setValidationStarted] = useState(false);
+
+  // Reset validation state when files are selected
+  useEffect(() => {
+    if (selectedFiles.length > 0) {
+      // Always reset for new validation
+      setValidationDetailId(null);
+      setRecordCreated(false);
+      setUploadStarted(false);
+      setUploadCompleted(false);
+      setIndexingStarted(false);
+      setValidationStarted(false);
+      setIsPollingStarted(false);
+      setIndexingStatus(null);
+    }
+  }, [selectedFiles]);
 
   const selectedRTO = getRTOById(selectedRTOId);
   const hasValidationCredits = validationCredits.current > 0;
@@ -166,6 +188,8 @@ export function DocumentUploadAdapter({
     console.log('[DocumentUploadAdapter] All files uploaded! Starting validation polling...');
     setSelectedFiles([]);
     setIsTriggeringValidation(true);
+    setUploadCompleted(true); // Mark step 2 as complete
+    setIndexingStarted(true); // Mark step 3 as started
     
     try {
       // Poll indexing status and trigger validation when ready
@@ -188,6 +212,7 @@ export function DocumentUploadAdapter({
       // Validation triggered successfully
       toast.dismiss('indexing-progress');
       console.log('[DocumentUploadAdapter] Validation triggered successfully');
+      setValidationStarted(true); // Mark step 4 as complete
       
       // Update status to DocumentProcessing before navigating
       await validationWorkflowService.updateValidationStatus(validationDetailId, 'DocumentProcessing');
@@ -241,6 +266,13 @@ export function DocumentUploadAdapter({
       console.log('[DocumentUploadAdapter] Creating validation record...');
       console.log('[DocumentUploadAdapter] RTO:', selectedRTO?.code, 'Unit:', selectedUnit.code);
       
+      // Reset progress states
+      setRecordCreated(false);
+      setUploadStarted(false);
+      setUploadCompleted(false);
+      setIndexingStarted(false);
+      setValidationStarted(false);
+      
       // Reset namespace for new validation session
       validationWorkflowService.resetNamespace();
       
@@ -254,6 +286,7 @@ export function DocumentUploadAdapter({
       console.log('[DocumentUploadAdapter] Received record:', record);
       const detailId = record.detailId;
       setValidationDetailId(detailId);
+      setRecordCreated(true); // Mark step 1 as complete
       console.log('[DocumentUploadAdapter] Validation record created successfully:', detailId);
       
       // Dismiss loading toast
@@ -263,6 +296,7 @@ export function DocumentUploadAdapter({
       await validationWorkflowService.updateValidationStatus(detailId, 'Uploading');
       
       // Step 2: Trigger file upload (user stays on page to see progress)
+      setUploadStarted(true); // Mark step 2 as started
       setShouldTriggerUpload(true);
       toast.success('Validation record created! Starting upload...');
       
@@ -587,12 +621,113 @@ export function DocumentUploadAdapter({
           </Card>
         )}
 
+        {/* Progress Status Card - Shows during upload/indexing/validation */}
+        {(isTriggeringValidation || recordCreated) && !validationStarted && (
+          <Card className="border-2 border-[#3b82f6] bg-[#f8fafc] p-8 shadow-soft animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-[#3b82f6] text-white flex items-center justify-center flex-shrink-0">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-semibold text-[#1e293b] mb-2">
+                  {uploadCompleted ? 'Processing Documents' : 'Uploading Documents'}
+                </h3>
+                
+                {/* Progress Steps */}
+                <div className="space-y-4">
+                  {/* Step 1: Creating Validation Record */}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      recordCreated ? 'bg-[#22c55e] text-white' : 'bg-[#e2e8f0] text-[#64748b]'
+                    }`}>
+                      {recordCreated ? (
+                        <CheckCircle className="h-4 w-4" />
+                      ) : (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-medium ${
+                        recordCreated ? 'text-[#166534]' : 'text-[#64748b]'
+                      }`}>
+                        Creating Validation Record
+                      </p>
+                      <p className="text-sm text-[#64748b]">
+                        {recordCreated ? '✓ Validation record created' : 'Initializing validation...'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Uploading Documents */}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      uploadCompleted ? 'bg-[#22c55e] text-white' : uploadStarted ? 'bg-[#3b82f6] text-white' : 'bg-[#e2e8f0] text-[#64748b]'
+                    }`}>
+                      {uploadCompleted ? (
+                        <CheckCircle className="h-4 w-4" />
+                      ) : uploadStarted ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <div className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-medium ${
+                        uploadCompleted ? 'text-[#166534]' : uploadStarted ? 'text-[#1e293b]' : 'text-[#64748b]'
+                      }`}>
+                        Uploading Documents
+                      </p>
+                      <p className="text-sm text-[#64748b]">
+                        {uploadCompleted ? '✓ Documents uploaded to storage' : 
+                         uploadStarted ? 'Uploading files to cloud storage...' : 
+                         'Waiting to upload documents...'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Processing & Validating */}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      uploadCompleted ? 'bg-[#3b82f6] text-white' : 'bg-[#e2e8f0] text-[#64748b]'
+                    }`}>
+                      {uploadCompleted ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <div className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-medium ${
+                        uploadCompleted ? 'text-[#1e293b]' : 'text-[#64748b]'
+                      }`}>
+                        Processing Documents
+                      </p>
+                      <p className="text-sm text-[#64748b]">
+                        {uploadCompleted 
+                          ? 'Indexing and preparing documents for AI validation...'
+                          : 'Waiting for upload to complete...'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-[#dbeafe] rounded-lg">
+                  <p className="text-sm text-[#1e40af]">
+                    💡 <strong>Tip:</strong> You can navigate to the dashboard to see detailed progress and results.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Validation Confirmation Card - Shows when files are selected */}
         {(() => {
-          const shouldShow = selectedFiles.length > 0 && selectedUnit;
+          const shouldShow = selectedFiles.length > 0 && selectedUnit && !validationDetailId;
           console.log('[DocumentUploadAdapter] VALIDATE card visibility:', {
             selectedFilesCount: selectedFiles.length,
             hasSelectedUnit: !!selectedUnit,
+            hasValidationDetailId: !!validationDetailId,
             shouldShow
           });
           return shouldShow;
