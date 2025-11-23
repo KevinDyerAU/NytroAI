@@ -23,17 +23,17 @@ import {
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
 
-interface DashboardProps {
+interface Dashboard_v3Props {
   onValidationDoubleClick?: (validation: ValidationRecord) => void;
   selectedRTOId: string;
   creditsRefreshTrigger?: number;
 }
 
-export function Dashboard({
+export function Dashboard_v3({
   onValidationDoubleClick,
   selectedRTOId,
   creditsRefreshTrigger = 0,
-}: DashboardProps) {
+}: Dashboard_v3Props) {
   // Load persisted state
   const loadPersistedState = () => {
     try {
@@ -108,7 +108,7 @@ export function Dashboard({
           setIsInitialLoad(false);
         }
       } catch (error) {
-        console.error('[Dashboard] Error fetching validations:', error);
+        console.error('[Dashboard_v3] Error fetching validations:', error);
         if (isInitial && isInitialLoad) {
           toast.error('Failed to load validations');
         }

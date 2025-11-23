@@ -3,8 +3,12 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
 import { createDefaultGeminiClient } from '../_shared/gemini.ts';
 import { getValidationPrompt } from '../_shared/validation-prompts.ts';
+import { getValidationPromptV2 } from '../_shared/validation-prompts-v2.ts';
 import { formatLearnerGuideValidationPrompt } from '../_shared/learner-guide-validation-prompt.ts';
 import { storeValidationResults as storeValidationResultsNew, storeSingleValidationResult } from '../_shared/store-validation-results.ts';
+import { fetchRequirements, fetchAllRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
+import { storeValidationResultsV2, type ValidationResponseV2 } from '../_shared/store-validation-results-v2.ts';
+import { parseValidationResponseV2WithFallback, mergeCitationsIntoValidations } from '../_shared/parse-validation-response-v2.ts';
 
 /**
  * Fetch prompt from database based on validation type
@@ -91,12 +95,28 @@ interface ValidationRecord {
 }
 
 serve(async (req) => {
+  const startTime = Date.now();
+  console.log('='.repeat(80));
+  console.log('[validate-assessment] START', new Date().toISOString());
+  console.log('[validate-assessment] Method:', req.method);
+  
   const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (corsResponse) {
+    console.log('[validate-assessment] CORS preflight handled');
+    return corsResponse;
+  }
 
   try {
     const requestData: ValidateAssessmentRequest = await req.json();
     let { documentId, unitCode, validationType, validationDetailId, customPrompt, namespace } = requestData;
+    console.log('[validate-assessment] Request data:', {
+      documentId,
+      unitCode,
+      validationType,
+      validationDetailId,
+      hasCustomPrompt: !!customPrompt,
+      namespace
+    });
 
     if (!documentId || !unitCode || !validationType) {
       return createErrorResponse(
@@ -142,38 +162,13 @@ serve(async (req) => {
       return createErrorResponse(`Unit not found: ${unitCode}`);
     }
 
-    // Get requirements for this unit based on validation type
-    let requirements: any[] = [];
-    let requirementTable = '';
-
-    switch (validationType) {
-      case 'knowledge_evidence':
-        requirementTable = 'knowledge_evidence_requirements';
-        break;
-      case 'performance_evidence':
-        requirementTable = 'performance_evidence_requirements';
-        break;
-      case 'foundation_skills':
-        requirementTable = 'foundation_skills_requirements';
-        break;
-      case 'elements_criteria':
-        requirementTable = 'elements_performance_criteria_requirements';
-        break;
-      case 'assessment_conditions':
-        requirementTable = 'assessment_conditions_requirements';
-        break;
-    }
-
-    if (requirementTable) {
-      const { data: reqData, error: reqError } = await supabase
-        .from(requirementTable)
-        .select('*')
-        .eq('unitCode', unitCode);
-
-      if (!reqError && reqData) {
-        requirements = reqData;
-      }
-    }
+    // Get requirements for this unit using the new requirements fetcher
+    console.log(`[Validate Assessment] Fetching requirements for ${unitCode}, type: ${validationType}`);
+    const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType);
+    console.log(`[Validate Assessment] Retrieved ${requirements.length} requirements`);
+    
+    // Format requirements as JSON for prompt injection
+    const requirementsJSON = formatRequirementsAsJSON(requirements);
 
     const gemini = createDefaultGeminiClient();
 
@@ -201,21 +196,9 @@ serve(async (req) => {
             .replace(/{unitCode}/g, unitCode)
             .replace(/{unitTitle}/g, unit.Title || unit.title || 'Unit Title Not Available');
           
-          // For full_validation, format all requirement types
-          if (validationType === 'full_validation') {
-            const allRequirementsText = await formatAllRequirements(supabase, unitCode);
-            prompt = prompt.replace(/{requirements}/g, allRequirementsText);
-          } else if (validationType === 'learner_guide_validation') {
-            // For learner_guide_validation, format all requirement types (same as full_validation)
-            const allRequirementsText = await formatAllRequirements(supabase, unitCode);
-            prompt = prompt.replace(/{requirements}/g, allRequirementsText);
-          } else {
-            // For specific validation types, format that type's requirements
-            const requirementsText = requirements
-              .map((r, i) => `${i + 1}. ${r.description || r.text || r.knowled_point || r.performance_evidence || JSON.stringify(r)}`)
-              .join('\n');
-            prompt = prompt.replace(/{requirements}/g, requirementsText);
-          }
+          // Replace {requirements} placeholder with JSON array of requirements
+          // This provides structured data that the AI can parse and validate individually
+          prompt = prompt.replace(/{requirements}/g, requirementsJSON);
         }
       }
 
@@ -234,7 +217,8 @@ serve(async (req) => {
             allRequirementsData.assessmentConditions
           );
         } else {
-          prompt = getValidationPrompt(validationType, unit, requirements);
+          // Use V2 prompt with JSON requirements
+          prompt = getValidationPromptV2(validationType, unit, requirementsJSON);
         }
       }
     }
@@ -285,7 +269,44 @@ serve(async (req) => {
       console.log(`[Validate Assessment] WARNING: No grounding chunks found - Gemini did not access any documents`);
     }
 
-    // Parse validation result with citations
+    // Try to parse as V2 response first (structured JSON with requirement validations)
+    console.log(`[Validate Assessment] Attempting to parse as V2 response...`);
+    let validationResponseV2 = parseValidationResponseV2WithFallback(
+      response.text,
+      validationType,
+      unitCode,
+      requirements
+    );
+
+    // Merge grounding metadata citations into the response
+    validationResponseV2 = mergeCitationsIntoValidations(
+      validationResponseV2,
+      response.candidates[0]?.groundingMetadata
+    );
+
+    console.log(`[Validate Assessment] V2 Response parsed:`, {
+      overallStatus: validationResponseV2.overallStatus,
+      requirementCount: validationResponseV2.requirementValidations.length,
+    });
+
+    // Store V2 validation results in validation_results table
+    if (validationDetailId && validationResponseV2.requirementValidations.length > 0) {
+      console.log(`[Validate Assessment] Storing V2 validation results...`);
+      const storeResult = await storeValidationResultsV2(
+        supabase,
+        validationDetailId,
+        validationResponseV2,
+        namespace
+      );
+
+      if (storeResult.success) {
+        console.log(`[Validate Assessment] Successfully stored ${storeResult.insertedCount} requirement validations`);
+      } else {
+        console.error(`[Validate Assessment] Error storing V2 results:`, storeResult.error);
+      }
+    }
+
+    // Also parse as legacy format for backward compatibility
     const validationResult = parseValidationResponse(
       response.text,
       validationType,
@@ -295,7 +316,7 @@ serve(async (req) => {
     console.log(`[Validate Assessment] Validation completed. Score: ${validationResult.score}`);
     console.log(`[Validate Assessment] Citations found: ${validationResult.citations.length}`);
 
-    // Store validation results in the appropriate table
+    // Store validation results in the legacy tables (for backward compatibility)
     if (validationDetailId) {
       if (validationType === 'full_validation' || validationType === 'learner_guide_validation') {
         const validationLabel = validationType === 'learner_guide_validation' 
@@ -401,12 +422,27 @@ serve(async (req) => {
       }
     }
 
+    const duration = Date.now() - startTime;
+    console.log('[validate-assessment] Validation completed successfully');
+    console.log('[validate-assessment] SUCCESS - Duration:', duration, 'ms');
+    console.log('[validate-assessment] END', new Date().toISOString());
+    console.log('='.repeat(80));
+
     return createSuccessResponse({
       success: true,
       validation: validationResult,
     });
   } catch (error) {
-    console.error('[Validate Assessment] Error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[validate-assessment] ERROR:', error);
+    console.error('[validate-assessment] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: duration + 'ms'
+    });
+    console.log('[validate-assessment] END (with error)', new Date().toISOString());
+    console.log('='.repeat(80));
+    
     return createErrorResponse(
       error instanceof Error ? error.message : 'Internal server error',
       500

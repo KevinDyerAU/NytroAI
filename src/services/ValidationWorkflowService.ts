@@ -51,11 +51,17 @@ export class ValidationWorkflowService {
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           reject(new Error('⏱️ Request timed out. The server may be slow or the edge function is not deployed. Please check Supabase dashboard or try again.'));
-        }, 30000); // 30 second timeout
+        }, 60000); // 60 second timeout
       });
 
       // Try the deployed function first (create-validation-record)
       console.log('[ValidationWorkflow] Calling edge function: create-validation-record');
+      console.log('[ValidationWorkflow] Request payload:', {
+        rtoCode: params.rtoCode,
+        unitCode: params.unitCode,
+        validationType: params.validationType,
+        pineconeNamespace: this.currentNamespace,
+      });
       const startTime = Date.now();
       const requestPromise = supabase.functions.invoke('create-validation-record', {
         body: {
@@ -71,6 +77,8 @@ export class ValidationWorkflowService {
       const { data, error } = await Promise.race([requestPromise, timeoutPromise]) as any;
       const duration = Date.now() - startTime;
       console.log(`[ValidationWorkflow] Response received in ${duration}ms`);
+      console.log('[ValidationWorkflow] Response data:', data);
+      console.log('[ValidationWorkflow] Response error:', error);
 
       if (error) {
         console.error('[ValidationWorkflow] Error creating validation record:', error);

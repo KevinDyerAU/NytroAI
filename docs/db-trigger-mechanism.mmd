@@ -1,0 +1,52 @@
+graph TB
+    subgraph "Frontend"
+        A[Upload Component] -->|1. Upload files| B[Supabase Storage]
+        A -->|2. Call edge function| C[upload-document]
+    end
+
+    subgraph "Edge Function: upload-document"
+        C -->|3. Create record| D[document table]
+        C -->|4. Upload to Gemini| E[Gemini File Search]
+        C -->|5. Create operation| F[gemini_operations table]
+    end
+
+    subgraph "Database Tables"
+        D
+        F
+        G[validation_detail table]
+        H[validation_results table]
+        I[validation_trigger_log table]
+    end
+
+    subgraph "DB Trigger System"
+        J[Trigger: auto_trigger_validation]
+        K[Function: trigger_validation_on_indexing_complete]
+        
+        F -->|ON UPDATE| J
+        J -->|Execute| K
+        
+        K -->|Check completion| F
+        K -->|Get validation_detail_id| G
+        K -->|Count operations| F
+        K -->|Log attempt| I
+    end
+
+    subgraph "Validation Flow"
+        K -->|HTTP POST| L[trigger-validation<br/>Edge Function]
+        L -->|Fetch requirements| M[Requirements Tables<br/>knowledge_evidence_requirements<br/>performance_evidence_requirements<br/>foundation_skills_requirements<br/>elements_performance_criteria_requirements]
+        L -->|Call with JSON| N[validate-assessment<br/>Edge Function]
+        N -->|Store results| H
+    end
+
+    subgraph "Dashboard"
+        O[Dashboard Component]
+        O -->|Poll status| F
+        O -->|Poll status| G
+        O -->|Fetch results| H
+    end
+
+    style J fill:#ff6b6b,stroke:#c92a2a,stroke-width:3px
+    style K fill:#ff6b6b,stroke:#c92a2a,stroke-width:3px
+    style L fill:#4ecdc4,stroke:#087f5b,stroke-width:2px
+    style N fill:#4ecdc4,stroke:#087f5b,stroke-width:2px
+    style M fill:#ffd93d,stroke:#f08c00,stroke-width:2px

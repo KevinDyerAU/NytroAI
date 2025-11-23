@@ -7,12 +7,21 @@ interface TriggerValidationRequest {
 }
 
 serve(async (req) => {
+  const startTime = Date.now();
+  console.log('='.repeat(80));
+  console.log('[trigger-validation] START', new Date().toISOString());
+  console.log('[trigger-validation] Method:', req.method);
+  
   const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (corsResponse) {
+    console.log('[trigger-validation] CORS preflight handled');
+    return corsResponse;
+  }
 
   try {
     const requestData: TriggerValidationRequest = await req.json();
     const { validationDetailId } = requestData;
+    console.log('[trigger-validation] Request data:', { validationDetailId });
 
     if (!validationDetailId) {
       return createErrorResponse('Missing required field: validationDetailId');
@@ -57,8 +66,7 @@ serve(async (req) => {
     }
 
     // Check if documents are uploaded and indexed
-    // ✅ Fixed: Use snake_case column names to match database schema
-    if (!validationDetail.doc_extracted || !validationDetail.file_search_store_id) {
+    if (!validationDetail.docExtracted || !validationDetail.file_search_store_id) {
       return createErrorResponse('Documents not yet indexed. Please wait for upload to complete.');
     }
 
@@ -100,7 +108,7 @@ serve(async (req) => {
     await supabase
       .from('validation_detail')
       .update({
-        extract_status: 'ProcessingInBackground',
+        extractStatus: 'ProcessingInBackground',
       })
       .eq('id', validationDetailId);
 
@@ -124,22 +132,27 @@ serve(async (req) => {
       await supabase
         .from('validation_detail')
         .update({
-          extract_status: 'ValidationFailed',  // ✅ Fixed: Use snake_case
+          extractStatus: 'ValidationFailed',
         })
         .eq('id', validationDetailId);
 
       return createErrorResponse(`Validation failed: ${validationError.message}`);
     }
 
-    console.log(`[Trigger Validation] Validation completed successfully`);
+    const duration = Date.now() - startTime;
+    console.log(`[trigger-validation] Validation completed successfully`);
+    console.log('[trigger-validation] SUCCESS - Duration:', duration, 'ms');
 
     // Update validation status to completed
     await supabase
       .from('validation_detail')
       .update({
-        extract_status: 'Completed',  // ✅ Fixed: Use snake_case
+        extractStatus: 'Completed',
       })
       .eq('id', validationDetailId);
+
+    console.log('[trigger-validation] END', new Date().toISOString());
+    console.log('='.repeat(80));
 
     return createSuccessResponse({
       success: true,
@@ -148,7 +161,16 @@ serve(async (req) => {
       result: validationResult,
     });
   } catch (error) {
-    console.error('[Trigger Validation] Error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[trigger-validation] ERROR:', error);
+    console.error('[trigger-validation] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: duration + 'ms'
+    });
+    console.log('[trigger-validation] END (with error)', new Date().toISOString());
+    console.log('='.repeat(80));
+    
     return createErrorResponse(
       error instanceof Error ? error.message : 'Internal server error',
       500
