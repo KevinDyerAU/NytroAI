@@ -7,6 +7,8 @@ import { getValidationPromptV2 } from '../_shared/validation-prompts-v2.ts';
 import { formatLearnerGuideValidationPrompt } from '../_shared/learner-guide-validation-prompt.ts';
 import { storeValidationResults as storeValidationResultsNew, storeSingleValidationResult } from '../_shared/store-validation-results.ts';
 import { fetchRequirements, fetchAllRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
+import { storeValidationResultsV2, type ValidationResponseV2 } from '../_shared/store-validation-results-v2.ts';
+import { parseValidationResponseV2WithFallback, mergeCitationsIntoValidations } from '../_shared/parse-validation-response-v2.ts';
 
 /**
  * Fetch prompt from database based on validation type
@@ -251,7 +253,44 @@ serve(async (req) => {
       console.log(`[Validate Assessment] WARNING: No grounding chunks found - Gemini did not access any documents`);
     }
 
-    // Parse validation result with citations
+    // Try to parse as V2 response first (structured JSON with requirement validations)
+    console.log(`[Validate Assessment] Attempting to parse as V2 response...`);
+    let validationResponseV2 = parseValidationResponseV2WithFallback(
+      response.text,
+      validationType,
+      unitCode,
+      requirements
+    );
+
+    // Merge grounding metadata citations into the response
+    validationResponseV2 = mergeCitationsIntoValidations(
+      validationResponseV2,
+      response.candidates[0]?.groundingMetadata
+    );
+
+    console.log(`[Validate Assessment] V2 Response parsed:`, {
+      overallStatus: validationResponseV2.overallStatus,
+      requirementCount: validationResponseV2.requirementValidations.length,
+    });
+
+    // Store V2 validation results in validation_results table
+    if (validationDetailId && validationResponseV2.requirementValidations.length > 0) {
+      console.log(`[Validate Assessment] Storing V2 validation results...`);
+      const storeResult = await storeValidationResultsV2(
+        supabase,
+        validationDetailId,
+        validationResponseV2,
+        namespace
+      );
+
+      if (storeResult.success) {
+        console.log(`[Validate Assessment] Successfully stored ${storeResult.insertedCount} requirement validations`);
+      } else {
+        console.error(`[Validate Assessment] Error storing V2 results:`, storeResult.error);
+      }
+    }
+
+    // Also parse as legacy format for backward compatibility
     const validationResult = parseValidationResponse(
       response.text,
       validationType,
@@ -261,7 +300,7 @@ serve(async (req) => {
     console.log(`[Validate Assessment] Validation completed. Score: ${validationResult.score}`);
     console.log(`[Validate Assessment] Citations found: ${validationResult.citations.length}`);
 
-    // Store validation results in the appropriate table
+    // Store validation results in the legacy tables (for backward compatibility)
     if (validationDetailId) {
       if (validationType === 'full_validation' || validationType === 'learner_guide_validation') {
         const validationLabel = validationType === 'learner_guide_validation' 

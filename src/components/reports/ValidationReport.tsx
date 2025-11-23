@@ -44,14 +44,17 @@ function calculateComplianceStats(report: any): ComplianceStats {
     ...(report.elementsPerformanceCriteria || []),
   ];
 
+  // Use new validation_results status values: 'met', 'partial', 'not_met'
   const compliant = allItems.filter(
     (item) =>
+      item.status?.toLowerCase() === 'met' ||
       item.status?.toLowerCase() === 'compliant' ||
       item.status?.toLowerCase() === 'success'
   ).length;
 
   const nonCompliant = allItems.filter(
     (item) =>
+      item.status?.toLowerCase() === 'not_met' ||
       item.status?.toLowerCase() === 'failed' ||
       item.status?.toLowerCase() === 'non-compliant'
   ).length;

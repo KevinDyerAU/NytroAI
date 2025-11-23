@@ -35,6 +35,12 @@ interface ValidationReportData {
   };
 }
 
+/**
+ * Hook to fetch validation report data from the consolidated validation_results table
+ * 
+ * This is the V2 version that uses the new table structure instead of the legacy
+ * separate tables (knowledge_evidence_validations, etc.)
+ */
 export function useValidationReport(validationDetailId: number) {
   const [report, setReport] = useState<ValidationReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +52,8 @@ export function useValidationReport(validationDetailId: number) {
       setError(null);
 
       try {
+        console.log(`[useValidationReport] Fetching report for validation ${validationDetailId}`);
+
         // Fetch validation detail with unit information
         const { data: detail, error: detailError } = await supabase
           .from('validation_detail')
@@ -58,7 +66,10 @@ export function useValidationReport(validationDetailId: number) {
           .eq('id', validationDetailId)
           .single();
 
-        if (detailError) throw detailError;
+        if (detailError) {
+          console.error('[useValidationReport] Error fetching detail:', detailError);
+          throw detailError;
+        }
 
         console.log(`[useValidationReport] Detail fetched:`, {
           id: detail.id,
@@ -69,7 +80,7 @@ export function useValidationReport(validationDetailId: number) {
         // Determine if this is a learner guide validation based on namespace
         const isLearnerGuide = detail?.namespace_code?.includes('learner-guide') || false;
 
-        // Fetch all validation results from the consolidated validation_results table
+        // Fetch all validation results from the consolidated table
         const { data: allResults, error: resultsError } = await supabase
           .from('validation_results')
           .select('*')
@@ -140,7 +151,7 @@ export function useValidationReport(validationDetailId: number) {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch report';
         setError(errorMessage);
-        console.error('Error fetching validation report:', err);
+        console.error('[useValidationReport] Error:', err);
       } finally {
         setIsLoading(false);
       }
@@ -152,4 +163,50 @@ export function useValidationReport(validationDetailId: number) {
   }, [validationDetailId]);
 
   return { report, isLoading, error };
+}
+
+/**
+ * Hook to fetch validation results with smart questions
+ * 
+ * This variant also fetches associated smart questions from the SmartQuestion table
+ */
+export function useValidationReportWithQuestions(validationDetailId: number) {
+  const { report, isLoading, error } = useValidationReport(validationDetailId);
+  const [smartQuestions, setSmartQuestions] = useState<any[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchSmartQuestions = async () => {
+      if (!validationDetailId) return;
+
+      setQuestionsLoading(true);
+      try {
+        const { data, error: questionsError } = await supabase
+          .from('SmartQuestion')
+          .select('*')
+          .eq('validation_detail_id', validationDetailId)
+          .order('created_at', { ascending: false });
+
+        if (questionsError) {
+          console.error('[useValidationReportWithQuestions] Error fetching questions:', questionsError);
+        } else {
+          setSmartQuestions(data || []);
+          console.log(`[useValidationReportWithQuestions] Fetched ${data?.length || 0} smart questions`);
+        }
+      } catch (err) {
+        console.error('[useValidationReportWithQuestions] Exception:', err);
+      } finally {
+        setQuestionsLoading(false);
+      }
+    };
+
+    fetchSmartQuestions();
+  }, [validationDetailId]);
+
+  return {
+    report,
+    smartQuestions,
+    isLoading: isLoading || questionsLoading,
+    error,
+  };
 }

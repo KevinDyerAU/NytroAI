@@ -11,6 +11,7 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
 import { createDefaultGeminiClient } from '../_shared/gemini.ts';
 import { fetchRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
+import { storeSmartQuestionsV2 } from '../_shared/store-validation-results-v2.ts';
 
 interface GenerateSmartQuestionsRequest {
   documentId: number;
@@ -138,43 +139,37 @@ serve(async (req) => {
 
     console.log(`[Smart Questions V2] Parsed ${smartQuestions.length} questions`);
 
-    // Store questions in database
-    const savedQuestions = [];
-    for (const sq of smartQuestions) {
-      try {
-        const { data, error } = await supabase
-          .from('SmartQuestion')
-          .insert({
-            question: sq.question,
-            benchmark_answer: sq.benchmarkAnswer,
-            question_type: sq.questionType,
-            difficulty_level: sq.difficultyLevel,
-            assessment_category: sq.assessmentCategory,
-            validation_detail_id: validationDetailId || null,
-            requirement_id: sq.requirementId,
-            unit_code: unitCode,
-            document_id: documentId,
-            metadata: {
-              requirement_type: sq.requirementType,
-              requirement_text: sq.requirementText,
-              rationale: sq.rationale,
-              doc_references: sq.docReferences,
-            },
-          })
-          .select()
-          .single();
+    // Store questions using V2 storage function
+    // This stores in both SmartQuestion table and updates validation_results
+    const storeResult = await storeSmartQuestionsV2(
+      supabase,
+      validationDetailId || 0,
+      unitCode,
+      documentId,
+      smartQuestions
+    );
 
-        if (!error && data) {
-          savedQuestions.push(data);
-        } else if (error) {
-          console.error(`[Smart Questions V2] Error saving question:`, error);
-        }
-      } catch (err) {
-        console.error(`[Smart Questions V2] Exception saving question:`, err);
-      }
+    if (!storeResult.success) {
+      console.error('[Smart Questions V2] Error storing questions:', storeResult.error);
+      return createErrorResponse(
+        `Failed to store smart questions: ${storeResult.error?.message || 'Unknown error'}`
+      );
     }
 
-    console.log(`[Smart Questions V2] Saved ${savedQuestions.length} questions to database`);
+    console.log(`[Smart Questions V2] Saved ${storeResult.insertedCount} questions to database`);
+
+    // Fetch the saved questions to return to client
+    const { data: savedQuestions, error: fetchError } = await supabase
+      .from('SmartQuestion')
+      .select('*')
+      .eq('unit_code', unitCode)
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: false })
+      .limit(smartQuestions.length);
+
+    if (fetchError) {
+      console.error('[Smart Questions V2] Error fetching saved questions:', fetchError);
+    }
 
     return createSuccessResponse({
       success: true,
