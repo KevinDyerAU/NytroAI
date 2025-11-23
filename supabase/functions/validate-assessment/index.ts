@@ -3,8 +3,10 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
 import { createDefaultGeminiClient } from '../_shared/gemini.ts';
 import { getValidationPrompt } from '../_shared/validation-prompts.ts';
+import { getValidationPromptV2 } from '../_shared/validation-prompts-v2.ts';
 import { formatLearnerGuideValidationPrompt } from '../_shared/learner-guide-validation-prompt.ts';
 import { storeValidationResults as storeValidationResultsNew, storeSingleValidationResult } from '../_shared/store-validation-results.ts';
+import { fetchRequirements, fetchAllRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
 
 /**
  * Fetch prompt from database based on validation type
@@ -142,38 +144,13 @@ serve(async (req) => {
       return createErrorResponse(`Unit not found: ${unitCode}`);
     }
 
-    // Get requirements for this unit based on validation type
-    let requirements: any[] = [];
-    let requirementTable = '';
-
-    switch (validationType) {
-      case 'knowledge_evidence':
-        requirementTable = 'knowledge_evidence_requirements';
-        break;
-      case 'performance_evidence':
-        requirementTable = 'performance_evidence_requirements';
-        break;
-      case 'foundation_skills':
-        requirementTable = 'foundation_skills_requirements';
-        break;
-      case 'elements_criteria':
-        requirementTable = 'elements_performance_criteria_requirements';
-        break;
-      case 'assessment_conditions':
-        requirementTable = 'assessment_conditions_requirements';
-        break;
-    }
-
-    if (requirementTable) {
-      const { data: reqData, error: reqError } = await supabase
-        .from(requirementTable)
-        .select('*')
-        .eq('unitCode', unitCode);
-
-      if (!reqError && reqData) {
-        requirements = reqData;
-      }
-    }
+    // Get requirements for this unit using the new requirements fetcher
+    console.log(`[Validate Assessment] Fetching requirements for ${unitCode}, type: ${validationType}`);
+    const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType);
+    console.log(`[Validate Assessment] Retrieved ${requirements.length} requirements`);
+    
+    // Format requirements as JSON for prompt injection
+    const requirementsJSON = formatRequirementsAsJSON(requirements);
 
     const gemini = createDefaultGeminiClient();
 
@@ -201,21 +178,9 @@ serve(async (req) => {
             .replace(/{unitCode}/g, unitCode)
             .replace(/{unitTitle}/g, unit.Title || unit.title || 'Unit Title Not Available');
           
-          // For full_validation, format all requirement types
-          if (validationType === 'full_validation') {
-            const allRequirementsText = await formatAllRequirements(supabase, unitCode);
-            prompt = prompt.replace(/{requirements}/g, allRequirementsText);
-          } else if (validationType === 'learner_guide_validation') {
-            // For learner_guide_validation, format all requirement types (same as full_validation)
-            const allRequirementsText = await formatAllRequirements(supabase, unitCode);
-            prompt = prompt.replace(/{requirements}/g, allRequirementsText);
-          } else {
-            // For specific validation types, format that type's requirements
-            const requirementsText = requirements
-              .map((r, i) => `${i + 1}. ${r.description || r.text || r.knowled_point || r.performance_evidence || JSON.stringify(r)}`)
-              .join('\n');
-            prompt = prompt.replace(/{requirements}/g, requirementsText);
-          }
+          // Replace {requirements} placeholder with JSON array of requirements
+          // This provides structured data that the AI can parse and validate individually
+          prompt = prompt.replace(/{requirements}/g, requirementsJSON);
         }
       }
 
@@ -234,7 +199,8 @@ serve(async (req) => {
             allRequirementsData.assessmentConditions
           );
         } else {
-          prompt = getValidationPrompt(validationType, unit, requirements);
+          // Use V2 prompt with JSON requirements
+          prompt = getValidationPromptV2(validationType, unit, requirementsJSON);
         }
       }
     }
