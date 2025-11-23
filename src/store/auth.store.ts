@@ -59,9 +59,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
 
       if (authError) {
+        // "Auth session missing" is a normal state when user is not logged in
+        // Only log it as a warning, not an error
+        if (authError.message === 'Auth session missing!' || authError.message.includes('session_not_found')) {
+          console.log('[AuthStore] No active session - user not logged in');
+          set({ isLoading: false, user: null, isAuthenticated: false });
+          return;
+        }
+
+        // Log actual errors (corrupted sessions, refresh token failures, etc.)
         console.error('[AuthStore] Auth check error:', authError.message);
+
         // Clear corrupted sessions
-        if (authError.message.includes('session') || authError.message.includes('refresh token') || authError.message.includes('Refresh Token')) {
+        if (authError.message.includes('refresh token') || authError.message.includes('Refresh Token') || authError.message.includes('invalid')) {
           console.log('[AuthStore] Clearing corrupted session:', authError.message);
           // Sign out to clear any corrupted state
           await supabase.auth.signOut();
@@ -106,8 +116,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false });
       }
     } catch (err) {
-      console.log('[AuthStore] Auth check error:', err instanceof Error ? err.message : String(err));
-      set({ isLoading: false });
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      // Only log as error if it's not a normal "no session" state
+      if (errorMessage === 'Auth session missing!' || errorMessage.includes('session_not_found')) {
+        console.log('[AuthStore] No active session - user not logged in');
+      } else {
+        console.error('[AuthStore] Unexpected error during auth check:', errorMessage);
+      }
+
+      set({ isLoading: false, user: null, isAuthenticated: false });
     }
   },
 }));
