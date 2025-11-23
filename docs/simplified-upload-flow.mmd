@@ -1,0 +1,53 @@
+sequenceDiagram
+    participant User
+    participant Frontend as Upload Component
+    participant Storage as Supabase Storage
+    participant EdgeFn as upload-document<br/>Edge Function
+    participant DB as Database
+    participant Trigger as DB Trigger<br/>auto_trigger_validation
+    participant TriggerFn as trigger-validation<br/>Edge Function
+    participant ValidateFn as validate-assessment<br/>Edge Function
+    participant Dashboard
+
+    Note over User,Dashboard: Simplified Upload & Validation Flow
+
+    User->>Frontend: Select files
+    Frontend->>Storage: Upload files
+    Storage-->>Frontend: Storage paths
+    
+    Frontend->>EdgeFn: Call with storage paths
+    Note right of EdgeFn: Creates document record<br/>Uploads to Gemini<br/>Creates gemini_operation
+    
+    EdgeFn->>DB: INSERT document
+    EdgeFn->>DB: INSERT gemini_operation<br/>(status: pending)
+    EdgeFn-->>Frontend: Document ID
+    
+    Frontend-->>User: Upload complete!
+    Note over User: User can continue working
+
+    Note over DB,Trigger: Background Processing Begins
+
+    DB->>Trigger: Gemini completes indexing
+    Note right of Trigger: UPDATE gemini_operation<br/>(status: completed)
+    
+    Trigger->>Trigger: Check all operations<br/>for validation_detail_id
+    
+    alt All operations complete
+        Trigger->>TriggerFn: HTTP POST<br/>{validationDetailId}
+        
+        TriggerFn->>DB: Fetch requirements as JSON<br/>(all requirement tables)
+        DB-->>TriggerFn: JSON requirements array
+        
+        TriggerFn->>ValidateFn: Call with JSON requirements
+        
+        ValidateFn->>ValidateFn: Validate each requirement
+        
+        ValidateFn->>DB: INSERT validation_results<br/>(one per requirement)
+        
+        ValidateFn-->>TriggerFn: Validation complete
+        TriggerFn->>DB: Log to validation_trigger_log
+    end
+
+    Dashboard->>DB: Poll for status updates
+    DB-->>Dashboard: Show progress & results
+    Dashboard-->>User: Display validation results

@@ -94,16 +94,38 @@ Open `http://localhost:5173` in your browser. Done! 🎉
 
 ## 📖 How It Works
 
+### Simple 3-Step Process
+
 ```
-Upload Assessment → AI Analyzes → Get Results → Download Report
+Upload Assessment → Background Processing → Get Results
 ```
 
-1. **Upload** - Drag and drop your assessment PDF
-2. **Select Unit** - Choose the unit of competency to validate against
-3. **Wait** - AI analyzes your assessment (usually 1-2 minutes)
-4. **Review** - See which requirements are met, partially met, or not met
-5. **Improve** - Get smart questions to address gaps
-6. **Export** - Download detailed compliance report
+1. **Upload** - Drag and drop your assessment PDF (completes instantly)
+2. **Automatic Processing** - AI indexes and validates in the background
+3. **Review Results** - Dashboard shows real-time progress and results
+
+### What Happens Behind the Scenes
+
+![Simplified Upload Flow](docs/simplified-upload-flow.png)
+
+*Complete upload and validation flow showing DB trigger automation*
+
+**Upload Phase (Instant)**
+- Files upload to secure storage
+- Document records created
+- You can continue working immediately
+
+**Background Processing (Automatic)**
+- AI indexes documents with Gemini File Search
+- Database trigger automatically starts validation
+- Requirements fetched as structured JSON
+- Each requirement validated individually
+- Results stored in database
+
+**Results (Real-time)**
+- Dashboard polls for status updates
+- See progress as validation completes
+- Export detailed compliance report
 
 ---
 
@@ -195,20 +217,41 @@ For detailed architecture documentation, see [docs/ARCHITECTURE.md](./docs/ARCHI
    - Set up CORS policies
    - Enable public access if needed
 
-4. **Automatic Validation Trigger** (Recommended)
-   - Enables instant validation start after document indexing
-   - Reduces API calls by 97% (1 vs 30-60 polling requests)
+4. **Automatic Validation Trigger** (Built-in)
+   - Validation starts automatically after document indexing
+   - No manual triggering or polling required
    - Works even if browser is closed
    
-   **Setup:** Just run the migration - credentials are already included!
+   **How It Works:**
+   
+   ![DB Trigger Mechanism](docs/db-trigger-mechanism.png)
+   
+   *Database trigger system that automates validation workflow*
+   
+   ```sql
+   -- Trigger automatically fires when indexing completes
+   CREATE TRIGGER auto_trigger_validation
+     AFTER UPDATE ON gemini_operations
+     FOR EACH ROW
+     EXECUTE FUNCTION trigger_validation_on_indexing_complete();
+   ```
    
    **Benefits:**
-   - ⚡ **10-20x faster** - Validation starts in <1s vs 1-2s polling
-   - 📉 **97% fewer API calls** - 1 HTTP call vs 30-60 polling requests
-   - 🔒 **100% reliable** - Works even if user closes browser
+   - ⚡ **Instant** - Validation starts immediately when indexing completes
+   - 📉 **Zero polling** - No frontend API calls needed
+   - 🔒 **100% reliable** - Database triggers are atomic and guaranteed
    - 🎯 **Zero overhead** - Minimal database impact
+   - 🔄 **Automatic retry** - Failed validations can be retried easily
    
-   See [Quick Start Guide](./QUICK_START.md) for 5-minute setup.
+   **Technical Details:**
+   - Trigger monitors `gemini_operations` table
+   - When all operations complete for a validation
+   - Automatically calls `trigger-validation` edge function
+   - Fetches requirements as JSON from database
+   - Validates each requirement individually
+   - Stores results in `validation_results` table
+   
+   See [SIMPLIFIED_UPLOAD_FLOW.md](./SIMPLIFIED_UPLOAD_FLOW.md) for complete documentation.
 
 ---
 
