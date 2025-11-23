@@ -4,31 +4,35 @@
 
 The upload and validation process has been dramatically simplified to use asynchronous background processing with DB triggers. This eliminates complex polling logic and provides a much cleaner user experience.
 
-## New Flow
+## New Flow (Instant Upload)
 
 ```
 1. User selects files
    ↓
 2. Files upload to Supabase Storage
    ↓
-3. Call `upload-document` edge function
+3. ✅ UPLOAD COMPLETE! (User can continue working)
    ↓
-4. Edge function:
+   [Background Processing Begins]
+   ↓
+4. Call `upload-document` edge function (fire-and-forget)
+   ↓
+5. Edge function:
    - Creates document record in DB
    - Uploads to Gemini File Search
    - Creates gemini_operation record
    ↓
-5. DB Trigger (auto_trigger_validation):
+6. DB Trigger (auto_trigger_validation):
    - Monitors gemini_operations table
    - When ALL operations complete
    - Automatically calls trigger-validation edge function
    ↓
-6. trigger-validation edge function:
+7. trigger-validation edge function:
    - Fetches requirements from DB as JSON
    - Calls validate-assessment with JSON requirements
    - Stores results in validation_results table
    ↓
-7. Dashboard polls for status updates
+8. Dashboard polls for status updates
    - Shows indexing progress
    - Shows validation progress
    - Shows results when complete
@@ -36,25 +40,35 @@ The upload and validation process has been dramatically simplified to use asynch
 
 ## Key Benefits
 
-### 1. **Simplicity**
+### 1. **Instant Completion**
+- Upload completes in <1 second
+- User can close browser immediately
+- No waiting for RAG pipeline
+- Processing continues in background
+
+### 2. **Simplicity**
 - Upload component just uploads files
 - No complex polling or waiting logic
 - No manual validation triggering
+- Fire-and-forget edge function call
 
-### 2. **Reliability**
+### 3. **Reliability**
 - DB triggers are atomic and reliable
 - No race conditions or timeouts
 - Automatic retry on failure
+- Works even if browser closed
 
-### 3. **User Experience**
-- Upload completes immediately
-- User can continue working
+### 4. **User Experience**
+- Upload feels instant
+- User can continue working immediately
 - Dashboard shows real-time status
+- No blocking or waiting
 
-### 4. **Maintainability**
+### 5. **Maintainability**
 - Clear separation of concerns
 - Easy to debug and test
 - Less code to maintain
+- Background processing isolated
 
 ## Components
 
@@ -62,13 +76,16 @@ The upload and validation process has been dramatically simplified to use asynch
 
 **DocumentUploadServiceSimplified.ts**
 - Uploads file to storage
-- Calls upload-document edge function
-- Returns immediately
+- Returns immediately after storage upload
+- Calls upload-document edge function in background (fire-and-forget)
+- No waiting for edge function response
 
 **DocumentUploadSimplified.tsx**
 - Simple file selection UI
-- Progress bar during upload
-- Info message about background processing
+- Progress bar during storage upload
+- Completion message shown immediately
+- Info about background processing
+- User can close browser
 
 ### Backend
 
