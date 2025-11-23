@@ -1,39 +1,52 @@
-import { useState, useEffect } from 'react';
-import { Upload, Loader2, CheckCircle, XCircle, FileText, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Upload, Loader2, CheckCircle, XCircle, FileText, AlertTriangle, X, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { FilePreview } from './FilePreview';
 import { UploadProgress as UploadProgressComponent } from './UploadProgress';
 import { useAuthStore } from '../../store/auth.store';
 import { cn } from '../ui/utils';
-import { documentUploadService, UploadProgress } from '../../services/DocumentUploadService';
-import { checkStorageBucket, testStorageUpload } from '../../utils/storageCheck';
+import { documentUploadServiceV2, UploadProgress } from '../../services/DocumentUploadService_v2';
+import { uploadCancellationManager } from '../../lib/uploadCancellation';
+import { validateFile as validateFileAdvanced, validateBatch, formatFileSize } from '../../lib/fileValidation';
+import { checkStorageBucket } from '../../utils/storageCheck';
 
 interface DocumentUploadProps {
   unitCode: string;
   validationDetailId?: number;
   onUploadComplete: (documentId: number, currentFile?: number, totalFiles?: number) => void;
   onFilesSelected?: (files: File[]) => void;
-  triggerUpload?: boolean; // When true, starts upload
+  triggerUpload?: boolean;
 }
 
 interface FileState {
   file: File;
   progress: UploadProgress;
   documentId?: number;
-  operationId?: number;
+  operationId?: string;
+  hash?: string;
+  canRetry?: boolean;
 }
 
 /**
- * Refactored Document Upload Component
+ * Enhanced Document Upload Component (v2)
  * 
- * Uses the new DocumentUploadService for:
- * - Async file upload with proper progress tracking
- * - Gemini indexing with operation polling
- * - Clear separation of concerns
- * - No race conditions or timeouts
+ * Phase 3.5 Features:
+ * - Upload cancellation with AbortController
+ * - Retry button for failed uploads
+ * - Automatic retry with exponential backoff
+ * - Better error messages with actions
+ * - Adaptive polling (fast → slow)
+ * - Advanced file validation
+ * - Duplicate detection
  */
-export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploadComplete, onFilesSelected, triggerUpload = false }: DocumentUploadProps) {
+export function DocumentUploadRefactored({ 
+  unitCode, 
+  validationDetailId, 
+  onUploadComplete, 
+  onFilesSelected, 
+  triggerUpload = false 
+}: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<FileState[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -41,28 +54,21 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
   const [storageError, setStorageError] = useState<string | null>(null);
   const { user, isLoading: isAuthLoading } = useAuthStore();
 
-  // Notify parent when files change (separate from state update to avoid setState during render)
+  // Notify parent when files change
   useEffect(() => {
     if (files.length > 0 && onFilesSelected) {
       onFilesSelected(files.map(f => f.file));
     }
-    // Note: onFilesSelected is intentionally NOT in deps array since it's memoized with useCallback in parent
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files]);
+  }, [files, onFilesSelected]);
 
-  // Check storage health AFTER auth is ready (to avoid timing issues on hard refresh)
+  // Check storage health
   useEffect(() => {
-    // Wait until auth is loaded before checking storage
     if (isAuthLoading) {
-      console.log('[Upload] Waiting for auth to load before checking storage...');
       return;
     }
 
     const checkStorage = async () => {
-      console.log('[Upload] Auth loaded, checking storage bucket health...');
-      
       if (!user) {
-        console.log('[Upload] No user yet, skipping storage check');
         return;
       }
       
@@ -72,9 +78,6 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
         setStorageHealthy(false);
         setStorageError(result.error || 'Storage bucket not accessible');
         console.warn('[Upload] Storage check failed (non-critical):', result);
-        
-        // Don't show error toast - the actual upload will fail if there's a real issue
-        // This check is just informational
       } else {
         setStorageHealthy(true);
         console.log('[Upload] Storage bucket is healthy:', result.details);
@@ -82,7 +85,7 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
     };
 
     checkStorage();
-  }, [isAuthLoading]);
+  }, [isAuthLoading, user]);
 
   // Trigger upload when parent sets triggerUpload to true
   useEffect(() => {
@@ -90,11 +93,22 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
       console.log('[Upload] Triggered by parent, starting upload...');
       handleUpload();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggerUpload]);
 
-  const validateFile = (file: File): boolean => {
+  // Cleanup on unmount - cancel all uploads
+  useEffect(() => {
+    return () => {
+      const count = uploadCancellationManager.cancelAll();
+      if (count > 0) {
+        console.log(`[Upload] Cancelled ${count} uploads on unmount`);
+      }
+    };
+  }, []);
+
+  const validateFileBasic = (file: File): boolean => {
     const allowedTypes = ['application/pdf', 'text/plain'];
-    const maxSize = 5 * 1024 * 1024; // 5MB per file
+    const maxSize = 10 * 1024 * 1024; // 10MB per file (increased from 5MB)
 
     if (!allowedTypes.includes(file.type)) {
       toast.error(`${file.name}: Only PDF and TXT files are allowed`);
@@ -102,7 +116,12 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
     }
 
     if (file.size > maxSize) {
-      toast.error(`${file.name} is too large. Maximum size is 5MB per file.`);
+      toast.error(`${file.name}: File size exceeds ${formatFileSize(maxSize)} limit`);
+      return false;
+    }
+
+    if (file.size === 0) {
+      toast.error(`${file.name}: File is empty`);
       return false;
     }
 
@@ -110,67 +129,85 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
   };
 
   const validateTotalSize = (newFiles: File[]): boolean => {
-    const maxTotalSize = 20 * 1024 * 1024; // 20MB total
-    const currentTotalSize = files.reduce((sum, f) => sum + f.file.size, 0);
-    const newFilesSize = newFiles.reduce((sum, f) => sum + f.size, 0);
-    const totalSize = currentTotalSize + newFilesSize;
+    const totalSize = [...files.map(f => f.file), ...newFiles].reduce((sum, f) => sum + f.size, 0);
+    const maxTotalSize = 50 * 1024 * 1024; // 50MB total
 
     if (totalSize > maxTotalSize) {
-      const totalMB = (totalSize / (1024 * 1024)).toFixed(1);
-      toast.error(`Total file size (${totalMB}MB) exceeds the 20MB limit`);
+      toast.error(`Total file size exceeds ${formatFileSize(maxTotalSize)} limit`);
       return false;
     }
 
     return true;
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const validFiles = droppedFiles.filter(validateFile);
-
-    if (validFiles.length !== droppedFiles.length) {
-      toast.error('Some files were rejected. Only PDF and TXT files are allowed.');
-    }
-
-    if (validFiles.length > 0 && !validateTotalSize(validFiles)) {
-      return; // Total size check failed
-    }
-
-    const newFileStates: FileState[] = validFiles.map((file) => ({
-      file,
-      progress: {
-        stage: 'ready',
-        progress: 0,
-        message: 'Ready to upload',
-      },
-    }));
-
-    setFiles((prev) => [...prev, ...newFileStates]);
+    await processFiles(droppedFiles);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    const validFiles = selectedFiles.filter(validateFile);
+    await processFiles(selectedFiles);
+  };
+
+  const processFiles = async (selectedFiles: File[]) => {
+    // Basic validation
+    const validFiles = selectedFiles.filter(validateFileBasic);
 
     if (validFiles.length !== selectedFiles.length) {
-      toast.error('Some files were rejected. Only PDF and TXT files are allowed.');
+      toast.error('Some files were rejected. Check file type and size.');
     }
 
-    if (validFiles.length > 0 && !validateTotalSize(validFiles)) {
-      return; // Total size check failed
+    if (validFiles.length === 0) {
+      return;
     }
 
-    const newFileStates: FileState[] = validFiles.map((file) => ({
-      file,
-      progress: {
-        stage: 'ready',
-        progress: 0,
-        message: 'Ready to upload',
-      },
-    }));
+    if (!validateTotalSize(validFiles)) {
+      return;
+    }
+
+    // Advanced validation with duplicate detection
+    const batchValidation = await validateBatch(validFiles);
+
+    if (!batchValidation.valid) {
+      toast.error('Some files failed validation. Check the console for details.');
+      console.error('[Upload] Batch validation failed:', batchValidation);
+      return;
+    }
+
+    // Warn about duplicates (but allow upload)
+    if (batchValidation.duplicates.length > 0) {
+      toast.warning(`Duplicate files detected: ${batchValidation.duplicates.join(', ')}`);
+    }
+
+    // Create file states
+    const newFileStates: FileState[] = validFiles.map((file) => {
+      const validation = batchValidation.results.get(file.name);
+      return {
+        file,
+        progress: {
+          stage: 'validating',
+          progress: 0,
+          message: 'Ready to upload',
+          cancellable: false,
+        },
+        hash: validation?.metadata?.hash,
+        canRetry: false,
+      };
+    });
 
     setFiles((prev) => [...prev, ...newFileStates]);
   };
@@ -186,46 +223,61 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
     try {
       for (let i = 0; i < files.length; i++) {
         const fileState = files[i];
+        
+        // Skip already completed files
+        if (fileState.progress.stage === 'completed') {
+          continue;
+        }
+
         console.log(`[Upload] Processing file ${i + 1}/${files.length}:`, fileState.file.name);
 
-        // Set initial uploading state
+        const operationId = `upload-${Date.now()}-${i}`;
+
+        // Update file state with operation ID
         setFiles((prev) =>
           prev.map((f, idx) =>
             idx === i
               ? {
                   ...f,
-                  progress: {
-                    stage: 'uploading',
-                    progress: 5,
-                    message: 'Preparing upload...',
-                  },
+                  operationId,
+                  canRetry: false,
                 }
               : f
           )
         );
 
         try {
-          console.log(`[Upload] About to call documentUploadService.uploadDocument`);
-          console.log(`[Upload] Service object:`, documentUploadService);
-
-          // Upload with progress tracking
-          const result = await documentUploadService.uploadDocument(
+          // Upload with v2 service (includes all Phase 3.5 features)
+          const result = await documentUploadServiceV2.uploadDocument(
             fileState.file,
             rtoCode,
             unitCode,
             'assessment',
-            validationDetailId, // Links document to validation workflow
+            validationDetailId,
             (progress) => {
               console.log(`[Upload] Progress update for ${fileState.file.name}:`, progress);
+              
               // Update file progress in state
               setFiles((prev) =>
-                prev.map((f, idx) => (idx === i ? { ...f, progress } : f))
+                prev.map((f, idx) => 
+                  idx === i 
+                    ? { 
+                        ...f, 
+                        progress,
+                        canRetry: progress.stage === 'failed',
+                      } 
+                    : f
+                )
               );
+            },
+            {
+              enableRetry: true,
+              showToasts: false, // We handle toasts ourselves
+              validateBeforeUpload: true,
+              checkDuplicates: true,
+              adaptivePolling: true,
             }
-          ).catch((err) => {
-            console.error('[Upload] ERROR in uploadDocument call:', err);
-            throw err;
-          });
+          );
 
           console.log(`[Upload] Upload complete for ${fileState.file.name}:`, result);
 
@@ -236,12 +288,15 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
                 ? {
                     ...f,
                     documentId: result.documentId,
-                    operationId: result.operationId,
+                    operationId: result.operationId.toString(),
+                    hash: result.hash,
                     progress: {
                       stage: 'completed',
                       progress: 100,
                       message: 'Upload complete',
+                      cancellable: false,
                     },
+                    canRetry: false,
                   }
                 : f
             )
@@ -255,6 +310,7 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
           console.error(`Error uploading ${fileState.file.name}:`, error);
 
           let errorMessage = error instanceof Error ? error.message : 'Upload failed';
+          const isCancelled = errorMessage.includes('cancelled') || errorMessage.includes('abort');
 
           // Provide more helpful error message for edge function issues
           if (errorMessage.includes('Failed to send a request to the Edge Function') ||
@@ -268,29 +324,188 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
                 ? {
                     ...f,
                     progress: {
-                      stage: 'failed',
+                      stage: isCancelled ? 'cancelled' : 'failed',
                       progress: 0,
                       message: errorMessage,
                       error: errorMessage,
+                      cancellable: false,
                     },
+                    canRetry: !isCancelled, // Can retry if not cancelled
                   }
                 : f
             )
           );
 
-          toast.error(`Failed to upload ${fileState.file.name}: ${errorMessage}`);
+          if (!isCancelled) {
+            toast.error(`Failed to upload ${fileState.file.name}: ${errorMessage}`);
+          } else {
+            toast.info(`Upload cancelled: ${fileState.file.name}`);
+          }
         }
       }
 
       // Clear successfully uploaded files
-      setFiles((prev) => prev.filter((f) => f.progress.stage === 'failed'));
+      setFiles((prev) => prev.filter((f) => f.progress.stage !== 'completed'));
     } finally {
       setIsUploading(false);
     }
   };
 
   const removeFile = (index: number) => {
+    const fileState = files[index];
+    
+    // Cancel upload if in progress
+    if (fileState.operationId && fileState.progress.cancellable) {
+      uploadCancellationManager.cancel(fileState.operationId);
+    }
+
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const cancelUpload = (index: number) => {
+    const fileState = files[index];
+    
+    if (fileState.operationId) {
+      const cancelled = uploadCancellationManager.cancel(fileState.operationId);
+      
+      if (cancelled) {
+        toast.info(`Cancelling upload: ${fileState.file.name}`);
+        
+        // Update state to show cancelled
+        setFiles((prev) =>
+          prev.map((f, idx) =>
+            idx === index
+              ? {
+                  ...f,
+                  progress: {
+                    stage: 'cancelled',
+                    progress: 0,
+                    message: 'Upload cancelled',
+                    cancellable: false,
+                  },
+                  canRetry: true,
+                }
+              : f
+          )
+        );
+      }
+    }
+  };
+
+  const retryUpload = async (index: number) => {
+    const fileState = files[index];
+    
+    if (!user) return;
+
+    const rtoCode = user.rto_code || 'default';
+    const operationId = `upload-retry-${Date.now()}-${index}`;
+
+    console.log(`[Upload] Retrying upload for ${fileState.file.name}`);
+
+    // Update state to show retrying
+    setFiles((prev) =>
+      prev.map((f, idx) =>
+        idx === index
+          ? {
+              ...f,
+              operationId,
+              progress: {
+                stage: 'uploading',
+                progress: 0,
+                message: 'Retrying upload...',
+                cancellable: true,
+              },
+              canRetry: false,
+            }
+          : f
+      )
+    );
+
+    try {
+      const result = await documentUploadServiceV2.uploadDocument(
+        fileState.file,
+        rtoCode,
+        unitCode,
+        'assessment',
+        validationDetailId,
+        (progress) => {
+          setFiles((prev) =>
+            prev.map((f, idx) => 
+              idx === index 
+                ? { 
+                    ...f, 
+                    progress,
+                    canRetry: progress.stage === 'failed',
+                  } 
+                : f
+            )
+          );
+        },
+        {
+          enableRetry: true,
+          showToasts: false,
+          validateBeforeUpload: true,
+          checkDuplicates: true,
+          adaptivePolling: true,
+        }
+      );
+
+      // Update file state with result
+      setFiles((prev) =>
+        prev.map((f, idx) =>
+          idx === index
+            ? {
+                ...f,
+                documentId: result.documentId,
+                operationId: result.operationId.toString(),
+                hash: result.hash,
+                progress: {
+                  stage: 'completed',
+                  progress: 100,
+                  message: 'Upload complete',
+                  cancellable: false,
+                },
+                canRetry: false,
+              }
+            : f
+        )
+      );
+
+      toast.success(`${fileState.file.name} uploaded successfully!`);
+      onUploadComplete(result.documentId, index + 1, files.length);
+
+      // Remove from list after successful retry
+      setTimeout(() => {
+        setFiles((prev) => prev.filter((_, i) => i !== index));
+      }, 2000);
+    } catch (error) {
+      console.error(`Error retrying upload for ${fileState.file.name}:`, error);
+
+      let errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      const isCancelled = errorMessage.includes('cancelled') || errorMessage.includes('abort');
+
+      setFiles((prev) =>
+        prev.map((f, idx) =>
+          idx === index
+            ? {
+                ...f,
+                progress: {
+                  stage: isCancelled ? 'cancelled' : 'failed',
+                  progress: 0,
+                  message: errorMessage,
+                  error: errorMessage,
+                  cancellable: false,
+                },
+                canRetry: !isCancelled,
+              }
+            : f
+        )
+      );
+
+      if (!isCancelled) {
+        toast.error(`Failed to retry ${fileState.file.name}: ${errorMessage}`);
+      }
+    }
   };
 
   const getProgressColor = (stage: string) => {
@@ -298,170 +513,176 @@ export function DocumentUploadRefactored({ unitCode, validationDetailId, onUploa
       case 'completed':
         return 'bg-green-500';
       case 'failed':
+      case 'cancelled':
         return 'bg-red-500';
+      case 'uploading':
       case 'indexing':
         return 'bg-blue-500';
+      case 'validating':
+        return 'bg-yellow-500';
       default:
-        return 'bg-primary';
+        return 'bg-gray-500';
     }
   };
 
   const getProgressIcon = (stage: string) => {
     switch (stage) {
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'failed':
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'cancelled':
+        return <X className="h-5 w-5 text-orange-500" />;
       case 'uploading':
       case 'indexing':
       case 'validating':
-        return <Loader2 className="h-4 w-4 animate-spin" />;
-      case 'ready':
-        return <FileText className="h-4 w-4 text-blue-500" />;
+        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
       default:
-        return null;
+        return <FileText className="h-5 w-5 text-gray-500" />;
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Storage Health Warning - Hidden since check is unreliable */}
-      {/* Real storage issues will surface during actual upload */}
-      {false && storageHealthy === false && (
-        <div className="border-2 border-yellow-500 bg-yellow-50 rounded-lg p-4">
+      {/* Storage Health Warning */}
+      {storageHealthy === false && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div className="flex-1">
-              <h4 className="font-semibold text-yellow-900 mb-1">Storage Issue Detected</h4>
-              <p className="text-sm text-yellow-800 mb-2">{storageError}</p>
-              <p className="text-xs text-yellow-700">
-                Please ensure the 'documents' storage bucket exists in your Supabase project
-                and has proper RLS policies configured.
+              <h3 className="text-sm font-medium text-yellow-800">Storage Warning</h3>
+              <p className="text-sm text-yellow-700 mt-1">
+                {storageError || 'Storage bucket may not be accessible. Uploads might fail.'}
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={async () => {
-                  const result = await testStorageUpload();
-                  if (result.success) {
-                    toast.success('Storage test upload successful!');
-                    setStorageHealthy(true);
-                    setStorageError(null);
-                  } else {
-                    toast.error(`Storage test failed: ${result.error}`);
-                  }
-                }}
-              >
-                Test Storage Upload
-              </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Drop Zone */}
+      {/* Upload Area */}
       <div
-        className={cn(
-          "border-2 border-dashed rounded-lg p-12 text-center transition-colors",
-          isDragging
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-primary/50"
-        )}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        className={cn(
+          'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+          isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400',
+          isUploading && 'opacity-50 pointer-events-none'
+        )}
       >
-        <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h3 className="text-lg font-semibold mb-2">Drop your documents here</h3>
-        <p className="text-muted-foreground mb-4">or click to browse</p>
+        <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+        <p className="text-sm text-gray-600 mb-2">
+          Drag and drop files here, or click to browse
+        </p>
+        <p className="text-xs text-gray-500 mb-4">
+          Supports PDF and TXT files (max {formatFileSize(10 * 1024 * 1024)} per file, {formatFileSize(50 * 1024 * 1024)} total)
+        </p>
         <input
           type="file"
           multiple
-          accept=".pdf,.docx,.txt"
+          accept=".pdf,.txt,application/pdf,text/plain"
           onChange={handleFileSelect}
           className="hidden"
-          id="file-input"
-        />
-        <Button
-          variant="outline"
-          onClick={() => document.getElementById('file-input')?.click()}
+          id="file-upload"
           disabled={isUploading}
-        >
-          Browse Files
-        </Button>
-        <p className="text-xs text-muted-foreground mt-4">
-          Supported formats: PDF, TXT (max 5MB per file, 20MB total)
-        </p>
+        />
+        <label htmlFor="file-upload">
+          <Button variant="outline" disabled={isUploading} asChild>
+            <span>Browse Files</span>
+          </Button>
+        </label>
       </div>
 
       {/* File List */}
       {files.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-semibold">Selected Files ({files.length})</h4>
-          {files.map((fileState, index) => {
-            const { file, progress } = fileState;
-            const isProcessing = ['uploading', 'indexing', 'validating'].includes(progress.stage);
-
-            return (
-              <div key={index} className="border rounded-lg p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {getProgressIcon(progress.stage)}
-                    <span className="font-medium">{file.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                    </span>
+          <h3 className="text-sm font-medium text-gray-700">
+            Selected Files ({files.length})
+          </h3>
+          {files.map((fileState, index) => (
+            <div
+              key={`${fileState.file.name}-${index}`}
+              className="border border-gray-200 rounded-lg p-4 bg-white"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  {getProgressIcon(fileState.progress.stage)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {fileState.file.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatFileSize(fileState.file.size)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {fileState.progress.message}
+                    </p>
+                    {fileState.progress.error && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {fileState.progress.error}
+                      </p>
+                    )}
                   </div>
-                  {!isProcessing && progress.stage !== 'completed' && (
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Cancel Button */}
+                  {fileState.progress.cancellable && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => cancelUpload(index)}
+                      className="text-orange-600 hover:text-orange-700"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                  )}
+
+                  {/* Retry Button */}
+                  {fileState.canRetry && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => retryUpload(index)}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                      Retry
+                    </Button>
+                  )}
+
+                  {/* Remove Button */}
+                  {!fileState.progress.cancellable && !isUploading && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(index)}
-                      disabled={isUploading}
+                      className="text-gray-600 hover:text-gray-700"
                     >
-                      Remove
+                      <X className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
-
-                {/* Progress Bar */}
-                {(isProcessing || progress.progress > 0) && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{progress.message}</span>
-                      <span className="font-medium">{Math.floor(progress.progress)}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div
-                        className={cn("h-2 rounded-full transition-all", getProgressColor(progress.stage))}
-                        style={{ width: `${progress.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Error Message */}
-                {progress.stage === 'failed' && progress.error && (
-                  <p className="text-sm text-red-500">{progress.error}</p>
-                )}
-
-                {/* Success Message */}
-                {progress.stage === 'completed' && (
-                  <p className="text-sm text-green-500">
-                    Document indexed and ready for validation
-                  </p>
-                )}
               </div>
-            );
-          })}
+
+              {/* Progress Bar */}
+              {fileState.progress.stage !== 'completed' && 
+               fileState.progress.stage !== 'failed' &&
+               fileState.progress.stage !== 'cancelled' && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={cn('h-2 rounded-full transition-all', getProgressColor(fileState.progress.stage))}
+                      style={{ width: `${fileState.progress.progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
-
-      {/* Upload button removed - parent triggers upload via triggerUpload prop */}
     </div>
   );
 }

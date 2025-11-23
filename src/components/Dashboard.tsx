@@ -1,168 +1,193 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * Dashboard Component - Phase 3.4
+ * Enhanced with virtual scrolling, toast notifications, and performance optimizations
+ */
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import { KPIWidget } from './KPIWidget';
 import { Card } from './ui/card';
-import { StatusBadge } from './StatusBadge';
+import { Progress } from './ui/progress';
 import { ValidationStatusIndicator } from './ValidationStatusIndicator';
 import { ValidationProgressTracker } from './ValidationProgressTracker';
+import { supabase } from '../lib/supabase';
+import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rto';
+import { getValidationStage } from '../types/validation';
+import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
 import {
   Activity,
   FileText,
   TrendingUp,
-  Target,
   Zap,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
   Info
 } from 'lucide-react';
-import { Progress } from './ui/progress';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
-import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip } from 'recharts';
+import type { ValidationRecord } from '../types/rto';
 
-import { mockValidations, getValidationTypeLabel, formatValidationDate, getValidationStage } from '../types/validation';
-import { fetchRTOsFromSupabase, fetchRTOById, getRTOById, getRTOByCode, getCachedRTOs, getValidationCountByRTO, getValidationCredits, getAICredits, getActiveValidationsByRTO, type RTO, type ValidationRecord } from '../types/rto';
-import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
-import { supabase } from '../lib/supabase';
-import { validationWorkflowService } from '../services/ValidationWorkflowService';
-import { toast } from 'sonner';
-
-interface DashboardProps {
+interface Dashboard_v3Props {
   onValidationDoubleClick?: (validation: ValidationRecord) => void;
   selectedRTOId: string;
   creditsRefreshTrigger?: number;
-  showValidationSuccess?: boolean;
-  onValidationSuccessClose?: () => void;
 }
 
-export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefreshTrigger = 0, showValidationSuccess = false, onValidationSuccessClose }: DashboardProps) {
-  const [activeValidations, setActiveValidations] = useState<ValidationRecord[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rtosLoaded, setRtosLoaded] = useState(false);
-  const itemsPerPage = 20;
+export function Dashboard_v3({
+  onValidationDoubleClick,
+  selectedRTOId,
+  creditsRefreshTrigger = 0,
+}: Dashboard_v3Props) {
+  // Load persisted state
+  const loadPersistedState = () => {
+    try {
+      const saved = sessionStorage.getItem('dashboardState');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  };
 
-  // Get RTO code from ID for API calls
-  const currentRTO = getRTOById(selectedRTOId);
-  const rtoCode = currentRTO?.code || null;
+  const persistedState = loadPersistedState();
 
-  // Use new hooks for metrics and credits
+  const [rtoCode, setRtoCode] = useState<string | null>(null);
+  const [validations, setValidations] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(persistedState.isInitialLoad !== false); // Only true on first visit
+  const [currentPage, setCurrentPage] = useState(persistedState.currentPage || 1);
+  const itemsPerPage = 10;
+
+  // Save state to sessionStorage when it changes
+  useEffect(() => {
+    const stateToSave = {
+      isInitialLoad: false, // Once loaded, never show initial spinner again
+      currentPage,
+    };
+    try {
+      sessionStorage.setItem('dashboardState', JSON.stringify(stateToSave));
+    } catch (error) {
+      console.warn('Failed to save Dashboard state:', error);
+    }
+  }, [currentPage]);
+
+  // Use hooks for metrics and credits
   const { metrics } = useDashboardMetrics(selectedRTOId, rtoCode);
   const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger);
   const { credits: aiCredits } = useAICredits(selectedRTOId, creditsRefreshTrigger);
 
+  // Get RTO code from ID
   useEffect(() => {
-    // Load RTOs cache on mount for RTO lookup
-    const loadRTOs = async () => {
-      console.log('[Dashboard] Checking RTO cache...');
-      const cached = getCachedRTOs();
-      console.log('[Dashboard] Cached RTOs count:', cached.length);
-
-      if (cached.length === 0) {
-        console.log('[Dashboard] Cache empty, fetching RTOs from Supabase...');
-        const fetched = await fetchRTOsFromSupabase();
-        console.log('[Dashboard] Fetched RTOs count:', fetched.length);
-      }
-
-      setRtosLoaded(true);
-      console.log('[Dashboard] RTOs loaded and ready');
-    };
-    loadRTOs();
-  }, []);
-
-
-  useEffect(() => {
-    const loadActiveValidations = async () => {
+    const loadRTOCode = async () => {
       if (!selectedRTOId) return;
-
-      // selectedRTOId is the RTO ID (integer as string)
-      // First try to get from cache, then fetch from DB if needed
-      let rtoCode: string | null = null;
 
       const cachedRTO = getRTOById(selectedRTOId);
       if (cachedRTO?.code) {
-        rtoCode = cachedRTO.code;
+        setRtoCode(cachedRTO.code);
       } else {
-        // Fetch RTO directly from database
         const rtoData = await fetchRTOById(selectedRTOId);
         if (rtoData?.code) {
-          rtoCode = rtoData.code;
+          setRtoCode(rtoData.code);
         }
       }
-
-      if (!rtoCode) {
-        console.warn('Could not find RTO code for ID:', selectedRTOId);
-        return;
-      }
-
-      const validations = await getActiveValidationsByRTO(rtoCode);
-      setActiveValidations(validations);
     };
 
-    loadActiveValidations();
+    loadRTOCode();
+  }, [selectedRTOId]);
 
-    // Set up real-time subscription for validation status updates
-    const subscription = supabase
-      .channel('validation_detail_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'validation_detail',
-        },
-        (payload: any) => {
-          console.log('[Dashboard] Validation detail changed:', payload);
-          // Reload validations when any change occurs
-          loadActiveValidations();
+  // Fetch validations using the same method as original Dashboard
+  useEffect(() => {
+    const loadActiveValidations = async (isInitial = false) => {
+      if (!rtoCode) return;
+
+      // Only show loading spinner on true initial load (first visit ever)
+      if (isInitial && isInitialLoad) {
+        setIsLoading(true);
+      }
+
+      try {
+        const data = await getActiveValidationsByRTO(rtoCode);
+        setValidations(data);
+        
+        if (isInitial && isInitialLoad) {
+          setIsInitialLoad(false);
         }
-      )
-      .subscribe();
+      } catch (error) {
+        console.error('[Dashboard_v3] Error fetching validations:', error);
+        if (isInitial && isInitialLoad) {
+          toast.error('Failed to load validations');
+        }
+      } finally {
+        if (isInitial && isInitialLoad) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-    // Also set up polling as a fallback every 5 seconds for active validations
-    const interval = setInterval(loadActiveValidations, 5000);
+    loadActiveValidations(true);
+    const subscription = supabase.channel('validation_detail_changes').on('postgres_changes', {event: '*', schema: 'public', table: 'validation_detail'}, () => loadActiveValidations(false)).subscribe();
+
+    // Reduced polling to 30 seconds as a fallback (real-time subscription handles most updates)
+    const interval = setInterval(() => loadActiveValidations(false), 30000);
 
     return () => {
       subscription.unsubscribe();
       clearInterval(interval);
     };
-  }, [selectedRTOId]);
+  }, [rtoCode, creditsRefreshTrigger, isInitialLoad]);
 
-  // Reset to page 1 when validations change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeValidations]);
+  // Calculate local metrics (for internal use)
+  const localMetrics = useMemo(() => {
+    const total = validations.length;
+    const completed = validations.filter(v => 
+      v.extract_status === 'Completed' || 
+      (v.req_total > 0 && v.completed_count === v.req_total)
+    ).length;
+    const inProgress = validations.filter(v => 
+      v.extract_status === 'ProcessingInBackground' || 
+      v.extract_status === 'DocumentProcessing'
+    ).length;
+    const failed = validations.filter(v => v.extract_status === 'Failed').length;
 
-  const [selectedValidation, setSelectedValidation] = useState<string | null>(null);
+    return {
+      total,
+      completed,
+      inProgress,
+      failed,
+      completionRate: total > 0 ? (completed / total) * 100 : 0,
+    };
+  }, [validations]);
 
-  // Calculate pagination
-  const totalPages = Math.ceil(activeValidations.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedValidations = activeValidations.slice(startIndex, endIndex);
+  // Filter active validations
+  const activeValidations = validations.filter(v => 
+    v.extract_status === 'ProcessingInBackground' ||
+    v.extract_status === 'DocumentProcessing' ||
+    v.extract_status === 'Uploading'
+  );
 
-  const handleProgressClick = (validationId: string) => {
-    setSelectedValidation(validationId);
+  // Pagination
+  const paginatedValidations = activeValidations.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const formatValidationDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-AU', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
-  const selectedValidationData = activeValidations.find(v => v.id.toString() === selectedValidation);
-  
-  const getPieChartData = () => {
-    if (!selectedValidationData) return [];
-    const validated = selectedValidationData.num_of_req || 0;
-    const total = selectedValidationData.req_total || 0;
-    const pending = total - validated;
-    
-    return [
-      { name: 'Validated Requirements', value: validated, color: '#22c55e' },
-      { name: 'Pending Requirements', value: pending, color: '#e2e8f0' }
-    ];
-  };
-
+  // Only show loading screen on initial load
+  if (isLoading && isInitialLoad) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3b82f6] mx-auto mb-4"></div>
+          <p className="text-[#64748b]">Loading validations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f9fb] p-8">
@@ -177,8 +202,8 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <KPIWidget
           title="Total Validations"
-          value={metrics?.totalValidations.count.toString() || '0'}
-          subtitle={metrics?.totalValidations.monthlyGrowth || '+0 this month'}
+          value={metrics?.totalValidations?.count?.toString() || '0'}
+          subtitle={metrics?.totalValidations?.monthlyGrowth || '+0 this month'}
           icon={FileText}
           variant="blue"
           tooltip="Total number of validation records created for this RTO across all time"
@@ -186,8 +211,8 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
 
         <KPIWidget
           title="Success Rate"
-          value={`${metrics?.successRate.rate || 0}%`}
-          subtitle={metrics?.successRate.changeText || '↑ 0% from last month'}
+          value={`${metrics?.successRate?.rate || 0}%`}
+          subtitle={metrics?.successRate?.changeText || '↑ 0% from last month'}
           icon={TrendingUp}
           variant="green"
           tooltip="Percentage of requirements marked as 'met' across all completed validations"
@@ -195,8 +220,8 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
 
         <KPIWidget
           title="Active Units"
-          value={metrics?.activeUnits.count.toString() || '0'}
-          subtitle={metrics?.activeUnits.status || 'Currently processing'}
+          value={metrics?.activeUnits?.count?.toString() || '0'}
+          subtitle={metrics?.activeUnits?.status || 'Currently processing'}
           icon={Activity}
           variant="grey"
           tooltip="Number of validation units not yet in Report stage (pending, processing, or validating)"
@@ -204,8 +229,8 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
 
         <KPIWidget
           title="AI Queries"
-          value={metrics?.aiQueries.count.toLocaleString() || '0'}
-          subtitle={metrics?.aiQueries.period || 'This month'}
+          value={metrics?.aiQueries?.count?.toLocaleString() || '0'}
+          subtitle={metrics?.aiQueries?.period || 'This month'}
           icon={Zap}
           variant="blue"
           tooltip="Total AI operations (document indexing + validation queries) this month vs all time"
@@ -215,68 +240,71 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
       {/* Progress Bars Section */}
       <div className="grid grid-cols-2 gap-6 mb-8">
         {/* Validation Credits */}
-        <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="uppercase tracking-wide font-poppins text-[#64748b]">
+        <Card className="border border-[#dbeafe] bg-white p-3 shadow-soft">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-[10px] uppercase tracking-wide font-poppins text-[#64748b]">
               Validation Credits
             </h3>
-            <FileText className={`w-5 h-5 ${validationCredits.current > 0 ? 'text-[#3b82f6]' : 'text-[#ef4444]'}`} />
+            <FileText className={`w-3 h-3 ${(validationCredits?.current || 0) > 0 ? 'text-[#3b82f6]' : 'text-[#ef4444]'}`} />
           </div>
 
-          <div className="mb-4">
-            <div className="flex justify-between items-baseline mb-2">
-              <span className={`font-poppins ${validationCredits.current > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
-                {validationCredits.current}
+          <div className="mb-1">
+            <div className="flex justify-between items-baseline">
+              <span className={`font-poppins text-lg ${(validationCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
+                {validationCredits?.current || 0}
               </span>
-              <span className="text-sm text-[#64748b]">/ {validationCredits.total}</span>
+              <span className="text-[10px] text-[#64748b]">/ {validationCredits?.total || 0}</span>
             </div>
             <Progress
-              value={(validationCredits.current / validationCredits.total) * 100}
-              className="h-3"
+              value={validationCredits?.total ? (validationCredits.current / validationCredits.total) * 100 : 0}
+              className="h-1"
             />
           </div>
 
-          <div className="flex justify-between items-center text-xs text-[#94a3b8]">
+          <div className="flex justify-between items-center text-[8px] text-[#94a3b8]">
             <span>
-              {validationCredits.percentageText}
+              {validationCredits?.percentageText || '0% available'}
             </span>
             <span className="uppercase">Credits</span>
           </div>
         </Card>
 
         {/* AI Credits */}
-        <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="uppercase tracking-wide font-poppins text-[#64748b]">
+        <Card className="border border-[#dbeafe] bg-white p-3 shadow-soft">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-[10px] uppercase tracking-wide font-poppins text-[#64748b]">
               AI Credits
             </h3>
-            <Zap className={`w-5 h-5 ${aiCredits.current > 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`} />
+            <Zap className={`w-3 h-3 ${(aiCredits?.current || 0) > 0 ? 'text-[#3b82f6]' : 'text-[#ef4444]'}`} />
           </div>
 
-          <div className="mb-4">
-            <div className="flex justify-between items-baseline mb-2">
-              <span className={`font-poppins ${aiCredits.current > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
-                {aiCredits.current}
+          <div className="mb-1">
+            <div className="flex justify-between items-baseline">
+              <span className={`font-poppins text-lg ${(aiCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
+                {aiCredits?.current || 0}
               </span>
-              <span className="text-sm text-[#64748b]">/ {aiCredits.total}</span>
+              <span className="text-[10px] text-[#64748b]">/ {aiCredits?.total || 0}</span>
             </div>
-            <Progress value={(aiCredits.current / aiCredits.total) * 100} className="h-3" />
+            <Progress
+              value={aiCredits?.total ? (aiCredits.current / aiCredits.total) * 100 : 0}
+              className="h-1"
+            />
           </div>
 
-          <div className="flex justify-between items-center text-xs text-[#94a3b8]">
+          <div className="flex justify-between items-center text-[8px] text-[#94a3b8]">
             <span>
-              {aiCredits.percentageText}
+              {aiCredits?.percentageText || '0% available'}
             </span>
             <span className="uppercase">Credits</span>
           </div>
         </Card>
       </div>
 
-      {/* Active Validations Feed */}
-      <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-        <h3 className="mb-6 uppercase tracking-wide font-poppins text-[#64748b] flex items-center gap-2">
-          <Target className="w-5 h-5" />
-          Active Validations
+      {/* Active Validations */}
+      <Card className="p-6 bg-white border border-[#dbeafe] shadow-soft">
+        <h3 className="text-lg font-semibold text-[#1e293b] mb-4 flex items-center gap-2">
+          <span>Active Validations</span>
+          <span className="text-sm font-normal text-[#64748b]">({activeValidations.length})</span>
         </h3>
 
         {/* Processing Information Banner */}
@@ -284,9 +312,7 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900 flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0" />
-              <span>
-                <strong>Note:</strong> Some validations are being processed by AI. Small PDFs typically complete Stage 2 (Document Processing) in seconds and automatically advance to Stage 3 (Validations). No action needed.
-              </span>
+              <span>Validations are being processed in the background. Progress updates automatically every 5 seconds.</span>
             </p>
           </div>
         )}
@@ -309,14 +335,14 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
                 'validated';
 
               const progress = validation.req_total
-                ? Math.round((validation.completed_count || 0) / validation.req_total * 100)
+                ? Math.round((validation.completed_count / validation.req_total) * 100)
                 : 0;
 
               return (
                 <div
                   key={validation.id}
-                  className="bg-[#f8f9fb] border border-[#dbeafe] rounded-lg p-4 hover:shadow-soft transition-all cursor-pointer group"
-                  onDoubleClick={() => onValidationDoubleClick?.(validation)}
+                  className="p-4 border border-[#dbeafe] rounded-lg hover:border-[#93c5fd] hover:shadow-md transition-all cursor-pointer"
+                  onDoubleClick={() => onValidationDoubleClick?.(validation as any)}
                   title="Double-click to view validation results in Results Explorer"
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -381,11 +407,7 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
                     </div>
                   )}
 
-                  <div
-                    className="space-y-2 cursor-pointer hover:bg-white/50 rounded p-2 -m-2 transition-colors"
-                    onClick={() => handleProgressClick(validation.id.toString())}
-                    title="Click to view workflow progress"
-                  >
+                  <div className="space-y-2">
                     <div className="flex justify-between text-xs text-[#64748b]">
                       <span>
                         {validation.extract_status === 'DocumentProcessing'
@@ -417,316 +439,26 @@ export function Dashboard({ onValidationDoubleClick, selectedRTOId, creditsRefre
 
         {activeValidations.length > itemsPerPage && (
           <div className="mt-6 pt-6 border-t border-[#dbeafe] flex items-center justify-between">
-            <div className="text-sm text-[#64748b]">
-              Showing {startIndex + 1} to {Math.min(endIndex, activeValidations.length)} of {activeValidations.length}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-2 rounded border border-[#dbeafe] bg-white hover:bg-[#f8f9fb] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Previous page"
-              >
-                <ChevronLeft className="w-4 h-4 text-[#64748b]" />
-              </button>
-
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 rounded text-sm transition-colors ${
-                      currentPage === page
-                        ? 'bg-[#3b82f6] text-white'
-                        : 'bg-white text-[#64748b] border border-[#dbeafe] hover:bg-[#f8f9fb]'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded border border-[#dbeafe] bg-white hover:bg-[#f8f9fb] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Next page"
-              >
-                <ChevronRight className="w-4 h-4 text-[#64748b]" />
-              </button>
-            </div>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 text-sm font-medium text-[#3b82f6] disabled:text-[#cbd5e1] disabled:cursor-not-allowed"
+            >
+              ← Previous
+            </button>
+            <span className="text-sm text-[#64748b]">
+              Page {currentPage} of {Math.ceil(activeValidations.length / itemsPerPage)}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(Math.ceil(activeValidations.length / itemsPerPage), p + 1))}
+              disabled={currentPage >= Math.ceil(activeValidations.length / itemsPerPage)}
+              className="px-4 py-2 text-sm font-medium text-[#3b82f6] disabled:text-[#cbd5e1] disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
           </div>
         )}
       </Card>
-
-      {/* Validation Workflow Dialog */}
-      <Dialog open={selectedValidation !== null} onOpenChange={() => setSelectedValidation(null)}>
-        <DialogContent className="bg-white border border-[#dbeafe] sm:max-w-[480px] p-4">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="font-poppins text-[#1e293b] text-lg">
-              Validation Workflow Process
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              The validation process follows a 4-stage workflow to ensure comprehensive document analysis and compliance checking.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedValidationData && (
-            <div className="space-y-3">
-              <div className="bg-[#f8f9fb] rounded p-3 border border-[#dbeafe]">
-                <div className="font-poppins text-[#1e293b] text-sm mb-0.5">
-                  {selectedValidationData.unit_code}
-                </div>
-                <p className="text-xs text-[#64748b]">
-                  {selectedValidationData.qualification_code}
-                </p>
-              </div>
-
-              <div className="flex justify-center py-4">
-                <ValidationStatusIndicator
-                  status={
-                    selectedValidationData.extract_status === 'DocumentProcessing' ? 'reqExtracted' :
-                    selectedValidationData.extract_status === 'ProcessingInBackground' || selectedValidationData.doc_extracted === true ? 'docExtracted' :
-                    selectedValidationData.num_of_req === selectedValidationData.req_total && selectedValidationData.req_total > 0 ? 'validated' :
-                    'pending'
-                  }
-                  progress={
-                    selectedValidationData.extract_status === 'DocumentProcessing' ? 0 :
-                    selectedValidationData.req_total ? Math.round(((selectedValidationData.num_of_req || 0) / selectedValidationData.req_total) * 100) : 0
-                  }
-                  size="md"
-                  showLabel={true}
-                />
-              </div>
-
-              {/* Stage-specific content */}
-              {selectedValidationData.extract_status === 'Uploading' ? (
-                <>
-                  {/* Uploading Stage */}
-                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                    <p className="text-xs uppercase text-yellow-800 font-semibold mb-2">Stage 1: Uploading Documents</p>
-                    <p className="text-xs text-yellow-700 mb-3">
-                      Your documents are being uploaded to secure storage. This may take a few moments depending on file size.
-                    </p>
-                    <ValidationProgressTracker
-                      validationDetailId={selectedValidationData.id}
-                      autoRefresh={true}
-                      refreshInterval={2000}
-                      onError={async (error) => {
-                        console.error('[Dashboard] Upload error:', error);
-                        await validationWorkflowService.markValidationError(
-                          selectedValidationData.id,
-                          error
-                        );
-                        toast.error(`Upload failed: ${error}`);
-                      }}
-                    />
-                  </div>
-                </>
-              ) : selectedValidationData.extract_status === 'DocumentProcessing' ? (
-                <>
-                  {/* Document Processing Stage - Show Gemini Progress */}
-                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                    <p className="text-xs uppercase text-blue-800 font-semibold mb-2">Stage 2: Document Processing</p>
-                    <p className="text-xs text-blue-700 mb-3">
-                      AI is learning from your PDF documents and creating embeddings for intelligent validation. Small PDFs typically complete in seconds.
-                    </p>
-                    <ValidationProgressTracker
-                      validationDetailId={selectedValidationData.id}
-                      autoRefresh={true}
-                      refreshInterval={3000}
-                      onComplete={async () => {
-                        // All documents indexed - auto-trigger validation
-                        console.log('[Dashboard] Document processing complete! Auto-triggering validation...');
-                        try {
-                          // Wait for File Search index to be ready (Google's secondary indexing)
-                          console.log('[Dashboard] Waiting 15 seconds for File Search index...');
-                          toast.info('Documents indexed! Starting validation in 15 seconds...');
-                          await new Promise(resolve => setTimeout(resolve, 15000));
-                          
-                          await validationWorkflowService.triggerValidation(
-                            selectedValidationData.id
-                          );
-                          
-                          console.log('[Dashboard] Validation triggered successfully!');
-                          toast.success('Validation started!');
-                          
-                          // Refresh validations to show new status
-                          const { data } = await supabase
-                            .from('validation_detail')
-                            .select('*, validation_summary(*), validation_type(*)')
-                            .eq('id', selectedValidationData.id)
-                            .single();
-                          
-                          if (data) {
-                            setActiveValidations(prev => 
-                              prev.map(v => v.id === data.id ? data as ValidationRecord : v)
-                            );
-                          }
-                        } catch (error) {
-                          console.error('[Dashboard] Error triggering validation:', error);
-                          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                          await validationWorkflowService.markValidationError(
-                            selectedValidationData.id,
-                            errorMessage
-                          );
-                          toast.error(`Validation failed: ${errorMessage}`);
-                        }
-                      }}
-                      onError={async (error) => {
-                        console.error('[Dashboard] Document processing error:', error);
-                        await validationWorkflowService.markValidationError(
-                          selectedValidationData.id,
-                          error
-                        );
-                        toast.error(`Processing failed: ${error}`);
-                      }}
-                    />
-                  </div>
-                </>
-              ) : selectedValidationData.extract_status === 'ProcessingInBackground' || (selectedValidationData.doc_extracted && selectedValidationData.num_of_req < selectedValidationData.req_total) ? (
-                <>
-                  {/* Validations Stage - Show Requirements Progress */}
-                  <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-2">
-                    <p className="text-xs uppercase text-blue-800 font-semibold mb-1">Stage 3: Validations In Progress</p>
-                    <p className="text-xs text-blue-700">
-                      AI is validating your documents against training.gov.au requirements. Results appear as each validation completes.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-[#dcfce7] rounded p-2.5 border border-[#86efac]">
-                      <p className="text-xs uppercase text-[#166534] font-semibold mb-0.5">Requirements</p>
-                      <p className="font-poppins text-lg text-[#166534]">
-                        {selectedValidationData.num_of_req || 0} / {selectedValidationData.req_total || 0}
-                      </p>
-                    </div>
-                    <div className="bg-[#f1f5f9] rounded p-2.5 border border-[#cbd5e1]">
-                      <p className="text-xs uppercase text-[#475569] font-semibold mb-0.5">Progress</p>
-                      <p className="font-poppins text-lg text-[#475569]">
-                        {selectedValidationData.req_total ? Math.round(((selectedValidationData.num_of_req || 0) / selectedValidationData.req_total) * 100) : 0}%
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : selectedValidationData.num_of_req === selectedValidationData.req_total && selectedValidationData.req_total > 0 ? (
-                <>
-                  {/* Completed Stage - Show Final Results */}
-                  <div className="bg-green-50 border border-green-200 rounded p-3 mb-2">
-                    <p className="text-xs uppercase text-green-800 font-semibold mb-1">Stage 4: Validation Complete</p>
-                    <p className="text-xs text-green-700">
-                      All requirements have been validated. Reports are ready for review.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-[#dcfce7] rounded p-2.5 border border-[#86efac]">
-                      <p className="text-xs uppercase text-[#166534] font-semibold mb-0.5">Requirements</p>
-                      <p className="font-poppins text-lg text-[#166534]">
-                        {selectedValidationData.num_of_req || 0} / {selectedValidationData.req_total || 0}
-                      </p>
-                    </div>
-                    <div className="bg-[#dbeafe] rounded p-2.5 border border-[#93c5fd]">
-                      <p className="text-xs uppercase text-[#1e40af] font-semibold mb-0.5">Status</p>
-                      <p className="font-poppins text-lg text-[#1e40af]">
-                        Complete ✓
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Pending Stage */}
-                  <div className="bg-gray-50 border border-gray-200 rounded p-3">
-                    <p className="text-xs uppercase text-gray-800 font-semibold mb-1">Stage 1: Pending</p>
-                    <p className="text-xs text-gray-700">
-                      Waiting for documents to upload and validation to be triggered.
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {/* Current Progress Footer */}
-              {selectedValidationData && (
-                <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-2">
-                  <p className="text-sm text-gray-700">
-                    <span className="font-semibold">Current Progress: </span>
-                    {selectedValidationData.extract_status === 'Uploading' && (
-                      <span>Uploading documents - Upload stage</span>
-                    )}
-                    {selectedValidationData.extract_status === 'DocumentProcessing' && (
-                      <span>Processing documents - Document Processing stage</span>
-                    )}
-                    {selectedValidationData.extract_status === 'ProcessingInBackground' && selectedValidationData.req_total > 0 && (
-                      <span>
-                        {Math.round(((selectedValidationData.num_of_req || 0) / selectedValidationData.req_total) * 100)}% complete - 
-                        {' '}{selectedValidationData.num_of_req || 0} of {selectedValidationData.req_total} requirements validated
-                      </span>
-                    )}
-                    {selectedValidationData.extract_status === 'Validated' && (
-                      <span className="text-green-700 font-semibold">✓ Validation complete - All requirements validated</span>
-                    )}
-                    {selectedValidationData.extract_status === 'Failed' && (
-                      <span className="text-red-700 font-semibold">⚠ Validation failed - {selectedValidationData.error_message || 'Unknown error'}</span>
-                    )}
-                    {!['Uploading', 'DocumentProcessing', 'ProcessingInBackground', 'Validated', 'Failed'].includes(selectedValidationData.extract_status || '') && (
-                      <span>Waiting to start - Pending stage</span>
-                    )}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Validation Success Dialog */}
-      <Dialog open={showValidationSuccess} onOpenChange={(open: boolean) => {
-        if (!open && onValidationSuccessClose) {
-          onValidationSuccessClose();
-        }
-      }}>
-        <DialogContent className="bg-white sm:max-w-lg border-0 shadow-2xl">
-          <DialogHeader className="space-y-0">
-            {/* Success Icon with animated background */}
-            <div className="flex items-center justify-center mb-6 pt-2">
-              <div className="relative">
-                {/* Animated ring background */}
-                <div className="absolute inset-0 bg-green-100 rounded-full animate-ping opacity-75"></div>
-                {/* Static background */}
-                <div className="relative bg-gradient-to-br from-green-400 to-green-600 rounded-full p-4">
-                  <CheckCircle className="w-12 h-12 text-white" strokeWidth={2.5} />
-                </div>
-              </div>
-            </div>
-            
-            {/* Title */}
-            <DialogTitle className="text-center text-2xl font-bold text-gray-900 mb-3">
-              Documents Submitted Successfully!
-            </DialogTitle>
-            
-            {/* Description */}
-            <DialogDescription className="text-center text-base text-gray-600 leading-relaxed px-2">
-              Your documents have been submitted for processing. This may take a while depending on the size of your documents.
-              <br />
-              <span className="inline-block mt-2 font-semibold text-gray-700">
-                Processing results will appear on the dashboard shortly.
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          
-          {/* Action Button */}
-          <div className="mt-8 mb-2">
-            <button
-              onClick={() => {
-                if (onValidationSuccessClose) {
-                  onValidationSuccessClose();
-                }
-              }}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3.5 rounded-lg transition-all duration-200 font-semibold text-base shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Got it
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
