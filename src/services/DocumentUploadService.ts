@@ -1,37 +1,91 @@
+/**
+ * Document Upload Service v2
+ * Enhanced with cancellation, retry, validation, and better error handling
+ */
+
 import { supabase } from '../lib/supabase';
+import { retryWithBackoff, RetryPresets, RetryStrategies } from '../lib/retryWithBackoff';
+import { uploadCancellationManager, pollWithCancellation } from '../lib/uploadCancellation';
+import { validateFile, calculateFileHash, formatFileSize } from '../lib/fileValidation';
+import {
+  showUploadProgressToast,
+  showUploadSuccessToast,
+  showUploadErrorToast,
+  dismissToast,
+} from '../lib/toastNotifications';
 
 export interface UploadProgress {
-  stage: 'ready' | 'uploading' | 'indexing' | 'validating' | 'completed' | 'failed';
+  stage: 'validating' | 'uploading' | 'indexing' | 'completed' | 'failed' | 'cancelled';
   progress: number; // 0-100
   message: string;
   documentId?: number;
   operationId?: number;
   error?: string;
+  cancellable?: boolean;
 }
 
 export interface UploadResult {
   documentId: number;
   operationId: number;
   fileSearchStoreId: string;
+  hash: string;
+}
+
+export interface UploadOptions {
+  /**
+   * Enable automatic retry on transient errors
+   * @default true
+   */
+  enableRetry?: boolean;
+
+  /**
+   * Show toast notifications for progress
+   * @default true
+   */
+  showToasts?: boolean;
+
+  /**
+   * Validate file before upload
+   * @default true
+   */
+  validateBeforeUpload?: boolean;
+
+  /**
+   * Check for duplicate files by hash
+   * @default true
+   */
+  checkDuplicates?: boolean;
+
+  /**
+   * Adaptive polling interval (faster for small files)
+   * @default true
+   */
+  adaptivePolling?: boolean;
 }
 
 /**
- * Document Upload Service
+ * Enhanced Document Upload Service
  * 
- * Handles the complete document upload and validation flow:
- * 1. Upload file to Supabase Storage
- * 2. Trigger Gemini indexing via edge function
- * 3. Poll operation status until complete
- * 4. Trigger validation when ready
- * 
- * All operations are async with proper progress tracking.
+ * Improvements over v1:
+ * - Upload cancellation support
+ * - Automatic retry with exponential backoff
+ * - Advanced file validation
+ * - Duplicate detection
+ * - Better error messages
+ * - Adaptive polling
+ * - Toast notifications
  */
-export class DocumentUploadService {
-  private pollInterval = 2000; // 2 seconds
-  private maxPollAttempts = 150; // 5 minutes max (150 * 2s)
+export class DocumentUploadServiceV2 {
+  private readonly defaultOptions: Required<UploadOptions> = {
+    enableRetry: true,
+    showToasts: true,
+    validateBeforeUpload: true,
+    checkDuplicates: true,
+    adaptivePolling: true,
+  };
 
   /**
-   * Upload a file and track progress
+   * Upload a file with enhanced features
    */
   async uploadDocument(
     file: File,
@@ -39,138 +93,271 @@ export class DocumentUploadService {
     unitCode: string,
     documentType: 'assessment' | 'unit_requirement' | 'training_package' | 'other',
     validationDetailId?: number,
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    options: UploadOptions = {}
   ): Promise<UploadResult> {
+    const opts = { ...this.defaultOptions, ...options };
+    const operationId = `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    let toastId: string | number | undefined;
+
     try {
-      // Stage 1: Upload to Supabase Storage
+      // Stage 0: Validate file
+      if (opts.validateBeforeUpload) {
+        onProgress?.({
+          stage: 'validating',
+          progress: 0,
+          message: 'Validating file...',
+          cancellable: false,
+        });
+
+        const validation = await validateFile(file);
+        
+        if (!validation.valid) {
+          throw new Error(validation.error || 'File validation failed');
+        }
+
+        if (validation.warnings && validation.warnings.length > 0) {
+          console.warn('[Upload] File validation warnings:', validation.warnings);
+        }
+      }
+
+      // Calculate file hash for duplicate detection
+      let fileHash: string | undefined;
+      if (opts.checkDuplicates) {
+        onProgress?.({
+          stage: 'validating',
+          progress: 5,
+          message: 'Checking for duplicates...',
+          cancellable: false,
+        });
+
+        fileHash = await calculateFileHash(file);
+        
+        // Check if file already exists
+        const duplicate = await this.checkDuplicate(fileHash, rtoCode, unitCode);
+        if (duplicate) {
+          console.warn('[Upload] Duplicate file detected:', duplicate);
+          // Continue anyway, but log warning
+        }
+      }
+
+      // Stage 1: Upload to Storage
       onProgress?.({
         stage: 'uploading',
         progress: 10,
         message: 'Uploading file to storage...',
+        cancellable: true,
       });
 
-      const storagePath = await this.uploadToStorage(file, rtoCode, unitCode);
-      console.log('[Upload] File uploaded to storage, path:', storagePath);
-
-      // Verify file exists in storage
-      const { data: fileList, error: listError } = await supabase.storage
-        .from('documents')
-        .list(storagePath.substring(0, storagePath.lastIndexOf('/')));
-      
-      if (listError) {
-        console.error('[Upload] Error verifying file in storage:', listError);
-      } else {
-        console.log('[Upload] Files in storage:', fileList?.map(f => f.name));
+      if (opts.showToasts) {
+        toastId = showUploadProgressToast(file.name, 10);
       }
+
+      const storagePath = await this.uploadToStorage(
+        file,
+        rtoCode,
+        unitCode,
+        operationId,
+        (uploadProgress) => {
+          const progress = 10 + (uploadProgress * 0.2); // 10% to 30%
+          onProgress?.({
+            stage: 'uploading',
+            progress,
+            message: `Uploading... ${Math.floor(uploadProgress)}%`,
+            cancellable: true,
+          });
+
+          if (opts.showToasts && toastId) {
+            dismissToast(toastId);
+            toastId = showUploadProgressToast(file.name, progress);
+          }
+        },
+        opts
+      );
 
       onProgress?.({
         stage: 'uploading',
         progress: 30,
-        message: 'File uploaded to storage',
+        message: 'File uploaded successfully',
+        cancellable: false,
       });
 
-      // Stage 2: Trigger Gemini indexing
+      // Stage 2: Trigger Indexing
       onProgress?.({
         stage: 'indexing',
         progress: 40,
         message: 'Starting document indexing...',
+        cancellable: true,
       });
 
-      const { documentId, operationId, fileSearchStoreId } = await this.triggerIndexing(
-        file.name,
-        storagePath,
-        rtoCode,
-        unitCode,
-        documentType,
-        validationDetailId
-      );
+      if (opts.showToasts && toastId) {
+        dismissToast(toastId);
+        toastId = showUploadProgressToast(file.name, 40);
+      }
+
+      const { documentId, operationId: indexOperationId, fileSearchStoreId } = 
+        await this.triggerIndexing(
+          file.name,
+          storagePath,
+          rtoCode,
+          unitCode,
+          documentType,
+          validationDetailId,
+          operationId,
+          opts
+        );
 
       onProgress?.({
         stage: 'indexing',
         progress: 50,
         message: 'Indexing in progress...',
         documentId,
+        operationId: indexOperationId,
+        cancellable: true,
+      });
+
+      // Stage 3: Poll Operation Status
+      await this.pollOperationStatus(
+        indexOperationId,
         operationId,
-      });
+        file,
+        (pollProgress) => {
+          const progress = 50 + (pollProgress * 0.4); // 50% to 90%
+          onProgress?.({
+            stage: 'indexing',
+            progress,
+            message: `Indexing document... ${Math.floor(pollProgress)}%`,
+            documentId,
+            operationId: indexOperationId,
+            cancellable: true,
+          });
 
-      // Stage 3: Poll operation status
-      await this.pollOperationStatus(operationId, (pollProgress) => {
-        onProgress?.({
-          stage: 'indexing',
-          progress: 50 + (pollProgress * 0.4), // 50% to 90%
-          message: `Indexing document... ${Math.floor(pollProgress)}%`,
-          documentId,
-          operationId,
-        });
-      });
+          if (opts.showToasts && toastId) {
+            dismissToast(toastId);
+            toastId = showUploadProgressToast(file.name, progress);
+          }
+        },
+        opts
+      );
 
+      // Stage 4: Complete
       onProgress?.({
         stage: 'completed',
         progress: 100,
-        message: 'Document indexed successfully',
+        message: 'Upload complete',
         documentId,
-        operationId,
+        operationId: indexOperationId,
+        cancellable: false,
       });
 
-      return { documentId, operationId, fileSearchStoreId };
+      if (opts.showToasts) {
+        if (toastId) dismissToast(toastId);
+        showUploadSuccessToast(file.name);
+      }
+
+      return {
+        documentId,
+        operationId: indexOperationId,
+        fileSearchStoreId,
+        hash: fileHash || '',
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
       
+      // Determine if error is cancellation
+      const isCancelled = errorMessage.includes('cancelled') || errorMessage.includes('abort');
+      
       onProgress?.({
-        stage: 'failed',
+        stage: isCancelled ? 'cancelled' : 'failed',
         progress: 0,
         message: errorMessage,
         error: errorMessage,
+        cancellable: false,
       });
 
+      if (opts.showToasts) {
+        if (toastId) dismissToast(toastId);
+        if (!isCancelled) {
+          showUploadErrorToast(file.name, errorMessage);
+        }
+      }
+
       throw error;
+    } finally {
+      // Clean up cancellation manager
+      uploadCancellationManager.complete(operationId);
     }
   }
 
   /**
-   * Upload file to Supabase Storage
+   * Cancel an upload operation
+   */
+  cancelUpload(operationId: string): boolean {
+    return uploadCancellationManager.cancel(operationId);
+  }
+
+  /**
+   * Cancel all uploads
+   */
+  cancelAllUploads(): number {
+    return uploadCancellationManager.cancelAll();
+  }
+
+  /**
+   * Upload file to Supabase Storage with retry and cancellation
    */
   private async uploadToStorage(
     file: File,
     rtoCode: string,
-    unitCode: string
+    unitCode: string,
+    operationId: string,
+    onProgress?: (progress: number) => void,
+    options?: UploadOptions
   ): Promise<string> {
-    console.log('[Upload] uploadToStorage called');
-    console.log('[Upload] File details:', {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    });
-    
     const timestamp = Date.now();
     const fileExt = file.name.split('.').pop();
     const fileName = `${timestamp}.${fileExt}`;
     const storagePath = `${rtoCode}/${unitCode}/${fileName}`;
-    
-    console.log('[Upload] Uploading to storage path:', storagePath);
-    console.log('[Upload] Calling supabase.storage.upload...');
 
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, file, {
-        cacheControl: '3600',
-        upsert: false,
+    const uploadFn = async () => {
+      const controller = uploadCancellationManager.create(
+        `${operationId}-storage`,
+        'upload',
+        file.name
+      );
+
+      // Note: Supabase storage doesn't support progress callbacks or AbortController
+      // This is a limitation we'll document
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        throw new Error(`Storage upload failed: ${error.message}`);
+      }
+
+      onProgress?.(100);
+      return data.path;
+    };
+
+    if (options?.enableRetry) {
+      return await retryWithBackoff(uploadFn, {
+        ...RetryPresets.standard,
+        shouldRetry: RetryStrategies.retryTransientErrors,
+        onRetry: (attempt, error) => {
+          console.log(`[Upload] Retry attempt ${attempt} for storage upload:`, error.message);
+        },
       });
-
-    console.log('[Upload] Storage upload completed');
-    console.log('[Upload] Upload result:', { data, error });
-
-    if (error) {
-      console.error('[Upload] Storage upload error:', error);
-      throw new Error(`Storage upload failed: ${error.message}`);
     }
 
-    console.log('[Upload] Storage upload successful, path:', data.path);
-    return data.path;
+    return await uploadFn();
   }
 
   /**
-   * Trigger Gemini indexing via edge function
+   * Trigger Gemini indexing with retry and cancellation
    */
   private async triggerIndexing(
     fileName: string,
@@ -178,242 +365,149 @@ export class DocumentUploadService {
     rtoCode: string,
     unitCode: string,
     documentType: string,
-    validationDetailId?: number
+    validationDetailId: number | undefined,
+    operationId: string,
+    options?: UploadOptions
   ): Promise<{ documentId: number; operationId: number; fileSearchStoreId: string }> {
-    const { data, error } = await supabase.functions.invoke('upload-document-async', {
-      body: {
-        rtoCode,
-        unitCode,
-        documentType,
-        fileName,
-        storagePath,
-        displayName: fileName,
-        metadata: {},
-        validationDetailId,
-      },
-    });
+    const indexingFn = async () => {
+      const controller = uploadCancellationManager.create(
+        `${operationId}-indexing`,
+        'indexing',
+        fileName
+      );
 
-    if (error) {
-      console.error('[Upload] Edge function error:', error);
-      console.error('[Upload] Error details:', JSON.stringify(error, null, 2));
-      
-      // Try to extract the actual error message from the response
-      let errorMessage = error.message || 'Unknown error';
-      
-      // Try to get response body if available
-      if (error.context && error.context instanceof Response) {
-        try {
-          const responseText = await error.context.text();
-          console.error('[Upload] Edge function response body:', responseText);
-          
-          try {
-            const responseJson = JSON.parse(responseText);
-            errorMessage = responseJson.error || responseJson.message || responseText;
-            console.error('[Upload] Parsed error:', errorMessage);
-          } catch {
-            errorMessage = responseText;
-          }
-        } catch (e) {
-          console.error('[Upload] Could not read response body:', e);
-        }
+      const { data, error } = await supabase.functions.invoke('upload-document-async', {
+        body: {
+          rtoCode,
+          unitCode,
+          documentType,
+          fileName,
+          storagePath,
+          displayName: fileName,
+          metadata: {},
+          validationDetailId,
+        },
+      });
+
+      if (error) {
+        throw new Error(`Indexing failed: ${error.message}`);
       }
-      
-      console.error('[Upload] Final error message:', errorMessage);
-      throw new Error(`Failed to trigger indexing: ${errorMessage}`);
-    }
-    
-    if (!data) {
-      console.error('[Upload] No data returned from edge function');
-      throw new Error('Failed to trigger indexing: No response data');
-    }
 
-    if (!data?.document?.id || !data?.operation?.id) {
-      throw new Error('Invalid response from upload service');
-    }
+      if (!data?.success) {
+        throw new Error(data?.error || 'Indexing failed');
+      }
 
-    return {
-      documentId: data.document.id,
-      operationId: data.operation.id,
-      fileSearchStoreId: data.document.fileSearchStoreId,
+      return {
+        documentId: data.documentId,
+        operationId: data.operationId,
+        fileSearchStoreId: data.fileSearchStoreId,
+      };
     };
+
+    if (options?.enableRetry) {
+      return await retryWithBackoff(indexingFn, {
+        ...RetryPresets.standard,
+        shouldRetry: RetryStrategies.retryTransientErrors,
+        onRetry: (attempt, error) => {
+          console.log(`[Upload] Retry attempt ${attempt} for indexing:`, error.message);
+        },
+      });
+    }
+
+    return await indexingFn();
   }
 
   /**
-   * Poll operation status until complete
+   * Poll operation status with adaptive interval and cancellation
    */
   private async pollOperationStatus(
     operationId: number,
-    onProgress?: (progress: number) => void
+    uploadOperationId: string,
+    file: File,
+    onProgress?: (progress: number) => void,
+    options?: UploadOptions
   ): Promise<void> {
-    let attempts = 0;
-    let consecutiveErrors = 0;
-    const maxConsecutiveErrors = 5;
-
-    console.log(`[Upload] Starting to poll operation ${operationId}, max attempts: ${this.maxPollAttempts}`);
-
-    while (attempts < this.maxPollAttempts) {
-      await this.sleep(this.pollInterval);
-      attempts++;
-
-      try {
-        console.log(`[Upload] Poll attempt ${attempts}/${this.maxPollAttempts} for operation ${operationId}`);
-
-        const { data, error } = await supabase.functions.invoke('check-operation-status', {
-          body: { operationId },
-        });
-
-        if (error) {
-          consecutiveErrors++;
-          console.error(`[Upload] Error checking operation status (consecutive error ${consecutiveErrors}/${maxConsecutiveErrors}):`, error);
-          
-          // Fail fast after multiple consecutive errors
-          if (consecutiveErrors >= maxConsecutiveErrors) {
-            throw new Error(
-              `❌ Unable to check indexing status after ${maxConsecutiveErrors} attempts. ` +
-              `Error: ${error.message}. The 'check-operation-status' edge function may not be deployed. ` +
-              `Please check Supabase dashboard at https://supabase.com/dashboard`
-            );
-          }
-          continue;
-        }
-
-        // Reset error counter on successful response
-        consecutiveErrors = 0;
-
-        const operation = data?.operation;
-        if (!operation) {
-          console.error('[Upload] Invalid operation response:', data);
-          throw new Error('⚠️ Invalid operation status response - operation data missing');
-        }
-
-        console.log(`[Upload] Operation ${operationId} status:`, {
-          status: operation.status,
-          progress: operation.progress || 0,
-          error: operation.error,
-          attempts: attempts
-        });
-
-        onProgress?.(operation.progress || 0);
-
-        if (operation.status === 'completed') {
-          console.log(`[Upload] ✅ Operation ${operationId} completed successfully after ${attempts} attempts (${attempts * this.pollInterval / 1000}s)`);
-          return;
-        }
-
-        if (operation.status === 'failed' || operation.status === 'timeout') {
-          const errorMsg = operation.error || 'Unknown error occurred during indexing';
-          console.error(`[Upload] ❌ Operation ${operationId} failed:`, errorMsg);
-          throw new Error(`❌ Document indexing failed: ${errorMsg}`);
-        }
-
-        // Continue polling if status is 'processing' or 'pending'
-      } catch (err) {
-        // If we explicitly threw an error with emoji, re-throw it
-        if (err instanceof Error && (err.message.includes('❌') || err.message.includes('⚠️'))) {
-          throw err;
-        }
-        // Otherwise log and continue
-        console.error('[Upload] Unexpected error in polling:', err);
-        consecutiveErrors++;
-        if (consecutiveErrors >= maxConsecutiveErrors) {
-          throw new Error(`❌ Polling failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        }
+    // Adaptive polling interval based on file size
+    let interval = 2000; // Default 2 seconds
+    
+    if (options?.adaptivePolling) {
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB < 1) {
+        interval = 500; // Small files: 500ms
+      } else if (fileSizeMB < 3) {
+        interval = 1000; // Medium files: 1s
+      } else {
+        interval = 2000; // Large files: 2s
       }
     }
 
-    const timeoutSeconds = this.maxPollAttempts * this.pollInterval / 1000;
-    console.error(`[Upload] ⏱️ Operation ${operationId} timed out after ${attempts} attempts (${timeoutSeconds}s)`);
-    throw new Error(
-      `⏱️ Document indexing timeout: Exceeded ${timeoutSeconds}s waiting for completion. ` +
-      `The operation may still be processing. Operation ID: ${operationId}. ` +
-      `Please check the dashboard or try again later.`
+    const maxAttempts = 150; // 5 minutes max at 2s intervals
+
+    await pollWithCancellation(
+      async () => {
+        const { data, error } = await supabase
+          .from('gemini_operations')
+          .select('status, error_message')
+          .eq('id', operationId)
+          .single();
+
+        if (error) {
+          throw new Error(`Failed to check operation status: ${error.message}`);
+        }
+
+        return data;
+      },
+      (result) => {
+        if (result.status === 'failed') {
+          throw new Error(result.error_message || 'Indexing failed');
+        }
+        return result.status === 'completed';
+      },
+      `${uploadOperationId}-polling`,
+      {
+        interval,
+        maxAttempts,
+        fileName: file.name,
+        onProgress: (attempt, result) => {
+          const progress = Math.min((attempt / maxAttempts) * 100, 99);
+          onProgress?.(progress);
+        },
+      }
     );
   }
 
   /**
-   * Trigger validation after documents are indexed
+   * Check for duplicate file by hash
    */
-  async triggerValidation(validationDetailId: number): Promise<void> {
-    const { data, error } = await supabase.functions.invoke('trigger-validation', {
-      body: { validationDetailId },
-    });
-
-    if (error) {
-      throw new Error(`Failed to trigger validation: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  /**
-   * Upload multiple files and track overall progress
-   */
-  async uploadMultipleDocuments(
-    files: File[],
+  private async checkDuplicate(
+    hash: string,
     rtoCode: string,
-    unitCode: string,
-    documentType: string,
-    validationDetailId?: number,
-    onProgress?: (fileIndex: number, progress: UploadProgress) => void
-  ): Promise<UploadResult[]> {
-    const results: UploadResult[] = [];
+    unitCode: string
+  ): Promise<{ id: number; fileName: string } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('id, file_name')
+        .eq('rto_code', rtoCode)
+        .eq('unit_code', unitCode)
+        .eq('file_hash', hash)
+        .limit(1)
+        .single();
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      const result = await this.uploadDocument(
-        file,
-        rtoCode,
-        unitCode,
-        documentType as any,
-        validationDetailId,
-        (progress) => onProgress?.(i, progress)
-      );
+      if (error || !data) {
+        return null;
+      }
 
-      results.push(result);
+      return {
+        id: data.id,
+        fileName: data.file_name,
+      };
+    } catch (error) {
+      console.error('[Upload] Error checking for duplicates:', error);
+      return null;
     }
-
-    return results;
-  }
-
-  /**
-   * Get operation status from database (for UI polling)
-   */
-  async getOperationStatus(operationId: number) {
-    const { data, error } = await supabase
-      .from('gemini_operations')
-      .select('*')
-      .eq('id', operationId)
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to get operation status: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  /**
-   * Get document status from database
-   */
-  async getDocumentStatus(documentId: number) {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('id', documentId)
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to get document status: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
 // Export singleton instance
-export const documentUploadService = new DocumentUploadService();
+export const documentUploadServiceV2 = new DocumentUploadServiceV2();

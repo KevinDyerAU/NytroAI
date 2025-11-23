@@ -1,10 +1,12 @@
 /**
- * useValidationStatus Hook - Phase 3.1
- * Real-time validation status tracking using new computed fields
+ * useValidationStatus Hook - Phase 3.4
+ * Enhanced with debounced refresh, optimistic updates, and retry logic
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { debounce } from 'lodash-es';
 import { supabase } from '../lib/supabase';
+import { retryWithBackoff } from '../lib/retryWithBackoff';
 
 export interface ValidationStatus {
   id: number;
@@ -35,6 +37,7 @@ interface UseValidationStatusReturn {
 
 /**
  * Hook to track a single validation's status with real-time updates
+ * Enhanced with retry logic and optimistic updates
  */
 export function useValidationStatus(validationId: number | null): UseValidationStatusReturn {
   const [status, setStatus] = useState<ValidationStatus | null>(null);
@@ -52,17 +55,29 @@ export function useValidationStatus(validationId: number | null): UseValidationS
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('validation_detail')
-        .select('*')
-        .eq('id', validationId)
-        .single();
+      // ✅ Use retry logic for resilience
+      await retryWithBackoff(
+        async () => {
+          const { data, error: fetchError } = await supabase
+            .from('validation_detail')
+            .select('*')
+            .eq('id', validationId)
+            .single();
 
-      if (fetchError) {
-        throw new Error(`Failed to fetch validation status: ${fetchError.message}`);
-      }
+          if (fetchError) {
+            throw new Error(`Failed to fetch validation status: ${fetchError.message}`);
+          }
 
-      setStatus(data);
+          setStatus(data);
+        },
+        {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          onRetry: (attempt, err) => {
+            console.log(`[useValidationStatus] Retry attempt ${attempt}:`, err.message);
+          },
+        }
+      );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to fetch validation status';
       setError(errorMsg);
@@ -95,6 +110,7 @@ export function useValidationStatus(validationId: number | null): UseValidationS
         },
         (payload) => {
           console.log('[useValidationStatus] Status updated:', payload.new);
+          // ✅ Optimistic update - apply immediately
           setStatus(payload.new as ValidationStatus);
         }
       )
@@ -108,22 +124,27 @@ export function useValidationStatus(validationId: number | null): UseValidationS
         },
         (payload) => {
           console.log('[useValidationStatus] Validation deleted:', payload.old);
-          // Clear status and show error
           setStatus(null);
           setError('This validation has been deleted');
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`[useValidationStatus] Subscribed to validation ${validationId}`);
+          console.log('[useValidationStatus] Subscribed to validation changes');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('[useValidationStatus] Subscription error, attempting to reconnect...');
-          fetchStatus();
+          fetchStatus().catch(err => {
+            console.error('[useValidationStatus] Failed to refresh after error:', err);
+          });
+        } else if (status === 'TIMED_OUT') {
+          console.error('[useValidationStatus] Subscription timed out');
+        } else if (status === 'CLOSED') {
+          console.log('[useValidationStatus] Subscription closed');
         }
       });
 
     return () => {
-      console.log(`[useValidationStatus] Unsubscribing from validation ${validationId}`);
+      console.log('[useValidationStatus] Unsubscribing from validation changes');
       subscription.unsubscribe();
     };
   }, [validationId, fetchStatus]);
@@ -136,18 +157,24 @@ export function useValidationStatus(validationId: number | null): UseValidationS
   };
 }
 
-/**
- * Hook to track multiple validations with real-time updates
- */
-export function useValidationStatusList(rtoCode: string | null): {
+interface UseValidationStatusListReturn {
   validations: ValidationStatusWithDetails[];
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-} {
+}
+
+/**
+ * Hook to track all validations for an RTO with real-time updates
+ * Enhanced with debouncing, optimistic updates, and retry logic
+ */
+export function useValidationStatusList(rtoCode: string): UseValidationStatusListReturn {
   const [validations, setValidations] = useState<ValidationStatusWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Track if this is the initial load
+  const isInitialLoadRef = useRef(true);
 
   const fetchValidations = useCallback(async () => {
     if (!rtoCode) {
@@ -157,33 +184,46 @@ export function useValidationStatusList(rtoCode: string | null): {
     }
 
     try {
-      // Don't set loading during background refreshes triggered by subscriptions
-      // Only set loading on initial fetch or manual refresh
-      const isInitialLoad = validations.length === 0;
+      const isInitialLoad = isInitialLoadRef.current;
+      
+      // ✅ Only show loading spinner on initial load
       if (isInitialLoad) {
         setIsLoading(true);
       }
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('validation_detail_with_stats')
-        .select('*')
-        .eq('rtoCode', rtoCode)
-        .order('last_updated_at', { ascending: false });
+      // ✅ Use retry logic for resilience
+      await retryWithBackoff(
+        async () => {
+          const { data, error: fetchError } = await supabase
+            .from('validation_detail_with_stats')
+            .select('*')
+            .eq('rtoCode', rtoCode)
+            .order('last_updated_at', { ascending: false });
 
-      if (fetchError) {
-        // Log error but don't throw - prevents breaking the refresh cycle
-        console.error('[useValidationStatusList] Fetch error:', fetchError);
-        
-        // Only throw on initial load, otherwise just log and keep existing data
-        if (isInitialLoad) {
-          throw new Error(`Failed to fetch validations: ${fetchError.message}`);
+          if (fetchError) {
+            console.error('[useValidationStatusList] Fetch error:', fetchError);
+            
+            // ✅ Only throw on initial load, otherwise just log and keep existing data
+            if (isInitialLoad) {
+              throw new Error(`Failed to fetch validations: ${fetchError.message}`);
+            }
+            return; // Keep existing data
+          }
+
+          setValidations(data || []);
+          console.log(`[useValidationStatusList] Fetched ${data?.length || 0} validations`);
+        },
+        {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          onRetry: (attempt, err) => {
+            console.log(`[useValidationStatusList] Retry attempt ${attempt}:`, err.message);
+          },
         }
-        return;
-      }
+      );
 
-      setValidations(data || []);
-      console.log(`[useValidationStatusList] Fetched ${data?.length || 0} validations`);
+      isInitialLoadRef.current = false;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to fetch validations';
       setError(errorMsg);
@@ -191,7 +231,26 @@ export function useValidationStatusList(rtoCode: string | null): {
     } finally {
       setIsLoading(false);
     }
-  }, [rtoCode, validations.length]);
+  }, [rtoCode]);
+
+  // ✅ Create debounced version of fetchValidations
+  const debouncedFetch = useMemo(
+    () =>
+      debounce(
+        () => {
+          fetchValidations().catch(err => {
+            console.error('[useValidationStatusList] Debounced fetch error:', err);
+          });
+        },
+        500, // Wait 500ms after last change
+        {
+          leading: false,
+          trailing: true,
+          maxWait: 2000, // Force refresh after 2 seconds max
+        }
+      ),
+    [fetchValidations]
+  );
 
   useEffect(() => {
     if (!rtoCode) {
@@ -215,10 +274,12 @@ export function useValidationStatusList(rtoCode: string | null): {
         },
         (payload) => {
           console.log('[useValidationStatusList] Validation inserted:', payload.new);
-          // Refresh the entire list to get computed fields from view
-          fetchValidations().catch(err => {
-            console.error('[useValidationStatusList] Failed to refresh after INSERT:', err);
-          });
+          
+          // ✅ Optimistically add to local state
+          setValidations(prev => [payload.new as ValidationStatusWithDetails, ...prev]);
+          
+          // Then refresh for computed fields (debounced)
+          debouncedFetch();
         }
       )
       .on(
@@ -230,10 +291,18 @@ export function useValidationStatusList(rtoCode: string | null): {
         },
         (payload) => {
           console.log('[useValidationStatusList] Validation updated:', payload.new);
-          // Refresh the entire list to get computed fields from view
-          fetchValidations().catch(err => {
-            console.error('[useValidationStatusList] Failed to refresh after UPDATE:', err);
-          });
+          
+          // ✅ Optimistically update local state
+          setValidations(prev =>
+            prev.map(v =>
+              v.id === payload.new.id
+                ? { ...v, ...payload.new } as ValidationStatusWithDetails
+                : v
+            )
+          );
+          
+          // Then refresh for computed fields (debounced)
+          debouncedFetch();
         }
       )
       .on(
@@ -245,12 +314,12 @@ export function useValidationStatusList(rtoCode: string | null): {
         },
         (payload) => {
           console.log('[useValidationStatusList] Validation deleted:', payload.old);
-          // Remove deleted item from local state immediately for responsiveness
+          
+          // ✅ Immediately remove from local state for responsiveness
           setValidations(prev => prev.filter(v => v.id !== payload.old.id));
-          // Also refresh to ensure consistency
-          fetchValidations().catch(err => {
-            console.error('[useValidationStatusList] Failed to refresh after DELETE:', err);
-          });
+          
+          // Also refresh to ensure consistency (debounced)
+          debouncedFetch();
         }
       )
       .subscribe((status) => {
@@ -258,7 +327,7 @@ export function useValidationStatusList(rtoCode: string | null): {
           console.log('[useValidationStatusList] Subscribed to validation changes');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('[useValidationStatusList] Subscription error, attempting to reconnect...');
-          // Refresh data on subscription error
+          // Refresh data on subscription error (not debounced - immediate)
           fetchValidations().catch(err => {
             console.error('[useValidationStatusList] Failed to refresh after error:', err);
           });
@@ -272,8 +341,10 @@ export function useValidationStatusList(rtoCode: string | null): {
     return () => {
       console.log('[useValidationStatusList] Unsubscribing from validation changes');
       subscription.unsubscribe();
+      // Cancel any pending debounced calls
+      debouncedFetch.cancel();
     };
-  }, [rtoCode, fetchValidations]);
+  }, [rtoCode, fetchValidations, debouncedFetch]);
 
   return {
     validations,
@@ -303,30 +374,21 @@ export function getStatusColor(status: string): string {
 }
 
 /**
- * Get status label for display
+ * Get human-readable status description
  */
-export function getStatusLabel(status: string): string {
+export function getStatusDescription(status: string): string {
   switch (status) {
     case 'completed':
-      return 'Completed';
+      return 'All requirements validated';
     case 'partial':
-      return 'Partially Met';
+      return 'Some requirements validated';
     case 'in_progress':
-      return 'In Progress';
+      return 'Validation in progress';
     case 'failed':
-      return 'Failed';
+      return 'Validation failed';
     case 'pending':
+      return 'Waiting to start';
     default:
-      return 'Pending';
+      return 'Unknown status';
   }
-}
-
-/**
- * Get progress color based on percentage
- */
-export function getProgressColor(progress: number): string {
-  if (progress >= 80) return 'bg-green-500';
-  if (progress >= 50) return 'bg-yellow-500';
-  if (progress >= 20) return 'bg-orange-500';
-  return 'bg-red-500';
 }
