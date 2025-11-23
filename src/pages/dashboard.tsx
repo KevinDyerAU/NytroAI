@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Navigation } from '../components/Navigation';
 import { Dashboard_v3 as Dashboard } from '../components/Dashboard_v3';
 import { UnitAcquisition } from '../components/UnitAcquisition';
-import { DocumentUploadAdapter as DocumentUpload } from '../components/DocumentUploadAdapter';
+import { DocumentUploadAdapterSimplified as DocumentUpload } from '../components/DocumentUploadAdapterSimplified';
 import { ResultsExplorer_v2 as ResultsExplorer } from '../components/ResultsExplorer_v2';
 import { Settings } from '../components/Settings';
 import { MaintenanceHub } from '../components/maintenance/MaintenanceHub';
