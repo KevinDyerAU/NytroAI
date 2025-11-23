@@ -51,36 +51,31 @@ export class DocumentUploadServiceSimplified {
       const storagePath = await this.uploadToStorage(file, rtoCode, unitCode);
       console.log('[Upload] File uploaded to storage:', storagePath);
 
+      // Done! User can continue working
       onProgress?.({
-        stage: 'uploading',
-        progress: 60,
-        message: 'Creating document record...',
+        stage: 'completed',
+        progress: 100,
+        message: 'Upload complete - processing in background',
       });
 
-      // Stage 2: Trigger indexing via edge function
+      // Stage 2: Trigger indexing in background (fire-and-forget)
       // This creates document record + gemini_operation
       // DB trigger will handle validation automatically
-      const documentId = await this.triggerIndexing(
+      // We don't wait for this to complete
+      this.triggerIndexingBackground(
         file.name,
         storagePath,
         rtoCode,
         unitCode,
         documentType,
         validationDetailId
-      );
-
-      console.log('[Upload] Indexing triggered, document ID:', documentId);
-
-      // Done! DB trigger will handle the rest
-      onProgress?.({
-        stage: 'completed',
-        progress: 100,
-        message: 'Upload complete - processing in background',
-        documentId,
+      ).catch(error => {
+        console.error('[Upload] Background indexing failed:', error);
+        // Error will be visible in Dashboard, no need to notify user here
       });
 
       return {
-        documentId,
+        documentId: 0, // Will be assigned by edge function
         storagePath,
       };
 
@@ -132,11 +127,11 @@ export class DocumentUploadServiceSimplified {
   }
 
   /**
-   * Trigger indexing via edge function
+   * Trigger indexing in background (fire-and-forget)
    * This creates document record + gemini_operation
    * DB trigger will automatically validate when indexing completes
    */
-  private async triggerIndexing(
+  private async triggerIndexingBackground(
     fileName: string,
     storagePath: string,
     rtoCode: string,
@@ -160,11 +155,8 @@ export class DocumentUploadServiceSimplified {
       throw new Error(`Failed to trigger indexing: ${error.message}`);
     }
 
-    if (!data || !data.documentId) {
-      throw new Error('Indexing triggered but no document ID returned');
-    }
-
-    return data.documentId;
+    console.log('[Upload] Background indexing triggered successfully');
+    // Don't return anything - this is fire-and-forget
   }
 
   /**

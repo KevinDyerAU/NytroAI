@@ -23,12 +23,15 @@ interface FileState {
 /**
  * Simplified Document Upload Component
  * 
- * New Flow:
+ * Instant Upload Flow:
  * 1. User selects files
- * 2. Files upload to storage
- * 3. Document records created
- * 4. Done! DB triggers handle the rest
- * 5. Dashboard shows status updates
+ * 2. Files upload to storage (completes instantly)
+ * 3. User can continue working immediately
+ * 4. Background: Edge function creates document records
+ * 5. Background: DB triggers handle indexing and validation
+ * 6. Dashboard shows real-time status updates
+ * 
+ * Key: Upload completes BEFORE edge function call
  */
 export function DocumentUploadSimplified({ 
   unitCode, 
@@ -120,26 +123,24 @@ export function DocumentUploadSimplified({
             }
           );
 
-          // Update with document ID
+          // Upload complete! Processing continues in background
           setFiles(prev => {
             const updated = [...prev];
             updated[i] = { 
               ...updated[i], 
-              documentId: result.documentId,
               progress: {
                 stage: 'completed',
                 progress: 100,
-                message: 'Upload complete',
-                documentId: result.documentId,
+                message: 'Upload complete - processing in background',
               }
             };
             return updated;
           });
 
-          // Notify parent
-          onUploadComplete(result.documentId);
+          // Notify parent (documentId will be assigned by edge function)
+          onUploadComplete(0);
 
-          toast.success(`${fileState.file.name} uploaded successfully`);
+          toast.success(`${fileState.file.name} uploaded - processing in background`);
 
         } catch (error) {
           console.error('[Upload] Error uploading file:', error);
