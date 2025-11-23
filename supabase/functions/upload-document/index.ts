@@ -15,13 +15,30 @@ interface UploadDocumentRequest {
 }
 
 serve(async (req) => {
+  const startTime = Date.now();
+  console.log('='.repeat(80));
+  console.log('[upload-document] START', new Date().toISOString());
+  console.log('[upload-document] Method:', req.method);
+  
   // Handle CORS preflight requests
   const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (corsResponse) {
+    console.log('[upload-document] CORS preflight handled');
+    return corsResponse;
+  }
 
   try {
     // Parse request body
     const requestData: UploadDocumentRequest = await req.json();
+    console.log('[upload-document] Request data:', JSON.stringify({
+      rtoCode: requestData.rtoCode,
+      unitCode: requestData.unitCode,
+      documentType: requestData.documentType,
+      fileName: requestData.fileName,
+      hasFileContent: !!requestData.fileContent,
+      storagePath: requestData.storagePath,
+      metadataKeys: requestData.metadata ? Object.keys(requestData.metadata) : []
+    }));
     const { rtoCode, unitCode, documentType, fileName, fileContent, storagePath, displayName, metadata } =
       requestData;
 
@@ -216,7 +233,11 @@ serve(async (req) => {
       return createErrorResponse('Failed to store document metadata', 500);
     }
 
-    console.log(`Document uploaded successfully: ${document.id}`);
+    const duration = Date.now() - startTime;
+    console.log(`[upload-document] Document uploaded successfully: ${document.id}`);
+    console.log('[upload-document] SUCCESS - Duration:', duration, 'ms');
+    console.log('[upload-document] END', new Date().toISOString());
+    console.log('='.repeat(80));
 
     return createSuccessResponse({
       success: true,
@@ -232,7 +253,16 @@ serve(async (req) => {
       message: 'Document uploaded and indexed successfully',
     });
   } catch (error) {
-    console.error('Error uploading document:', error);
+    const duration = Date.now() - startTime;
+    console.error('[upload-document] ERROR:', error);
+    console.error('[upload-document] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: duration + 'ms'
+    });
+    console.log('[upload-document] END (with error)', new Date().toISOString());
+    console.log('='.repeat(80));
+    
     return createErrorResponse(
       error instanceof Error ? error.message : 'Internal server error',
       500

@@ -19,12 +19,21 @@ interface CheckOperationRequest {
  * - operationName (Gemini operation name)
  */
 serve(async (req) => {
+  const startTime = Date.now();
+  console.log('='.repeat(80));
+  console.log('[check-operation-status] START', new Date().toISOString());
+  console.log('[check-operation-status] Method:', req.method);
+  
   const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (corsResponse) {
+    console.log('[check-operation-status] CORS preflight handled');
+    return corsResponse;
+  }
 
   try {
     const requestData: CheckOperationRequest = await req.json();
     const { operationId, operationName } = requestData;
+    console.log('[check-operation-status] Request data:', { operationId, operationName });
 
     if (!operationId && !operationName) {
       return createErrorResponse('Must provide either operationId or operationName');
@@ -51,6 +60,12 @@ serve(async (req) => {
 
     // If already completed or failed, return cached status
     if (operation.status === 'completed' || operation.status === 'failed' || operation.status === 'timeout') {
+      const duration = Date.now() - startTime;
+      console.log('[check-operation-status] Returning cached status:', operation.status);
+      console.log('[check-operation-status] SUCCESS (cached) - Duration:', duration, 'ms');
+      console.log('[check-operation-status] END', new Date().toISOString());
+      console.log('='.repeat(80));
+      
       return createSuccessResponse({
         operation: {
           id: operation.id,
@@ -166,6 +181,12 @@ serve(async (req) => {
         console.log(`[Check Operation] Validation detail ${operation.validation_detail_id} updated: ${extractStatus}`);
       }
 
+      const duration = Date.now() - startTime;
+      console.log('[check-operation-status] Operation status updated:', status);
+      console.log('[check-operation-status] SUCCESS - Duration:', duration, 'ms');
+      console.log('[check-operation-status] END', new Date().toISOString());
+      console.log('='.repeat(80));
+      
       return createSuccessResponse({
         operation: {
           id: operation.id,
@@ -199,7 +220,16 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error('[Check Operation] Error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[check-operation-status] ERROR:', error);
+    console.error('[check-operation-status] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: duration + 'ms'
+    });
+    console.log('[check-operation-status] END (with error)', new Date().toISOString());
+    console.log('='.repeat(80));
+    
     return createErrorResponse(
       error instanceof Error ? error.message : 'Internal server error',
       500

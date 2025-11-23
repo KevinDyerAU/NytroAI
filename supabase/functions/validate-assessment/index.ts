@@ -95,12 +95,28 @@ interface ValidationRecord {
 }
 
 serve(async (req) => {
+  const startTime = Date.now();
+  console.log('='.repeat(80));
+  console.log('[validate-assessment] START', new Date().toISOString());
+  console.log('[validate-assessment] Method:', req.method);
+  
   const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (corsResponse) {
+    console.log('[validate-assessment] CORS preflight handled');
+    return corsResponse;
+  }
 
   try {
     const requestData: ValidateAssessmentRequest = await req.json();
     let { documentId, unitCode, validationType, validationDetailId, customPrompt, namespace } = requestData;
+    console.log('[validate-assessment] Request data:', {
+      documentId,
+      unitCode,
+      validationType,
+      validationDetailId,
+      hasCustomPrompt: !!customPrompt,
+      namespace
+    });
 
     if (!documentId || !unitCode || !validationType) {
       return createErrorResponse(
@@ -406,12 +422,27 @@ serve(async (req) => {
       }
     }
 
+    const duration = Date.now() - startTime;
+    console.log('[validate-assessment] Validation completed successfully');
+    console.log('[validate-assessment] SUCCESS - Duration:', duration, 'ms');
+    console.log('[validate-assessment] END', new Date().toISOString());
+    console.log('='.repeat(80));
+
     return createSuccessResponse({
       success: true,
       validation: validationResult,
     });
   } catch (error) {
-    console.error('[Validate Assessment] Error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[validate-assessment] ERROR:', error);
+    console.error('[validate-assessment] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: duration + 'ms'
+    });
+    console.log('[validate-assessment] END (with error)', new Date().toISOString());
+    console.log('='.repeat(80));
+    
     return createErrorResponse(
       error instanceof Error ? error.message : 'Internal server error',
       500
