@@ -1,0 +1,75 @@
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#3b82f6','primaryTextColor':'#fff','primaryBorderColor':'#2563eb','lineColor':'#64748b','secondaryColor':'#10b981','tertiaryColor':'#f59e0b'}}}%%
+
+sequenceDiagram
+    participant User
+    participant UI as React UI
+    participant Upload as upload-document
+    participant Storage as Supabase Storage
+    participant Gemini as Google Gemini
+    participant DB as Database
+    participant Trigger as trigger-validation
+    participant Validate as validate-assessment
+    participant Query as query-document
+
+    Note over User,Query: Document Upload & Indexing
+
+    User->>UI: Upload PDF Assessment
+    UI->>Upload: POST /upload-document
+    Upload->>Storage: Store PDF file
+    Storage-->>Upload: File URL
+    Upload->>DB: Create validation_detail record
+    Upload->>Gemini: Index document
+    Gemini-->>Upload: Indexing started
+    Upload->>DB: Create gemini_operations record
+    Upload-->>UI: Upload complete
+    UI-->>User: Show "Processing..."
+
+    Note over User,Query: Automatic Validation Trigger
+
+    Gemini->>DB: Update gemini_operations (status: completed)
+    DB->>Trigger: Database trigger fires
+    Trigger->>DB: Check all operations complete
+    DB-->>Trigger: All complete
+    Trigger->>Validate: POST /validate-assessment
+    Trigger->>DB: Log trigger attempt
+    Validate->>DB: Update status to "ProcessingInBackground"
+
+    Note over User,Query: Validation Process
+
+    Validate->>DB: Fetch UOC requirements
+    DB-->>Validate: Requirements list
+    
+    loop For each requirement
+        Validate->>Query: Query assessment for requirement
+        Query->>Gemini: Search indexed document
+        Gemini-->>Query: Relevant passages
+        Query-->>Validate: Citations
+        Validate->>Gemini: Validate requirement
+        Gemini-->>Validate: Status + Reasoning
+        Validate->>DB: Store validation_result
+    end
+
+    Validate->>DB: Update validation_detail (status: completed)
+    Validate-->>Trigger: Validation complete
+    DB->>UI: Real-time update (Supabase subscriptions)
+    UI-->>User: Show "Complete" with results
+
+    Note over User,Query: View Results & Regenerate Questions
+
+    User->>UI: Click validation to view results
+    UI->>DB: Fetch validation_results
+    DB-->>UI: All results
+    UI-->>User: Display results
+
+    alt Regenerate Smart Question
+        User->>UI: Click "Regenerate" with context
+        UI->>Validate: POST /regenerate-smart-questions
+        Validate->>Query: Query assessment
+        Query->>Gemini: Search with context
+        Gemini-->>Query: Passages
+        Validate->>Gemini: Generate question
+        Gemini-->>Validate: New smart question
+        Validate->>DB: Update validation_result
+        DB->>UI: Real-time update
+        UI-->>User: Show new question
+    end
