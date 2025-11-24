@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Upload, Loader2, CheckCircle, XCircle, FileText, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
@@ -44,11 +44,13 @@ export function DocumentUploadSimplified({
   const [files, setFiles] = useState<FileState[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const { user } = useAuthStore();
+  const hasNotifiedFilesRef = useRef(false);
 
-  // Notify parent when files change
+  // Notify parent ONCE when files are initially selected (not on progress updates)
   useEffect(() => {
-    if (files.length > 0 && onFilesSelected) {
+    if (files.length > 0 && onFilesSelected && !hasNotifiedFilesRef.current) {
       onFilesSelected(files.map(f => f.file));
+      hasNotifiedFilesRef.current = true;
     }
   }, [files, onFilesSelected]);
 
@@ -187,6 +189,9 @@ export function DocumentUploadSimplified({
       }
 
       toast.success('All files uploaded - processing in background');
+      
+      // Reset notification flag for next upload batch
+      hasNotifiedFilesRef.current = false;
 
     } finally {
       setIsUploading(false);
@@ -199,6 +204,7 @@ export function DocumentUploadSimplified({
 
   const clearAll = () => {
     setFiles([]);
+    hasNotifiedFilesRef.current = false; // Reset so new uploads can trigger callback
   };
 
   return (

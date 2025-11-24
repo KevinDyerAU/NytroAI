@@ -149,12 +149,14 @@ export function createGeminiClient(config: GeminiConfig) {
       console.log('╚════════════════════════════════════════════════════════════════════');
 
       // Convert metadata to Gemini format
+      console.log('[Gemini] Original metadata:', JSON.stringify(metadata));
       const customMetadata = metadata
         ? Object.entries(metadata).map(([key, value]) => ({
             key: key.replace(/_/g, '-'),
             stringValue: String(value),
           }))
         : [];
+      console.log('[Gemini] Converted customMetadata for File Search:', JSON.stringify(customMetadata));
 
       // Create multipart form data with file + metadata
       const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2)}`;
@@ -162,6 +164,7 @@ export function createGeminiClient(config: GeminiConfig) {
         displayName: displayName || fileName,
         ...(customMetadata.length > 0 && { customMetadata }),
       });
+      console.log('[Gemini] Final metadata JSON being sent to Gemini:', metadataJson);
 
       // Build multipart body
       const parts: Uint8Array[] = [];

@@ -184,13 +184,13 @@ export function Dashboard_v3({
     };
   }, [validations]);
 
-  // Load validation status
-  const loadValidationStatus = async () => {
+  // Load validation status for a specific validation_detail
+  const loadValidationStatus = async (validationDetailId: number) => {
     setIsLoadingStatus(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-validation-status');
-
-      console.log('[Dashboard] Status response:', { data, error });
+      const { data, error } = await supabase.functions.invoke('get-validation-detail-status', {
+        body: { validationDetailId }
+      });
 
       if (error) {
         console.error('[Dashboard] Error loading status:', error);
@@ -198,7 +198,9 @@ export function Dashboard_v3({
         return;
       }
 
-      // The edge function returns {status: [...], total: N}
+      console.log('[Dashboard] Validation detail status response:', data);
+
+      // Parse the status data
       const statusData = data?.status || [];
 
       console.log('[Dashboard] Parsed status data:', statusData);
@@ -206,7 +208,7 @@ export function Dashboard_v3({
       setShowStatusModal(true);
     } catch (err) {
       console.error('[Dashboard] Exception loading status:', err);
-      toast.error('Failed to load validation status');
+      toast.error('An error occurred while loading status');
     } finally {
       setIsLoadingStatus(false);
     }
@@ -396,20 +398,6 @@ export function Dashboard_v3({
               )}
               Refresh
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadValidationStatus}
-              disabled={isLoadingStatus}
-              className="flex items-center gap-2"
-            >
-              {isLoadingStatus ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Activity className="w-4 h-4" />
-              )}
-              Check Status
-            </Button>
           </div>
         </div>
 
@@ -492,13 +480,32 @@ export function Dashboard_v3({
                         </div>
                       )}
                     </div>
-                    <ValidationStatusIndicator
-                      status={statusMap}
-                      progress={progress}
-                      size="sm"
-                      showLabel={true}
-                      compact={false}
-                    />
+                    <div className="flex items-center gap-2">
+                      <ValidationStatusIndicator
+                        status={statusMap}
+                        progress={progress}
+                        size="sm"
+                        showLabel={true}
+                        compact={false}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          loadValidationStatus(validation.id);
+                        }}
+                        disabled={isLoadingStatus}
+                        className="flex items-center gap-1 text-xs"
+                        title="Check document processing status"
+                      >
+                        {isLoadingStatus ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Activity className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Show progress tracker for all active validations */}

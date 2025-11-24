@@ -336,27 +336,57 @@ serve(async (req) => {
 
     // Query with File Search - Gemini will search ALL documents matching the filter
     console.log(`[Validate Assessment] Querying File Search store: ${fileSearchStoreResourceName}`);
-    const response = await gemini.generateContentWithFileSearch(
+    let response = await gemini.generateContentWithFileSearch(
       prompt,
       [fileSearchStoreResourceName],
       metadataFilter
     );
     
     // Log grounding information
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    let groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     console.log(`[Validate Assessment] Grounding chunks found: ${groundingChunks.length}`);
+    
+    // RETRY LOGIC: If no chunks found with namespace, try fallback strategies
+    if (groundingChunks.length === 0) {
+      console.log(`[Validate Assessment] WARNING: No grounding chunks with filter: ${metadataFilter}`);
+      
+      // Try with unit-code filter instead
+      if (namespace && unitCode) {
+        const fallbackFilter = `unit-code="${unitCode}" AND document-type="${documentType}"`;
+        console.log(`[Validate Assessment] RETRY #1: Trying unit-code filter: ${fallbackFilter}`);
+        response = await gemini.generateContentWithFileSearch(
+          prompt,
+          [fileSearchStoreResourceName],
+          fallbackFilter
+        );
+        groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        console.log(`[Validate Assessment] RETRY #1 result: ${groundingChunks.length} chunks found`);
+      }
+      
+      // If still no results, try without metadata filter (documents might not be indexed yet)
+      if (groundingChunks.length === 0) {
+        console.log(`[Validate Assessment] RETRY #2: Trying without metadata filter`);
+        response = await gemini.generateContentWithFileSearch(
+          prompt,
+          [fileSearchStoreResourceName],
+          undefined // No filter - search all documents in store
+        );
+        groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        console.log(`[Validate Assessment] RETRY #2 result: ${groundingChunks.length} chunks found`);
+        
+        if (groundingChunks.length > 0) {
+          console.warn(`[Validate Assessment] ⚠️ Documents found WITHOUT metadata filter. This suggests metadata indexing is delayed or incomplete.`);
+        }
+      }
+    }
+    
     if (groundingChunks.length > 0) {
-      console.log(`[Validate Assessment] Sample chunks:`, groundingChunks.slice(0, 3).map((c: any) => ({
+      console.log(`[Validate Assessment] ✅ Sample chunks:`, groundingChunks.slice(0, 3).map((c: any) => ({
         doc: c.fileSearchChunk?.documentName,
         pages: c.fileSearchChunk?.pageNumbers
       })));
     } else {
-      console.log(`[Validate Assessment] WARNING: No grounding chunks found - Gemini did not access any documents`);
-    }
-
-    // Check if we have grounding chunks - if not, Gemini couldn't find documents
-    if (groundingChunks.length === 0) {
-      console.error(`[Validate Assessment] No documents found in File Search store with filter: ${metadataFilter}`);
+      console.error(`[Validate Assessment] ❌ No documents found in File Search store after all retry attempts`);
       return createErrorResponse(
         `No assessment documents found for namespace "${namespace}" or unit "${unitCode}". Please ensure documents are uploaded and indexed with the correct metadata before validation.`,
         404
