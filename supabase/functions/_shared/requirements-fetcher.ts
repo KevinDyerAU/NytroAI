@@ -8,7 +8,7 @@
 export interface Requirement {
   id: number;
   unitCode: string;
-  type: 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_performance_criteria' | 'assessment_conditions';
+  type: 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_performance_criteria' | 'assessment_conditions' | 'assessment_instructions';
   number: string;
   text: string;
   description?: string;
@@ -21,6 +21,7 @@ export interface RequirementsByType {
   foundation_skills: Requirement[];
   elements_performance_criteria: Requirement[];
   assessment_conditions: Requirement[];
+  assessment_instructions: Requirement[];
 }
 
 /**
@@ -29,7 +30,7 @@ export interface RequirementsByType {
 export async function fetchRequirements(
   supabase: any,
   unitCode: string,
-  validationType: 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_criteria' | 'assessment_conditions' | 'full_validation',
+  validationType: 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_criteria' | 'assessment_conditions' | 'assessment_instructions' | 'full_validation' | 'learner_guide_validation',
   unitLink?: string | null
 ): Promise<Requirement[]> {
   let requirementTable = '';
@@ -53,11 +54,87 @@ export async function fetchRequirements(
       type = 'elements_performance_criteria';
       break;
     case 'assessment_conditions':
-      requirementTable = 'assessment_conditions_requirements';
+      // Assessment conditions come from UnitOfCompetency table, not a separate requirements table
       type = 'assessment_conditions';
-      break;
+      try {
+        console.log(`[Requirements Fetcher] Fetching assessment_conditions from UnitOfCompetency for ${unitCode}`);
+        
+        const query = unitLink
+          ? supabase.from('UnitOfCompetency').select('ac, Link').ilike('Link', unitLink).single()
+          : supabase.from('UnitOfCompetency').select('ac, Link').eq('unitCode', unitCode).single();
+        
+        const { data: uocData, error: uocError } = await query;
+        
+        if (uocError) {
+          console.error(`[Requirements Fetcher] Error fetching from UnitOfCompetency:`, uocError);
+          return [];
+        }
+        
+        if (uocData && uocData.ac) {
+          return [{
+            id: 999999,
+            unitCode: unitCode,
+            type: 'assessment_conditions',
+            number: '1',
+            text: uocData.ac,
+            description: uocData.ac,
+            metadata: {
+              source: 'UnitOfCompetency',
+              unitLink: uocData.Link
+            }
+          }];
+        }
+        
+        console.warn(`[Requirements Fetcher] No assessment conditions found in UnitOfCompetency for ${unitCode}`);
+        return [];
+      } catch (err) {
+        console.error(`[Requirements Fetcher] Exception fetching assessment_conditions:`, err);
+        return [];
+      }
+    case 'assessment_instructions':
+      // Assessment instructions = ac + " - " + epc from UnitOfCompetency table
+      type = 'assessment_instructions';
+      try {
+        console.log(`[Requirements Fetcher] Fetching assessment_instructions from UnitOfCompetency for ${unitCode}`);
+        
+        const query = unitLink
+          ? supabase.from('UnitOfCompetency').select('ac, epc, Link').ilike('Link', unitLink).single()
+          : supabase.from('UnitOfCompetency').select('ac, epc, Link').eq('unitCode', unitCode).single();
+        
+        const { data: uocData, error: uocError } = await query;
+        
+        if (uocError) {
+          console.error(`[Requirements Fetcher] Error fetching from UnitOfCompetency:`, uocError);
+          return [];
+        }
+        
+        if (uocData && (uocData.ac || uocData.epc)) {
+          const aiText = `${uocData.ac || ''}  -  ${uocData.epc || ''}`.trim();
+          return [{
+            id: 999998,
+            unitCode: unitCode,
+            type: 'assessment_instructions',
+            number: '1',
+            text: aiText,
+            description: aiText,
+            metadata: {
+              source: 'UnitOfCompetency',
+              unitLink: uocData.Link,
+              ac: uocData.ac,
+              epc: uocData.epc
+            }
+          }];
+        }
+        
+        console.warn(`[Requirements Fetcher] No assessment instructions found in UnitOfCompetency for ${unitCode}`);
+        return [];
+      } catch (err) {
+        console.error(`[Requirements Fetcher] Exception fetching assessment_instructions:`, err);
+        return [];
+      }
     case 'full_validation':
-      // For full validation, fetch all requirement types
+    case 'learner_guide_validation':
+      // For full validation and learner guide validation, fetch all requirement types
       return await fetchAllRequirements(supabase, unitCode, unitLink);
   }
 
@@ -110,13 +187,12 @@ export async function fetchAllRequirements(
 ): Promise<Requirement[]> {
   const allRequirements: Requirement[] = [];
 
-  // Fetch each requirement type
+  // Fetch each requirement type (excluding assessment_conditions which comes from UnitOfCompetency)
   const types: Array<{ table: string; type: Requirement['type'] }> = [
     { table: 'knowledge_evidence_requirements', type: 'knowledge_evidence' },
     { table: 'performance_evidence_requirements', type: 'performance_evidence' },
     { table: 'foundation_skills_requirements', type: 'foundation_skills' },
     { table: 'elements_performance_criteria_requirements', type: 'elements_performance_criteria' },
-    { table: 'assessment_conditions_requirements', type: 'assessment_conditions' },
   ];
 
   for (const { table, type } of types) {
@@ -172,6 +248,62 @@ export async function fetchAllRequirements(
     }
   }
 
+  // Fetch assessment_conditions and assessment_instructions from UnitOfCompetency table
+  try {
+    console.log(`[Requirements Fetcher] Fetching assessment_conditions and assessment_instructions from UnitOfCompetency for ${unitCode}`);
+    
+    const query = unitLink
+      ? supabase.from('UnitOfCompetency').select('ac, epc, Link').ilike('Link', unitLink).single()
+      : supabase.from('UnitOfCompetency').select('ac, epc, Link').eq('unitCode', unitCode).single();
+    
+    const { data: uocData, error: uocError } = await query;
+    
+    if (uocError) {
+      console.error(`[Requirements Fetcher] Error fetching from UnitOfCompetency:`, uocError);
+    } else if (uocData) {
+      // Assessment conditions
+      if (uocData.ac) {
+        allRequirements.push({
+          id: 999999, // Use a high ID to avoid conflicts
+          unitCode: unitCode,
+          type: 'assessment_conditions',
+          number: '1',
+          text: uocData.ac,
+          description: uocData.ac,
+          metadata: {
+            source: 'UnitOfCompetency',
+            unitLink: uocData.Link
+          }
+        });
+        console.log(`[Requirements Fetcher] Found assessment_conditions from UnitOfCompetency for ${unitCode}`);
+      }
+      
+      // Assessment instructions (ac + epc)
+      if (uocData.ac || uocData.epc) {
+        const aiText = `${uocData.ac || ''}  -  ${uocData.epc || ''}`.trim();
+        allRequirements.push({
+          id: 999998,
+          unitCode: unitCode,
+          type: 'assessment_instructions',
+          number: '1',
+          text: aiText,
+          description: aiText,
+          metadata: {
+            source: 'UnitOfCompetency',
+            unitLink: uocData.Link,
+            ac: uocData.ac,
+            epc: uocData.epc
+          }
+        });
+        console.log(`[Requirements Fetcher] Found assessment_instructions from UnitOfCompetency for ${unitCode}`);
+      }
+    } else {
+      console.warn(`[Requirements Fetcher] No data found in UnitOfCompetency for ${unitCode}`);
+    }
+  } catch (err) {
+    console.error(`[Requirements Fetcher] Exception fetching from UnitOfCompetency:`, err);
+  }
+
   console.log(`[Requirements Fetcher] Total requirements fetched: ${allRequirements.length}`);
   return allRequirements;
 }
@@ -189,6 +321,7 @@ export async function fetchRequirementsByType(
     foundation_skills: [],
     elements_performance_criteria: [],
     assessment_conditions: [],
+    assessment_instructions: [],
   };
 
   const types: Array<{ table: string; type: keyof RequirementsByType }> = [
@@ -196,7 +329,6 @@ export async function fetchRequirementsByType(
     { table: 'performance_evidence_requirements', type: 'performance_evidence' },
     { table: 'foundation_skills_requirements', type: 'foundation_skills' },
     { table: 'elements_performance_criteria_requirements', type: 'elements_performance_criteria' },
-    { table: 'assessment_conditions_requirements', type: 'assessment_conditions' },
   ];
 
   for (const { table, type } of types) {
@@ -219,6 +351,56 @@ export async function fetchRequirementsByType(
     } catch (err) {
       console.error(`[Requirements Fetcher] Exception fetching from ${table}:`, err);
     }
+  }
+
+  // Fetch assessment_conditions and assessment_instructions from UnitOfCompetency
+  try {
+    const { data: uocData, error: uocError } = await supabase
+      .from('UnitOfCompetency')
+      .select('ac, epc, Link')
+      .eq('unitCode', unitCode)
+      .single();
+    
+    if (!uocError && uocData) {
+      // Assessment conditions
+      if (uocData.ac) {
+        result.assessment_conditions = [{
+          id: 999999,
+          unitCode: unitCode,
+          type: 'assessment_conditions',
+          number: '1',
+          text: uocData.ac,
+          description: uocData.ac,
+          metadata: {
+            source: 'UnitOfCompetency',
+            unitLink: uocData.Link
+          }
+        }];
+        console.log(`[Requirements Fetcher] Found assessment_conditions from UnitOfCompetency for ${unitCode}`);
+      }
+      
+      // Assessment instructions (ac + epc)
+      if (uocData.ac || uocData.epc) {
+        const aiText = `${uocData.ac || ''}  -  ${uocData.epc || ''}`.trim();
+        result.assessment_instructions = [{
+          id: 999998,
+          unitCode: unitCode,
+          type: 'assessment_instructions',
+          number: '1',
+          text: aiText,
+          description: aiText,
+          metadata: {
+            source: 'UnitOfCompetency',
+            unitLink: uocData.Link,
+            ac: uocData.ac,
+            epc: uocData.epc
+          }
+        }];
+        console.log(`[Requirements Fetcher] Found assessment_instructions from UnitOfCompetency for ${unitCode}`);
+      }
+    }
+  } catch (err) {
+    console.error(`[Requirements Fetcher] Exception fetching from UnitOfCompetency:`, err);
   }
 
   return result;
@@ -263,9 +445,16 @@ function normalizeRequirement(row: any, type: Requirement['type']): Requirement 
       break;
 
     case 'assessment_conditions':
-      // assessment_conditions_requirements table structure
+      // assessment_conditions from UnitOfCompetency table
       text = row.condition_text || row.text || row.description || '';
       number = row.condition_number || row.number || String(row.id);
+      description = row.description || text;
+      break;
+
+    case 'assessment_instructions':
+      // assessment_instructions from UnitOfCompetency table (ac + epc)
+      text = row.text || row.description || '';
+      number = row.number || String(row.id);
       description = row.description || text;
       break;
   }

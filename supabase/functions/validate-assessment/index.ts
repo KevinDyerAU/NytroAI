@@ -50,6 +50,7 @@ interface ValidateAssessmentRequest {
     | 'foundation_skills'
     | 'elements_criteria'
     | 'assessment_conditions'
+    | 'assessment_instructions'
     | 'full_validation'
     | 'learner_guide_validation';
   validationDetailId?: number;
