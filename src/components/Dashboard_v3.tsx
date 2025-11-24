@@ -7,9 +7,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { KPIWidget } from './KPIWidget';
 import { Card } from './ui/card';
+import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { ValidationStatusIndicator } from './ValidationStatusIndicator';
 import { ValidationProgressTracker } from './ValidationProgressTracker';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { supabase } from '../lib/supabase';
 import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rto';
 import { getValidationStage } from '../types/validation';
@@ -19,9 +21,22 @@ import {
   FileText,
   TrendingUp,
   Zap,
-  Info
+  Info,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
+
+interface ValidationStatus {
+  file_name: string;
+  embedding_status: string;
+  gemini_status: string | null;
+  progress_percentage: number | null;
+  extractStatus: string | null;
+  requirements_found: number | null;
+  uploaded_at: string;
+  minutes_ago: number;
+}
 
 interface Dashboard_v3Props {
   onValidationDoubleClick?: (validation: ValidationRecord) => void;
@@ -55,6 +70,11 @@ export function Dashboard_v3({
   const [isInitialLoad, setIsInitialLoad] = useState(persistedState.isInitialLoad !== false); // Only true on first visit
   const [currentPage, setCurrentPage] = useState(persistedState.currentPage || 1);
   const itemsPerPage = 10;
+  
+  // Status modal state
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [validationStatuses, setValidationStatuses] = useState<ValidationStatus[]>([]);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
   // Save state to sessionStorage when it changes
   useEffect(() => {
@@ -163,6 +183,53 @@ export function Dashboard_v3({
       completionRate: total > 0 ? (completed / total) * 100 : 0,
     };
   }, [validations]);
+
+  // Load validation status
+  const loadValidationStatus = async () => {
+    setIsLoadingStatus(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-validation-status');
+
+      console.log('[Dashboard] Status response:', { data, error });
+
+      if (error) {
+        console.error('[Dashboard] Error loading status:', error);
+        toast.error('Failed to load validation status');
+        return;
+      }
+
+      // The data comes back as an array directly from the edge function
+      const statusData = Array.isArray(data) ? data : [];
+
+      console.log('[Dashboard] Parsed status data:', statusData);
+      setValidationStatuses(statusData);
+      setShowStatusModal(true);
+    } catch (err) {
+      console.error('[Dashboard] Exception loading status:', err);
+      toast.error('Failed to load validation status');
+    } finally {
+      setIsLoadingStatus(false);
+    }
+  };
+
+  // Refresh validations
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const refreshValidations = async () => {
+    if (!selectedRTOId || isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      const data = await getActiveValidationsByRTO(selectedRTOId);
+      setValidations(data || []);
+      toast.success('Validations refreshed');
+    } catch (error) {
+      console.error('[Dashboard] Error refreshing validations:', error);
+      toast.error('Failed to refresh validations');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Filter active validations
   const activeValidations = validations.filter(v => 
@@ -313,10 +380,42 @@ export function Dashboard_v3({
 
       {/* Active Validations */}
       <Card className="p-6 bg-white border border-[#dbeafe] shadow-soft">
-        <h3 className="text-lg font-semibold text-[#1e293b] mb-4 flex items-center gap-2">
-          <span>Active Validations</span>
-          <span className="text-sm font-normal text-[#64748b]">({activeValidations.length})</span>
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-[#1e293b] flex items-center gap-2">
+            <span>Active Validations</span>
+            <span className="text-sm font-normal text-[#64748b]">({activeValidations.length})</span>
+          </h3>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshValidations}
+              disabled={isRefreshing}
+              className="flex items-center gap-2"
+            >
+              {isRefreshing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadValidationStatus}
+              disabled={isLoadingStatus}
+              className="flex items-center gap-2"
+            >
+              {isLoadingStatus ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Activity className="w-4 h-4" />
+              )}
+              Check Status
+            </Button>
+          </div>
+        </div>
 
         {/* Processing Information Banner */}
         {activeValidations.some(v => v.extract_status === 'ProcessingInBackground' || v.extract_status === 'DocumentProcessing') && (
@@ -470,6 +569,124 @@ export function Dashboard_v3({
           </div>
         )}
       </Card>
+
+      {/* Validation Status Modal */}
+      <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
+        <DialogContent className="w-[98vw] max-w-[98vw] h-[45vh] max-h-[45vh] overflow-y-auto bg-white p-8">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              Validation Processing Status (Last 6 Hours)
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            <div className="text-xs text-gray-500 mb-2">
+              Debug: validationStatuses.length = {validationStatuses.length}
+              <br />
+              Debug: JSON = {JSON.stringify(validationStatuses).slice(0, 200)}...
+              <br />
+              Debug: isArray = {Array.isArray(validationStatuses)}
+            </div>
+            {(!validationStatuses || validationStatuses.length === 0) ? (
+              <div className="text-center py-8 text-gray-500">
+                No recent validation activity in the last 6 hours
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">File Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Embedding</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gemini Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Validation</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requirements</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {validationStatuses.map((status, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title={status.file_name}>
+                          {status.file_name}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            status.embedding_status === 'completed' 
+                              ? 'bg-green-100 text-green-800'
+                              : status.embedding_status === 'processing'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {status.embedding_status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {status.gemini_status ? (
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                              status.gemini_status === 'completed' 
+                                ? 'bg-green-100 text-green-800'
+                                : status.gemini_status === 'processing'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : status.gemini_status === 'failed'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {status.gemini_status}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {status.progress_percentage !== null ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-gray-200 rounded-full h-2 w-20">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${status.progress_percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-600">{status.progress_percentage}%</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {status.extractStatus ? (
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                              status.extractStatus === 'Completed' 
+                                ? 'bg-green-100 text-green-800'
+                                : status.extractStatus === 'Processing'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : status.extractStatus === 'Failed'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {status.extractStatus}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 text-center">
+                          {status.requirements_found || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {status.minutes_ago} min ago
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

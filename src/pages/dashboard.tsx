@@ -23,8 +23,11 @@ import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
 export function DashboardPage() {
   const { user } = useAuth();
   
-  // Start background indexing processor
-  useIndexingProcessor();
+  // Note: Indexing processor has been moved to server-side cron job
+  // See: supabase/migrations/20250124_create_indexing_cron.sql
+  // TODO: Set up Supabase cron job in dashboard to run process-pending-indexing every minute
+  // useIndexingProcessor(); // Disabled - now handled server-side
+  
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedValidationId, setSelectedValidationId] = useState<string | null>(null);
   const [creditsRefreshTrigger, setCreditsRefreshTrigger] = useState(0);

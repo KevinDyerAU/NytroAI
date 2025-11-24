@@ -9,11 +9,15 @@ serve(async (req) => {
   try {
     const supabase = createSupabaseClient(req);
 
+    console.log('[get-validation-status] Starting query...');
+
     // Query to get recent validation/document processing status
     const { data, error } = await supabase.rpc('get_validation_status');
 
+    console.log('[get-validation-status] RPC result:', { data, error, dataLength: data?.length });
+
     if (error) {
-      console.error('[get-validation-status] Error:', error);
+      console.error('[get-validation-status] RPC Error - using fallback:', error);
       
       // Fallback to direct query if RPC doesn't exist
       const { data: directData, error: directError } = await supabase
@@ -32,7 +36,7 @@ serve(async (req) => {
             numOfReq
           )
         `)
-        .gte('uploaded_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+        .gte('uploaded_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
         .order('uploaded_at', { ascending: false });
 
       if (directError) {
