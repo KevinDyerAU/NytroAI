@@ -77,40 +77,14 @@ serve(async (req) => {
     // Generate File Search store name
     const storeName = `rto-${rtoCode.toLowerCase()}-assessments`;
 
-    // Create or use existing validation_detail record
-    let validationDetail;
+    // Use existing validation_detail if provided, otherwise skip
+    // Document upload doesn't require a validation_detail upfront
+    let validationDetailForDoc = validationDetailId;
+    
     if (validationDetailId) {
-      // Use existing validation_detail
-      const { data: existing } = await supabase
-        .from('validation_detail')
-        .select('*')
-        .eq('id', validationDetailId)
-        .single();
-      
-      validationDetail = existing;
-    }
-
-    if (!validationDetail) {
-      // Create new validation_detail
-      const { data: newDetail, error: detailError } = await supabase
-        .from('validation_detail')
-        .insert({
-          rto_id: rto.id,
-          unit_code: unitCode,
-          validation_type: 'assessment',
-          validation_status: 'pending',
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (detailError) {
-        console.error('[create-document-fast] Failed to create validation_detail:', detailError);
-        return createErrorResponse('Failed to create validation record', 500);
-      }
-
-      validationDetail = newDetail;
-      console.log('[create-document-fast] Created validation_detail:', validationDetail.id);
+      console.log('[create-document-fast] Using existing validation_detail:', validationDetailId);
+    } else {
+      console.log('[create-document-fast] No validation_detail provided - document will be standalone');
     }
 
     // Create document record in 'pending' status
@@ -125,7 +99,7 @@ serve(async (req) => {
         storage_path: storagePath,
         file_search_store_id: storeName,
         embedding_status: 'pending',
-        validation_detail_id: validationDetail.id,
+        validation_detail_id: validationDetailForDoc,
         metadata: {
           unit_code: unitCode,
           rto_code: rtoCode,
@@ -144,9 +118,12 @@ serve(async (req) => {
     console.log('[create-document-fast] Document created:', document.id);
 
     // Create gemini_operations record to trigger background indexing
+    const operationName = `operations/${Date.now()}-${document.id}`;
+    
     const { data: operation, error: opError } = await supabase
       .from('gemini_operations')
       .insert({
+        operation_name: operationName,
         document_id: document.id,
         operation_type: 'document_embedding',
         status: 'pending',
@@ -178,7 +155,7 @@ serve(async (req) => {
         fileName: document.file_name,
         storagePath: document.storage_path,
         embeddingStatus: document.embedding_status,
-        validationDetailId: validationDetail.id,
+        validationDetailId: validationDetailForDoc,
       },
       operation: {
         id: operation?.id,

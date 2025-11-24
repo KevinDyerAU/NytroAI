@@ -24,9 +24,17 @@ export function useIndexingProcessor() {
       try {
         isProcessingRef.current = true;
 
-        const { data, error } = await supabase.functions.invoke('process-pending-indexing', {
+        // Add 30 second timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Indexing processor timeout')), 30000);
+        });
+
+        const invokePromise = supabase.functions.invoke('process-pending-indexing', {
           body: {},
         });
+
+        const result = await Promise.race([invokePromise, timeoutPromise]) as any;
+        const { data, error } = result;
 
         if (error) {
           console.error('[IndexingProcessor] Error:', error);
@@ -38,7 +46,11 @@ export function useIndexingProcessor() {
         }
 
       } catch (error) {
-        console.error('[IndexingProcessor] Exception:', error);
+        if (error instanceof Error && error.message === 'Indexing processor timeout') {
+          console.warn('[IndexingProcessor] Timeout after 30 seconds - resetting');
+        } else {
+          console.error('[IndexingProcessor] Exception:', error);
+        }
       } finally {
         isProcessingRef.current = false;
       }
