@@ -172,6 +172,16 @@ if (typeof window !== 'undefined') {
 
         // Handle sign in events with valid session
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+          const currentState = useAuthStore.getState();
+          
+          // Skip profile fetch if user is already authenticated with the same ID
+          // This prevents unnecessary re-renders and state resets
+          if (currentState.isAuthenticated && currentState.user?.id === session.user.id) {
+            console.log('[AuthStore] User already authenticated, skipping profile refetch');
+            console.log('[AuthStore] ===== END AUTH STATE CHANGE (NO ACTION) =====');
+            return;
+          }
+          
           console.log('[AuthStore] Sign in event with valid session, fetching profile...');
           try {
             const { data: profile, error: profileError } = await supabase

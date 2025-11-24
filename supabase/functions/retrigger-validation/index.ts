@@ -11,11 +11,22 @@ import { handleCors, createErrorResponse, createSuccessResponse } from '../_shar
  * This allows testing different prompts without re-uploading/re-indexing documents.
  */
 serve(async (req) => {
+  console.log('[retrigger-validation] ===== FUNCTION INVOKED =====');
+  console.log('[retrigger-validation] Method:', req.method);
+  console.log('[retrigger-validation] URL:', req.url);
+  
   const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (corsResponse) {
+    console.log('[retrigger-validation] Returning CORS response');
+    return corsResponse;
+  }
 
   try {
-    const { sourceValidationDetailId, promptId } = await req.json();
+    console.log('[retrigger-validation] Parsing request body...');
+    const body = await req.json();
+    console.log('[retrigger-validation] Request body:', body);
+    
+    const { sourceValidationDetailId, promptId } = body;
 
     if (!sourceValidationDetailId) {
       return createErrorResponse('Missing required field: sourceValidationDetailId', 400);
@@ -48,7 +59,6 @@ serve(async (req) => {
     const newDetail = {
       summary_id: sourceDetail.summary_id,
       namespace_code: sourceDetail.namespace_code,
-      rto_id: sourceDetail.rto_id,
       extractStatus: 'Pending', // Will be updated by validation
       numOfReq: sourceDetail.numOfReq,
       validationType_id: sourceDetail.validationType_id,
@@ -82,21 +92,22 @@ serve(async (req) => {
     console.log('[retrigger-validation] Found', existingDocs?.length || 0, 'documents to link');
 
     if (existingDocs && existingDocs.length > 0) {
-      // Update each document to point to the new validation_detail_id
+      // Clone each document to point to the new validation_detail_id
       const updatePromises = existingDocs.map(doc =>
         supabase
           .from('documents')
           .insert([{
-            file_name: doc.file_name,
-            file_path: doc.file_path,
-            file_size: doc.file_size,
-            file_type: doc.file_type,
-            uploaded_at: doc.uploaded_at,
-            rto_id: doc.rto_id,
             validation_detail_id: clonedDetail.id,
+            unit_code: doc.unit_code,
+            document_type: doc.document_type,
+            file_name: doc.file_name,
+            display_name: doc.display_name,
             file_search_store_id: doc.file_search_store_id,
-            gemini_file_id: doc.gemini_file_id,
+            file_search_document_id: doc.file_search_document_id,
+            metadata: doc.metadata, // Preserve metadata including namespace
             embedding_status: doc.embedding_status,
+            uploaded_at: doc.uploaded_at,
+            storage_path: doc.storage_path,
             // Reuse the same Gemini file and embeddings
           }])
       );
@@ -173,6 +184,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[retrigger-validation] Exception:', error);
-    return createErrorResponse('Internal server error', 500);
+    console.error('[retrigger-validation] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error: JSON.stringify(error, null, 2)
+    });
+    
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    return createErrorResponse(`Internal server error: ${errorMessage}`, 500);
   }
 });
