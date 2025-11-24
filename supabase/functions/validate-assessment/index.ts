@@ -172,8 +172,17 @@ serve(async (req) => {
     console.log(`[Validate Assessment] Fetching requirements for ${unitCode}, type: ${validationType}, unitLink: ${unitLink}`);
     const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType, unitLink);
     console.log(`[Validate Assessment] Retrieved ${requirements.length} requirements`);
-    
-    // Format requirements as JSON for prompt injection
+
+    // Check if we have requirements - if not, we cannot validate
+    if (!requirements || requirements.length === 0) {
+      console.error(`[Validate Assessment] No requirements found for ${unitCode} - cannot validate`);
+      return createErrorResponse(
+        `No requirements found for unit ${unitCode}. Please ensure requirements have been extracted from training.gov.au first.`,
+        400
+      );
+    }
+
+    // Ensure we have requirements datas JSON for prompt injection
     const requirementsJSON = formatRequirementsAsJSON(requirements);
 
     const gemini = createDefaultGeminiClient();
@@ -304,6 +313,15 @@ serve(async (req) => {
       })));
     } else {
       console.log(`[Validate Assessment] WARNING: No grounding chunks found - Gemini did not access any documents`);
+    }
+
+    // Check if we have grounding chunks - if not, Gemini couldn't find documents
+    if (groundingChunks.length === 0) {
+      console.error(`[Validate Assessment] No documents found in File Search store with filter: ${metadataFilter}`);
+      return createErrorResponse(
+        `No assessment documents found for namespace "${namespace}" or unit "${unitCode}". Please ensure documents are uploaded and indexed with the correct metadata before validation.`,
+        404
+      );
     }
 
     // Try to parse as V2 response first (structured JSON with requirement validations)

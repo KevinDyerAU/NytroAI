@@ -51,15 +51,21 @@ export function PromptMaintenance() {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      console.log('[PromptMaintenance] Loading validation types...');
       // Load validation types
       const { data: types, error: typesError } = await supabase
         .from('validation_type')
         .select('*')
         .order('code');
 
-      if (typesError) throw typesError;
+      if (typesError) {
+        console.error('[PromptMaintenance] Error loading validation types:', typesError);
+        throw typesError;
+      }
+      console.log('[PromptMaintenance] Loaded validation types:', types?.length);
       setValidationTypes(types || []);
 
+      console.log('[PromptMaintenance] Loading prompts...');
       // Load prompts
       const { data: promptsData, error: promptsError } = await supabase
         .from('prompt')
@@ -67,12 +73,17 @@ export function PromptMaintenance() {
         .order('validation_type_id', { ascending: true })
         .order('created_at', { ascending: false });
 
-      if (promptsError) throw promptsError;
+      if (promptsError) {
+        console.error('[PromptMaintenance] Error loading prompts:', promptsError);
+        throw promptsError;
+      }
+      console.log('[PromptMaintenance] Loaded prompts:', promptsData?.length);
       setPrompts(promptsData || []);
     } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load prompts');
+      console.error('[PromptMaintenance] Error loading data:', error);
+      toast.error(`Failed to load prompts: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
+      console.log('[PromptMaintenance] Setting isLoading to false');
       setIsLoading(false);
     }
   };

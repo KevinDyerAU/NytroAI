@@ -17,63 +17,64 @@ serve(async (req) => {
     const searchTerm = url.searchParams.get('search') || '';
     const limit = parseInt(url.searchParams.get('limit') || '20');
 
-    // Build query
-    let query = supabase
-      .from('validation_detail')
-      .select(`
-        id,
-        extractStatus,
-        namespace_code,
-        created_at,
-        validation_summary!inner(
-          id,
-          unitCode,
-          rto_id
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
     // Add date filter for recent validations
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    query = query.gte('created_at', sevenDaysAgo.toISOString());
 
-    // Add search filter if provided
-    if (searchTerm) {
-      query = query.ilike('validation_summary.unitCode', `%${searchTerm}%`);
-    }
-
-    const { data: validationDetails, error } = await query;
+    // Build query - simpler version without nested selects
+    const { data: validationDetails, error } = await supabase
+      .from('validation_detail')
+      .select('id, extractStatus, namespace_code, created_at, summary_id')
+      .gte('created_at', sevenDaysAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (error) {
       console.error('[get-validation-details] Error fetching validation details:', error);
       return createErrorResponse('Failed to fetch validation details', 500);
     }
 
-    // Get document counts for each validation detail
+    // Fetch validation summaries separately
+    const summaryIds = validationDetails?.map(d => d.summary_id).filter(Boolean) || [];
+    const { data: summaries } = await supabase
+      .from('validation_summary')
+      .select('id, unitCode, rto_id')
+      .in('id', summaryIds);
+
+    const summaryMap = new Map(summaries?.map((s: any) => [s.id, s]) || []);
+
+    // Get document counts and combine data
     const detailsWithCounts = await Promise.all(
-      (validationDetails || []).map(async (detail) => {
+      (validationDetails || []).map(async (detail: any) => {
         const { count } = await supabase
           .from('documents')
           .select('id', { count: 'exact', head: true })
           .eq('validation_detail_id', detail.id);
 
+        const summary: any = summaryMap.get(detail.summary_id);
+
         return {
           detail_id: detail.id,
-          unitCode: detail.validation_summary?.unitCode || 'Unknown',
+          unitCode: summary?.unitCode || 'Unknown',
           extractStatus: detail.extractStatus,
           namespace_code: detail.namespace_code,
           document_count: count || 0,
           created_at: detail.created_at,
-          rto_id: detail.validation_summary?.rto_id,
+          rto_id: summary?.rto_id || null,
         };
       })
     );
 
+    // Apply search filter on unit code if provided
+    const filteredDetails = searchTerm
+      ? detailsWithCounts.filter(d => 
+          d.unitCode.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : detailsWithCounts;
+
     return createSuccessResponse({
-      validations: detailsWithCounts,
-      total: detailsWithCounts.length,
+      validations: filteredDetails,
+      total: filteredDetails.length,
     });
 
   } catch (error) {

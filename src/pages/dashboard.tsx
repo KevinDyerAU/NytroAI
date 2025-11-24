@@ -154,7 +154,12 @@ export function DashboardPage() {
         return (
           <div className="space-y-4">
             {backButton}
-            <TriggerValidation />
+            <TriggerValidation 
+              onViewResults={(detailId) => {
+                setSelectedValidationId(detailId.toString());
+                setCurrentView('results');
+              }}
+            />
           </div>
         );
       default:
