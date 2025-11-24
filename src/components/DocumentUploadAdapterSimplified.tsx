@@ -77,6 +77,10 @@ export function DocumentUploadAdapterSimplified({
         }
 
         console.log('[DocumentUploadAdapterSimplified] Loaded units:', result.data?.length || 0);
+        // Debug: Log first unit to see structure
+        if (result.data && result.data.length > 0) {
+          console.log('[DocumentUploadAdapterSimplified] Sample unit structure:', result.data[0]);
+        }
         setAllUnits(result.data || []);
       } catch (error) {
         console.error('[DocumentUploadAdapterSimplified] Error loading units:', error);
@@ -109,6 +113,9 @@ export function DocumentUploadAdapterSimplified({
 
   // Handle unit selection from dropdown
   const handleUnitSelect = (unit: any) => {
+    console.log('[DocumentUploadAdapterSimplified] Selected unit object:', unit);
+    console.log('[DocumentUploadAdapterSimplified] Unit.Link value:', unit.Link);
+    
     setSelectedUnit({
       id: unit.id,
       code: unit.unitCode,

@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await supabase
       .from('UnitOfCompetency')
-      .select('id, unitCode, Title')
+      .select('id, unitCode, Title, Link')
       .order('unitCode', { ascending: true });
 
     if (error) {
@@ -32,7 +32,12 @@ Deno.serve(async (req) => {
     console.log(`[fetch-units-of-competency] Successfully fetched ${data?.length || 0} units`);
     
     if (data && data.length > 0) {
-      console.log('[fetch-units-of-competency] Sample units:', data.slice(0, 3).map(u => ({ id: u.id, unitCode: u.unitCode, Title: u.Title })));
+      console.log('[fetch-units-of-competency] Sample units:', data.slice(0, 3).map(u => ({ 
+        id: u.id, 
+        unitCode: u.unitCode, 
+        Title: u.Title, 
+        Link: u.Link 
+      })));
     } else {
       console.warn('[fetch-units-of-competency] No units found in database!');
     }
