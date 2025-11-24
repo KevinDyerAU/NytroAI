@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Database, Building2, BookOpen, Brain, CheckSquare, FileText, Zap, Target, MessageSquare } from 'lucide-react';
+import { ChevronRight, Database, Building2, BookOpen, Brain, CheckSquare, FileText, Zap, Target, MessageSquare, PlayCircle } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -78,6 +78,13 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
       description: 'Manage Gemini AI validation prompts and correlate with validation types',
       icon: <MessageSquare className="w-8 h-8" />,
       color: 'bg-pink-50 border-pink-200',
+    },
+    {
+      id: 'trigger-validation',
+      title: 'Trigger Validation',
+      description: 'Manually trigger validation for debugging or re-running failed validations',
+      icon: <PlayCircle className="w-8 h-8" />,
+      color: 'bg-cyan-50 border-cyan-200',
     },
   ];
 

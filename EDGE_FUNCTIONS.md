@@ -38,7 +38,11 @@ Active edge functions in NytroAI platform.
 ---
 
 ### trigger-validation
-**Purpose:** Fetches requirements and triggers validation (called by DB trigger)
+**Purpose:** Fetches requirements and triggers validation (LEGACY - Manual/Debug use only)
+
+**Status:** 🔴 **LEGACY** - Automatic flow uses `process-pending-indexing` → `validate-assessment` directly
+
+**Access:** Dashboard → Maintenance → Trigger Validation (manual tool)
 
 **Endpoint:** `POST /trigger-validation`
 

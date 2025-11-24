@@ -223,6 +223,8 @@ NytroAI uses a sophisticated multi-stage pipeline for document processing and va
 
 ### Edge Functions Reference
 
+**Note:** The `trigger-validation` edge function is now **legacy/manual only**. The automatic flow uses `process-pending-indexing` → `validate-assessment` directly. Access `trigger-validation` via Maintenance → Trigger Validation for manual debugging or re-runs.
+
 #### 1. `create-validation-record`
 
 **Purpose:** Creates validation_summary and validation_detail records before upload
@@ -686,6 +688,24 @@ GROUP BY vs.unitCode, vs.unitLink;
 - 2-second intervals for Gemini status
 - 15-second intervals for client processor
 - Timeouts prevent infinite loops
+
+### Manual Validation Triggering
+
+For debugging or re-running failed validations, use the **Trigger Validation** maintenance tool:
+
+**Access:** Dashboard → Maintenance → Trigger Validation
+
+**Features:**
+- Manually trigger validation for any `validation_detail_id`
+- View real-time success/failure results
+- Includes SQL query helper to find validation IDs
+- Useful for debugging, testing, or re-running after fixes
+
+**When to Use:**
+- Background processor is stuck or failed
+- Need to re-run validation after data fixes
+- Testing validation flow changes
+- Debugging validation issues
 
 ### Monitoring & Observability
 

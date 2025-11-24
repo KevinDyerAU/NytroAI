@@ -14,6 +14,7 @@ import { ValidationsMaintenance } from '../components/maintenance/ValidationsMai
 import { RequirementsMaintenance } from '../components/maintenance/RequirementsMaintenance';
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
 import { PromptMaintenance } from '../components/maintenance/PromptMaintenance';
+import { TriggerValidation } from '../components/maintenance/TriggerValidation';
 import { useAuth } from '../hooks/useAuth';
 import { useIndexingProcessor } from '../hooks/useIndexingProcessor';
 import type { ValidationRecord } from '../types/rto';
@@ -147,6 +148,13 @@ export function DashboardPage() {
           <div className="space-y-4">
             {backButton}
             <PromptMaintenance />
+          </div>
+        );
+      case 'trigger-validation':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <TriggerValidation />
           </div>
         );
       default:
