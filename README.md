@@ -134,6 +134,600 @@ Upload (Instant) → Background Processing → Get Results
 
 ---
 
+## 🔧 Document Upload & Validation Pipeline
+
+### Architecture Overview
+
+NytroAI uses a sophisticated multi-stage pipeline for document processing and validation. The system is designed for **instant uploads** with **background processing**, ensuring users never have to wait.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          UPLOAD PIPELINE                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+1. User Selects Files & Unit
+   ↓
+2. Create Validation Record
+   │  Edge Function: create-validation-record
+   │  Creates: validation_summary → validation_detail
+   │  Stores: unitLink for requirements matching
+   ↓
+3. Upload to Storage (<1 second)
+   │  Files uploaded to Supabase Storage
+   │  Path: documents/{rto_code}/{unit_code}/{filename}
+   ↓
+4. Create Document Record (Fast Path)
+   │  Edge Function: create-document-fast
+   │  Creates: documents table entry
+   │  Links: validation_detail_id
+   │  Stores: metadata (unit_code, rto_code, document_type)
+   ↓
+5. Create Gemini Operation
+   │  Table: gemini_operations
+   │  Status: pending
+   │  Fields: operation_name, document_id, metadata
+   ↓
+   ✅ UPLOAD COMPLETE - User can continue working
+   
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      BACKGROUND PROCESSING                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+6. Indexing Processor (Every 15 seconds)
+   │  Hook: useIndexingProcessor
+   │  Edge Function: process-pending-indexing
+   │  Fetches: pending gemini_operations
+   ↓
+7. Download from Storage
+   │  Downloads file from Supabase Storage
+   │  Converts to ArrayBuffer for Gemini
+   ↓
+8. Upload to Gemini File Search
+   │  API: Gemini File Search API
+   │  Store: fileSearchStores/rto{rto_code}assessments-{hash}
+   │  Operation: Creates background operation
+   ↓
+9. Poll Gemini Operation Status
+   │  Polls every 2 seconds
+   │  Timeout: 60 seconds (configurable)
+   │  Updates: gemini_operations.progress_percentage
+   ↓
+10. Mark Operation Complete
+    │  Updates: gemini_operations.status = 'completed'
+    │  Updates: documents.embedding_status = 'completed'
+    ↓
+11. Trigger Validation
+    │  Edge Function: validate-assessment
+    │  Fetches: unitLink from validation_summary
+    │  Queries: Requirements by unit_url
+    ↓
+12. Fetch Requirements
+    │  Queries requirement tables by unit_url
+    │  Tables: knowledge_evidence_requirements,
+    │          performance_evidence_requirements,
+    │          foundation_skills_requirements,
+    │          elements_performance_criteria_requirements,
+    │          assessment_conditions_requirements
+    ↓
+13. AI Validation
+    │  API: Gemini generateContent with File Search
+    │  Validates each requirement individually
+    │  Generates: status, reasoning, evidence, smart questions
+    ↓
+14. Store Results
+    │  Table: validation_results
+    │  Updates: validation_detail.extractStatus = 'Completed'
+    ↓
+    ✅ VALIDATION COMPLETE - Results visible in Dashboard
+```
+
+### Edge Functions Reference
+
+#### 1. `create-validation-record`
+
+**Purpose:** Creates validation_summary and validation_detail records before upload
+
+**Request:**
+```typescript
+{
+  rtoCode: string;        // e.g., "7148"
+  unitCode: string;       // e.g., "TLIF0025"
+  unitLink: string;       // Unit URL from UnitOfCompetency.Link
+  validationType: string; // e.g., "assessment"
+  pineconeNamespace: string; // Namespace for vector storage
+}
+```
+
+**Response:**
+```typescript
+{
+  detailId: number;       // validation_detail.id
+  summaryId: number;      // validation_summary.id
+}
+```
+
+**Key Logic:**
+- Creates `validation_summary` with `unitLink` stored for later requirements matching
+- Creates `validation_detail` linked to summary
+- Sets initial `extractStatus: 'Uploading'`
+
+#### 2. `create-document-fast`
+
+**Purpose:** Fast, non-blocking document record creation with background indexing
+
+**Request:**
+```typescript
+{
+  rtoCode: string;
+  unitCode: string;
+  documentType: string;
+  fileName: string;
+  storagePath: string;
+  validationDetailId?: number; // Links document to validation
+}
+```
+
+**Response:**
+```typescript
+{
+  documentId: number;
+  storageUrl: string;
+  validationDetailId?: number;
+}
+```
+
+**Key Logic:**
+- Creates document record with `embedding_status: 'pending'`
+- Stores `validation_detail_id` for linking
+- Creates `gemini_operations` record with:
+  - `operation_name`: Unique identifier for Gemini tracking
+  - `document_id`: Links operation to document
+  - `status: 'pending'`: Triggers background processor
+  - `metadata`: Stores rto_code, unit_code, file_name for context
+
+**Critical Fix (Nov 24, 2025):**
+- Added `operation_name` field (was causing NULL constraint violations)
+- Format: `operations/{timestamp}-{document_id}`
+
+#### 3. `process-pending-indexing`
+
+**Purpose:** Background processor that indexes documents to Gemini and triggers validation
+
+**Invoked by:** `useIndexingProcessor` hook (every 15 seconds)
+
+**Flow:**
+1. Fetch pending `gemini_operations` (status = 'pending')
+2. For each operation:
+   - Download file from storage
+   - Upload to Gemini File Search store
+   - Poll operation status (every 2s, max 60s)
+   - Update progress in database
+   - Mark operation as 'completed'
+3. Trigger validation if `validation_detail_id` exists
+
+**Key Logic:**
+```typescript
+// Fetch unitCode from document metadata
+const unitCode = document.metadata?.unit_code;
+
+// Call validate-assessment
+await supabase.functions.invoke('validate-assessment', {
+  body: {
+    validationDetailId: document.validation_detail_id,
+    documentId: document.id,
+    unitCode: unitCode,
+    validationType: 'full_validation'
+  }
+});
+```
+
+**Timeouts & Error Handling:**
+- Client-side timeout: 30 seconds (prevents hung processor)
+- Gemini upload timeout: 120 seconds (for large files)
+- Gemini poll timeout: 10 seconds per request
+- Max wait time: 60 seconds (configurable via `max_wait_time_ms`)
+
+**Critical Fixes (Nov 24, 2025):**
+- Added timeout to prevent processor getting stuck
+- Added `unitCode` and `validationType` to validation trigger
+- Added comprehensive error logging
+
+#### 4. `validate-assessment`
+
+**Purpose:** AI-powered validation against unit requirements
+
+**Request:**
+```typescript
+{
+  documentId: number;
+  unitCode: string;
+  validationType: 'full_validation' | 'knowledge_evidence' | ...;
+  validationDetailId?: number;
+}
+```
+
+**Flow:**
+1. Fetch `unitLink` from `validation_detail → validation_summary`
+2. Fetch requirements using `unit_url = unitLink`
+3. Query Gemini File Search with requirements
+4. Parse and store validation results
+
+**Key Logic:**
+```typescript
+// Fetch unitLink from validation chain
+const { data: validationDetail } = await supabase
+  .from('validation_detail')
+  .select('namespace_code, validation_summary(unitLink)')
+  .eq('id', validationDetailId)
+  .single();
+
+const unitLink = validationDetail?.validation_summary?.unitLink;
+
+// Fetch requirements by unit_url (not unitCode!)
+const requirements = await fetchRequirements(
+  supabase,
+  unitCode,
+  validationType,
+  unitLink // ← Critical: Links to actual requirement records
+);
+```
+
+**Critical Fix (Nov 24, 2025):**
+- Changed from querying by `unitCode` to `unit_url`
+- Fetches `unitLink` from `validation_summary`
+- Passes `unitLink` to requirements fetcher
+
+#### 5. `requirements-fetcher` (Shared Utility)
+
+**Purpose:** Fetches requirements from database tables with correct linking
+
+**Key Tables:**
+- `knowledge_evidence_requirements`
+- `performance_evidence_requirements`
+- `foundation_skills_requirements`
+- `elements_performance_criteria_requirements`
+- `assessment_conditions_requirements`
+
+**Schema Linking:**
+```sql
+-- Each requirement table has:
+unit_url VARCHAR  -- Links to UnitOfCompetency.Link
+unitCode VARCHAR  -- Fallback for legacy queries
+
+-- validation_summary stores:
+unitLink VARCHAR  -- Matches requirement.unit_url
+unitCode VARCHAR  -- Matches requirement.unitCode
+```
+
+**Query Logic:**
+```typescript
+// Prefer unit_url when unitLink is available
+const { data } = unitLink
+  ? await supabase
+      .from(requirementTable)
+      .select('*')
+      .eq('unit_url', unitLink)  // ← Primary method
+  : await supabase
+      .from(requirementTable)
+      .select('*')
+      .eq('unitCode', unitCode); // ← Fallback
+```
+
+**Critical Fix (Nov 24, 2025):**
+- Added `unitLink` parameter to fetch functions
+- Query by `unit_url` instead of `unitCode`
+- Fixes PostgreSQL column case-sensitivity errors
+
+### Client-Side Components
+
+#### `DocumentUploadAdapterSimplified`
+
+**Purpose:** Orchestrates the upload flow
+
+**Key Responsibilities:**
+1. Unit selection from dropdown
+2. Creates validation record when files selected
+3. Passes `unitLink` from selected unit
+4. Manages upload state
+
+**State Management:**
+```typescript
+const [validationDetailId, setValidationDetailId] = useState<number>();
+const [isCreatingValidation, setIsCreatingValidation] = useState(false);
+
+// When files selected, create validation first
+const handleFilesSelected = async (files: File[]) => {
+  const { data } = await supabase.functions.invoke('create-validation-record', {
+    body: {
+      rtoCode: selectedRTO.code,
+      unitCode: selectedUnit.code,
+      unitLink: selectedUnit.Link, // ← From dropdown selection
+      validationType: 'assessment',
+      pineconeNamespace: selectedRTO.code
+    }
+  });
+  
+  setValidationDetailId(data.detailId);
+};
+```
+
+#### `DocumentUploadSimplified`
+
+**Purpose:** Handles file selection and upload UI
+
+**Flow:**
+1. User selects files
+2. Calls `onFilesSelected` callback (triggers validation creation)
+3. Uploads each file to storage
+4. Calls `DocumentUploadService.uploadDocument`
+
+#### `DocumentUploadService`
+
+**Purpose:** Service layer for document operations
+
+**Key Method:**
+```typescript
+async uploadDocument(
+  file: File,
+  rtoCode: string,
+  unitCode: string,
+  documentType: string,
+  validationDetailId?: number // ← Passed from adapter
+): Promise<UploadResult>
+```
+
+**Calls:**
+- `uploadToStorage()` - Uploads to Supabase Storage
+- `triggerIndexingBackground()` - Calls `create-document-fast`
+
+#### `useIndexingProcessor`
+
+**Purpose:** Client-side hook that triggers background indexing
+
+**Behavior:**
+- Runs every 15 seconds when dashboard is active
+- Calls `process-pending-indexing` edge function
+- 30-second timeout to prevent hanging
+- Singleton pattern (only one instance processes at a time)
+
+```typescript
+useEffect(() => {
+  const interval = setInterval(async () => {
+    if (isProcessingRef.current) {
+      console.log('Already processing, skipping...');
+      return;
+    }
+
+    isProcessingRef.current = true;
+    
+    try {
+      // Invoke with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 30000)
+      );
+      
+      const result = await Promise.race([
+        supabase.functions.invoke('process-pending-indexing'),
+        timeoutPromise
+      ]);
+      
+      // Process result...
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, 15000);
+  
+  return () => clearInterval(interval);
+}, []);
+```
+
+### Database Schema
+
+#### Key Tables
+
+**`validation_summary`**
+```sql
+CREATE TABLE validation_summary (
+  id SERIAL PRIMARY KEY,
+  rtoCode VARCHAR,
+  unitCode VARCHAR,
+  unitLink VARCHAR,  -- ← Links to requirements.unit_url
+  qualificationCode VARCHAR,
+  reqExtracted BOOLEAN DEFAULT false
+);
+```
+
+**`validation_detail`**
+```sql
+CREATE TABLE validation_detail (
+  id SERIAL PRIMARY KEY,
+  summary_id INTEGER REFERENCES validation_summary(id),
+  validationType_id INTEGER,
+  namespace_code VARCHAR,
+  extractStatus VARCHAR DEFAULT 'Uploading',
+  docExtracted BOOLEAN DEFAULT false,
+  numOfReq INTEGER DEFAULT 0
+);
+```
+
+**`documents`**
+```sql
+CREATE TABLE documents (
+  id SERIAL PRIMARY KEY,
+  file_name VARCHAR,
+  storage_path VARCHAR,
+  file_search_store_id VARCHAR,
+  embedding_status VARCHAR DEFAULT 'pending',
+  validation_detail_id INTEGER REFERENCES validation_detail(id),
+  metadata JSONB  -- Stores: unit_code, rto_code, document_type
+);
+```
+
+**`gemini_operations`**
+```sql
+CREATE TABLE gemini_operations (
+  id SERIAL PRIMARY KEY,
+  operation_name VARCHAR NOT NULL,  -- Unique Gemini operation ID
+  document_id INTEGER REFERENCES documents(id),
+  operation_type VARCHAR,
+  status VARCHAR DEFAULT 'pending',  -- pending → processing → completed/failed
+  progress_percentage INTEGER DEFAULT 0,
+  max_wait_time_ms INTEGER DEFAULT 60000,
+  metadata JSONB
+);
+```
+
+**Requirements Tables** (5 tables with same schema)
+```sql
+CREATE TABLE knowledge_evidence_requirements (
+  id SERIAL PRIMARY KEY,
+  unit_url VARCHAR,    -- Links to UnitOfCompetency.Link
+  unitCode VARCHAR,    -- Fallback for legacy queries
+  knowledge_point TEXT,
+  requirement_number VARCHAR
+);
+-- Same schema for:
+-- - performance_evidence_requirements
+-- - foundation_skills_requirements  
+-- - elements_performance_criteria_requirements
+-- - assessment_conditions_requirements
+```
+
+### Error Handling & Recovery
+
+#### Common Issues & Solutions
+
+**1. "column unitCode does not exist"**
+- **Cause:** PostgreSQL case-sensitivity - column is `unit_code` not `unitCode`
+- **Fix:** Use snake_case in queries, or query by `unit_url` instead
+
+**2. "null value in column operation_name violates not-null constraint"**
+- **Cause:** `create-document-fast` wasn't setting `operation_name`
+- **Fix:** Generate unique operation_name: `operations/{timestamp}-{document_id}`
+
+**3. "Indexing processor stuck - Already processing, skipping..."**
+- **Cause:** `process-pending-indexing` hung without resetting flag
+- **Fix:** Added 30-second client-side timeout with Promise.race()
+
+**4. "Validation trigger failed: 400 Bad Request"**
+- **Cause:** Missing `unitCode` and `validationType` parameters
+- **Fix:** Extract from `document.metadata` and pass to `validate-assessment`
+
+**5. "Validation trigger failed: 500 Internal Server Error"**
+- **Cause:** Requirements fetch failed with unitCode mismatch
+- **Fix:** Query by `unit_url` using `unitLink` from `validation_summary`
+
+#### Debugging Tools
+
+**Check operation status:**
+```sql
+SELECT 
+  go.id,
+  go.operation_name,
+  go.status,
+  go.progress_percentage,
+  d.file_name,
+  d.embedding_status
+FROM gemini_operations go
+JOIN documents d ON d.id = go.document_id
+WHERE go.created_at > NOW() - INTERVAL '1 hour'
+ORDER BY go.created_at DESC;
+```
+
+**Check validation flow:**
+```sql
+SELECT 
+  vs.id as summary_id,
+  vs.unitCode,
+  vs.unitLink,
+  vd.id as detail_id,
+  vd.extractStatus,
+  COUNT(d.id) as document_count,
+  COUNT(CASE WHEN d.embedding_status = 'completed' THEN 1 END) as indexed_count
+FROM validation_summary vs
+JOIN validation_detail vd ON vd.summary_id = vs.id
+LEFT JOIN documents d ON d.validation_detail_id = vd.id
+WHERE vs.created_at > NOW() - INTERVAL '1 hour'
+GROUP BY vs.id, vs.unitCode, vs.unitLink, vd.id, vd.extractStatus
+ORDER BY vs.created_at DESC;
+```
+
+**Check requirements linking:**
+```sql
+SELECT 
+  vs.unitCode,
+  vs.unitLink,
+  COUNT(ker.id) as knowledge_reqs,
+  COUNT(per.id) as performance_reqs
+FROM validation_summary vs
+LEFT JOIN knowledge_evidence_requirements ker ON ker.unit_url = vs.unitLink
+LEFT JOIN performance_evidence_requirements per ON per.unit_url = vs.unitLink
+WHERE vs.id = 123  -- Your validation_summary.id
+GROUP BY vs.unitCode, vs.unitLink;
+```
+
+### Performance Optimizations
+
+**1. Background Processing**
+- Upload completes in <1 second
+- Indexing happens asynchronously
+- No frontend blocking or polling during upload
+
+**2. Singleton Processor**
+- Only one `useIndexingProcessor` instance runs at a time
+- Prevents duplicate processing
+- Conserves API quota
+
+**3. Batch Operations**
+- Processes multiple pending operations in single function call
+- Reduces edge function invocations
+
+**4. Efficient Polling**
+- 2-second intervals for Gemini status
+- 15-second intervals for client processor
+- Timeouts prevent infinite loops
+
+### Monitoring & Observability
+
+**Supabase Logs:**
+```
+Filter by function: process-pending-indexing
+Look for:
+- "Processing document: {filename}"
+- "Indexing completed for: {filename}"
+- "Triggering validation for detail: {id}"
+- "Validation triggered successfully"
+```
+
+**Client Console:**
+```
+Filter: [IndexingProcessor]
+Look for:
+- "Starting background indexing processor..."
+- "Processed X operations"
+- "Already processing, skipping..."
+- "Timeout after 30 seconds - resetting"
+```
+
+**Database Monitoring:**
+```sql
+-- Active operations
+SELECT COUNT(*) FROM gemini_operations WHERE status = 'processing';
+
+-- Failed operations
+SELECT * FROM gemini_operations 
+WHERE status = 'failed' 
+AND created_at > NOW() - INTERVAL '1 day';
+
+-- Average completion time
+SELECT 
+  AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) as avg_seconds
+FROM gemini_operations 
+WHERE status = 'completed';
+```
+
+---
+
 ## 💳 Credit System
 
 NytroAI uses a dual-credit system to manage usage for different AI operations:

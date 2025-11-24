@@ -29,7 +29,8 @@ export interface RequirementsByType {
 export async function fetchRequirements(
   supabase: any,
   unitCode: string,
-  validationType: 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_criteria' | 'assessment_conditions' | 'full_validation'
+  validationType: 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_criteria' | 'assessment_conditions' | 'full_validation',
+  unitLink?: string | null
 ): Promise<Requirement[]> {
   let requirementTable = '';
   let type: Requirement['type'] | null = null;
@@ -57,7 +58,7 @@ export async function fetchRequirements(
       break;
     case 'full_validation':
       // For full validation, fetch all requirement types
-      return await fetchAllRequirements(supabase, unitCode);
+      return await fetchAllRequirements(supabase, unitCode, unitLink);
   }
 
   if (!requirementTable || !type) {
@@ -66,11 +67,18 @@ export async function fetchRequirements(
   }
 
   try {
-    const { data, error } = await supabase
-      .from(requirementTable)
-      .select('*')
-      .eq('unitCode', unitCode)
-      .order('id', { ascending: true });
+    // Use unit_url if unitLink is provided, otherwise fall back to unitCode
+    const { data, error } = unitLink
+      ? await supabase
+          .from(requirementTable)
+          .select('*')
+          .eq('unit_url', unitLink)
+          .order('id', { ascending: true })
+      : await supabase
+          .from(requirementTable)
+          .select('*')
+          .eq('unitCode', unitCode)
+          .order('id', { ascending: true });
 
     if (error) {
       console.error(`[Requirements Fetcher] Error fetching from ${requirementTable}:`, error);
@@ -97,7 +105,8 @@ export async function fetchRequirements(
  */
 export async function fetchAllRequirements(
   supabase: any,
-  unitCode: string
+  unitCode: string,
+  unitLink?: string | null
 ): Promise<Requirement[]> {
   const allRequirements: Requirement[] = [];
 
@@ -112,11 +121,18 @@ export async function fetchAllRequirements(
 
   for (const { table, type } of types) {
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .eq('unitCode', unitCode)
-        .order('id', { ascending: true });
+      // Use unit_url if unitLink is provided, otherwise fall back to unitCode
+      const { data, error} = unitLink
+        ? await supabase
+            .from(table)
+            .select('*')
+            .eq('unit_url', unitLink)
+            .order('id', { ascending: true })
+        : await supabase
+            .from(table)
+            .select('*')
+            .eq('unitCode', unitCode)
+            .order('id', { ascending: true });
 
       if (error) {
         console.error(`[Requirements Fetcher] Error fetching from ${table}:`, error);

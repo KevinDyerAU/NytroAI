@@ -35,6 +35,8 @@ export function DocumentUploadAdapterSimplified({
   const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
+  const [validationDetailId, setValidationDetailId] = useState<number | undefined>(undefined);
+  const [isCreatingValidation, setIsCreatingValidation] = useState(false);
 
   // Load RTO data
   useEffect(() => {
@@ -111,6 +113,7 @@ export function DocumentUploadAdapterSimplified({
       id: unit.id,
       code: unit.unitCode,
       title: unit.Title,
+      Link: unit.Link, // ← Required for requirements linking
     });
     setUnitSearchTerm(unit.unitCode);
     setShowUnitDropdown(false);
@@ -126,12 +129,49 @@ export function DocumentUploadAdapterSimplified({
   };
 
   // Handle file selection (memoized to prevent infinite loop)
-  const handleFilesSelected = useCallback((files: File[]) => {
+  const handleFilesSelected = useCallback(async (files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
     setSelectedFiles(files);
     setUploadedCount(0);
     setIsComplete(false);
-  }, []);
+
+    // Create validation record when files are selected
+    if (files.length > 0 && !validationDetailId && selectedRTO && selectedUnit) {
+      setIsCreatingValidation(true);
+      try {
+        console.log('[DocumentUploadAdapterSimplified] Creating validation record...');
+        console.log('[DocumentUploadAdapterSimplified] Unit details:', {
+          code: selectedUnit.code,
+          Link: selectedUnit.Link,
+          hasLink: !!selectedUnit.Link
+        });
+        
+        const { data, error } = await supabase.functions.invoke('create-validation-record', {
+          body: {
+            rtoCode: selectedRTO.code,
+            unitCode: selectedUnit.code,
+            unitLink: selectedUnit.Link, // Pass unit URL for requirements linking
+            validationType: 'assessment',
+            pineconeNamespace: selectedRTO.code // Use RTO code as namespace
+          }
+        });
+
+        if (error) {
+          console.error('[DocumentUploadAdapterSimplified] Failed to create validation:', error);
+          toast.error('Failed to create validation record');
+          return;
+        }
+
+        console.log('[DocumentUploadAdapterSimplified] Validation created:', data.detailId);
+        setValidationDetailId(data.detailId);
+      } catch (error) {
+        console.error('[DocumentUploadAdapterSimplified] Exception creating validation:', error);
+        toast.error('Failed to create validation record');
+      } finally {
+        setIsCreatingValidation(false);
+      }
+    }
+  }, [validationDetailId, selectedRTO, selectedUnit]);
 
   // Handle upload complete (instant - just storage upload)
   const handleUploadComplete = (documentId: number) => {
@@ -168,6 +208,7 @@ export function DocumentUploadAdapterSimplified({
     setIsComplete(false);
     setSelectedUnit(null);
     setUnitSearchTerm('');
+    setValidationDetailId(undefined);
     toast.info('Form reset. Ready for new validation.');
   };
 
@@ -296,6 +337,7 @@ export function DocumentUploadAdapterSimplified({
           {selectedUnit ? (
             <DocumentUploadSimplified
               unitCode={selectedUnit.code}
+              validationDetailId={validationDetailId}
               onUploadComplete={handleUploadComplete}
               onFilesSelected={handleFilesSelected}
             />

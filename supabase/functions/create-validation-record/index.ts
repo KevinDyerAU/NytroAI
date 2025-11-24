@@ -5,6 +5,7 @@ import { handleCors, createErrorResponse, createSuccessResponse } from '../_shar
 interface CreateValidationRecordRequest {
   rtoCode: string;
   unitCode: string;
+  unitLink?: string;
   qualificationCode?: string | null;
   validationType: string;
   pineconeNamespace: string;
@@ -20,6 +21,7 @@ serve(async (req) => {
     const { 
       rtoCode, 
       unitCode, 
+      unitLink,
       qualificationCode, 
       validationType, 
       pineconeNamespace 
@@ -42,6 +44,7 @@ serve(async (req) => {
       .insert({
         rtoCode: rtoCode,
         unitCode: unitCode,
+        unitLink: unitLink || null,
         qualificationCode: qualificationCode || null,
         reqExtracted: false,
       })

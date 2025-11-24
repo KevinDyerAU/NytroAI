@@ -126,17 +126,23 @@ serve(async (req) => {
 
     const supabase = createSupabaseClient(req);
 
-    // If validationDetailId is provided but no namespace, fetch it from validation_detail
+    // If validationDetailId is provided, fetch namespace and unitLink from validation records
+    let unitLink: string | null = null;
     if (validationDetailId && !namespace) {
       const { data: validationDetail } = await supabase
         .from('validation_detail')
-        .select('namespace_code')
+        .select('namespace_code, validation_summary(unitLink)')
         .eq('id', validationDetailId)
         .single();
       
       if (validationDetail?.namespace_code) {
         namespace = validationDetail.namespace_code;
         console.log(`[Validate Assessment] Fetched namespace from validation_detail: ${namespace}`);
+      }
+      
+      if (validationDetail?.validation_summary?.unitLink) {
+        unitLink = validationDetail.validation_summary.unitLink;
+        console.log(`[Validate Assessment] Fetched unitLink from validation_summary: ${unitLink}`);
       }
     }
 
@@ -163,8 +169,8 @@ serve(async (req) => {
     }
 
     // Get requirements for this unit using the new requirements fetcher
-    console.log(`[Validate Assessment] Fetching requirements for ${unitCode}, type: ${validationType}`);
-    const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType);
+    console.log(`[Validate Assessment] Fetching requirements for ${unitCode}, type: ${validationType}, unitLink: ${unitLink}`);
+    const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType, unitLink);
     console.log(`[Validate Assessment] Retrieved ${requirements.length} requirements`);
     
     // Format requirements as JSON for prompt injection

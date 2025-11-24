@@ -145,13 +145,32 @@ serve(async (req) => {
         if (document.validation_detail_id) {
           console.log(`[process-pending-indexing] Triggering validation for detail: ${document.validation_detail_id}`);
           
-          // Call validate-assessment edge function
-          await supabase.functions.invoke('validate-assessment', {
-            body: {
-              validationDetailId: document.validation_detail_id,
-              documentId: document.id,
-            },
-          });
+          // Extract unit_code from document metadata
+          const unitCode = document.metadata?.unit_code;
+          
+          if (!unitCode) {
+            console.error(`[process-pending-indexing] Cannot trigger validation: unit_code missing in document metadata`);
+          } else {
+            try {
+              // Call validate-assessment edge function
+              const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-assessment', {
+                body: {
+                  validationDetailId: document.validation_detail_id,
+                  documentId: document.id,
+                  unitCode: unitCode,
+                  validationType: 'full_validation', // Default to full validation
+                },
+              });
+
+              if (validationError) {
+                console.error(`[process-pending-indexing] Validation trigger failed:`, validationError);
+              } else {
+                console.log(`[process-pending-indexing] Validation triggered successfully for detail: ${document.validation_detail_id}`);
+              }
+            } catch (validationErr) {
+              console.error(`[process-pending-indexing] Exception triggering validation:`, validationErr);
+            }
+          }
         }
 
         results.push({
