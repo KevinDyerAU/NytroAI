@@ -1,0 +1,320 @@
+NytroAI Backend Architecture
+=============================
+
+Complete Request Flow: Credit Operations
+-----------------------------------------
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                 │
+│                            USER INTERFACE (React)                               │
+│                                                                                 │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────────┐  │
+│  │   Dashboard      │  │  Maintenance     │  │   Upload Workflow            │  │
+│  │                  │  │  Pages           │  │                              │  │
+│  │  • View credits  │  │  • Add credits   │  │  • Document upload           │  │
+│  │  • Usage stats   │  │  • Set credits   │  │  • Validation trigger        │  │
+│  │  • History       │  │  • View history  │  │  • Progress tracking         │  │
+│  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────────────────┘  │
+│           │                     │                      │                        │
+└───────────┼─────────────────────┼──────────────────────┼────────────────────────┘
+            │                     │                      │
+            │                     │                      │
+     GET credits             ADD credits          UPLOAD + VALIDATE
+            │                     │                      │
+            │                     │                      │
+            ▼                     ▼                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                 │
+│                         SUPABASE CLIENT LAYER                                   │
+│                                                                                 │
+│  ┌──────────────────────────────────────────────────────────────────────────┐  │
+│  │  Frontend calls one of three access methods:                             │  │
+│  │                                                                           │  │
+│  │  1. supabase.functions.invoke('edge-function-name', { ... })             │  │
+│  │  2. supabase.rpc('rpc_function_name', { ... })                           │  │
+│  │  3. supabase.from('table').select/insert/update/delete(...)              │  │
+│  └──────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+└───────────┬──────────────────────┬────────────────────────┬─────────────────────┘
+            │                      │                        │
+            │                      │                        │
+     ┌──────▼──────┐        ┌──────▼──────┐        ┌───────▼────────┐
+     │   METHOD 1  │        │   METHOD 2  │        │   METHOD 3     │
+     │             │        │             │        │                │
+     │    EDGE     │        │     RPC     │        │   DIRECT DB    │
+     │  FUNCTIONS  │        │  FUNCTIONS  │        │    ACCESS      │
+     │             │        │             │        │                │
+     └──────┬──────┘        └──────┬──────┘        └───────┬────────┘
+            │                      │                        │
+            │                      │                        │
+┌───────────▼──────────────────────▼────────────────────────▼─────────────────────┐
+│                                                                                 │
+│                            SUPABASE BACKEND                                     │
+│                                                                                 │
+│  ┌──────────────────────────────────────────────────────────────────────────┐  │
+│  │                      EDGE FUNCTIONS (Deno Runtime)                       │  │
+│  │                                                                           │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐     │  │
+│  │  │  13 Deployed Functions:                                         │     │  │
+│  │  │                                                                  │     │  │
+│  │  │  get-validation-credits ────┐                                   │     │  │
+│  │  │  get-ai-credits ────────────┼─→ Fetch & display credits         │     │  │
+│  │  │                             │                                   │     │  │
+│  │  │  consume-validation-credit ─┤                                   │     │  │
+│  │  │  consume-ai-credit ─────────┼─→ Use 1 credit (calls RPC)       │     │  │
+│  │  │                             │                                   │     │  │
+│  │  │  upload-document ───────────┼─→ File storage + Gemini API      │     │  │
+│  │  │  trigger-validation ────────┼─→ Start validation workflow      │     │  │
+│  │  │  validate-assessment ───────┼─→ Gemini API + store results     │     │  │
+│  │  │                             │                                   │     │  │
+│  │  │  generate-smart-questions ──┼─→ AI question generation         │     │  │
+│  │  │  fetch-units-of-competency ─┼─→ Query training data            │     │  │
+│  │  │  create-validation-record ──┼─→ Create validation session      │     │  │
+│  │  │  check-operation-status ────┼─→ Poll Gemini operation          │     │  │
+│  │  │  get-dashboard-metrics ─────┼─→ Aggregate statistics           │     │  │
+│  │  │  generate-validation-report ┼─→ PDF generation                 │     │  │
+│  │  │  scrape-training-gov-au ────┘                                   │     │  │
+│  │  │                                                                  │     │  │
+│  │  │  Key Features:                                                  │     │  │
+│  │  │  • TypeScript type safety                                       │     │  │
+│  │  │  • Service role access (bypass RLS)                             │     │  │
+│  │  │  • External API calls (Gemini, Stripe, etc.)                    │     │  │
+│  │  │  • Complex business logic                                       │     │  │
+│  │  │  • File handling & storage                                      │     │  │
+│  │  │  • Can call RPC functions ──────┐                               │     │  │
+│  │  └──────────────────────────────────┼───────────────────────────────┘     │  │
+│  └───────────────────────────────────┼─────────────────────────────────────┘  │
+│                                      │                                         │
+│  ┌───────────────────────────────────▼─────────────────────────────────────┐  │
+│  │                  POSTGRESQL DATABASE ENGINE                             │  │
+│  │                                                                          │  │
+│  │  ┌────────────────────────────────────────────────────────────────┐     │  │
+│  │  │           RPC FUNCTIONS (Stored Procedures)                    │     │  │
+│  │  │                                                                 │     │  │
+│  │  │  add_ai_credits(p_rto_code, p_amount, p_reason)                │     │  │
+│  │  │    ├─ Get RTO ID from code                                     │     │  │
+│  │  │    ├─ BEGIN TRANSACTION                                        │     │  │
+│  │  │    ├─ UPDATE ai_credits SET current = current + amount         │     │  │
+│  │  │    ├─ INSERT INTO ai_credit_transactions (log)                 │     │  │
+│  │  │    ├─ COMMIT                                                   │     │  │
+│  │  │    └─ RETURN (current_credits, total_credits)                  │     │  │
+│  │  │                                                                 │     │  │
+│  │  │  add_validation_credits(p_rto_code, p_amount, p_reason)        │     │  │
+│  │  │    ├─ Get RTO ID from code                                     │     │  │
+│  │  │    ├─ BEGIN TRANSACTION                                        │     │  │
+│  │  │    ├─ UPDATE validation_credits SET current = current + amount │     │  │
+│  │  │    ├─ INSERT INTO credit_transactions (log)                    │     │  │
+│  │  │    ├─ COMMIT                                                   │     │  │
+│  │  │    └─ RETURN (current_credits, total_credits)                  │     │  │
+│  │  │                                                                 │     │  │
+│  │  │  Key Features:                                                 │     │  │
+│  │  │  • ACID compliance (atomicity, consistency)                    │     │  │
+│  │  │  • No network overhead (runs in DB)                            │     │  │
+│  │  │  • Transaction logging                                         │     │  │
+│  │  │  • Parameter prefixing (p_) to avoid ambiguity                 │     │  │
+│  │  └─────────────────────────────────────────────────────────────────┘     │  │
+│  │                                                                          │  │
+│  │  ┌────────────────────────────────────────────────────────────────┐     │  │
+│  │  │                       DATABASE TABLES                          │     │  │
+│  │  │                                                                 │     │  │
+│  │  │  RTO                    validation_credits                     │     │  │
+│  │  │  ├─ id (PK)              ├─ id (PK)                            │     │  │
+│  │  │  ├─ code                 ├─ rto_id (FK → RTO.id)               │     │  │
+│  │  │  ├─ name                 ├─ current_credits                    │     │  │
+│  │  │  └─ ...                  ├─ total_credits                      │     │  │
+│  │  │                          ├─ subscription_credits               │     │  │
+│  │  │  ai_credits              └─ updated_at                         │     │  │
+│  │  │  ├─ id (PK)                                                    │     │  │
+│  │  │  ├─ rto_id (FK)          credit_transactions                   │     │  │
+│  │  │  ├─ current_credits      ├─ id (PK)                            │     │  │
+│  │  │  ├─ total_credits        ├─ rto_id (FK)                        │     │  │
+│  │  │  ├─ subscription_credits ├─ amount (+/-)                       │     │  │
+│  │  │  └─ updated_at           ├─ reason                             │     │  │
+│  │  │                          ├─ balance_after                      │     │  │
+│  │  │  documents               └─ created_at                         │     │  │
+│  │  │  validation_details                                            │     │  │
+│  │  │  validation_results      ai_credit_transactions                │     │  │
+│  │  │  gemini_operations       └─ (same structure)                   │     │  │
+│  │  │  UnitOfCompetency                                              │     │  │
+│  │  │  ...and 20+ more tables                                        │     │  │
+│  │  └─────────────────────────────────────────────────────────────────┘     │  │
+│  │                                                                          │  │
+│  │  ┌────────────────────────────────────────────────────────────────┐     │  │
+│  │  │              ROW LEVEL SECURITY (RLS) POLICIES                 │     │  │
+│  │  │                                                                 │     │  │
+│  │  │  Enforced when using Method 3 (Direct DB Access):              │     │  │
+│  │  │  • Users can only see their own RTO's data                     │     │  │
+│  │  │  • service_role bypasses all RLS (used by Edge Functions)      │     │  │
+│  │  │  • anon role has read-only access to public data               │     │  │
+│  │  │  • authenticated role has full access to user's data           │     │  │
+│  │  └─────────────────────────────────────────────────────────────────┘     │  │
+│  └──────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+
+EXAMPLE FLOWS
+=============
+
+Flow 1: Display Credits on Dashboard
+-------------------------------------
+
+Frontend (Dashboard.tsx)
+    ↓
+useDashboardMetrics Hook
+    ↓ supabase.functions.invoke('get-validation-credits', { rtoId: '57' })
+    ↓
+Edge Function: get-validation-credits
+    ↓ Parse rtoId
+    ↓ Convert to integer: 57
+    ↓ Query: SELECT * FROM validation_credits WHERE rto_id = 57
+    ↓ If not found → INSERT default (10 credits)
+    ↓ Return: { current: 8, total: 10, subscription: 10 }
+    ↓
+Frontend Updates
+    ↓ Display: "8 / 10 Validation Credits"
+    ↓ Calculate: 80% remaining
+    ↓ Show usage bar
+
+
+Flow 2: Add Credits via Maintenance Page
+-----------------------------------------
+
+Frontend (CreditsMaintenance.tsx)
+    ↓ User enters: rtoCode='7148', amount=1000, reason='AI Credits'
+    ↓
+RTO Service (rto.ts)
+    ↓ addAICredits(rtoCode, amount, reason)
+    ↓ supabase.rpc('add_ai_credits', { rto_code, amount, reason })
+    ↓
+RPC Function: add_ai_credits
+    ↓ BEGIN TRANSACTION
+    ↓ Get RTO: SELECT id FROM "RTO" WHERE code = '7148' → 57
+    ↓ Update: ai_credits.current_credits = 95 + 1000 = 1095
+    ↓ Update: ai_credits.total_credits = 100 + 1000 = 1100
+    ↓ Insert: ai_credit_transactions (rto_id=57, amount=1000, balance_after=1095)
+    ↓ COMMIT
+    ↓ RETURN (1095, 1100)
+    ↓
+Frontend Updates
+    ↓ Show success: "Added 1000 AI credits"
+    ↓ Display new balance: "1095 / 1100"
+    ↓ Refresh credit list
+
+
+Flow 3: Consume Credit During Validation
+-----------------------------------------
+
+Frontend (Upload Workflow)
+    ↓ User clicks "Start Validation"
+    ↓
+ValidationWorkflowService
+    ↓ Check credits first
+    ↓ supabase.functions.invoke('consume-validation-credit', { rtoCode: '7148' })
+    ↓
+Edge Function: consume-validation-credit
+    ↓ Validate request
+    ↓ Log: "Consuming validation credit for RTO 7148"
+    ↓ Call RPC: supabase.rpc('add_validation_credits', { 
+    ↓               rto_code: '7148', 
+    ↓               amount: -1,           ← Subtract 1 credit
+    ↓               reason: 'Validation started'
+    ↓           })
+    ↓
+RPC Function: add_validation_credits
+    ↓ BEGIN TRANSACTION
+    ↓ Get RTO ID: 57
+    ↓ Update: validation_credits.current_credits = 8 - 1 = 7
+    ↓ Insert transaction log
+    ↓ COMMIT
+    ↓ RETURN (7, 10)
+    ↓
+Edge Function Response
+    ↓ Check if credits >= 0
+    ↓ Return: { success: true, remainingCredits: 7 }
+    ↓
+Validation Proceeds
+    ↓ If success → Start validation workflow
+    ↓ If failed (0 credits) → Show "Insufficient credits" error
+
+
+DECISION MATRIX
+===============
+
+┌────────────────────────┬──────────────┬───────────────┬────────────────────┐
+│ Use Case               │ Method       │ Why?          │ Example            │
+├────────────────────────┼──────────────┼───────────────┼────────────────────┤
+│ File upload            │ Edge Fn      │ File handling │ upload-document    │
+│ External API call      │ Edge Fn      │ HTTP requests │ validate-assessment│
+│ Complex workflow       │ Edge Fn      │ Multi-step    │ trigger-validation │
+│ Credit display         │ Edge Fn      │ Default logic │ get-*-credits      │
+│                        │              │               │                    │
+│ Add/subtract credits   │ RPC Fn       │ Atomic txn    │ add_*_credits      │
+│ Transaction logging    │ RPC Fn       │ ACID guarantee│ (within RPC)       │
+│                        │              │               │                    │
+│ Simple SELECT          │ Direct DB    │ Fast & simple │ List validations   │
+│ User-specific data     │ Direct DB    │ RLS enforced  │ My documents       │
+│ Real-time updates      │ Direct DB    │ Subscriptions │ Progress tracking  │
+└────────────────────────┴──────────────┴───────────────┴────────────────────┘
+
+
+SECURITY LAYERS
+===============
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         SECURITY MODEL                                   │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  METHOD 1: Edge Functions (Service Role Key)                            │
+│  ═══════════════════════════════════════                                │
+│  ✅ Full database access (bypasses RLS)                                 │
+│  ✅ Manages API keys securely                                           │
+│  ✅ Implements custom authorization logic                               │
+│  ✅ Never exposed to frontend                                           │
+│  ⚠️  Must validate all inputs carefully                                 │
+│                                                                          │
+│  METHOD 2: RPC Functions                                                │
+│  ════════════════════════                                               │
+│  ✅ Permissions granted per role (anon, authenticated, service_role)    │
+│  ✅ Executes with caller's permissions (unless SECURITY DEFINER)        │
+│  ✅ Cannot make external HTTP calls                                     │
+│  ✅ Transactional guarantees                                            │
+│  ⚠️  Must be granted execute permissions explicitly                     │
+│                                                                          │
+│  METHOD 3: Direct Database Access (Anon/Auth Key)                       │
+│  ═══════════════════════════════════════════════                        │
+│  ✅ RLS policies strictly enforced                                      │
+│  ✅ Users only see their own data                                       │
+│  ✅ Safe for frontend use                                               │
+│  ⚠️  Cannot bypass RLS (by design)                                      │
+│  ⚠️  Never use service_role key in frontend                             │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
+KEY TAKEAWAYS
+=============
+
+1. **Edge Functions** = Your primary backend API
+   - Handle most client requests
+   - Call RPCs when needed for transactions
+   - Use TypeScript for type safety
+
+2. **RPC Functions** = Database operations engine
+   - Atomic credit transactions
+   - Fast execution (no network overhead)
+   - Use SQL for data integrity
+
+3. **Direct Database Access** = Simple queries only
+   - Read user's own data
+   - Real-time subscriptions
+   - RLS provides security
+
+4. **Hybrid Approach** = Best of both worlds
+   - Edge Function validates → RPC executes → Database updates
+   - Type safety + Transaction integrity + Security
+
+5. **Never Mix Concerns**
+   - Don't do complex logic in RPCs
+   - Don't do transactions in Edge Functions
+   - Use the right tool for the right job

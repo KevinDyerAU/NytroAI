@@ -30,6 +30,12 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[fetch-units-of-competency] Successfully fetched ${data?.length || 0} units`);
+    
+    if (data && data.length > 0) {
+      console.log('[fetch-units-of-competency] Sample units:', data.slice(0, 3).map(u => ({ id: u.id, unitCode: u.unitCode, Title: u.Title })));
+    } else {
+      console.warn('[fetch-units-of-competency] No units found in database!');
+    }
 
     return new Response(
       JSON.stringify({

@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 
 export interface UploadProgress {
-  stage: 'uploading' | 'completed' | 'failed';
+  stage: 'pending' | 'uploading' | 'completed' | 'failed';
   progress: number; // 0-100
   message: string;
   documentId?: number;
@@ -138,16 +138,24 @@ export class DocumentUploadServiceSimplified {
     unitCode: string,
     documentType: string,
     validationDetailId?: number
-  ): Promise<number> {
+  ): Promise<void> {
+    const payload: Record<string, any> = {
+      rtoCode,
+      unitCode,
+      documentType,
+      fileName,
+      storagePath,
+    };
+
+    // Add validationDetailId to metadata if provided
+    if (validationDetailId) {
+      payload.metadata = {
+        validation_detail_id: validationDetailId,
+      };
+    }
+
     const { data, error } = await supabase.functions.invoke('upload-document', {
-      body: {
-        rtoCode,
-        unitCode,
-        documentType,
-        fileName,
-        storagePath,
-        validationDetailId,
-      },
+      body: payload,
     });
 
     if (error) {
@@ -156,7 +164,7 @@ export class DocumentUploadServiceSimplified {
     }
 
     console.log('[Upload] Background indexing triggered successfully');
-    // Don't return anything - this is fire-and-forget
+    return;
   }
 
   /**

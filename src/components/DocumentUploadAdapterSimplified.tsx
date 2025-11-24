@@ -5,7 +5,7 @@
  * Upload completes immediately, validation happens in background via DB trigger.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { DocumentUploadSimplified } from './upload/DocumentUploadSimplified';
 import { getRTOById, fetchRTOById } from '../types/rto';
@@ -29,50 +29,108 @@ export function DocumentUploadAdapterSimplified({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [unitSearchTerm, setUnitSearchTerm] = useState('');
+  const [allUnits, setAllUnits] = useState<any[]>([]);
+  const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [isLoadingUnits, setIsLoadingUnits] = useState(false);
 
   // Load RTO data
   useEffect(() => {
     const loadRTO = async () => {
       if (!selectedRTOId) return;
 
-      let rto = getRTOById(selectedRTOId);
+      let rto: any = getRTOById(selectedRTOId);
       if (!rto) {
         rto = await fetchRTOById(selectedRTOId);
       }
-      setSelectedRTO(rto);
+      setSelectedRTO(rto as any);
     };
 
     loadRTO();
   }, [selectedRTOId]);
 
-  // Handle unit selection
-  const handleUnitSelect = async (unitCode: string) => {
-    if (!unitCode) return;
-    
-    // Fetch unit from database
-    const { data, error } = await supabase
-      .from('unit_of_competency')
-      .select('*')
-      .eq('code', unitCode)
-      .single();
-    
-    if (error || !data) {
-      toast.error(`Unit ${unitCode} not found`);
-      setSelectedUnit(null);
+  // Load all units on mount
+  useEffect(() => {
+    const loadUnits = async () => {
+      setIsLoadingUnits(true);
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        const response = await fetch(`${supabaseUrl}/functions/v1/fetch-units-of-competency`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({}),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result?.error || 'Failed to fetch units');
+        }
+
+        console.log('[DocumentUploadAdapterSimplified] Loaded units:', result.data?.length || 0);
+        setAllUnits(result.data || []);
+      } catch (error) {
+        console.error('[DocumentUploadAdapterSimplified] Error loading units:', error);
+        toast.error('Failed to load units of competency');
+      } finally {
+        setIsLoadingUnits(false);
+      }
+    };
+
+    loadUnits();
+  }, []);
+
+  // Filter units based on search term
+  useEffect(() => {
+    if (!unitSearchTerm) {
+      setFilteredUnits([]);
+      setShowUnitDropdown(false);
       return;
     }
-    
-    setSelectedUnit(data);
-    toast.success(`Unit ${unitCode} selected`);
+
+    const searchLower = unitSearchTerm.toLowerCase();
+    const filtered = allUnits.filter(unit => 
+      unit.unitCode?.toLowerCase().includes(searchLower) ||
+      unit.Title?.toLowerCase().includes(searchLower)
+    ).slice(0, 10); // Limit to 10 results
+
+    setFilteredUnits(filtered);
+    setShowUnitDropdown(filtered.length > 0);
+  }, [unitSearchTerm, allUnits]);
+
+  // Handle unit selection from dropdown
+  const handleUnitSelect = (unit: any) => {
+    setSelectedUnit({
+      id: unit.id,
+      code: unit.unitCode,
+      title: unit.Title,
+    });
+    setUnitSearchTerm(unit.unitCode);
+    setShowUnitDropdown(false);
+    toast.success(`Unit ${unit.unitCode} selected`);
   };
 
-  // Handle file selection
-  const handleFilesSelected = (files: File[]) => {
+  // Handle search input change
+  const handleSearchChange = (value: string) => {
+    setUnitSearchTerm(value);
+    if (!value) {
+      setSelectedUnit(null);
+    }
+  };
+
+  // Handle file selection (memoized to prevent infinite loop)
+  const handleFilesSelected = useCallback((files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
     setSelectedFiles(files);
     setUploadedCount(0);
     setIsComplete(false);
-  };
+  }, []);
 
   // Handle upload complete (instant - just storage upload)
   const handleUploadComplete = (documentId: number) => {
@@ -167,17 +225,45 @@ export function DocumentUploadAdapterSimplified({
         <Card className="p-6 bg-white">
           <h2 className="text-xl font-semibold text-[#1e293b] mb-4">1. Select Unit of Competency</h2>
           <div className="space-y-4">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-[#64748b] mb-2">
                 Unit Code
               </label>
               <input
                 type="text"
-                placeholder="e.g., BSBWHS521"
-                className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3b82f6]"
-                onChange={(e) => handleUnitSelect(e.target.value.toUpperCase())}
+                placeholder={isLoadingUnits ? "Loading units..." : "Search by code or title (e.g., BSBWHS521)"}
+                value={unitSearchTerm}
+                onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
+                onFocus={() => unitSearchTerm && setShowUnitDropdown(true)}
+                disabled={isLoadingUnits}
+                className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3b82f6] disabled:bg-gray-100"
               />
+              
+              {/* Autocomplete Dropdown */}
+              {showUnitDropdown && filteredUnits.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredUnits.map((unit) => (
+                    <button
+                      key={unit.id}
+                      type="button"
+                      onClick={() => handleUnitSelect(unit)}
+                      className="w-full text-left px-4 py-3 hover:bg-[#f8f9fb] border-b border-[#e2e8f0] last:border-b-0 transition-colors"
+                    >
+                      <p className="font-semibold text-[#1e293b]">{unit.unitCode}</p>
+                      <p className="text-sm text-[#64748b] truncate">{unit.Title}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {unitSearchTerm && filteredUnits.length === 0 && !isLoadingUnits && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg p-4 text-center text-[#64748b]">
+                  <Info className="w-5 h-5 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No units found matching "{unitSearchTerm}"</p>
+                </div>
+              )}
             </div>
+            
             {selectedUnit && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -198,7 +284,6 @@ export function DocumentUploadAdapterSimplified({
           {selectedUnit ? (
             <DocumentUploadSimplified
               unitCode={selectedUnit.code}
-              rtoCode={selectedRTO?.code || ''}
               onUploadComplete={handleUploadComplete}
               onFilesSelected={handleFilesSelected}
             />

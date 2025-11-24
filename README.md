@@ -134,6 +134,238 @@ Upload (Instant) → Background Processing → Get Results
 
 ---
 
+## 💳 Credit System
+
+NytroAI uses a dual-credit system to manage usage for different AI operations:
+
+### Credit Types
+
+#### 1. Validation Credits
+- **Used for:** Running AI validation on assessments (1 credit per validation)
+- **Default allocation:** Based on subscription tier
+- **Base credits per tier:**
+  - **Starter:** 10 validations/month
+  - **Professional:** 50 validations/month  
+  - **Enterprise:** 200 validations/month
+  - **Unlimited:** 1000 validations/month
+
+#### 2. AI Credits
+- **Used for:** AI-powered features like smart question generation (1 credit per operation)
+- **Default allocation:** Based on subscription tier
+- **Base credits per tier:**
+  - **Starter:** 100 AI operations/month
+  - **Professional:** 500 AI operations/month
+  - **Enterprise:** 2000 AI operations/month
+  - **Unlimited:** 10000 AI operations/month
+
+### How Credits Work
+
+```
+Subscription Credits (Base) + Additional Credits (Purchased) = Total Available Credits
+```
+
+**Example:**
+- Professional subscription: **50 validation credits** (base)
+- Purchase additional: **+ 25 validation credits**
+- **Total available: 75 validation credits**
+
+### Credit Consumption
+
+**Validation Credits:**
+- ✅ Consumed when starting a new validation (1 credit)
+- ✅ Deducted immediately when you click "Start Validation"
+- ✅ Not refunded if validation fails (to prevent abuse)
+- ✅ Dashboard shows: `Current / Total` (e.g., "8 / 10 credits")
+
+**AI Credits:**
+- ✅ Consumed when generating smart questions (1 credit per question)
+- ✅ Consumed when using AI-enhanced features (1 credit per operation)
+- ✅ Deducted only on successful operation
+- ✅ Dashboard shows: `Current / Total` (e.g., "95 / 100 credits")
+
+### Credit Management
+
+#### Viewing Credits
+Your current credit balance is displayed on the **Dashboard**:
+
+```
+┌─────────────────────────────┐
+│ VALIDATION CREDITS          │
+│ 8 / 10                      │
+│ 80% Remaining               │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│ AI CREDITS                  │
+│ 95 / 100                    │
+│ 95% Remaining               │
+└─────────────────────────────┘
+```
+
+#### Purchasing Additional Credits
+You can purchase additional credits at any time:
+1. Go to **Settings → Credits**
+2. Choose credit pack (Starter, Professional, Enterprise, Unlimited)
+3. Complete payment via Stripe
+4. Credits added instantly to your account
+
+**Additional credit packs:**
+- **Starter Pack:** 100 credits for $9.99
+- **Professional Pack:** 500 credits for $39.99
+- **Enterprise Pack:** 2000 credits for $129.99
+- **Unlimited Pack:** 10000 credits for $499.99
+
+### Credit Tracking
+
+#### Edge Functions for Credit Management
+
+```typescript
+// Get validation credits
+POST /functions/v1/get-validation-credits
+Body: { rtoCode: "7148" }
+Response: { 
+  current: 8, 
+  total: 10, 
+  subscription: 10 
+}
+
+// Get AI credits
+POST /functions/v1/get-ai-credits
+Body: { rtoCode: "7148" }
+Response: { 
+  current: 95, 
+  total: 100, 
+  subscription: 100 
+}
+
+// Consume validation credit (auto-called during validation)
+POST /functions/v1/consume-validation-credit
+Body: { rtoCode: "7148", reason: "Validation started" }
+Response: { 
+  success: true, 
+  remainingCredits: 7 
+}
+
+// Consume AI credit (auto-called during AI operations)
+POST /functions/v1/consume-ai-credit
+Body: { rtoCode: "7148", reason: "Smart question generated" }
+Response: { 
+  success: true, 
+  remainingCredits: 94 
+}
+```
+
+### Credit Renewal
+
+- **Subscription credits reset monthly** on your billing date
+- **Additional purchased credits never expire** and carry over
+- **Total credits** = Subscription credits + Additional credits
+
+**Example:**
+- Month 1: 50 (subscription) + 25 (purchased) = 75 total
+- You use 60 credits
+- Month 2: 50 (subscription resets) + 15 (remaining purchased) = 65 total
+
+### Low Credit Notifications
+
+- **80% used:** Yellow warning badge
+- **90% used:** Orange warning message
+- **100% used:** Red error, validation/AI features blocked
+
+### Credit Transaction History
+
+View all credit transactions in **Settings → Credits → Transaction History**:
+- Date and time
+- Transaction type (subscription renewal, purchase, consumption)
+- Amount (positive for additions, negative for usage)
+- Reason (e.g., "Validation credit consumed for Unit BSBWHS332X")
+- Balance after transaction
+
+### Technical Implementation
+
+Credits are managed via:
+- **Database tables:** `validation_credits`, `ai_credits`
+- **Transaction tables:** `credit_transactions`, `ai_credit_transactions`
+- **RPC functions:** `add_validation_credits`, `add_ai_credits`
+- **Edge functions:** All credit operations use edge functions for security
+
+See [EDGE_FUNCTION_REFACTOR.md](./EDGE_FUNCTION_REFACTOR.md) for technical details.
+
+---
+
+## 🏗️ Backend Architecture: RPC vs Edge Functions
+
+NytroAI uses a hybrid backend architecture combining **PostgreSQL RPC Functions** and **Supabase Edge Functions**:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Frontend (React)                          │
+└────────────┬─────────────────────────┬──────────────────────┘
+             │                         │
+             │                         │
+             ▼                         ▼
+   ┌─────────────────────┐   ┌──────────────────┐
+   │  Edge Functions     │   │  Direct DB       │
+   │  (Deno/TypeScript)  │   │  Access          │
+   │                     │   │                  │
+   │  • Business logic   │   │  • Simple CRUD   │
+   │  • External APIs    │   │  • Real-time     │
+   │  • File handling    │   │  • RLS enforced  │
+   │  • AI integration   │   │                  │
+   └──────────┬──────────┘   └────────┬─────────┘
+              │                       │
+              │ Can call RPC          │
+              ▼                       ▼
+   ┌──────────────────────────────────────────┐
+   │         PostgreSQL Database              │
+   │                                          │
+   │  ┌────────────────────────────────────┐  │
+   │  │  RPC Functions (Stored Procedures)│  │
+   │  │  • add_ai_credits                 │  │
+   │  │  • add_validation_credits         │  │
+   │  │  • Atomic transactions            │  │
+   │  └────────────────────────────────────┘  │
+   │                                          │
+   │  ┌────────────────────────────────────┐  │
+   │  │  Tables                            │  │
+   │  │  • RTO, ai_credits, documents...  │  │
+   │  └────────────────────────────────────┘  │
+   └──────────────────────────────────────────┘
+```
+
+### When to Use Each
+
+**Edge Functions** (13 deployed)
+- ✅ Complex workflows (validation, document processing)
+- ✅ External API calls (Gemini AI, Stripe, web scraping)
+- ✅ File handling and storage operations
+- ✅ Service role access (bypass RLS)
+- ✅ Examples: `upload-document`, `validate-assessment`, `get-validation-credits`
+
+**RPC Functions** (2 deployed)
+- ✅ Atomic database transactions
+- ✅ Credit operations (add/subtract with transaction logging)
+- ✅ Fast execution (no network overhead)
+- ✅ Examples: `add_ai_credits`, `add_validation_credits`
+
+**Direct Database Access**
+- ✅ Simple CRUD operations
+- ✅ Real-time subscriptions
+- ✅ User-specific queries (RLS enforced)
+
+### Typical Flow: Adding Credits
+
+```
+1. Frontend → Edge Function (validate request, check auth)
+2. Edge Function → RPC Function (atomic transaction)
+3. RPC Function → Database (update credits + log transaction)
+4. Response → Frontend (new balance displayed)
+```
+
+**Read more:** [RPC vs Edge Functions Guide](./docs/RPC_VS_EDGE_FUNCTIONS.md)
+
+---
+
 ## 🎯 What Gets Validated?
 
 NytroAI checks your assessment against:
@@ -161,6 +393,9 @@ For each requirement, you get:
 
 **For Developers:**
 - **[Developer Guide](./docs/DEVELOPER_GUIDE.md)** - Technical documentation
+- **[RPC vs Edge Functions](./docs/RPC_VS_EDGE_FUNCTIONS.md)** - Backend architecture guide
+- **[AI Credit Consumption](./docs/AI_CREDIT_CONSUMPTION.md)** - AI credit usage policy
+- **[Edge Function Refactor](./EDGE_FUNCTION_REFACTOR.md)** - Migration documentation
 - **[Contributing](./CONTRIBUTING.md)** - How to contribute
 - **[Changelog](./CHANGELOG.md)** - What's new
 

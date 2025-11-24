@@ -65,7 +65,7 @@ export function DocumentUploadSimplified({
     const newFiles: FileState[] = Array.from(selectedFiles).map(file => ({
       file,
       progress: {
-        stage: 'uploading',
+        stage: 'pending',
         progress: 0,
         message: 'Ready to upload',
       },
@@ -106,6 +106,20 @@ export function DocumentUploadSimplified({
       // Upload all files
       for (let i = 0; i < files.length; i++) {
         const fileState = files[i];
+        
+        // Set to uploading stage
+        setFiles(prev => {
+          const updated = [...prev];
+          updated[i] = { 
+            ...updated[i], 
+            progress: {
+              stage: 'uploading',
+              progress: 0,
+              message: 'Uploading...',
+            }
+          };
+          return updated;
+        });
         
         try {
           const result = await documentUploadService.uploadDocument(
@@ -240,11 +254,12 @@ export function DocumentUploadSimplified({
                 )}
               </div>
 
+              {fileState.progress.stage === 'pending' && <FileText className="h-5 w-5 text-gray-400" />}
               {fileState.progress.stage === 'uploading' && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
               {fileState.progress.stage === 'completed' && <CheckCircle className="h-5 w-5 text-green-500" />}
               {fileState.progress.stage === 'failed' && <XCircle className="h-5 w-5 text-red-500" />}
 
-              {!isUploading && (
+              {!isUploading && fileState.progress.stage === 'pending' && (
                 <Button
                   variant="ghost"
                   size="sm"

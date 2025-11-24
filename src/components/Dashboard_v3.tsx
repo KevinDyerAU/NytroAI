@@ -229,8 +229,8 @@ export function Dashboard_v3({
 
         <KPIWidget
           title="AI Queries"
-          value={metrics?.aiQueries?.count?.toLocaleString() || '0'}
-          subtitle={metrics?.aiQueries?.period || 'This month'}
+          value={metrics?.aiQueries?.period || '0 this month / 0 all time'}
+          subtitle="AI operations (indexing + validation)"
           icon={Zap}
           variant="blue"
           tooltip="Total AI operations (document indexing + validation queries) this month vs all time"
