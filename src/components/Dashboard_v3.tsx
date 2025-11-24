@@ -69,7 +69,7 @@ export function Dashboard_v3({
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(persistedState.isInitialLoad !== false); // Only true on first visit
   const [currentPage, setCurrentPage] = useState(persistedState.currentPage || 1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
   
   // Status modal state
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -153,8 +153,8 @@ export function Dashboard_v3({
     loadActiveValidations(true);
     const subscription = supabase.channel('validation_detail_changes').on('postgres_changes', {event: '*', schema: 'public', table: 'validation_detail'}, () => loadActiveValidations(false)).subscribe();
 
-    // Reduced polling to 30 seconds as a fallback (real-time subscription handles most updates)
-    const interval = setInterval(() => loadActiveValidations(false), 30000);
+    // Poll every 5 seconds as a fallback (real-time subscription handles most updates)
+    const interval = setInterval(() => loadActiveValidations(false), 5000);
 
     return () => {
       subscription.unsubscribe();
@@ -231,12 +231,8 @@ export function Dashboard_v3({
     }
   };
 
-  // Filter active validations
-  const activeValidations = validations.filter(v => 
-    v.extract_status === 'ProcessingInBackground' ||
-    v.extract_status === 'DocumentProcessing' ||
-    v.extract_status === 'Uploading'
-  );
+  // Show ALL validations (not just actively processing ones)
+  const activeValidations = validations;
 
   // Pagination
   const paginatedValidations = activeValidations.slice(
@@ -422,7 +418,9 @@ export function Dashboard_v3({
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900 flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0" />
-              <span>Validations are being processed in the background. Progress updates automatically every 5 seconds.</span>
+              <span>
+                <strong>Note:</strong> Some validations are being processed by AI. Small PDFs typically complete Stage 2 (Document Processing) in seconds and automatically advance to Stage 3 (Validations). No action needed.
+              </span>
             </p>
           </div>
         )}

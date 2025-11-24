@@ -144,7 +144,7 @@ export async function fetchRequirements(
   }
 
   try {
-    // Use unit_url if unitLink is provided, otherwise fall back to unitCode
+    // Use unit_url if unitLink is provided, otherwise fall back to unit_code
     const { data, error } = unitLink
       ? await supabase
           .from(requirementTable)
@@ -154,7 +154,7 @@ export async function fetchRequirements(
       : await supabase
           .from(requirementTable)
           .select('*')
-          .eq('unitCode', unitCode)
+          .eq('unit_code', unitCode)
           .order('id', { ascending: true });
 
     if (error) {

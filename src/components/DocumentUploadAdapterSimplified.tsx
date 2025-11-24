@@ -213,19 +213,22 @@ export function DocumentUploadAdapterSimplified({
       setIsComplete(true);
       
       // Show success message
-      toast.success('Upload complete! Processing in background...', {
-        description: 'Check the Dashboard for progress and results.',
-        duration: 5000,
+      toast.success('Upload complete! Redirecting to Dashboard...', {
+        description: 'Indexing and validation are running in the background.',
+        duration: 2000,
       });
 
-      // Notify parent
-      if (onValidationSubmit) {
-        onValidationSubmit({
-          validationId: 0, // Will be assigned by edge function
-          documentName: selectedFiles[0]?.name || 'document',
-          unitCode: selectedUnit?.code || 'unknown'
-        });
-      }
+      // Auto-navigate to dashboard after 2 seconds
+      setTimeout(() => {
+        console.log('[DocumentUploadAdapterSimplified] Auto-navigating to dashboard...');
+        if (onValidationSubmit) {
+          onValidationSubmit({
+            validationId: 0, // Will be assigned by edge function
+            documentName: selectedFiles[0]?.name || 'document',
+            unitCode: selectedUnit?.code || 'unknown'
+          });
+        }
+      }, 2000);
     }
   };
 

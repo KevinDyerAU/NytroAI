@@ -171,6 +171,12 @@ serve(async (req) => {
       return createErrorResponse(`Unit not found: ${unitCode}`);
     }
 
+    // Use Link from UnitOfCompetency if unitLink not already set
+    if (!unitLink && unit.Link) {
+      unitLink = unit.Link;
+      console.log(`[Validate Assessment] Using Link from UnitOfCompetency: ${unitLink}`);
+    }
+
     // Get requirements for this unit using the new requirements fetcher
     console.log(`[Validate Assessment] Fetching requirements for ${unitCode}, type: ${validationType}, unitLink: ${unitLink}`);
     const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType, unitLink);
@@ -307,15 +313,22 @@ serve(async (req) => {
       ? 'training_package'  // Learner guides
       : 'assessment';        // Assessment documents
     
+    // Check what metadata is actually on the document
+    const docMetadata = document.metadata || {};
+    console.log(`[Validate Assessment] Document metadata:`, JSON.stringify(docMetadata));
+    
     let metadataFilter: string | undefined;
-    if (namespace) {
+    
+    // Use namespace filter ONLY if the document actually has namespace in its metadata
+    if (namespace && docMetadata.namespace) {
       // Filter by namespace to get ALL documents from THIS specific validation session
       metadataFilter = `namespace="${namespace}" AND document-type="${documentType}"`;
       console.log(`[Validate Assessment] Using namespace filter: ${namespace}, document-type: ${documentType}`);
     } else if (unitCode) {
-      // Fallback to unit-code filter (legacy behavior)
+      // Use unit-code filter (for documents uploaded without namespace)
       metadataFilter = `unit-code="${unitCode}" AND document-type="${documentType}"`;
       console.log(`[Validate Assessment] Using unit-code filter: ${unitCode}, document-type: ${documentType}`);
+      console.log(`[Validate Assessment] Note: Document does not have namespace in metadata, using unit-code fallback`);
     }
     
     console.log(`[Validate Assessment] Metadata filter string: "${metadataFilter}"`);

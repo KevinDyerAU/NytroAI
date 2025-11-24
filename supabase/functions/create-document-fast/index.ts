@@ -96,11 +96,18 @@ serve(async (req) => {
         .eq('id', validationDetailId)
         .single();
       
+      if (vdError) {
+        console.error('[create-document-fast] Error fetching validation_detail:', vdError);
+        console.error('[create-document-fast] Error code:', vdError.code);
+        console.error('[create-document-fast] Error message:', vdError.message);
+      }
+      
       if (!vdError && validationDetail?.namespace_code) {
         namespace = validationDetail.namespace_code;
-        console.log('[create-document-fast] Fetched namespace from validation_detail:', namespace);
+        console.log('[create-document-fast] ✅ Fetched namespace from validation_detail:', namespace);
       } else {
-        console.warn('[create-document-fast] Could not fetch namespace from validation_detail');
+        console.warn('[create-document-fast] ⚠️ Could not fetch namespace from validation_detail');
+        console.warn('[create-document-fast] validation_detail data:', validationDetail);
       }
     } else {
       console.log('[create-document-fast] No validation_detail provided - document will be standalone');
