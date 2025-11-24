@@ -187,6 +187,13 @@ serve(async (req) => {
         
         if (document.validation_detail_id) {
           console.log(`[process-pending-indexing] Triggering validation for detail: ${document.validation_detail_id}`);
+          console.log(`[process-pending-indexing] Waiting 15 seconds for Gemini File Search index to update...`);
+          
+          // IMPORTANT: Wait for Gemini's File Search index to update with the uploaded file's metadata
+          // Without this delay, File Search queries with metadata filters will not find the newly uploaded document
+          await new Promise(resolve => setTimeout(resolve, 15000));
+          
+          console.log(`[process-pending-indexing] Proceeding with validation trigger`);
           
           // Extract unit_code from document metadata
           const unitCode = document.metadata?.unit_code;

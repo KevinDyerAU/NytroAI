@@ -205,31 +205,38 @@ export function DocumentUploadAdapterSimplified({
   // Handle upload complete (instant - just storage upload)
   const handleUploadComplete = (documentId: number) => {
     console.log('[DocumentUploadAdapterSimplified] Upload complete (instant)');
-    setUploadedCount(prev => prev + 1);
-
-    // Check if all files uploaded
-    if (uploadedCount + 1 >= selectedFiles.length) {
-      console.log('[DocumentUploadAdapterSimplified] All files uploaded!');
-      setIsComplete(true);
+    
+    // Update count and check if all files are done
+    setUploadedCount(prev => {
+      const newCount = prev + 1;
+      console.log(`[DocumentUploadAdapterSimplified] Upload progress: ${newCount}/${selectedFiles.length}`);
       
-      // Show success message
-      toast.success('Upload complete! Redirecting to Dashboard...', {
-        description: 'Indexing and validation are running in the background.',
-        duration: 2000,
-      });
+      // Check if all files uploaded using the NEW count
+      if (newCount >= selectedFiles.length) {
+        console.log('[DocumentUploadAdapterSimplified] All files uploaded!');
+        setIsComplete(true);
+        
+        // Show success message
+        toast.success('Upload complete! Redirecting to Dashboard...', {
+          description: 'Indexing and validation are running in the background.',
+          duration: 2000,
+        });
 
-      // Auto-navigate to dashboard after 2 seconds
-      setTimeout(() => {
-        console.log('[DocumentUploadAdapterSimplified] Auto-navigating to dashboard...');
-        if (onValidationSubmit) {
-          onValidationSubmit({
-            validationId: 0, // Will be assigned by edge function
-            documentName: selectedFiles[0]?.name || 'document',
-            unitCode: selectedUnit?.code || 'unknown'
-          });
-        }
-      }, 2000);
-    }
+        // Auto-navigate to dashboard after 2 seconds
+        setTimeout(() => {
+          console.log('[DocumentUploadAdapterSimplified] Auto-navigating to dashboard...');
+          if (onValidationSubmit) {
+            onValidationSubmit({
+              validationId: 0, // Will be assigned by edge function
+              documentName: selectedFiles[0]?.name || 'document',
+              unitCode: selectedUnit?.code || 'unknown'
+            });
+          }
+        }, 2000);
+      }
+      
+      return newCount;
+    });
   };
 
   // Reset form to start a new validation
