@@ -195,6 +195,9 @@ serve(async (req) => {
             console.error(`[process-pending-indexing] Cannot trigger validation: unit_code missing in document metadata`);
           } else {
             try {
+              // Extract namespace from document metadata for proper document filtering
+              const namespace = document.metadata?.namespace;
+              
               // Call validate-assessment edge function
               const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-assessment', {
                 body: {
@@ -202,6 +205,7 @@ serve(async (req) => {
                   documentId: document.id,
                   unitCode: unitCode,
                   validationType: 'full_validation', // Default to full validation
+                  ...(namespace && { namespace }), // Include namespace if available for proper document filtering
                 },
               });
 

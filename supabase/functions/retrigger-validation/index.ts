@@ -136,14 +136,18 @@ serve(async (req) => {
     const unitCode = summary?.unitCode || 'unknown';
 
     // Call validate-assessment edge function
-    const validatePayload = {
+    const validatePayload: any = {
       documentId: firstDoc.id,
       unitCode: unitCode,
       validationType: 'full_validation',
       validationDetailId: clonedDetail.id,
       namespace: clonedDetail.namespace_code,
-      ...(promptId && { customPrompt: null, promptId }), // Pass promptId if provided
     };
+    
+    // Add promptId if provided
+    if (promptId) {
+      validatePayload.promptId = promptId;
+    }
 
     console.log('[retrigger-validation] Calling validate-assessment with:', validatePayload);
 

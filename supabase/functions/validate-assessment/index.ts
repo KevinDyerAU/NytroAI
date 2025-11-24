@@ -54,6 +54,7 @@ interface ValidateAssessmentRequest {
     | 'learner_guide_validation';
   validationDetailId?: number;
   customPrompt?: string;
+  promptId?: number; // ID of prompt to fetch from database
   namespace?: string; // Unique namespace to filter to specific validation session
 }
 
@@ -108,13 +109,14 @@ serve(async (req) => {
 
   try {
     const requestData: ValidateAssessmentRequest = await req.json();
-    let { documentId, unitCode, validationType, validationDetailId, customPrompt, namespace } = requestData;
+    let { documentId, unitCode, validationType, validationDetailId, customPrompt, promptId, namespace } = requestData;
     console.log('[validate-assessment] Request data:', {
       documentId,
       unitCode,
       validationType,
       validationDetailId,
       hasCustomPrompt: !!customPrompt,
+      promptId,
       namespace
     });
 
@@ -202,21 +204,44 @@ serve(async (req) => {
     // Try to get prompt from database first, then fall back to hardcoded prompts
     let prompt = customPrompt;
     if (!prompt) {
-      const validationTypeId = validationTypeMap[validationType];
-      if (validationTypeId) {
-        const dbPrompt = await getPromptFromDatabase(supabase, validationTypeId);
-        if (dbPrompt) {
-          // Replace placeholders with actual data
-          prompt = dbPrompt
+      // If promptId is provided, fetch that specific prompt
+      if (promptId) {
+        console.log(`[validate-assessment] Fetching prompt by ID: ${promptId}`);
+        const { data: promptData, error: promptError } = await supabase
+          .from('prompt')
+          .select('prompt')
+          .eq('id', promptId)
+          .single();
+        
+        if (!promptError && promptData) {
+          prompt = promptData.prompt
             .replace(/{unitCode}/g, unitCode)
-            .replace(/{unitTitle}/g, unit.Title || unit.title || 'Unit Title Not Available');
-          
-          // Replace {requirements} placeholder with JSON array of requirements
-          // This provides structured data that the AI can parse and validate individually
-          prompt = prompt.replace(/{requirements}/g, requirementsJSON);
+            .replace(/{unitTitle}/g, unit.Title || unit.title || 'Unit Title Not Available')
+            .replace(/{requirements}/g, requirementsJSON);
+          console.log(`[validate-assessment] Using prompt ID ${promptId}`);
+        } else {
+          console.error(`[validate-assessment] Failed to fetch prompt ${promptId}:`, promptError);
         }
       }
-
+      
+      // Otherwise, try to get the current active prompt for this validation type
+      if (!prompt) {
+        const validationTypeId = validationTypeMap[validationType];
+        if (validationTypeId) {
+          const dbPrompt = await getPromptFromDatabase(supabase, validationTypeId);
+          if (dbPrompt) {
+            // Replace placeholders with actual data
+            prompt = dbPrompt
+              .replace(/{unitCode}/g, unitCode)
+              .replace(/{unitTitle}/g, unit.Title || unit.title || 'Unit Title Not Available');
+            
+            // Replace {requirements} placeholder with JSON array of requirements
+            // This provides structured data that the AI can parse and validate individually
+            prompt = prompt.replace(/{requirements}/g, requirementsJSON);
+          }
+        }
+      }
+      
       // Fallback to hardcoded prompts
       if (!prompt) {
         if (validationType === 'learner_guide_validation') {

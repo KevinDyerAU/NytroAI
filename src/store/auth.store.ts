@@ -131,8 +131,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // Set up Supabase session listener to keep auth state in sync
+// Use a singleton pattern to prevent duplicate subscriptions
+let authSubscription: { unsubscribe: () => void } | null = null;
+
 if (typeof window !== 'undefined') {
   const initializeAuth = async () => {
+    // Prevent duplicate initialization
+    if (authSubscription) {
+      console.log('[AuthStore] Already initialized, skipping');
+      return;
+    }
+
     const { initialize } = useAuthStore.getState();
     await initialize();
 
@@ -150,9 +159,9 @@ if (typeof window !== 'undefined') {
         console.log('[AuthStore] Session:', session ? `${session.user.email}` : 'NO SESSION');
         console.log('[AuthStore] Current store state - isAuthenticated:', useAuthStore.getState().isAuthenticated);
 
-        // Handle token refresh failures and explicit sign out
-        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESH_FAILED') {
-          console.log('[AuthStore] SIGNED_OUT or TOKEN_REFRESH_FAILED event - clearing auth state');
+        // Handle explicit sign out (token refresh failures are handled by session === null check below)
+        if (event === 'SIGNED_OUT') {
+          console.log('[AuthStore] SIGNED_OUT event - clearing auth state');
           useAuthStore.setState({
             user: null,
             isAuthenticated: false,
@@ -204,8 +213,17 @@ if (typeof window !== 'undefined') {
       }
     );
 
-    return subscription;
+    // Store subscription for cleanup
+    authSubscription = subscription;
   };
 
   initializeAuth();
+  
+  // Optional: Clean up on page unload (for Single Page Apps, this rarely happens)
+  window.addEventListener('beforeunload', () => {
+    if (authSubscription) {
+      authSubscription.unsubscribe();
+      authSubscription = null;
+    }
+  });
 }
