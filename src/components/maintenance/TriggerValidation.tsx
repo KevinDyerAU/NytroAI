@@ -5,13 +5,30 @@
  * Useful for debugging, re-running failed validations, or manual intervention.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { PlayCircle, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { PlayCircle, AlertCircle, CheckCircle, Loader2, Search, ExternalLink, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
+
+interface ValidationDetail {
+  detail_id: number;
+  unitCode: string;
+  extractStatus: string;
+  namespace_code: string;
+  document_count: number;
+  created_at: string;
+  rto_id: number;
+}
+
+interface PromptOption {
+  id: number;
+  validation_type_id: number;
+  name: string;
+  current: boolean;
+}
 
 export function TriggerValidation() {
   const [validationDetailId, setValidationDetailId] = useState('');
@@ -21,6 +38,70 @@ export function TriggerValidation() {
     message: string;
     timestamp: string;
   } | null>(null);
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [recentValidations, setRecentValidations] = useState<ValidationDetail[]>([]);
+  const [isLoadingValidations, setIsLoadingValidations] = useState(false);
+  
+  const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
+  const [availablePrompts, setAvailablePrompts] = useState<PromptOption[]>([]);
+
+  // Load recent validations
+  useEffect(() => {
+    loadRecentValidations();
+  }, [searchTerm]);
+
+  // Load available prompts
+  useEffect(() => {
+    loadAvailablePrompts();
+  }, []);
+
+  const loadRecentValidations = async () => {
+    setIsLoadingValidations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-validation-details', {
+        body: { search: searchTerm },
+      });
+
+      if (error) {
+        console.error('[TriggerValidation] Error loading validations:', error);
+        toast.error('Failed to load recent validations');
+        return;
+      }
+
+      setRecentValidations(data?.validations || []);
+    } catch (err) {
+      console.error('[TriggerValidation] Exception loading validations:', err);
+    } finally {
+      setIsLoadingValidations(false);
+    }
+  };
+
+  const loadAvailablePrompts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('validation_prompts')
+        .select('id, validation_type_id, name, current')
+        .eq('validation_type_id', 10) // full_validation
+        .order('current', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[TriggerValidation] Error loading prompts:', error);
+        return;
+      }
+
+      setAvailablePrompts(data || []);
+      
+      // Set default to current prompt
+      const currentPrompt = data?.find(p => p.current);
+      if (currentPrompt) {
+        setSelectedPromptId(currentPrompt.id);
+      }
+    } catch (err) {
+      console.error('[TriggerValidation] Exception loading prompts:', err);
+    }
+  };
 
   const handleTrigger = async () => {
     const detailId = parseInt(validationDetailId);
@@ -40,6 +121,7 @@ export function TriggerValidation() {
       const { data, error } = await supabase.functions.invoke('trigger-validation', {
         body: {
           validationDetailId: detailId,
+          ...(selectedPromptId && { promptId: selectedPromptId }),
         },
       });
 

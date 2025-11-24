@@ -489,6 +489,10 @@ export function createGeminiClient(config: GeminiConfig) {
             },
           },
         ],
+        generationConfig: {
+          response_mime_type: "application/json",
+          temperature: 0.2, // Lower temperature for more consistent JSON
+        },
       };
 
       const response = await fetch(

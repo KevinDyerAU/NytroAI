@@ -122,7 +122,7 @@ export function parseValidationResponseV2WithFallback(
   // This ensures we always have something to store even if AI response is malformed
   const requirementValidations: RequirementValidation[] = requirements.map(req => ({
     requirementId: req.id,
-    requirementType: req.type || validationType,
+    requirementType: req.type, // Use actual requirement type, NOT validationType
     requirementNumber: req.number,
     requirementText: req.text,
     status: 'not_met' as const,
@@ -151,14 +151,38 @@ export function extractCitationsFromGroundingMetadata(groundingMetadata: any): A
   chunkText?: string;
 }> {
   if (!groundingMetadata || !groundingMetadata.groundingChunks) {
+    console.log('[Extract Citations] No grounding metadata or chunks available');
     return [];
   }
 
-  const citations = groundingMetadata.groundingChunks.map((chunk: any) => ({
-    documentName: chunk.fileSearchChunk?.documentName || 'Unknown',
-    pageNumbers: chunk.fileSearchChunk?.pageNumbers || [],
-    chunkText: chunk.fileSearchChunk?.content || '',
-  }));
+  console.log(`[Extract Citations] Found ${groundingMetadata.groundingChunks.length} grounding chunks`);
+  console.log('[Extract Citations] First chunk structure:', JSON.stringify(groundingMetadata.groundingChunks[0], null, 2));
+
+  const citations = groundingMetadata.groundingChunks.map((chunk: any) => {
+    // Handle different grounding chunk structures
+    const documentName = 
+      chunk.fileSearchChunk?.documentName || 
+      chunk.retrievedContext?.title ||
+      chunk.web?.uri || 
+      'Unknown';
+    
+    const pageNumbers = chunk.fileSearchChunk?.pageNumbers || [];
+    
+    const chunkText = 
+      chunk.fileSearchChunk?.content || 
+      chunk.retrievedContext?.text ||
+      chunk.chunk?.content || 
+      '';
+    
+    return {
+      documentName,
+      pageNumbers,
+      chunkText,
+    };
+  });
+
+  console.log(`[Extract Citations] Extracted ${citations.length} citations`);
+  console.log('[Extract Citations] First citation:', JSON.stringify(citations[0], null, 2));
 
   return citations;
 }
@@ -170,9 +194,13 @@ export function mergeCitationsIntoValidations(
   validationResponse: ValidationResponseV2,
   groundingMetadata: any
 ): ValidationResponseV2 {
+  console.log('[Merge Citations] Starting citation merge...');
   const citations = extractCitationsFromGroundingMetadata(groundingMetadata);
   
+  console.log(`[Merge Citations] Extracted ${citations.length} citations to merge`);
+  
   if (citations.length === 0) {
+    console.log('[Merge Citations] No citations to merge, returning original response');
     return validationResponse;
   }
 
@@ -186,6 +214,8 @@ export function mergeCitationsIntoValidations(
     }
     return rv;
   });
+
+  console.log(`[Merge Citations] Merged citations into ${updatedValidations.filter(v => v.citations.length > 0).length} validations`);
 
   return {
     ...validationResponse,
