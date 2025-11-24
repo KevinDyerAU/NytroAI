@@ -15,11 +15,15 @@ import { RequirementsMaintenance } from '../components/maintenance/RequirementsM
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
 import { PromptMaintenance } from '../components/maintenance/PromptMaintenance';
 import { useAuth } from '../hooks/useAuth';
+import { useIndexingProcessor } from '../hooks/useIndexingProcessor';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
 
 export function DashboardPage() {
   const { user } = useAuth();
+  
+  // Start background indexing processor
+  useIndexingProcessor();
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedValidationId, setSelectedValidationId] = useState<string | null>(null);
   const [creditsRefreshTrigger, setCreditsRefreshTrigger] = useState(0);
@@ -167,6 +171,7 @@ export function DashboardPage() {
           <Dashboard
             onValidationDoubleClick={handleValidationDoubleClick}
             selectedRTOId={selectedRTOId}
+            selectedRTOCode={user?.rto_code || null}
             creditsRefreshTrigger={creditsRefreshTrigger}
           />
         );

@@ -90,8 +90,9 @@ export function DocumentUploadSimplified({
   };
 
   const handleUpload = async () => {
-    if (!user?.rto_id) {
+    if (!user?.rto_code) {
       toast.error('Please log in to upload documents');
+      console.error('[DocumentUploadSimplified] Missing RTO code:', user);
       return;
     }
 
@@ -100,12 +101,20 @@ export function DocumentUploadSimplified({
       return;
     }
 
+    console.log('[DocumentUploadSimplified] Starting upload with:', {
+      rtoCode: user.rto_code,
+      unitCode,
+      fileCount: files.length,
+    });
+
     setIsUploading(true);
 
     try {
       // Upload all files
       for (let i = 0; i < files.length; i++) {
         const fileState = files[i];
+        
+        console.log(`[DocumentUploadSimplified] Uploading file ${i + 1}/${files.length}:`, fileState.file.name);
         
         // Set to uploading stage
         setFiles(prev => {
@@ -124,7 +133,7 @@ export function DocumentUploadSimplified({
         try {
           const result = await documentUploadService.uploadDocument(
             fileState.file,
-            user.rto_id.toString(),
+            user.rto_code,
             unitCode,
             'assessment',
             validationDetailId,

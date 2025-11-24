@@ -73,6 +73,13 @@ export function useDashboardMetrics(rtoId: string | null, rtoCode: string | null
         }
 
         console.log('[useDashboardMetrics] Response:', { data });
+        
+        // Validate response has metrics
+        if (!data || typeof data !== 'object') {
+          console.error('[useDashboardMetrics] Invalid response - no data object');
+          throw new Error('Invalid response from dashboard metrics');
+        }
+        
         setMetrics(data);
         setConsecutiveErrors(0); // Reset error counter on success
       } catch (err) {
@@ -84,8 +91,9 @@ export function useDashboardMetrics(rtoId: string | null, rtoCode: string | null
           setError(errorMsg);
         }
 
-        // Set default values on error
-        setMetrics(getDefaultMetrics());
+        // Only set default values if we don't have any metrics yet
+        // This preserves previous data on transient errors
+        setMetrics(prev => prev || getDefaultMetrics());
       } finally {
         setLoading(false);
       }
@@ -170,7 +178,8 @@ export function useValidationCredits(rtoId: string | null, refreshTrigger: numbe
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         setError(errorMsg);
-        setCredits({
+        // Preserve previous credits on error
+        setCredits(prev => prev || {
           current: 0,
           total: 0,
           percentage: 0,
@@ -231,7 +240,8 @@ export function useAICredits(rtoId: string | null, refreshTrigger: number = 0) {
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         setError(errorMsg);
-        setCredits({
+        // Preserve previous credits on error
+        setCredits(prev => prev || {
           current: 0,
           total: 0,
           percentage: 0,

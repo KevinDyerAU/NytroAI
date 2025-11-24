@@ -11,7 +11,8 @@ import { DocumentUploadSimplified } from './upload/DocumentUploadSimplified';
 import { getRTOById, fetchRTOById } from '../types/rto';
 import { supabase } from '../lib/supabase';
 import { Card } from './ui/card';
-import { FileText, CheckCircle, Info } from 'lucide-react';
+import { Button } from './ui/button';
+import { FileText, CheckCircle, Info, Plus } from 'lucide-react';
 
 interface DocumentUploadAdapterSimplifiedProps {
   selectedRTOId: string;
@@ -159,6 +160,17 @@ export function DocumentUploadAdapterSimplified({
     }
   };
 
+  // Reset form to start a new validation
+  const handleStartNew = () => {
+    console.log('[DocumentUploadAdapterSimplified] Starting new validation...');
+    setSelectedFiles([]);
+    setUploadedCount(0);
+    setIsComplete(false);
+    setSelectedUnit(null);
+    setUnitSearchTerm('');
+    toast.info('Form reset. Ready for new validation.');
+  };
+
   // Handle start validation button
   const handleStartValidation = () => {
     console.log('[DocumentUploadAdapterSimplified] Starting validation...');
@@ -298,15 +310,25 @@ export function DocumentUploadAdapterSimplified({
         {/* Success Message */}
         {isComplete && (
           <Card className="p-6 bg-green-50 border-green-200">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-              <div>
-                <h3 className="font-semibold text-green-900">Upload Complete!</h3>
-                <p className="text-sm text-green-700 mt-1">
-                  {uploadedCount} file{uploadedCount !== 1 ? 's' : ''} uploaded successfully. 
-                  Processing is happening in the background. Check the Dashboard for progress.
-                </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-green-900">Upload Complete!</h3>
+                  <p className="text-sm text-green-700 mt-1">
+                    {uploadedCount} file{uploadedCount !== 1 ? 's' : ''} uploaded successfully. 
+                    Processing is happening in the background. Check the Dashboard for progress.
+                  </p>
+                </div>
               </div>
+              <Button
+                onClick={handleStartNew}
+                variant="outline"
+                className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-100"
+              >
+                <Plus className="w-4 h-4" />
+                Start New Validation
+              </Button>
             </div>
           </Card>
         )}

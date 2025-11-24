@@ -26,12 +26,14 @@ import type { ValidationRecord } from '../types/rto';
 interface Dashboard_v3Props {
   onValidationDoubleClick?: (validation: ValidationRecord) => void;
   selectedRTOId: string;
+  selectedRTOCode?: string | null;
   creditsRefreshTrigger?: number;
 }
 
 export function Dashboard_v3({
   onValidationDoubleClick,
   selectedRTOId,
+  selectedRTOCode = null,
   creditsRefreshTrigger = 0,
 }: Dashboard_v3Props) {
   // Load persisted state
@@ -46,7 +48,8 @@ export function Dashboard_v3({
 
   const persistedState = loadPersistedState();
 
-  const [rtoCode, setRtoCode] = useState<string | null>(null);
+  // Use prop rtoCode if provided, otherwise fetch it
+  const [rtoCode, setRtoCode] = useState<string | null>(selectedRTOCode);
   const [validations, setValidations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(persistedState.isInitialLoad !== false); // Only true on first visit
@@ -71,8 +74,14 @@ export function Dashboard_v3({
   const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger);
   const { credits: aiCredits } = useAICredits(selectedRTOId, creditsRefreshTrigger);
 
-  // Get RTO code from ID
+  // Get RTO code from ID (only if not provided as prop)
   useEffect(() => {
+    // If we already have rtoCode from props, use it
+    if (selectedRTOCode) {
+      setRtoCode(selectedRTOCode);
+      return;
+    }
+
     const loadRTOCode = async () => {
       if (!selectedRTOId) return;
 
@@ -88,7 +97,7 @@ export function Dashboard_v3({
     };
 
     loadRTOCode();
-  }, [selectedRTOId]);
+  }, [selectedRTOId, selectedRTOCode]);
 
   // Fetch validations using the same method as original Dashboard
   useEffect(() => {
@@ -112,6 +121,8 @@ export function Dashboard_v3({
         if (isInitial && isInitialLoad) {
           toast.error('Failed to load validations');
         }
+        // Don't clear validations on error - preserve previous data
+        // setValidations remains unchanged, keeping previous successful data
       } finally {
         if (isInitial && isInitialLoad) {
           setIsLoading(false);
