@@ -27,17 +27,17 @@ serve(async (req) => {
     const supabase = createSupabaseClient(req);
     const gemini = createDefaultGeminiClient();
 
-    // Reset stuck operations (processing for > 5 minutes)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    // Reset stuck operations (processing for > 2 minutes)
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
     const { data: stuckOps, error: resetError } = await supabase
       .from('gemini_operations')
       .update({
         status: 'failed',
-        error_message: 'Timeout: Processing took longer than 5 minutes',
+        error_message: 'Timeout: Processing took longer than 2 minutes',
         updated_at: new Date().toISOString(),
       })
       .eq('status', 'processing')
-      .lt('updated_at', fiveMinutesAgo)
+      .lt('updated_at', twoMinutesAgo)
       .select('id, document_id');
 
     if (stuckOps && stuckOps.length > 0) {
@@ -119,6 +119,17 @@ serve(async (req) => {
           fileSearchStore = await gemini.createFileSearchStore(storeName);
         }
 
+        console.log(`[process-pending-indexing] Using File Search store: ${fileSearchStore.name}`);
+        console.log(`[process-pending-indexing] Document metadata being uploaded:`, JSON.stringify(document.metadata));
+
+        // Update document with actual store resource name (not display name)
+        await supabase
+          .from('documents')
+          .update({
+            file_search_store_id: fileSearchStore.name, // Update with resource name (fileSearchStores/abc123)
+          })
+          .eq('id', document.id);
+
         // Upload to Gemini File Search
         const uploadOperation = await gemini.uploadToFileSearchStore(
           fileBytes,
@@ -127,6 +138,8 @@ serve(async (req) => {
           document.display_name || document.file_name,
           document.metadata || {}
         );
+        
+        console.log(`[process-pending-indexing] File uploaded with metadata keys: ${Object.keys(document.metadata || {}).join(', ')}`);
 
         console.log(`[process-pending-indexing] Upload initiated: ${uploadOperation.name}`);
 

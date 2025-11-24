@@ -237,8 +237,35 @@ serve(async (req) => {
       embedding_status: document.embedding_status
     });
 
+    // Get the actual File Search store resource name
+    // If file_search_store_id is a display name (like "rto-7148-assessments"),
+    // we need to look up the actual resource name (like "fileSearchStores/abc123")
+    let fileSearchStoreResourceName = document.file_search_store_id;
+    
+    if (!fileSearchStoreResourceName.startsWith('fileSearchStores/')) {
+      // It's a display name, need to look up the actual resource name
+      console.log(`[Validate Assessment] Looking up store by display name: ${fileSearchStoreResourceName}`);
+      const stores = await gemini.listFileSearchStores();
+      const matchingStore = stores.find((s) => s.displayName === fileSearchStoreResourceName);
+      
+      if (matchingStore) {
+        fileSearchStoreResourceName = matchingStore.name;
+        console.log(`[Validate Assessment] Found store resource name: ${fileSearchStoreResourceName}`);
+        
+        // Update document for future use
+        await supabase
+          .from('documents')
+          .update({ file_search_store_id: fileSearchStoreResourceName })
+          .eq('id', document.id);
+      } else {
+        console.error(`[Validate Assessment] File Search store not found: ${fileSearchStoreResourceName}`);
+        throw new Error(`File Search store not found: ${fileSearchStoreResourceName}`);
+      }
+    }
+
     // Build metadata filter - use namespace if provided to search ALL documents in this validation session
     // Note: Gemini API requires string values to be quoted in metadata filters
+    // IMPORTANT: Metadata keys are converted from underscore to dash during upload (e.g., unit_code -> unit-code)
     
     // Determine document type based on validation type
     const documentType = validationType === 'learner_guide_validation' 
@@ -255,11 +282,15 @@ serve(async (req) => {
       metadataFilter = `unit-code="${unitCode}" AND document-type="${documentType}"`;
       console.log(`[Validate Assessment] Using unit-code filter: ${unitCode}, document-type: ${documentType}`);
     }
+    
+    console.log(`[Validate Assessment] Metadata filter string: "${metadataFilter}"`);
+    console.log(`[Validate Assessment] Expected metadata on documents: namespace=${namespace}, unit-code=${unitCode}, document-type=${documentType}`);
 
     // Query with File Search - Gemini will search ALL documents matching the filter
+    console.log(`[Validate Assessment] Querying File Search store: ${fileSearchStoreResourceName}`);
     const response = await gemini.generateContentWithFileSearch(
       prompt,
-      [document.file_search_store_id],
+      [fileSearchStoreResourceName],
       metadataFilter
     );
     
@@ -277,6 +308,9 @@ serve(async (req) => {
 
     // Try to parse as V2 response first (structured JSON with requirement validations)
     console.log(`[Validate Assessment] Attempting to parse as V2 response...`);
+    console.log(`[Validate Assessment] Response text length: ${response.text.length} characters`);
+    console.log(`[Validate Assessment] Response text preview: ${response.text.substring(0, 500)}...`);
+    
     let validationResponseV2 = parseValidationResponseV2WithFallback(
       response.text,
       validationType,

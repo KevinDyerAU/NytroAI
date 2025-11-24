@@ -122,17 +122,40 @@ export async function fetchAllRequirements(
   for (const { table, type } of types) {
     try {
       // Use unit_url if unitLink is provided, otherwise fall back to unitCode
-      const { data, error} = unitLink
-        ? await supabase
-            .from(table)
-            .select('*')
-            .eq('unit_url', unitLink)
-            .order('id', { ascending: true })
-        : await supabase
+      let data, error;
+      
+      if (unitLink) {
+        // Try with unit_url first
+        const result = await supabase
+          .from(table)
+          .select('*')
+          .eq('unit_url', unitLink)
+          .order('id', { ascending: true });
+        
+        data = result.data;
+        error = result.error;
+        
+        // If column doesn't exist (42703), fallback to unitCode
+        if (error && error.code === '42703') {
+          console.log(`[Requirements Fetcher] Table ${table} doesn't have unit_url, trying unitCode...`);
+          const fallbackResult = await supabase
             .from(table)
             .select('*')
             .eq('unitCode', unitCode)
             .order('id', { ascending: true });
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+        }
+      } else {
+        // Use unitCode directly
+        const result = await supabase
+          .from(table)
+          .select('*')
+          .eq('unitCode', unitCode)
+          .order('id', { ascending: true });
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error(`[Requirements Fetcher] Error fetching from ${table}:`, error);

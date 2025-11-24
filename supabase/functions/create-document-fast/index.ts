@@ -80,6 +80,7 @@ serve(async (req) => {
     // Use existing validation_detail if provided, otherwise skip
     // Document upload doesn't require a validation_detail upfront
     let validationDetailForDoc = validationDetailId;
+    let namespace: string | null = null;
     
     console.log('[create-document-fast] validationDetailId received:', validationDetailId);
     console.log('[create-document-fast] validationDetailId type:', typeof validationDetailId);
@@ -87,6 +88,20 @@ serve(async (req) => {
     
     if (validationDetailId) {
       console.log('[create-document-fast] Using existing validation_detail:', validationDetailId);
+      
+      // Fetch namespace from validation_detail for metadata filtering
+      const { data: validationDetail, error: vdError } = await supabase
+        .from('validation_detail')
+        .select('namespace_code')
+        .eq('id', validationDetailId)
+        .single();
+      
+      if (!vdError && validationDetail?.namespace_code) {
+        namespace = validationDetail.namespace_code;
+        console.log('[create-document-fast] Fetched namespace from validation_detail:', namespace);
+      } else {
+        console.warn('[create-document-fast] Could not fetch namespace from validation_detail');
+      }
     } else {
       console.log('[create-document-fast] No validation_detail provided - document will be standalone');
     }
@@ -108,6 +123,7 @@ serve(async (req) => {
           unit_code: unitCode,
           rto_code: rtoCode,
           document_type: documentType,
+          ...(namespace && { namespace }), // Include namespace if available for metadata filtering
         },
         uploaded_at: new Date().toISOString(),
       })

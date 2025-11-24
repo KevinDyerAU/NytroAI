@@ -12,14 +12,25 @@ import { supabase } from '../lib/supabase';
 export function useIndexingProcessor() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isProcessingRef = useRef(false);
+  const lastStartTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const processPendingIndexing = async () => {
+      const now = Date.now();
+      
+      // Force reset if processing for more than 45 seconds (should timeout at 30)
+      if (isProcessingRef.current && now - lastStartTimeRef.current > 45000) {
+        console.warn('[IndexingProcessor] Force resetting stuck processing flag after 45s');
+        isProcessingRef.current = false;
+      }
+      
       // Skip if already processing
       if (isProcessingRef.current) {
         console.log('[IndexingProcessor] Already processing, skipping...');
         return;
       }
+      
+      lastStartTimeRef.current = now;
 
       try {
         isProcessingRef.current = true;
