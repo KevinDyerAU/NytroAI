@@ -153,11 +153,18 @@ export function DocumentUploadAdapterSimplified({
           hasLink: !!selectedUnit.Link
         });
         
+        // Verify unitLink exists
+        if (!selectedUnit.Link) {
+          console.error('[DocumentUploadAdapterSimplified] Unit Link is missing!');
+          toast.error('Selected unit is missing Link. Please select a different unit.');
+          return;
+        }
+        
         const { data, error } = await supabase.functions.invoke('create-validation-record', {
           body: {
             rtoCode: selectedRTO.code,
             unitCode: selectedUnit.code,
-            unitLink: selectedUnit.Link, // Pass unit URL for requirements linking
+            unitLink: selectedUnit.Link, // Pass unit URL for requirements linking (REQUIRED)
             validationType: 'assessment',
             pineconeNamespace: selectedRTO.code // Use RTO code as namespace
           }

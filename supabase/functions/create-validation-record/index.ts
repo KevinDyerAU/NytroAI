@@ -34,29 +34,46 @@ serve(async (req) => {
       );
     }
 
+    if (!unitLink) {
+      return createErrorResponse(
+        'Missing required field: unitLink (required for finding/creating validation_summary)'
+      );
+    }
+
     // Initialize Supabase client
     const supabase = createSupabaseClient(req);
 
-    // Step 1: Create validation_summary
-    console.log('[create-validation-record] 1. Creating validation_summary...');
-    const { data: summaryData, error: summaryError } = await supabase
+    // Step 1: Find existing validation_summary using unitLink (MUST exist - contains requirements)
+    console.log('[create-validation-record] 1. Looking for existing validation_summary with unitLink:', unitLink);
+    
+    const { data: existingSummary, error: findError } = await supabase
       .from('validation_summary')
-      .insert({
-        rtoCode: rtoCode,
-        unitCode: unitCode,
-        unitLink: unitLink || null,
-        qualificationCode: qualificationCode || null,
-        reqExtracted: false,
-      })
-      .select('id')
+      .select('id, reqExtracted')
+      .eq('unitLink', unitLink)
       .single();
 
-    if (summaryError) {
-      console.error('[create-validation-record] Error creating validation_summary:', summaryError);
-      throw new Error(`Failed to create validation_summary: ${summaryError.message}`);
+    if (findError) {
+      if (findError.code === 'PGRST116') { // Not found
+        console.error('[create-validation-record] No validation_summary found for unitLink:', unitLink);
+        return createErrorResponse(
+          `No requirements found for unit: ${unitCode}. Please extract requirements first using Unit Acquisition.`,
+          404
+        );
+      }
+      console.error('[create-validation-record] Error finding validation_summary:', findError);
+      throw new Error(`Failed to find validation_summary: ${findError.message}`);
     }
 
-    console.log('[create-validation-record] Created validation_summary:', summaryData.id);
+    if (!existingSummary.reqExtracted) {
+      console.error('[create-validation-record] Requirements not extracted for unitLink:', unitLink);
+      return createErrorResponse(
+        `Requirements not yet extracted for unit: ${unitCode}. Please wait for extraction to complete.`,
+        400
+      );
+    }
+
+    console.log('[create-validation-record] Found existing validation_summary with requirements:', existingSummary.id);
+    const summaryId = existingSummary.id;
 
     // Step 2: Get or create validation_type
     console.log('[create-validation-record] 2. Looking up validation_type:', validationType);
@@ -101,7 +118,7 @@ serve(async (req) => {
     const { data: validationDetail, error: detailError } = await supabase
       .from('validation_detail')
       .insert({
-        summary_id: summaryData.id,
+        summary_id: summaryId,
         validationType_id: validationTypeId,
         namespace_code: pineconeNamespace,
         docExtracted: false,
@@ -120,7 +137,7 @@ serve(async (req) => {
 
     const responseData = {
       success: true,
-      summaryId: summaryData.id,
+      summaryId: summaryId,
       detailId: validationDetail.id,
       validationTypeId: validationTypeId,
       namespace: pineconeNamespace,

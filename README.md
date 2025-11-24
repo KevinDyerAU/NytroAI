@@ -227,14 +227,14 @@ NytroAI uses a sophisticated multi-stage pipeline for document processing and va
 
 #### 1. `create-validation-record`
 
-**Purpose:** Creates validation_summary and validation_detail records before upload
+**Purpose:** Finds or creates validation_summary (by unitLink) and creates validation_detail
 
 **Request:**
 ```typescript
 {
   rtoCode: string;        // e.g., "7148"
   unitCode: string;       // e.g., "TLIF0025"
-  unitLink: string;       // Unit URL from UnitOfCompetency.Link
+  unitLink: string;       // Unit URL from UnitOfCompetency.Link (REQUIRED)
   validationType: string; // e.g., "assessment"
   pineconeNamespace: string; // Namespace for vector storage
 }
@@ -244,14 +244,16 @@ NytroAI uses a sophisticated multi-stage pipeline for document processing and va
 ```typescript
 {
   detailId: number;       // validation_detail.id
-  summaryId: number;      // validation_summary.id
+  summaryId: number;      // validation_summary.id (existing or new)
 }
 ```
 
 **Key Logic:**
-- Creates `validation_summary` with `unitLink` stored for later requirements matching
-- Creates `validation_detail` linked to summary
+- **Finds existing** `validation_summary` by `unitLink` OR creates new one
+- This ensures one summary per unit (reusable across multiple validations)
+- Creates new `validation_detail` linked to the summary
 - Sets initial `extractStatus: 'Uploading'`
+- `unitLink` is **required** for finding/creating summary
 
 #### 2. `create-document-fast`
 
