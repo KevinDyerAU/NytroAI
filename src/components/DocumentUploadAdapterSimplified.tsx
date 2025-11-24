@@ -172,7 +172,22 @@ export function DocumentUploadAdapterSimplified({
 
         if (error) {
           console.error('[DocumentUploadAdapterSimplified] Failed to create validation:', error);
-          toast.error('Failed to create validation record');
+          
+          // Check for specific error messages
+          const errorMsg = error.message || '';
+          if (errorMsg.includes('No requirements found')) {
+            toast.error(
+              'Requirements not found for this unit. Please use Unit Acquisition to extract requirements first.',
+              { duration: 6000 }
+            );
+          } else if (errorMsg.includes('Requirements not yet extracted')) {
+            toast.error(
+              'Requirements are still being extracted for this unit. Please wait and try again.',
+              { duration: 6000 }
+            );
+          } else {
+            toast.error(`Failed to create validation: ${errorMsg}`);
+          }
           return;
         }
 

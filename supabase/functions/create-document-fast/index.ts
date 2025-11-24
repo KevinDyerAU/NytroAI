@@ -81,6 +81,10 @@ serve(async (req) => {
     // Document upload doesn't require a validation_detail upfront
     let validationDetailForDoc = validationDetailId;
     
+    console.log('[create-document-fast] validationDetailId received:', validationDetailId);
+    console.log('[create-document-fast] validationDetailId type:', typeof validationDetailId);
+    console.log('[create-document-fast] validationDetailId truthy:', !!validationDetailId);
+    
     if (validationDetailId) {
       console.log('[create-document-fast] Using existing validation_detail:', validationDetailId);
     } else {

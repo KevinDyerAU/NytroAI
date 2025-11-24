@@ -27,6 +27,33 @@ serve(async (req) => {
     const supabase = createSupabaseClient(req);
     const gemini = createDefaultGeminiClient();
 
+    // Reset stuck operations (processing for > 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: stuckOps, error: resetError } = await supabase
+      .from('gemini_operations')
+      .update({
+        status: 'failed',
+        error_message: 'Timeout: Processing took longer than 5 minutes',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('status', 'processing')
+      .lt('updated_at', fiveMinutesAgo)
+      .select('id, document_id');
+
+    if (stuckOps && stuckOps.length > 0) {
+      console.log(`[process-pending-indexing] Reset ${stuckOps.length} stuck operations:`, stuckOps.map(op => op.id));
+      
+      // Also update document status
+      for (const op of stuckOps) {
+        if (op.document_id) {
+          await supabase
+            .from('documents')
+            .update({ embedding_status: 'failed' })
+            .eq('id', op.document_id);
+        }
+      }
+    }
+
     // Find pending operations (limit to 5 at a time to avoid timeouts)
     const { data: pendingOps, error: opsError } = await supabase
       .from('gemini_operations')
@@ -142,6 +169,9 @@ serve(async (req) => {
           .eq('id', operation.id);
 
         // Trigger validation if validation_detail_id exists
+        console.log(`[process-pending-indexing] Checking validation trigger - validation_detail_id: ${document.validation_detail_id}`);
+        console.log(`[process-pending-indexing] Document metadata:`, JSON.stringify(document.metadata));
+        
         if (document.validation_detail_id) {
           console.log(`[process-pending-indexing] Triggering validation for detail: ${document.validation_detail_id}`);
           
@@ -171,6 +201,8 @@ serve(async (req) => {
               console.error(`[process-pending-indexing] Exception triggering validation:`, validationErr);
             }
           }
+        } else {
+          console.log(`[process-pending-indexing] Skipping validation trigger - no validation_detail_id for document ${document.id}`);
         }
 
         results.push({

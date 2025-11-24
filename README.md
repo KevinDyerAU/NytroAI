@@ -145,12 +145,17 @@ NytroAI uses a sophisticated multi-stage pipeline for document processing and va
 │                          UPLOAD PIPELINE                                 │
 └─────────────────────────────────────────────────────────────────────────┘
 
+⚠️  PREREQUISITE: Unit requirements must be extracted via Unit Acquisition first!
+    (This creates validation_summary with reqExtracted = true)
+
 1. User Selects Files & Unit
    ↓
 2. Create Validation Record
+   │  ⚠️  VALIDATES: validation_summary must exist for selected unit
    │  Edge Function: create-validation-record
-   │  Creates: validation_summary → validation_detail
-   │  Stores: unitLink for requirements matching
+   │  Finds: existing validation_summary by unitLink
+   │  Creates: validation_detail (linked to summary)
+   │  Checks: reqExtracted = true (requirements available)
    ↓
 3. Upload to Storage (<1 second)
    │  Files uploaded to Supabase Storage
@@ -227,7 +232,7 @@ NytroAI uses a sophisticated multi-stage pipeline for document processing and va
 
 #### 1. `create-validation-record`
 
-**Purpose:** Finds or creates validation_summary (by unitLink) and creates validation_detail
+**Purpose:** Finds existing validation_summary (with requirements) and creates validation_detail
 
 **Request:**
 ```typescript
@@ -244,16 +249,21 @@ NytroAI uses a sophisticated multi-stage pipeline for document processing and va
 ```typescript
 {
   detailId: number;       // validation_detail.id
-  summaryId: number;      // validation_summary.id (existing or new)
+  summaryId: number;      // validation_summary.id (existing)
 }
 ```
 
 **Key Logic:**
-- **Finds existing** `validation_summary` by `unitLink` OR creates new one
-- This ensures one summary per unit (reusable across multiple validations)
-- Creates new `validation_detail` linked to the summary
+- **MUST find existing** `validation_summary` by `unitLink`
+- **Fails if not found** - Requirements must be extracted first via Unit Acquisition
+- **Checks `reqExtracted = true`** - Requirements must be available
+- Creates new `validation_detail` linked to the existing summary
 - Sets initial `extractStatus: 'Uploading'`
-- `unitLink` is **required** for finding/creating summary
+- `unitLink` is **required** for finding summary
+
+**Error Cases:**
+- 404: No validation_summary found → Use Unit Acquisition to extract requirements
+- 400: validation_summary exists but `reqExtracted = false` → Wait for extraction to complete
 
 #### 2. `create-document-fast`
 
