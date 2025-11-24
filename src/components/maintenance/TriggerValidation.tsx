@@ -136,10 +136,12 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
         return;
       }
 
-      // The data comes back as an array directly from the edge function
-      const statusData = Array.isArray(data) ? data : [];
+      // The edge function returns {status: [...], total: N}
+      const statusData = data?.status || [];
 
       console.log('[TriggerValidation] Parsed status data:', statusData);
+      console.log('[TriggerValidation] Debug: JSON =', JSON.stringify(statusData));
+      console.log('[TriggerValidation] Debug: isArray =', Array.isArray(statusData));
       setValidationStatuses(statusData);
       setShowStatusModal(true);
     } catch (err) {
@@ -590,7 +592,7 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
 
       {/* Validation Status Modal */}
       <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
-        <DialogContent className="w-[98vw] max-w-[98vw] h-[45vh] max-h-[45vh] overflow-y-auto bg-white p-8">
+        <DialogContent className="w-[100vw] max-w-[100vw] h-[75vh] max-h-[75vh] overflow-y-auto bg-white p-4">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Activity className="w-5 h-5" />
@@ -599,35 +601,31 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
           </DialogHeader>
           
           <div className="mt-4">
-            <div className="text-xs text-gray-500 mb-2">
-              Debug: validationStatuses.length = {validationStatuses.length}
-            </div>
             {validationStatuses.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 No recent validation activity in the last 6 hours
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-xs">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">File Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Embedding</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gemini Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Validation</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requirements</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[35%]">File Name</th>
+                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Embedding</th>
+                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Gemini</th>
+                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[18%]">Progress</th>
+                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Validation</th>
+                      <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-500 uppercase w-[11%]">Time</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {validationStatuses.map((status, index) => (
                       <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title={status.file_name}>
+                        <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-0" title={status.file_name}>
                           {status.file_name}
                         </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                        <td className="px-2 py-2">
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
                             status.embedding_status === 'completed' 
                               ? 'bg-green-100 text-green-800'
                               : status.embedding_status === 'processing'
@@ -637,9 +635,9 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
                             {status.embedding_status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-2 py-2">
                           {status.gemini_status ? (
-                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
                               status.gemini_status === 'completed' 
                                 ? 'bg-green-100 text-green-800'
                                 : status.gemini_status === 'processing'
@@ -651,27 +649,27 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
                               {status.gemini_status}
                             </span>
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <span className="text-gray-400 text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-2 py-2">
                           {status.progress_percentage !== null ? (
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-gray-200 rounded-full h-2 w-20">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-[50px]">
                                 <div 
-                                  className="bg-blue-600 h-2 rounded-full" 
+                                  className="bg-blue-600 h-1.5 rounded-full" 
                                   style={{ width: `${status.progress_percentage}%` }}
                                 />
                               </div>
-                              <span className="text-xs text-gray-600">{status.progress_percentage}%</span>
+                              <span className="text-[10px] text-gray-600 whitespace-nowrap">{status.progress_percentage}%</span>
                             </div>
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <span className="text-gray-400 text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-2 py-2">
                           {status.extractStatus ? (
-                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
                               status.extractStatus === 'Completed' 
                                 ? 'bg-green-100 text-green-800'
                                 : status.extractStatus === 'Processing'
@@ -683,14 +681,11 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
                               {status.extractStatus}
                             </span>
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <span className="text-gray-400 text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 text-center">
-                          {status.requirements_found || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {status.minutes_ago} min ago
+                        <td className="px-2 py-2 text-xs text-gray-600 text-right whitespace-nowrap">
+                          {status.minutes_ago}m
                         </td>
                       </tr>
                     ))}

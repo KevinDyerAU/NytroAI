@@ -62,18 +62,26 @@ export const supabase = createClient(
         'Content-Type': 'application/json',
       },
     },
+    db: {
+      schema: 'public',
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 2,
+      },
+    },
   }
 );
 
 // Set up error handler for token refresh failures
 if (typeof window !== 'undefined') {
   supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'TOKEN_REFRESH_FAILED' || event === 'SIGNED_OUT') {
-      // Ensure clean state when token refresh fails
+    if (event === 'SIGNED_OUT' || !session) {
+      // Ensure clean state when token refresh fails or user signs out
       try {
         const sessionKey = `sb-${supabaseUrl?.split('/')[2]}-auth-token`;
         localStorage.removeItem(sessionKey);
-        console.log('[Supabase] Cleared invalid session after token refresh failure');
+        console.log('[Supabase] Cleared invalid session after auth state change');
       } catch (err) {
         console.error('[Supabase] Error clearing session:', err);
       }
