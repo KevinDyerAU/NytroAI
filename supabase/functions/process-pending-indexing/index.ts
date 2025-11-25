@@ -80,6 +80,8 @@ serve(async (req) => {
     const results = [];
 
     for (const operation of pendingOps) {
+      let indexingSucceeded = false; // Track if indexing completed successfully
+      
       try {
         // Mark as processing
         await supabase
@@ -110,13 +112,25 @@ serve(async (req) => {
         console.log(`[process-pending-indexing] Downloaded ${fileBytes.length} bytes`);
 
         // Get or create File Search store
-        const storeName = document.file_search_store_id;
+        const storeId = document.file_search_store_id;
         const stores = await gemini.listFileSearchStores();
-        let fileSearchStore = stores.find((s) => s.displayName === storeName);
-
-        if (!fileSearchStore) {
-          console.log(`[process-pending-indexing] Creating new File Search store: ${storeName}`);
-          fileSearchStore = await gemini.createFileSearchStore(storeName);
+        let fileSearchStore;
+        
+        // Check if storeId is already a resource name (fileSearchStores/...)
+        if (storeId.startsWith('fileSearchStores/')) {
+          // It's a resource name, find by resource name
+          fileSearchStore = stores.find((s) => s.name === storeId);
+          if (!fileSearchStore) {
+            console.error(`[process-pending-indexing] Store not found by resource name: ${storeId}`);
+            throw new Error(`File Search store not found: ${storeId}`);
+          }
+        } else {
+          // It's a display name, find or create
+          fileSearchStore = stores.find((s) => s.displayName === storeId);
+          if (!fileSearchStore) {
+            console.log(`[process-pending-indexing] Creating new File Search store: ${storeId}`);
+            fileSearchStore = await gemini.createFileSearchStore(storeId);
+          }
         }
 
         console.log(`[process-pending-indexing] Using File Search store: ${fileSearchStore.name}`);
@@ -153,9 +167,10 @@ serve(async (req) => {
           .eq('id', operation.id);
 
         // Wait for indexing to complete (with timeout)
+        // Gemini indexing can take 2-5 minutes during peak times, even for small files
         const completedOp = await gemini.waitForOperation(
           uploadOperation.name,
-          60000, // 60 seconds
+          180000, // 180 seconds (3 minutes)
           operation.id
         );
 
@@ -181,54 +196,8 @@ serve(async (req) => {
           })
           .eq('id', operation.id);
 
-        // Trigger validation if validation_detail_id exists
-        console.log(`[process-pending-indexing] Checking validation trigger - validation_detail_id: ${document.validation_detail_id}`);
-        console.log(`[process-pending-indexing] Document metadata:`, JSON.stringify(document.metadata));
+        indexingSucceeded = true; // Mark as successful for validation trigger
         
-        if (document.validation_detail_id) {
-          console.log(`[process-pending-indexing] Triggering validation for detail: ${document.validation_detail_id}`);
-          console.log(`[process-pending-indexing] Waiting 15 seconds for Gemini File Search index to update...`);
-          
-          // IMPORTANT: Wait for Gemini's File Search index to update with the uploaded file's metadata
-          // Without this delay, File Search queries with metadata filters will not find the newly uploaded document
-          await new Promise(resolve => setTimeout(resolve, 15000));
-          
-          console.log(`[process-pending-indexing] Proceeding with validation trigger`);
-          
-          // Extract unit_code from document metadata
-          const unitCode = document.metadata?.unit_code;
-          
-          if (!unitCode) {
-            console.error(`[process-pending-indexing] Cannot trigger validation: unit_code missing in document metadata`);
-          } else {
-            try {
-              // Extract namespace from document metadata for proper document filtering
-              const namespace = document.metadata?.namespace;
-              
-              // Call validate-assessment edge function
-              const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-assessment', {
-                body: {
-                  validationDetailId: document.validation_detail_id,
-                  documentId: document.id,
-                  unitCode: unitCode,
-                  validationType: 'full_validation', // Default to full validation
-                  ...(namespace && { namespace }), // Include namespace if available for proper document filtering
-                },
-              });
-
-              if (validationError) {
-                console.error(`[process-pending-indexing] Validation trigger failed:`, validationError);
-              } else {
-                console.log(`[process-pending-indexing] Validation triggered successfully for detail: ${document.validation_detail_id}`);
-              }
-            } catch (validationErr) {
-              console.error(`[process-pending-indexing] Exception triggering validation:`, validationErr);
-            }
-          }
-        } else {
-          console.log(`[process-pending-indexing] Skipping validation trigger - no validation_detail_id for document ${document.id}`);
-        }
-
         results.push({
           documentId: document.id,
           status: 'success',
@@ -264,6 +233,52 @@ serve(async (req) => {
           status: 'failed',
           error: error instanceof Error ? error.message : 'Unknown error',
         });
+      }
+
+      // Trigger validation AFTER marking indexing as complete (or failed)
+      // This ensures validation errors don't affect the embedding status
+      try {
+        const document = operation.documents;
+        if (indexingSucceeded && document && document.validation_detail_id) {
+          console.log(`[process-pending-indexing] Triggering validation for detail: ${document.validation_detail_id}`);
+          console.log(`[process-pending-indexing] Waiting 15 seconds for Gemini File Search index to update...`);
+          
+          // IMPORTANT: Wait for Gemini's File Search index to update with the uploaded file's metadata
+          // Without this delay, File Search queries with metadata filters will not find the newly uploaded document
+          await new Promise(resolve => setTimeout(resolve, 15000));
+          
+          console.log(`[process-pending-indexing] Proceeding with validation trigger`);
+          
+          // Extract unit_code from document metadata
+          const unitCode = document.metadata?.unit_code;
+          
+          if (!unitCode) {
+            console.error(`[process-pending-indexing] Cannot trigger validation: unit_code missing in document metadata`);
+          } else {
+            // Extract namespace from document metadata for proper document filtering
+            const namespace = document.metadata?.namespace;
+            
+            // Call validate-assessment edge function
+            const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-assessment', {
+              body: {
+                validationDetailId: document.validation_detail_id,
+                documentId: document.id,
+                unitCode: unitCode,
+                validationType: 'full_validation', // Default to full validation
+                ...(namespace && { namespace }), // Include namespace if available for proper document filtering
+              },
+            });
+
+            if (validationError) {
+              console.error(`[process-pending-indexing] Validation trigger failed:`, validationError);
+            } else {
+              console.log(`[process-pending-indexing] Validation triggered successfully for detail: ${document.validation_detail_id}`);
+            }
+          }
+        }
+      } catch (validationErr) {
+        // Validation errors are logged but don't affect the embedding status
+        console.error(`[process-pending-indexing] Exception triggering validation:`, validationErr);
       }
     }
 

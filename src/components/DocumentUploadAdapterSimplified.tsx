@@ -160,13 +160,16 @@ export function DocumentUploadAdapterSimplified({
           return;
         }
         
+        // Create session-specific namespace with timestamp for document isolation
+        const sessionNamespace = `${selectedRTO.code}-${selectedUnit.code}-${Date.now()}`;
+        
         const { data, error } = await supabase.functions.invoke('create-validation-record', {
           body: {
             rtoCode: selectedRTO.code,
             unitCode: selectedUnit.code,
             unitLink: selectedUnit.Link, // Pass unit URL for requirements linking (REQUIRED)
             validationType: 'assessment',
-            pineconeNamespace: selectedRTO.code // Use RTO code as namespace
+            pineconeNamespace: sessionNamespace // Session-specific namespace for document filtering
           }
         });
 

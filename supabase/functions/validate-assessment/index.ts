@@ -320,19 +320,50 @@ serve(async (req) => {
     let metadataFilter: string | undefined;
     
     // Use namespace filter ONLY if the document actually has namespace in its metadata
-    if (namespace && docMetadata.namespace) {
-      // Filter by namespace to get ALL documents from THIS specific validation session
-      metadataFilter = `namespace="${namespace}" AND document-type="${documentType}"`;
-      console.log(`[Validate Assessment] Using namespace filter: ${namespace}, document-type: ${documentType}`);
+    if (namespace && docMetadata.namespace && unitCode) {
+      // Filter by namespace AND unit-code to get documents from THIS specific validation session for THIS unit
+      // NOTE: Gemini stores unit_code in uppercase, so use uppercase in filter
+      const unitCodeUpper = unitCode.toUpperCase();
+      metadataFilter = `namespace="${namespace}" AND unit-code="${unitCodeUpper}" AND document-type="${documentType}"`;
+      console.log(`[Validate Assessment] Using namespace filter: ${namespace}, unit-code: ${unitCodeUpper}, document-type: ${documentType}`);
     } else if (unitCode) {
       // Use unit-code filter (for documents uploaded without namespace)
-      metadataFilter = `unit-code="${unitCode}" AND document-type="${documentType}"`;
-      console.log(`[Validate Assessment] Using unit-code filter: ${unitCode}, document-type: ${documentType}`);
+      // NOTE: Gemini stores unit_code in uppercase, so use uppercase in filter
+      const unitCodeUpper = unitCode.toUpperCase();
+      metadataFilter = `unit-code="${unitCodeUpper}" AND document-type="${documentType}"`;
+      console.log(`[Validate Assessment] Using unit-code filter: ${unitCodeUpper}, document-type: ${documentType}`);
       console.log(`[Validate Assessment] Note: Document does not have namespace in metadata, using unit-code fallback`);
     }
     
     console.log(`[Validate Assessment] Metadata filter string: "${metadataFilter}"`);
     console.log(`[Validate Assessment] Expected metadata on documents: namespace=${namespace}, unit-code=${unitCode}, document-type=${documentType}`);
+
+    // DEBUG: List all documents in the store to verify they exist
+    console.log(`[Validate Assessment] 🔍 DEBUG: Listing ALL documents in store...`);
+    try {
+      const allDocs = await gemini.listDocuments(fileSearchStoreResourceName);
+      console.log(`[Validate Assessment] 📄 Documents in store: ${allDocs.length}`);
+      if (allDocs.length > 0) {
+        console.log(`[Validate Assessment] 📋 Showing ALL documents and their metadata:`);
+        allDocs.forEach((doc: any, i: number) => {
+          console.log(`[Validate Assessment]   [${i + 1}/${allDocs.length}] ${doc.displayName}`);
+          console.log(`[Validate Assessment]       Name: ${doc.name}`);
+          console.log(`[Validate Assessment]       Metadata: ${JSON.stringify(doc.customMetadata || {}, null, 2)}`);
+        });
+        
+        // Show what we're filtering for
+        console.log(`[Validate Assessment] 🎯 We are filtering for:`);
+        console.log(`[Validate Assessment]       namespace = "${namespace}"`);
+        console.log(`[Validate Assessment]       unit-code = "${unitCode}"`);
+        console.log(`[Validate Assessment]       document-type = "${documentType}"`);
+      } else {
+        console.error(`[Validate Assessment] ⚠️ No documents found in File Search store!`);
+        console.error(`[Validate Assessment] This means documents weren't uploaded or are in a different store.`);
+      }
+    } catch (listError) {
+      console.error(`[Validate Assessment] ❌ Error listing documents:`, listError);
+      console.error(`[Validate Assessment] Error details:`, JSON.stringify(listError, null, 2));
+    }
 
     // Query with File Search - Gemini will search ALL documents matching the filter
     console.log(`[Validate Assessment] Querying File Search store: ${fileSearchStoreResourceName}`);

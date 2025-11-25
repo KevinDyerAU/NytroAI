@@ -12,6 +12,7 @@ interface UploadDocumentRequest {
   storagePath?: string; // Path in Supabase Storage (optional if fileContent provided)
   displayName?: string;
   metadata?: Record<string, string | number>;
+  validationDetailId?: number; // Optional: for fetching session-specific namespace
 }
 
 serve(async (req) => {
@@ -39,7 +40,7 @@ serve(async (req) => {
       storagePath: requestData.storagePath,
       metadataKeys: requestData.metadata ? Object.keys(requestData.metadata) : []
     }));
-    const { rtoCode, unitCode, documentType, fileName, fileContent, storagePath, displayName, metadata } =
+    const { rtoCode, unitCode, documentType, fileName, fileContent, storagePath, displayName, metadata, validationDetailId } =
       requestData;
 
     // Validate request
@@ -67,6 +68,23 @@ serve(async (req) => {
 
     if (rtoError || !rto) {
       return createErrorResponse(`RTO not found: ${rtoCode}`);
+    }
+
+    // Fetch namespace from validation_detail if provided
+    let namespace: string | null = null;
+    if (validationDetailId) {
+      const { data: validationDetail, error: vdError } = await supabase
+        .from('validation_detail')
+        .select('namespace_code')
+        .eq('id', validationDetailId)
+        .single();
+      
+      if (!vdError && validationDetail?.namespace_code) {
+        namespace = validationDetail.namespace_code;
+        console.log(`[upload-document] Fetched namespace from validation_detail: ${namespace}`);
+      } else {
+        console.warn(`[upload-document] Could not fetch namespace from validation_detail ${validationDetailId}`);
+      }
     }
 
     // Initialize Gemini client with Supabase tracking
@@ -133,11 +151,14 @@ serve(async (req) => {
       document_type: documentType,
       upload_date: new Date().toISOString().split('T')[0],
       ...metadata,
+      ...(namespace && { namespace }), // Include session-specific namespace if available
     };
 
     if (unitCode) {
       documentMetadata.unit_code = unitCode;
     }
+    
+    console.log(`[upload-document] Document metadata:`, JSON.stringify(documentMetadata));
 
     // Upload to File Search store
     console.log('═══════════════════════════════════════════════════════════════');

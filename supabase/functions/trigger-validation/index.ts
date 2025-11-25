@@ -120,7 +120,7 @@ serve(async (req) => {
           unitCode: unitCode,
           validationType: mappedValidationType,
           validationDetailId: validationDetailId,
-          namespace: namespace, // Pass namespace to filter to THIS validation's documents
+          // Don't pass namespace - let validate-assessment fetch it from validation_detail to ensure consistency
         },
       }
     );

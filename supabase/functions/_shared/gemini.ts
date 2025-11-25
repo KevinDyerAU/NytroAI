@@ -337,6 +337,7 @@ export function createGeminiClient(config: GeminiConfig) {
           }
           const totalTime = Date.now() - startTime;
           console.log(`Operation completed successfully in ${totalTime}ms after ${checkCount} status checks`);
+          console.log(`[Gemini] ⚠️ DEBUG - Full operation response:`, JSON.stringify(operation, null, 2));
 
           // VERIFICATION: Test if file is actually searchable
           if (operation.metadata?.fileSearchStore) {
@@ -486,9 +487,9 @@ export function createGeminiClient(config: GeminiConfig) {
         ],
         tools: [
           {
-            fileSearch: {
-              fileSearchStoreNames: fileSearchStoreNames,
-              ...(metadataFilter && { metadataFilter }),
+            file_search: {
+              file_search_store_names: fileSearchStoreNames,
+              ...(metadataFilter && { metadata_filter: metadataFilter }),
             },
           },
         ],
