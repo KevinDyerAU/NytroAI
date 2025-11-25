@@ -1,0 +1,115 @@
+graph TB
+    subgraph "Frontend (React + TypeScript)"
+        UI[User Interface]
+        Upload[Document Upload]
+        Dashboard[Validation Dashboard]
+        Reports[Validation Reports]
+    end
+
+    subgraph "Supabase Backend"
+        Auth[Supabase Auth]
+        DB[(PostgreSQL Database)]
+        Storage[Supabase Storage]
+        Triggers[Database Triggers]
+    end
+
+    subgraph "Edge Functions (Simplified)"
+        CreateDoc[create-document-fast]
+        CreateVal[create-validation-record]
+        TriggerN8n[trigger-validation-n8n]
+        GetStatus[get-validation-status]
+        GetDetails[get-validation-details]
+        GenReport[generate-validation-report]
+        Scraper[scrape-training-gov-au]
+        Credits[Credit Management]
+    end
+
+    subgraph "N8n Workflow (External)"
+        N8nWebhook[Webhook Trigger]
+        N8nFetch[Fetch Validation Context]
+        N8nStorage[Get File from Storage]
+        N8nUpload[Upload to Gemini]
+        N8nPoll[Poll Indexing Status]
+        N8nRequirements[Fetch Requirements]
+        N8nPrompt[Build Validation Prompt]
+        N8nGemini[Call Gemini API]
+        N8nCitations[Extract Citations]
+        N8nQuality[Validate Quality]
+        N8nStore[Store Results]
+        N8nUpdate[Update Status]
+    end
+
+    subgraph "External APIs"
+        Gemini[Google Gemini API]
+        FileSearch[Gemini File Search]
+        TrainingGov[training.gov.au]
+    end
+
+    %% User Flow
+    UI --> Upload
+    Upload --> CreateDoc
+    CreateDoc --> DB
+    CreateDoc --> Storage
+    
+    UI --> Dashboard
+    Dashboard --> GetStatus
+    Dashboard --> GetDetails
+    GetStatus --> DB
+    GetDetails --> DB
+    
+    UI --> Reports
+    Reports --> GenReport
+    GenReport --> DB
+    
+    %% Validation Flow
+    CreateDoc --> CreateVal
+    CreateVal --> DB
+    DB --> Triggers
+    Triggers -->|Auto-trigger on indexing complete| TriggerN8n
+    TriggerN8n -->|HTTP POST| N8nWebhook
+    
+    %% N8n Workflow
+    N8nWebhook --> N8nFetch
+    N8nFetch --> DB
+    N8nFetch --> N8nStorage
+    N8nStorage --> Storage
+    N8nStorage --> N8nUpload
+    N8nUpload --> FileSearch
+    N8nUpload --> N8nPoll
+    N8nPoll -->|Wait for indexing| FileSearch
+    N8nPoll --> N8nRequirements
+    N8nRequirements --> DB
+    N8nRequirements --> N8nPrompt
+    N8nPrompt --> N8nGemini
+    N8nGemini --> Gemini
+    N8nGemini --> N8nCitations
+    N8nCitations --> N8nQuality
+    N8nQuality --> N8nStore
+    N8nStore --> DB
+    N8nStore --> N8nUpdate
+    N8nUpdate --> DB
+    
+    %% Data Scraping
+    Scraper --> TrainingGov
+    Scraper --> DB
+    
+    %% Auth
+    UI --> Auth
+    Auth --> DB
+    
+    %% Credits
+    UI --> Credits
+    Credits --> DB
+    
+    %% Styling
+    classDef frontend fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef backend fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef edge fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef n8n fill:#e8f5e9,stroke:#1b5e20,stroke-width:3px
+    classDef external fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    
+    class UI,Upload,Dashboard,Reports frontend
+    class Auth,DB,Storage,Triggers backend
+    class CreateDoc,CreateVal,TriggerN8n,GetStatus,GetDetails,GenReport,Scraper,Credits edge
+    class N8nWebhook,N8nFetch,N8nStorage,N8nUpload,N8nPoll,N8nRequirements,N8nPrompt,N8nGemini,N8nCitations,N8nQuality,N8nStore,N8nUpdate n8n
+    class Gemini,FileSearch,TrainingGov external
