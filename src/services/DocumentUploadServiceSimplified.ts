@@ -166,6 +166,7 @@ export class DocumentUploadServiceSimplified {
     validationDetailId?: number
   ): Promise<number | null> {
     console.log('[Upload] Creating document record (fast path)...');
+    console.log('[Upload] validationDetailId:', validationDetailId);
     
     // Use new function name to bypass CDN cache
     const { data, error } = await supabase.functions.invoke('create-document-fast', {
@@ -211,6 +212,10 @@ export class DocumentUploadServiceSimplified {
     }
     
     console.log('[Upload] Document record created successfully (fast path):', data);
+    
+    // Don't trigger n8n here - let the component trigger it once after ALL documents are uploaded
+    // This prevents multiple n8n calls for each document
+    
     return data?.document?.id || null;
   }
 

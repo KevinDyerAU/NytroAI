@@ -193,6 +193,7 @@ serve(async (req) => {
         status: 'pending',
         progress_percentage: 0,
         max_wait_time_ms: 60000, // 60 seconds for small files
+        validation_detail_id: validationDetailId || null, // Link to validation for auto-trigger
         metadata: {
           file_name: fileName,
           file_size: fileBytes.length,

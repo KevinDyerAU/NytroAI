@@ -7,6 +7,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { fetchRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
 
 const N8N_WEBHOOK_URL = 'https://n8n-gtoa.onrender.com/webhook/validate-document';
 
@@ -71,36 +72,83 @@ serve(async (req) => {
     // Fetch documents
     const { data: documents, error: docsError } = await supabase
       .from('documents')
-      .select('id, file_name, storage_path, file_search_store')
+      .select('id, file_name, storage_path, file_search_store_id')
       .eq('validation_detail_id', validationDetailId)
       .order('created_at', { ascending: true });
 
     if (docsError || !documents || documents.length === 0) {
       console.error('[Trigger Validation N8n] Failed to fetch documents:', docsError);
+      console.error('[Trigger Validation N8n] Error details:', JSON.stringify(docsError));
       return new Response(
-        JSON.stringify({ success: false, error: 'No documents found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'No documents found', details: docsError?.message }),
+        { status: 404, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
     const document = documents[0];
 
-    if (!document.file_search_store) {
-      console.error('[Trigger Validation N8n] Document missing file_search_store');
+    if (!document.file_search_store_id) {
+      console.error('[Trigger Validation N8n] Document missing file_search_store_id');
       return new Response(
         JSON.stringify({ success: false, error: 'Document not indexed' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
-    // Prepare n8n request
+    // Generate signed URL for document (valid for 1 hour)
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(document.storage_path, 3600); // 1 hour expiry
+
+    if (signedUrlError || !signedUrlData) {
+      console.error('[Trigger Validation N8n] Failed to generate signed URL:', signedUrlError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to generate file access URL' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    console.log('[Trigger Validation N8n] Generated signed URL for document');
+
+    // Get unit requirements using the same logic as validate-assessment
+    const unitCode = validationDetail.validation_summary.unitCode;
+    const unitLink = validationDetail.validation_summary.unitLink;
+    const validationType = validationDetail.validation_type.code;
+    
+    console.log('[Trigger Validation N8n] Fetching requirements for unit:', unitCode, 'type:', validationType);
+    
+    // For 'assessment' type, fetch ALL requirements (like full_validation)
+    // Otherwise fetch specific type
+    const fetchType = validationType === 'assessment' ? 'full_validation' : validationType;
+    console.log('[Trigger Validation N8n] Using fetch type:', fetchType);
+    
+    const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, fetchType, unitLink);
+    console.log(`[Trigger Validation N8n] Retrieved ${requirements.length} requirements`);
+
+    // Check if we have requirements - if not, we cannot validate
+    if (!requirements || requirements.length === 0) {
+      console.error(`[Trigger Validation N8n] No requirements found for ${unitCode} - cannot validate`);
+      return new Response(
+        JSON.stringify({ success: false, error: `No requirements found for unit ${unitCode}` }),
+        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    // Prepare n8n request with requirements included
     const n8nRequest = {
       validationDetailId: validationDetail.id,
       documentId: document.id,
       fileName: document.file_name,
       storagePath: document.storage_path,
+      signedUrl: signedUrlData.signedUrl, // Pre-authenticated URL for n8n to download
       validationType: validationDetail.validation_type.code,
-      fileSearchStore: document.file_search_store,
+      fileSearchStore: document.file_search_store_id,
+      unitCode: unitCode,
+      unitLink: unitLink,
+      rtoCode: validationDetail.validation_summary.rtoCode,
+      namespaceCode: validationDetail.namespace_code,
+      requirements: requirements, // Pass the full requirements array
+      requirementsCount: requirements.length,
     };
 
     console.log('[Trigger Validation N8n] Calling n8n webhook:', {

@@ -138,11 +138,12 @@ export function DocumentUploadAdapterSimplified({
   // Handle file selection (memoized to prevent infinite loop)
   const handleFilesSelected = useCallback(async (files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
-    setSelectedFiles(files);
+    
+    // Don't set files yet - wait for validation to be created first
     setUploadedCount(0);
     setIsComplete(false);
 
-    // Create validation record when files are selected
+    // Create validation record when files are selected (MUST complete before upload)
     if (files.length > 0 && !validationDetailId && selectedRTO && selectedUnit) {
       setIsCreatingValidation(true);
       try {
@@ -194,14 +195,24 @@ export function DocumentUploadAdapterSimplified({
           return;
         }
 
-        console.log('[DocumentUploadAdapterSimplified] Validation created:', data.detailId);
+        console.log('[DocumentUploadAdapterSimplified] ✅ Validation created:', data.detailId);
         setValidationDetailId(data.detailId);
+        
+        // NOW set the files after validation is created
+        console.log('[DocumentUploadAdapterSimplified] Now proceeding with file upload...');
+        setSelectedFiles(files);
+        
       } catch (error) {
         console.error('[DocumentUploadAdapterSimplified] Exception creating validation:', error);
         toast.error('Failed to create validation record');
+        return;
       } finally {
         setIsCreatingValidation(false);
       }
+    } else if (validationDetailId) {
+      // Validation already exists, proceed with upload
+      console.log('[DocumentUploadAdapterSimplified] Using existing validation:', validationDetailId);
+      setSelectedFiles(files);
     }
   }, [validationDetailId, selectedRTO, selectedUnit]);
 

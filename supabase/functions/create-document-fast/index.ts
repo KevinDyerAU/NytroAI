@@ -156,6 +156,7 @@ serve(async (req) => {
         status: 'pending',
         progress_percentage: 0,
         max_wait_time_ms: 60000,
+        validation_detail_id: validationDetailForDoc || null, // Link to validation for auto-trigger
         metadata: {
           file_name: fileName,
           rto_code: rtoCode,
