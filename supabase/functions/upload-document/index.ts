@@ -94,23 +94,43 @@ serve(async (req) => {
       supabaseClient: supabase,
     });
 
-    // Get or create File Search store for this RTO
-    const storeName = `rto-${rtoCode.toLowerCase()}-assessments`;
+    // Get or create File Search store
+    // If validationDetailId provided: create dedicated per-validation store
+    // Otherwise: use shared RTO store (legacy behavior)
+    let storeName: string;
     let fileSearchStore;
 
-    try {
-      // Try to get existing store
-      const stores = await gemini.listFileSearchStores();
-      fileSearchStore = stores.find((s) => s.displayName === storeName);
-
-      if (!fileSearchStore) {
-        // Create new store
-        console.log(`Creating new File Search store: ${storeName}`);
+    if (validationDetailId) {
+      // NEW: Per-validation dedicated store (isolated, no filter needed)
+      storeName = `validation-${validationDetailId}-${unitCode?.toLowerCase() || 'unknown'}-${Date.now()}`;
+      console.log(`Creating dedicated File Search store for validation ${validationDetailId}: ${storeName}`);
+      
+      try {
         fileSearchStore = await gemini.createFileSearchStore(storeName);
+        console.log(`✅ Created store: ${fileSearchStore.name}`);
+      } catch (error) {
+        console.error('Error creating File Search store:', error);
+        return createErrorResponse('Failed to create File Search store', 500);
       }
-    } catch (error) {
-      console.error('Error managing File Search store:', error);
-      return createErrorResponse('Failed to manage File Search store', 500);
+    } else {
+      // LEGACY: Shared RTO store (deprecated but kept for backwards compatibility)
+      storeName = `rto-${rtoCode.toLowerCase()}-assessments`;
+      console.warn(`⚠️ Using legacy shared store: ${storeName} (no validationDetailId provided)`);
+      
+      try {
+        // Try to get existing store
+        const stores = await gemini.listFileSearchStores();
+        fileSearchStore = stores.find((s) => s.displayName === storeName);
+
+        if (!fileSearchStore) {
+          // Create new store
+          console.log(`Creating new File Search store: ${storeName}`);
+          fileSearchStore = await gemini.createFileSearchStore(storeName);
+        }
+      } catch (error) {
+        console.error('Error managing File Search store:', error);
+        return createErrorResponse('Failed to manage File Search store', 500);
+      }
     }
 
     // Get file bytes from either fileContent (base64) or storagePath

@@ -29,6 +29,8 @@ export function DocumentUploadAdapterSimplified({
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedCount, setUploadedCount] = useState(0);
+  const [geminiUploadCount, setGeminiUploadCount] = useState(0);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Array<{ documentId: number; fileName: string; storagePath: string }>>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [allUnits, setAllUnits] = useState<any[]>([]);
@@ -216,41 +218,109 @@ export function DocumentUploadAdapterSimplified({
     }
   }, [validationDetailId, selectedRTO, selectedUnit]);
 
-  // Handle upload complete (instant - just storage upload)
-  const handleUploadComplete = (documentId: number) => {
-    console.log('[DocumentUploadAdapterSimplified] Upload complete (instant)');
+  // Handle upload complete (Supabase storage upload)
+  const handleUploadComplete = async (documentId: number, fileName: string, storagePath: string) => {
+    console.log('[DocumentUploadAdapterSimplified] Supabase upload complete:', { documentId, fileName });
     
-    // Update count and check if all files are done
-    setUploadedCount(prev => {
-      const newCount = prev + 1;
-      console.log(`[DocumentUploadAdapterSimplified] Upload progress: ${newCount}/${selectedFiles.length}`);
+    // Track uploaded document
+    setUploadedDocuments(prev => [...prev, { documentId, fileName, storagePath }]);
+    
+    // Update count
+    const newCount = uploadedCount + 1;
+    setUploadedCount(newCount);
+    console.log(`[DocumentUploadAdapterSimplified] Supabase upload progress: ${newCount}/${selectedFiles.length}`);
+    
+    // If all files uploaded to Supabase, start Gemini uploads
+    if (newCount >= selectedFiles.length) {
+      console.log('[DocumentUploadAdapterSimplified] ✅ All files uploaded to Supabase!');
+      console.log('[DocumentUploadAdapterSimplified] 🚀 Starting Gemini uploads...');
       
-      // Check if all files uploaded using the NEW count
-      if (newCount >= selectedFiles.length) {
-        console.log('[DocumentUploadAdapterSimplified] All files uploaded!');
-        setIsComplete(true);
-        
-        // Show success message
-        toast.success('Upload complete! Redirecting to Dashboard...', {
-          description: 'Indexing and validation are running in the background.',
-          duration: 2000,
-        });
-
-        // Auto-navigate to dashboard after 2 seconds
-        setTimeout(() => {
-          console.log('[DocumentUploadAdapterSimplified] Auto-navigating to dashboard...');
-          if (onValidationSubmit) {
-            onValidationSubmit({
-              validationId: 0, // Will be assigned by edge function
-              documentName: selectedFiles[0]?.name || 'document',
-              unitCode: selectedUnit?.code || 'unknown'
+      toast.info('Files uploaded! Starting indexing...', {
+        duration: 3000,
+      });
+      
+      // Get all uploaded documents (including the one we just added)
+      const allDocs = [...uploadedDocuments, { documentId, fileName, storagePath }];
+      
+      // Upload each document to Gemini
+      for (const doc of allDocs) {
+        try {
+          console.log(`[DocumentUploadAdapterSimplified] Uploading ${doc.fileName} to Gemini...`);
+          
+          const { data, error } = await supabase.functions.invoke('upload-document', {
+            body: {
+              rtoCode: selectedRTO?.code,
+              unitCode: selectedUnit?.code,
+              documentType: 'assessment',
+              fileName: doc.fileName,
+              storagePath: doc.storagePath,
+              validationDetailId: validationDetailId,
+            }
+          });
+          
+          if (error) {
+            console.error(`[DocumentUploadAdapterSimplified] Gemini upload failed for ${doc.fileName}:`, error);
+            toast.error(`Failed to index ${doc.fileName}`, {
+              description: error.message,
+              duration: 5000,
             });
+            continue;
           }
-        }, 2000);
+          
+          console.log(`[DocumentUploadAdapterSimplified] ✅ Gemini upload started for ${doc.fileName}:`, data);
+          
+          // Update Gemini upload count
+          setGeminiUploadCount(prev => prev + 1);
+          
+        } catch (err) {
+          console.error(`[DocumentUploadAdapterSimplified] Exception uploading ${doc.fileName}:`, err);
+          toast.error(`Failed to index ${doc.fileName}`);
+        }
       }
       
-      return newCount;
-    });
+      // All Gemini uploads initiated - now trigger n8n polling
+      console.log('[DocumentUploadAdapterSimplified] ✅ All Gemini uploads initiated!');
+      console.log('[DocumentUploadAdapterSimplified] 🎯 Triggering n8n polling workflow...');
+      
+      if (validationDetailId) {
+        try {
+          const { data, error } = await supabase.functions.invoke('trigger-validation-n8n', {
+            body: { validationDetailId }
+          });
+          
+          if (error) {
+            console.error('[DocumentUploadAdapterSimplified] Failed to trigger validation:', error);
+            toast.error('Failed to start validation', {
+              description: error.message,
+              duration: 5000,
+            });
+          } else {
+            console.log('[DocumentUploadAdapterSimplified] ✅ Validation workflow started:', data);
+            setIsComplete(true);
+            
+            toast.success('Validation started!', {
+              description: 'Your documents are being validated. Check Dashboard for results.',
+              duration: 4000,
+            });
+          }
+        } catch (err) {
+          console.error('[DocumentUploadAdapterSimplified] Exception triggering validation:', err);
+          toast.error('Failed to start validation');
+        }
+      }
+      
+      // Auto-navigate to dashboard after 3 seconds
+      setTimeout(() => {
+        console.log('[DocumentUploadAdapterSimplified] Auto-navigating to dashboard...');
+        if (onValidationSubmit) {
+          onValidationSubmit({
+            validationId: 0,
+            documentName: selectedFiles[0]?.name || 'document',
+            unitCode: selectedUnit?.code || 'unknown'
+          });
+        }
+      }, 3000);
+    }
   };
 
   // Reset form to start a new validation

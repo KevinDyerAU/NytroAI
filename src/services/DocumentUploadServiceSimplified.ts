@@ -10,6 +10,7 @@ export interface UploadProgress {
 
 export interface UploadResult {
   documentId: number;
+  fileName: string;
   storagePath: string;
 }
 
@@ -72,7 +73,7 @@ export class DocumentUploadServiceSimplified {
         });
 
         // Stage 2: Trigger indexing in background (fast)
-        await this.triggerIndexingBackground(
+        const documentId = await this.triggerIndexingBackground(
           file.name,
           storagePath,
           rtoCode,
@@ -89,7 +90,8 @@ export class DocumentUploadServiceSimplified {
         });
 
         return {
-          documentId: 0, // Will be assigned by edge function
+          documentId: documentId || 0,
+          fileName: file.name,
           storagePath,
         };
       } catch (innerError) {

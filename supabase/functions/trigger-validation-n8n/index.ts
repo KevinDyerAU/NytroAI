@@ -69,7 +69,7 @@ serve(async (req) => {
       );
     }
 
-    // Fetch documents
+    // Fetch documents with Gemini operation info
     const { data: documents, error: docsError } = await supabase
       .from('documents')
       .select('id, file_name, storage_path, file_search_store_id')
@@ -87,28 +87,46 @@ serve(async (req) => {
 
     const document = documents[0];
 
+    // Expect file_search_store_id to be set by upload-document edge function
     if (!document.file_search_store_id) {
       console.error('[Trigger Validation N8n] Document missing file_search_store_id');
+      console.error('[Trigger Validation N8n] upload-document edge function must be called first');
       return new Response(
-        JSON.stringify({ success: false, error: 'Document not indexed' }),
+        JSON.stringify({ 
+          success: false, 
+          error: 'Document not uploaded to Gemini. Call upload-document edge function first.' 
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
-    // Generate signed URL for document (valid for 1 hour)
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(document.storage_path, 3600); // 1 hour expiry
+    console.log('[Trigger Validation N8n] Document:', {
+      id: document.id,
+      fileName: document.file_name,
+      fileSearchStore: document.file_search_store_id
+    });
 
-    if (signedUrlError || !signedUrlData) {
-      console.error('[Trigger Validation N8n] Failed to generate signed URL:', signedUrlError);
+    // Fetch Gemini operation for this document to get operation status
+    const { data: geminiOp, error: opError } = await supabase
+      .from('gemini_operations')
+      .select('operation_name, status')
+      .eq('document_id', document.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (opError || !geminiOp) {
+      console.error('[Trigger Validation N8n] No Gemini operation found for document');
       return new Response(
-        JSON.stringify({ success: false, error: 'Failed to generate file access URL' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        JSON.stringify({ 
+          success: false, 
+          error: 'No Gemini upload operation found. Call upload-document first.' 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
-    console.log('[Trigger Validation N8n] Generated signed URL for document');
+    console.log('[Trigger Validation N8n] Gemini operation:', geminiOp.operation_name, 'Status:', geminiOp.status);
 
     // Get unit requirements using the same logic as validate-assessment
     const unitCode = validationDetail.validation_summary.unitCode;
@@ -134,15 +152,14 @@ serve(async (req) => {
       );
     }
 
-    // Prepare n8n request with requirements included
+    // Prepare n8n request for polling and validation
     const n8nRequest = {
       validationDetailId: validationDetail.id,
       documentId: document.id,
       fileName: document.file_name,
-      storagePath: document.storage_path,
-      signedUrl: signedUrlData.signedUrl, // Pre-authenticated URL for n8n to download
+      operationName: geminiOp.operation_name, // Gemini operation to poll
+      fileSearchStoreName: document.file_search_store_id, // File Search store (already created by upload-document)
       validationType: validationDetail.validation_type.code,
-      fileSearchStore: document.file_search_store_id,
       unitCode: unitCode,
       unitLink: unitLink,
       rtoCode: validationDetail.validation_summary.rtoCode,

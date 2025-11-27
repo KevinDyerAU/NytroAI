@@ -92,6 +92,30 @@ Open `http://localhost:5173` in your browser. Done! 🎉
 
 ---
 
+## 📚 Documentation
+
+Comprehensive documentation for developers and users:
+
+### Core Documentation
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete system architecture with flow diagrams
+- **[PER_VALIDATION_STORES.md](PER_VALIDATION_STORES.md)** - Per-validation store implementation details
+- **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Quick reference for developers
+
+### Key Concepts
+- **Per-Validation Stores** - Each validation gets its own isolated Gemini File Search store
+- **Edge Function Upload** - Proven multipart/related upload code for reliability
+- **n8n Orchestration** - Simple polling and validation workflow
+- **No Metadata Filtering** - Dedicated stores = all documents relevant
+
+### Architecture Highlights
+```
+User Upload → Supabase Storage → Edge Function Creates Store → 
+Upload to Gemini → n8n Polls Status → Validate with File Search → 
+Extract Grounding Chunks → Save Results → Dashboard Display
+```
+
+---
+
 ## 📖 How It Works
 
 ### Instant Upload Process
