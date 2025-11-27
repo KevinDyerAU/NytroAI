@@ -26,9 +26,19 @@ serve(async (req) => {
   }
 
   try {
-    const requestData: CheckAllOperationsRequest = await req.json();
-    const { validationDetailId } = requestData;
-    console.log('[check-all-operations-status] Request data:', { validationDetailId });
+    // Handle both GET (query params) and POST (JSON body)
+    let validationDetailId: number | undefined;
+    
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      const idParam = url.searchParams.get('validationDetailId');
+      validationDetailId = idParam ? parseInt(idParam, 10) : undefined;
+      console.log('[check-all-operations-status] GET request, query params:', { validationDetailId });
+    } else {
+      const requestData: CheckAllOperationsRequest = await req.json();
+      validationDetailId = requestData.validationDetailId;
+      console.log('[check-all-operations-status] POST request, body:', { validationDetailId });
+    }
 
     if (!validationDetailId) {
       return createErrorResponse('Must provide validationDetailId');
