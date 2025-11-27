@@ -1,0 +1,508 @@
+{
+  "name": "DocumentProcessingFlow_Gemini",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "document-processing-gemini",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Start Processing",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "doc-processing-gemini-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Processing"
+            }
+          ]
+        }
+      },
+      "id": "update-status-processing",
+      "name": "Update Status: AI Learning",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s3-paths-array",
+              "name": "s3_paths",
+              "type": "array",
+              "value": "={{ $json.body.s3_paths }}"
+            },
+            {
+              "id": "validation-detail-id",
+              "name": "validation_detail_id",
+              "type": "number",
+              "value": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-loop-data",
+      "name": "Prepare Loop Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "s3_paths",
+        "options": {}
+      },
+      "id": "split-s3-paths",
+      "name": "Split S3 Paths",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "bucketName": "smartrtobucket",
+        "fileKey": "={{ $json.s3_paths.replace('s3://smartrtobucket/', '') }}",
+        "options": {}
+      },
+      "id": "download-from-s3",
+      "name": "Download from S3",
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "credentials": {
+        "aws": {
+          "id": "YOUR_AWS_CREDENTIALS_ID",
+          "name": "AWS account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/upload/v1beta/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Protocol",
+              "value": "multipart"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $binary.data }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify({ displayName: $('Split S3 Paths').item.json.s3_paths.split('/').pop() }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "upload-to-gemini",
+      "name": "Upload to Gemini File API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
+          "name": "Google Gemini API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-success",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.file }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-upload-success",
+      "name": "Check Upload Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Calculate expiry (48 hours from now)\nconst expiryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);\n\nreturn {\n  json: {\n    s3_path: $('Split S3 Paths').item.json.s3_paths,\n    gemini_file_uri: $json.file.uri,\n    gemini_file_name: $json.file.name,\n    gemini_expiry_timestamp: expiryDate.toISOString(),\n    validation_detail_id: $('Prepare Loop Data').first().json.validation_detail_id\n  }\n};"
+      },
+      "id": "prepare-document-update",
+      "name": "Prepare Document Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "documents",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "storage_path",
+              "condition": "eq",
+              "keyValue": "={{ $json.s3_path }}"
+            },
+            {
+              "keyName": "validation_detail_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "gemini_file_uri",
+              "fieldValue": "={{ $json.gemini_file_uri }}"
+            },
+            {
+              "fieldId": "gemini_file_name",
+              "fieldValue": "={{ $json.gemini_file_name }}"
+            },
+            {
+              "fieldId": "gemini_upload_timestamp",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldId": "gemini_expiry_timestamp",
+              "fieldValue": "={{ $json.gemini_expiry_timestamp }}"
+            },
+            {
+              "fieldId": "embedding_status",
+              "fieldValue": "completed"
+            }
+          ]
+        }
+      },
+      "id": "update-document-with-gemini-uri",
+      "name": "Update Document with Gemini URI",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2000, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "documents",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "storage_path",
+              "condition": "eq",
+              "keyValue": "={{ $('Split S3 Paths').item.json.s3_paths }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "embedding_status",
+              "fieldValue": "failed"
+            }
+          ]
+        }
+      },
+      "id": "mark-upload-failed",
+      "name": "Mark Upload Failed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1780, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Aggregate results from all file uploads\nconst allItems = $input.all();\nconst totalFiles = allItems.length;\nconst successfulFiles = allItems.filter(item => item.json.gemini_file_uri).length;\nconst failedFiles = totalFiles - successfulFiles;\n\nreturn {\n  json: {\n    validation_detail_id: $('Prepare Loop Data').first().json.validation_detail_id,\n    total_files: totalFiles,\n    successful_files: successfulFiles,\n    failed_files: failedFiles,\n    all_successful: failedFiles === 0\n  }\n};"
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "all-successful",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "leftValue": "={{ $json.all_successful }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-all-successful",
+      "name": "Check All Successful",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Completed"
+            },
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-completed",
+      "name": "Update Status: Under Review",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2660, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Error"
+            },
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ false }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-error",
+      "name": "Update Status: Error",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2660, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE_URL }}/webhook/validation-processing-gemini",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "validation_detail_id",
+              "value": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "trigger-validation-flow",
+      "name": "Trigger Validation Flow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_detail_id\": $json.validation_detail_id, \"message\": \"Validation triggered successfully\" } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3100, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"validation_detail_id\": $json.validation_detail_id, \"message\": \"Document processing failed\", \"details\": $json } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3100, 400]
+    }
+  ],
+  "connections": {
+    "Webhook - Start Processing": {
+      "main": [[{"node": "Update Status: AI Learning", "type": "main", "index": 0}]]
+    },
+    "Update Status: AI Learning": {
+      "main": [[{"node": "Prepare Loop Data", "type": "main", "index": 0}]]
+    },
+    "Prepare Loop Data": {
+      "main": [[{"node": "Split S3 Paths", "type": "main", "index": 0}]]
+    },
+    "Split S3 Paths": {
+      "main": [[{"node": "Download from S3", "type": "main", "index": 0}]]
+    },
+    "Download from S3": {
+      "main": [[{"node": "Upload to Gemini File API", "type": "main", "index": 0}]]
+    },
+    "Upload to Gemini File API": {
+      "main": [[{"node": "Check Upload Success", "type": "main", "index": 0}]]
+    },
+    "Check Upload Success": {
+      "main": [
+        [{"node": "Prepare Document Update", "type": "main", "index": 0}],
+        [{"node": "Mark Upload Failed", "type": "main", "index": 0}]
+      ]
+    },
+    "Prepare Document Update": {
+      "main": [[{"node": "Update Document with Gemini URI", "type": "main", "index": 0}]]
+    },
+    "Update Document with Gemini URI": {
+      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
+    },
+    "Mark Upload Failed": {
+      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
+    },
+    "Aggregate Results": {
+      "main": [[{"node": "Check All Successful", "type": "main", "index": 0}]]
+    },
+    "Check All Successful": {
+      "main": [
+        [{"node": "Update Status: Under Review", "type": "main", "index": 0}],
+        [{"node": "Update Status: Error", "type": "main", "index": 0}]
+      ]
+    },
+    "Update Status: Under Review": {
+      "main": [[{"node": "Trigger Validation Flow", "type": "main", "index": 0}]]
+    },
+    "Update Status: Error": {
+      "main": [[{"node": "Respond Error", "type": "main", "index": 0}]]
+    },
+    "Trigger Validation Flow": {
+      "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}

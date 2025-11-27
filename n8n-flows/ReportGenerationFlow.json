@@ -1,0 +1,174 @@
+{
+  "name": "ReportGenerationFlow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Generate Report",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "generate-report-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_detail",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "validation_summary(unit_code, unitLink, rto_code)"
+        }
+      },
+      "id": "fetch-validation-detail",
+      "name": "Fetch Validation Detail",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_results",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "validation_detail_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-validation-results",
+      "name": "Fetch Validation Results",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Organize validation results by type\nconst validationDetail = $('Fetch Validation Detail').first().json;\nconst results = $input.all().map(item => item.json);\n\n// Group by requirement type\nconst groupedResults = {\n  knowledge_evidence: [],\n  performance_evidence: [],\n  foundation_skills: [],\n  elements_performance_criteria: [],\n  assessment_conditions: []\n};\n\nfor (const result of results) {\n  if (groupedResults[result.requirement_type]) {\n    groupedResults[result.requirement_type].push(result);\n  }\n}\n\n// Calculate statistics\nconst totalRequirements = results.length;\nconst metCount = results.filter(r => r.status === 'met').length;\nconst partialCount = results.filter(r => r.status === 'partial').length;\nconst notMetCount = results.filter(r => r.status === 'not_met').length;\n\nconst overallScore = totalRequirements > 0 ? Math.round((metCount / totalRequirements) * 100) : 0;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetail.id,\n    unit_code: validationDetail.validation_summary.unit_code,\n    rto_code: validationDetail.validation_summary.rto_code,\n    unitLink: validationDetail.validation_summary.unitLink,\n    grouped_results: groupedResults,\n    statistics: {\n      total: totalRequirements,\n      met: metCount,\n      partial: partialCount,\n      not_met: notMetCount,\n      overall_score: overallScore\n    }\n  }\n};"
+      },
+      "id": "organize-report-data",
+      "name": "Organize Report Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Generate Markdown report\nconst data = $input.first().json;\nconst { unit_code, rto_code, grouped_results, statistics } = data;\n\nlet markdown = `# Validation Report\\n\\n`;\nmarkdown += `**Unit Code:** ${unit_code}\\n`;\nmarkdown += `**RTO Code:** ${rto_code}\\n`;\nmarkdown += `**Generated:** ${new Date().toLocaleString()}\\n\\n`;\n\nmarkdown += `## Overall Summary\\n\\n`;\nmarkdown += `- **Total Requirements:** ${statistics.total}\\n`;\nmarkdown += `- **Met:** ${statistics.met} (${Math.round((statistics.met/statistics.total)*100)}%)\\n`;\nmarkdown += `- **Partial:** ${statistics.partial} (${Math.round((statistics.partial/statistics.total)*100)}%)\\n`;\nmarkdown += `- **Not Met:** ${statistics.not_met} (${Math.round((statistics.not_met/statistics.total)*100)}%)\\n`;\nmarkdown += `- **Overall Score:** ${statistics.overall_score}%\\n\\n`;\n\n// Add sections for each requirement type\nconst typeLabels = {\n  knowledge_evidence: 'Knowledge Evidence',\n  performance_evidence: 'Performance Evidence',\n  foundation_skills: 'Foundation Skills',\n  elements_performance_criteria: 'Elements & Performance Criteria',\n  assessment_conditions: 'Assessment Conditions'\n};\n\nfor (const [type, label] of Object.entries(typeLabels)) {\n  const results = grouped_results[type];\n  if (results && results.length > 0) {\n    markdown += `## ${label}\\n\\n`;\n    \n    for (const result of results) {\n      const statusEmoji = result.status === 'met' ? '✅' : result.status === 'partial' ? '⚠️' : '❌';\n      markdown += `### ${statusEmoji} Requirement ${result.requirement_number}\\n\\n`;\n      markdown += `**Requirement:** ${result.requirement_text}\\n\\n`;\n      markdown += `**Status:** ${result.status.toUpperCase()}\\n\\n`;\n      markdown += `**Reasoning:** ${result.reasoning}\\n\\n`;\n      \n      // Add citations if available\n      if (result.citations && result.citations.length > 0) {\n        markdown += `**Evidence Found:**\\n`;\n        const citations = typeof result.citations === 'string' ? JSON.parse(result.citations) : result.citations;\n        for (const citation of citations) {\n          markdown += `- ${citation.location || 'N/A'}: ${citation.content || citation.relevance || ''}\\n`;\n        }\n        markdown += `\\n`;\n      }\n      \n      // Add smart questions if status is not met\n      if (result.status !== 'met' && result.smart_questions) {\n        const questions = typeof result.smart_questions === 'string' ? JSON.parse(result.smart_questions) : result.smart_questions;\n        if (questions && questions.length > 0) {\n          markdown += `**Suggested Questions:**\\n`;\n          for (let i = 0; i < questions.length; i++) {\n            markdown += `${i + 1}. ${questions[i].question || questions[i]}\\n`;\n          }\n          markdown += `\\n`;\n        }\n      }\n      \n      markdown += `---\\n\\n`;\n    }\n  }\n}\n\nreturn {\n  json: {\n    validation_detail_id: data.validation_detail_id,\n    markdown: markdown,\n    filename: `validation_report_${unit_code}_${Date.now()}.md`\n  }\n};"
+      },
+      "id": "generate-markdown-report",
+      "name": "Generate Markdown Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_detail_id\": $json.validation_detail_id, \"report\": $json.markdown, \"filename\": $json.filename } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "Webhook - Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Detail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Detail": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Results": {
+      "main": [
+        [
+          {
+            "node": "Organize Report Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Organize Report Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Markdown Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Markdown Report": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,558 @@
+{
+  "name": "AIValidationFlow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "validation-processing",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Start Validation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "validation-processing-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_detail",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "validation_summary(unit_code, unitLink, rto_code)"
+        }
+      },
+      "id": "fetch-validation-context",
+      "name": "Fetch Validation Context",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Extract context from validation_detail and validation_summary\nconst item = $input.first().json;\nconst validationDetail = item;\nconst validationSummary = item.validation_summary;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetail.id,\n    unit_code: validationSummary.unit_code,\n    unitLink: validationSummary.unitLink,\n    rto_code: validationSummary.rto_code,\n    namespace_code: validationDetail.namespace_code\n  }\n};"
+      },
+      "id": "extract-context",
+      "name": "Extract Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "documents",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "validation_detail_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-document-paths",
+      "name": "Fetch Document Paths",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Extract S3 paths from documents\nconst documents = $input.all();\nconst s3Paths = documents.map(doc => doc.json.storage_path);\n\nreturn {\n  json: {\n    s3_paths: s3Paths,\n    validation_detail_id: $('Extract Context').first().json.validation_detail_id,\n    unit_code: $('Extract Context').first().json.unit_code,\n    unitLink: $('Extract Context').first().json.unitLink\n  }\n};"
+      },
+      "id": "prepare-s3-paths",
+      "name": "Prepare S3 Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT e.text, e.filename, e.page_number, e.type as element_type, d.file_name as document_name, d.document_type, d.storage_path, d.id as document_id FROM documents d JOIN elements e ON e.url = d.storage_path WHERE d.validation_detail_id = $1 ORDER BY d.created_at, d.file_name, e.page_number",
+        "options": {
+          "queryParams": "={{ JSON.stringify([$('Prepare S3 Paths').first().json.validation_detail_id]) }}"
+        }
+      },
+      "id": "fetch-document-text",
+      "name": "Fetch Document Text from Elements",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Enhanced aggregation with clear document separation\nconst elements = $input.all().map(item => item.json);\nconst documentSeparator = '═'.repeat(63);\n\nlet aggregatedText = '';\nlet currentDocumentId = null;\nconst documentNames = new Set();\n\nfor (const element of elements) {\n  // New document section\n  if (element.document_id !== currentDocumentId) {\n    if (currentDocumentId !== null) {\n      aggregatedText += '\\n\\n';\n    }\n    \n    aggregatedText += documentSeparator + '\\n';\n    aggregatedText += `DOCUMENT: ${element.document_name}\\n`;\n    aggregatedText += `Type: ${element.document_type || 'Assessment Document'}\\n`;\n    aggregatedText += `Source File: ${element.filename}\\n`;\n    aggregatedText += documentSeparator + '\\n\\n';\n    \n    currentDocumentId = element.document_id;\n    documentNames.add(element.document_name);\n  }\n  \n  // Page marker\n  if (element.page_number) {\n    aggregatedText += `[PAGE ${element.page_number}]\\n`;\n  }\n  \n  // Element type marker (for context)\n  if (element.element_type && element.element_type !== 'NarrativeText') {\n    aggregatedText += `[${element.element_type}]\\n`;\n  }\n  \n  // Content\n  if (element.text) {\n    aggregatedText += element.text + '\\n\\n';\n  }\n}\n\nreturn {\n  json: {\n    aggregated_text: aggregatedText,\n    total_elements: elements.length,\n    document_count: documentNames.size,\n    document_names: Array.from(documentNames),\n    validation_detail_id: $('Extract Context').first().json.validation_detail_id,\n    unit_code: $('Extract Context').first().json.unit_code,\n    unitLink: $('Extract Context').first().json.unitLink\n  }\n};"
+      },
+      "id": "aggregate-document-text",
+      "name": "Aggregate Document Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "prompt",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "validation_type_id",
+              "condition": "eq",
+              "keyValue": "1"
+            },
+            {
+              "keyName": "current",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-system-prompt",
+      "name": "Fetch System Prompt",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1780, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, unit_code as \"unitCode\", 'knowledge_evidence' as type, requirement_number as number, requirement_text as text, description FROM knowledge_evidence_requirements WHERE unit_url = $1 UNION ALL SELECT id, unit_code, 'performance_evidence', requirement_number, requirement_text, description FROM performance_evidence_requirements WHERE unit_url = $1 UNION ALL SELECT id, unit_code, 'foundation_skills', requirement_number, requirement_text, description FROM foundation_skills_requirements WHERE unit_url = $1 UNION ALL SELECT id, unit_code, 'elements_performance_criteria', requirement_number, requirement_text, description FROM elements_performance_criteria_requirements WHERE unit_url = $1 UNION ALL SELECT id, unit_code, 'assessment_conditions', requirement_number, requirement_text, description FROM assessment_conditions_requirements WHERE unit_url = $1",
+        "options": {
+          "queryParams": "={{ JSON.stringify([$('Aggregate Document Text').first().json.unitLink]) }}"
+        }
+      },
+      "id": "fetch-all-requirements",
+      "name": "Fetch All Requirements",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2000, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Group requirements by type\nconst requirements = $input.all().map(item => item.json);\nconst groupedRequirements = {};\n\nfor (const req of requirements) {\n  if (!groupedRequirements[req.type]) {\n    groupedRequirements[req.type] = [];\n  }\n  groupedRequirements[req.type].push(req);\n}\n\n// Create array of validation tasks\nconst validationTasks = Object.entries(groupedRequirements).map(([type, reqs]) => ({\n  validation_type: type,\n  requirements: reqs,\n  requirements_json: JSON.stringify(reqs, null, 2)\n}));\n\nreturn validationTasks.map(task => ({ json: task }));"
+      },
+      "id": "group-requirements-by-type",
+      "name": "Group Requirements by Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "model": "gemini-2.0-flash-exp",
+        "options": {
+          "temperature": 0.1,
+          "maxOutputTokens": 8192
+        }
+      },
+      "id": "gemini-model",
+      "name": "Gemini 2.0 Flash Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [2440, 600],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Prepare AI validation request\nconst validationType = $json.validation_type;\nconst requirementsJSON = $json.requirements_json;\nconst aggregatedText = $('Aggregate Document Text').first().json.aggregated_text;\nconst systemPrompt = $('Fetch System Prompt').first().json.prompt || 'You are an expert RTO validator.';\nconst unitCode = $('Aggregate Document Text').first().json.unit_code;\n\n// Build prompt\nconst prompt = `${systemPrompt}\n\n**Unit of Competency**: ${unitCode}\n\n**Validation Type**: ${validationType}\n\n**Requirements** (JSON Array):\n\\`\\`\\`json\n${requirementsJSON}\n\\`\\`\\`\n\n**Assessment Documents** (${$('Aggregate Document Text').first().json.document_count} documents):\n${$('Aggregate Document Text').first().json.document_names.map(name => '- ' + name).join('\\n')}\n\n${aggregatedText}\n\n**MULTI-DOCUMENT INSTRUCTIONS**:\nYou have access to multiple assessment documents separated by document markers (═══).\nWhen citing evidence:\n1. ALWAYS reference the specific document name\n2. Include page numbers relative to that document\n3. Format: \"Document: [name], Page: [number]\"\n4. Consider evidence across ALL documents\n\nExample: \"Assessment Task (Page 3, Question 5) supported by Marking Guide (Page 2)\"\n\n**Task**: Validate each requirement in the JSON array against the assessment documents. Return results in JSON format with the following structure:\n\n\\`\\`\\`json\n{\n  \"validationType\": \"${validationType}\",\n  \"unitCode\": \"${unitCode}\",\n  \"overallStatus\": \"met\" | \"partial\" | \"not_met\",\n  \"summary\": \"Brief overall summary\",\n  \"requirementValidations\": [\n    {\n      \"requirementId\": <id from JSON>,\n      \"requirementNumber\": \"<number from JSON>\",\n      \"requirementText\": \"<text from JSON>\",\n      \"status\": \"met\" | \"partial\" | \"not_met\",\n      \"reasoning\": \"Detailed explanation\",\n      \"evidenceFound\": [\n        {\n          \"location\": \"Page X, Section Y\",\n          \"content\": \"Relevant content\",\n          \"relevance\": \"How this addresses the requirement\"\n        }\n      ],\n      \"gaps\": [\"Gap 1\", \"Gap 2\"],\n      \"smartQuestions\": [\n        {\n          \"question\": \"Proposed question\",\n          \"rationale\": \"Why this addresses the gap\"\n        }\n      ]\n    }\n  ]\n}\n\\`\\`\\`\n\nIMPORTANT: Return ONLY valid JSON, no additional text.`;\n\nreturn {\n  json: {\n    prompt: prompt,\n    validation_type: validationType,\n    requirements: $json.requirements\n  }\n};"
+      },
+      "id": "prepare-ai-request",
+      "name": "Prepare AI Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": $json.prompt\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"maxOutputTokens\": 8192,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "call-gemini-api",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2660, 400],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse Gemini response\nconst response = $json;\nconst validationDetailId = $('Aggregate Document Text').first().json.validation_detail_id;\n\n// Extract text from Gemini response\nlet responseText = '';\nif (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {\n  responseText = response.candidates[0].content.parts[0].text;\n}\n\n// Parse JSON response\nlet validationResult;\ntry {\n  // Remove markdown code blocks if present\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  validationResult = JSON.parse(responseText);\n} catch (error) {\n  console.error('Failed to parse AI response:', error);\n  return {\n    json: {\n      error: 'Failed to parse AI response',\n      raw_response: responseText,\n      validation_detail_id: validationDetailId\n    }\n  };\n}\n\n// Transform to database format with enhanced citations\nconst documentNames = $('Aggregate Document Text').first().json.document_names;\nconst validationRecords = validationResult.requirementValidations.map(rv => ({\n  validation_detail_id: validationDetailId,\n  requirement_type: validationResult.validationType,\n  requirement_number: rv.requirementNumber,\n  requirement_text: rv.requirementText,\n  status: rv.status,\n  reasoning: rv.reasoning,\n  citations: JSON.stringify((rv.evidenceFound || []).map(evidence => ({\n    document_name: evidence.document || evidence.location?.split(',')[0] || 'Unknown',\n    location: evidence.location,\n    content: evidence.content,\n    relevance: evidence.relevance\n  }))),\n  smart_questions: JSON.stringify(rv.smartQuestions || []),\n  metadata: JSON.stringify({\n    gaps: rv.gaps || [],\n    overall_status: validationResult.overallStatus,\n    summary: validationResult.summary,\n    documents_analyzed: documentNames,\n    validated_at: new Date().toISOString()\n  })\n}));\n\nreturn validationRecords.map(record => ({ json: record }));"
+      },
+      "id": "parse-ai-response",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "validation_results",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "validation_detail_id",
+              "fieldValue": "={{ $json.validation_detail_id }}"
+            },
+            {
+              "fieldId": "requirement_type",
+              "fieldValue": "={{ $json.requirement_type }}"
+            },
+            {
+              "fieldId": "requirement_number",
+              "fieldValue": "={{ $json.requirement_number }}"
+            },
+            {
+              "fieldId": "requirement_text",
+              "fieldValue": "={{ $json.requirement_text }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "reasoning",
+              "fieldValue": "={{ $json.reasoning }}"
+            },
+            {
+              "fieldId": "citations",
+              "fieldValue": "={{ $json.citations }}"
+            },
+            {
+              "fieldId": "smart_questions",
+              "fieldValue": "={{ $json.smart_questions }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $json.metadata }}"
+            }
+          ]
+        }
+      },
+      "id": "store-validation-results",
+      "name": "Store Validation Results",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3100, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "aggregateItems",
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "aggregate-all-results",
+      "name": "Aggregate All Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [3320, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Aggregate Document Text').first().json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Finalised"
+            }
+          ]
+        }
+      },
+      "id": "update-status-finalised",
+      "name": "Update Status: Finalised",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3540, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_detail_id\": $('Aggregate Document Text').first().json.validation_detail_id, \"total_results\": $json.data.length, \"message\": \"Validation completed successfully\" } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3760, 400]
+    }
+  ],
+  "connections": {
+    "Webhook - Start Validation": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Context": {
+      "main": [
+        [
+          {
+            "node": "Extract Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch Document Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Document Paths": {
+      "main": [
+        [
+          {
+            "node": "Prepare S3 Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare S3 Paths": {
+      "main": [
+        [
+          {
+            "node": "Fetch Document Text from Elements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Document Text from Elements": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Document Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Document Text": {
+      "main": [
+        [
+          {
+            "node": "Fetch System Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch System Prompt": {
+      "main": [
+        [
+          {
+            "node": "Fetch All Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Requirements": {
+      "main": [
+        [
+          {
+            "node": "Group Requirements by Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group Requirements by Type": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Request": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Store Validation Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Validation Results": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Results": {
+      "main": [
+        [
+          {
+            "node": "Update Status: Finalised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Finalised": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,321 @@
+{
+  "name": "AIChatFlow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - AI Chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "ai-chat-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_detail",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "validation_summary(unit_code, unitLink, rto_code)"
+        }
+      },
+      "id": "fetch-validation-context",
+      "name": "Fetch Validation Context",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_results",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "validation_detail_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-validation-results",
+      "name": "Fetch Validation Results",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "documents",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "validation_detail_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook - AI Chat').item.json.body.validation_detail_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-document-paths",
+      "name": "Fetch Document Paths",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const documents = $input.all();\nconst s3Paths = documents.map(doc => doc.json.storage_path);\n\nreturn {\n  json: {\n    s3_paths: s3Paths\n  }\n};"
+      },
+      "id": "prepare-s3-paths",
+      "name": "Prepare S3 Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT text, filename, page_number FROM elements WHERE url = ANY($1::text[]) ORDER BY filename, page_number",
+        "options": {
+          "queryParams": "={{ JSON.stringify([$json.s3_paths]) }}"
+        }
+      },
+      "id": "fetch-document-text",
+      "name": "Fetch Document Text",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const elements = $input.all();\nlet aggregatedText = '';\nlet currentFilename = '';\n\nfor (const element of elements) {\n  const { text, filename, page_number } = element.json;\n  \n  if (filename !== currentFilename) {\n    if (currentFilename !== '') aggregatedText += '\\n\\n';\n    aggregatedText += `[DOCUMENT: ${filename}]\\n`;\n    currentFilename = filename;\n  }\n  \n  if (page_number) {\n    aggregatedText += `\\n[PAGE ${page_number}]\\n`;\n  }\n  \n  if (text) {\n    aggregatedText += text + '\\n';\n  }\n}\n\nreturn {\n  json: {\n    aggregated_text: aggregatedText\n  }\n};"
+      },
+      "id": "aggregate-document-text",
+      "name": "Aggregate Document Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const validationContext = $('Fetch Validation Context').first().json;\nconst validationResults = $('Fetch Validation Results').all().map(item => item.json);\nconst aggregatedText = $input.first().json.aggregated_text;\nconst userMessage = $('Webhook - AI Chat').first().json.body.message;\nconst conversationHistory = $('Webhook - AI Chat').first().json.body.conversation_history || [];\n\n// Build validation summary\nconst totalRequirements = validationResults.length;\nconst metCount = validationResults.filter(r => r.status === 'met').length;\nconst partialCount = validationResults.filter(r => r.status === 'partial').length;\nconst notMetCount = validationResults.filter(r => r.status === 'not_met').length;\n\n// Group results by type\nconst groupedResults = {};\nfor (const result of validationResults) {\n  if (!groupedResults[result.requirement_type]) {\n    groupedResults[result.requirement_type] = [];\n  }\n  groupedResults[result.requirement_type].push({\n    number: result.requirement_number,\n    text: result.requirement_text,\n    status: result.status,\n    reasoning: result.reasoning\n  });\n}\n\nconst systemPrompt = `You are an expert RTO validation assistant helping users understand and improve their assessment validation results.\n\n**Context:**\n- Unit Code: ${validationContext.validation_summary.unit_code}\n- RTO Code: ${validationContext.validation_summary.rto_code}\n- Total Requirements: ${totalRequirements}\n- Met: ${metCount} (${Math.round((metCount/totalRequirements)*100)}%)\n- Partial: ${partialCount} (${Math.round((partialCount/totalRequirements)*100)}%)\n- Not Met: ${notMetCount} (${Math.round((notMetCount/totalRequirements)*100)}%)\n\n**Validation Results Summary:**\n${JSON.stringify(groupedResults, null, 2)}\n\n**Assessment Documents:**\n${aggregatedText.substring(0, 50000)} ${aggregatedText.length > 50000 ? '... (truncated)' : ''}\n\n**Your Role:**\n- Answer questions about the validation results\n- Explain why requirements were marked as met, partial, or not met\n- Suggest improvements to address gaps\n- Help interpret the assessment against unit requirements\n- Provide specific guidance on how to improve the assessment\n\n**Guidelines:**\n- Be specific and reference page numbers when possible\n- Focus on actionable advice\n- Explain technical RTO concepts in clear language\n- If asked about a specific requirement, provide detailed analysis\n- If asked for suggestions, provide concrete examples`;\n\n// Build conversation messages\nconst messages = [\n  { role: 'system', content: systemPrompt }\n];\n\n// Add conversation history\nfor (const msg of conversationHistory) {\n  messages.push({\n    role: msg.role,\n    content: msg.content\n  });\n}\n\n// Add current user message\nmessages.push({\n  role: 'user',\n  content: userMessage\n});\n\nreturn {\n  json: {\n    messages: messages,\n    validation_detail_id: validationContext.id\n  }\n};"
+      },
+      "id": "prepare-chat-context",
+      "name": "Prepare Chat Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": $json.messages.filter(m => m.role !== 'system').map(m => ({\n    \"role\": m.role === 'user' ? 'user' : 'model',\n    \"parts\": [{ \"text\": m.content }]\n  })),\n  \"systemInstruction\": {\n    \"parts\": [{\n      \"text\": $json.messages.find(m => m.role === 'system').content\n    }]\n  },\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"maxOutputTokens\": 2048\n  }\n} }}",
+        "options": {}
+      },
+      "id": "call-gemini-api",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 400],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response = $input.first().json;\nconst validationDetailId = $('Prepare Chat Context').first().json.validation_detail_id;\n\nlet responseText = '';\nif (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {\n  responseText = response.candidates[0].content.parts[0].text;\n}\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    response: responseText,\n    role: 'assistant'\n  }\n};"
+      },
+      "id": "parse-chat-response",
+      "name": "Parse Chat Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_detail_id\": $json.validation_detail_id, \"message\": $json.response, \"role\": $json.role } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2440, 400]
+    }
+  ],
+  "connections": {
+    "Webhook - AI Chat": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Results": {
+      "main": [
+        [
+          {
+            "node": "Fetch Document Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Document Paths": {
+      "main": [
+        [
+          {
+            "node": "Prepare S3 Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare S3 Paths": {
+      "main": [
+        [
+          {
+            "node": "Fetch Document Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Document Text": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Document Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Document Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Chat Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Chat Context": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse Chat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Chat Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}
