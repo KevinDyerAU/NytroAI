@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { FileText, CheckCircle, Info, Plus } from 'lucide-react';
+import { ValidationTriggerCard } from './ValidationTriggerButton';
 
 interface DocumentUploadAdapterSimplifiedProps {
   selectedRTOId: string;
@@ -329,7 +330,17 @@ export function DocumentUploadAdapterSimplified({
                 placeholder={isLoadingUnits ? "Loading units..." : "Search by code or title (e.g., BSBWHS521)"}
                 value={unitSearchTerm}
                 onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
-                onFocus={() => unitSearchTerm && setShowUnitDropdown(true)}
+                onFocus={() => {
+                  // Only show dropdown if user is searching and hasn't selected a unit yet
+                  // or if search term differs from selected unit
+                  if (unitSearchTerm && (!selectedUnit || unitSearchTerm !== selectedUnit.code)) {
+                    setShowUnitDropdown(true);
+                  }
+                }}
+                onBlur={() => {
+                  // Close dropdown when clicking outside (with small delay to allow click on dropdown items)
+                  setTimeout(() => setShowUnitDropdown(false), 200);
+                }}
                 disabled={isLoadingUnits}
                 className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3b82f6] disabled:bg-gray-100"
               />
@@ -391,6 +402,25 @@ export function DocumentUploadAdapterSimplified({
           )}
         </Card>
 
+        {/* Validation Trigger (n8n) */}
+        {validationDetailId && selectedFiles.length > 0 && (
+          <ValidationTriggerCard
+            validationDetailId={validationDetailId}
+            uploadedCount={uploadedCount}
+            totalCount={selectedFiles.length}
+            onSuccess={() => {
+              // Navigate to dashboard after validation starts
+              if (onValidationSubmit) {
+                onValidationSubmit({
+                  validationId: validationDetailId,
+                  documentName: selectedFiles[0]?.name || 'document',
+                  unitCode: selectedUnit?.code || 'unknown'
+                });
+              }
+            }}
+          />
+        )}
+
         {/* Success Message */}
         {isComplete && (
           <Card className="p-6 bg-green-50 border-green-200">
@@ -401,7 +431,7 @@ export function DocumentUploadAdapterSimplified({
                   <h3 className="font-semibold text-green-900">Upload Complete!</h3>
                   <p className="text-sm text-green-700 mt-1">
                     {uploadedCount} file{uploadedCount !== 1 ? 's' : ''} uploaded successfully. 
-                    Processing is happening in the background. Check the Dashboard for progress.
+                    Use the validation trigger above to start processing.
                   </p>
                 </div>
               </div>

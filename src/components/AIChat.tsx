@@ -6,6 +6,7 @@ import { GlowButton } from './GlowButton';
 import { Send, Bot, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { getRTOById, consumeAICredit } from '../types/rto';
+import { sendAIChatMessage } from '../lib/n8nApi';
 
 interface Citation {
   type: 'file' | 'web' | 'unknown';
@@ -31,10 +32,11 @@ interface AIChatProps {
   context?: string;
   onClose?: () => void;
   selectedRTOId?: string;
+  validationDetailId?: number;
   onCreditConsumed?: (newBalance: number) => void;
 }
 
-export function AIChat({ context, onClose, selectedRTOId, onCreditConsumed }: AIChatProps) {
+export function AIChat({ context, onClose, selectedRTOId, validationDetailId, onCreditConsumed }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -89,72 +91,49 @@ export function AIChat({ context, onClose, selectedRTOId, onCreditConsumed }: AI
         onCreditConsumed(result.newBalance);
       }
 
-      // Call the query-document Edge Function for actual AI response
+      // Call n8n AI Chat webhook for actual AI response
       try {
-        const requestBody = {
-          query: input,
-          rtoCode: currentRTO.code,
-        };
-        
-        console.log('Sending request to query-document:', requestBody);
-        
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/query-document`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            },
-            body: JSON.stringify(requestBody),
-          }
-        );
-
-        let data;
-        try {
-          // Clone the response to safely read the body without stream conflicts
-          try {
-            data = await response.clone().json();
-          } catch (cloneError) {
-            // Fallback: if cloning fails, try reading directly
-            console.warn('Clone json() failed, attempting direct read:', cloneError);
-            data = await response.json();
-          }
-        } catch (jsonError) {
-          console.error('Failed to parse response:', jsonError);
-          throw new Error(`Failed to parse API response: ${jsonError.message}`);
+        // Check if validationDetailId is available
+        if (!validationDetailId) {
+          console.warn('No validationDetailId provided, AI chat may have limited context');
         }
 
-        if (!response.ok) {
-          let errorMessage = 'Unknown error';
-          try {
-            errorMessage = data.error || data.message || 'API request failed';
-          } catch {
-            errorMessage = 'API request failed';
-          }
+        console.log('Sending message to n8n AI chat:', {
+          validationDetailId,
+          messageLength: input.length,
+        });
+        
+        // Prepare conversation history (exclude first welcome message)
+        const conversationHistory = messages
+          .slice(1) // Skip welcome message
+          .map(msg => ({
+            role: msg.role,
+            content: msg.content,
+          }));
+        
+        const result = await sendAIChatMessage(
+          validationDetailId || 0,
+          input,
+          conversationHistory
+        );
 
-          console.error('Edge Function error response:', {
-            status: response.status,
-            statusText: response.statusText,
-            body: data
-          });
-
-          throw new Error(`API request failed (${response.status}): ${errorMessage}`);
+        if (!result.success || !result.response) {
+          throw new Error(result.error || 'Failed to get AI response');
         }
         
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.answer || data.response || 'I apologize, but I could not generate a response at this time.',
+          content: result.response,
           timestamp: new Date(),
-          citations: data.citations || []
+          citations: [] // n8n can optionally return citations in the response
         };
         
         setMessages(prev => [...prev, aiMessage]);
         setIsProcessing(false);
         toast.success('1 AI credit consumed');
       } catch (apiError) {
-        console.error('Error calling AI API:', apiError);
+        console.error('Error calling n8n AI chat:', apiError);
         console.error('Full error details:', {
           message: apiError instanceof Error ? apiError.message : String(apiError),
           stack: apiError instanceof Error ? apiError.stack : undefined

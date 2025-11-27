@@ -580,6 +580,7 @@ export interface ValidationRecord {
   unit_code: string | null;
   qualification_code: string | null;
   extract_status: string;
+  validation_status?: string; // n8n: Pending, In Progress, Finalised
   doc_extracted: boolean;
   req_extracted: boolean;
   num_of_req: number;
@@ -636,6 +637,7 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       unit_code: record.namespace_code || null, // Using namespace_code as fallback
       qualification_code: null, // Not in validation_detail table
       extract_status: record.extractStatus || 'Pending',
+      validation_status: record.validation_status || 'Pending', // n8n status tracking
       doc_extracted: record.docExtracted || false,
       req_extracted: false, // Not in validation_detail table
       num_of_req: record.validation_total || 0,

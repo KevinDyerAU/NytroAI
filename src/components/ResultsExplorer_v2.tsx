@@ -13,6 +13,8 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { ValidationReport } from './reports';
 import { ValidationStatusMessage, InlineErrorMessage } from './ValidationStatusMessage';
+import { ResultsExplorerActions, RequirementActions } from './ResultsExplorerActions';
+import { ValidationStatusBadge } from './ValidationStatusBadge';
 import { 
   Search, 
   Download,
@@ -345,10 +347,12 @@ export function ResultsExplorer_v2({
     return matchesSearch && matchesStatus;
   });
 
+  // Get current validation record (used in multiple places)
+  const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidation?.id);
+
   // Render validation evidence section
   const renderValidationEvidence = () => {
     // Get progress info from current validation record
-    const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidation?.id);
     const progressInfo = currentRecord ? {
       completed: currentRecord.completed_count || 0,
       total: currentRecord.req_total || 0,
@@ -438,6 +442,13 @@ export function ResultsExplorer_v2({
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
+          {/* n8n Report Generation */}
+          {currentRecord && (
+            <ResultsExplorerActions
+              validationDetailId={currentRecord.id}
+              onRefresh={handleRefreshStatus}
+            />
+          )}
         </div>
 
         {/* Results count */}
@@ -509,13 +520,26 @@ export function ResultsExplorer_v2({
           {/* Validation list or selected validation display */}
           {selectedValidation ? (
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm font-medium text-blue-900">
-                {selectedValidation.unitCode} - {selectedValidation.unitTitle}
-              </p>
-              <p className="text-xs text-blue-700 mt-1">
-                {getValidationTypeLabel(selectedValidation.validationType)} • 
-                {formatValidationDate(selectedValidation.validationDate)}
-              </p>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-900">
+                    {selectedValidation.unitCode} - {selectedValidation.unitTitle}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    {getValidationTypeLabel(selectedValidation.validationType)} • 
+                    {formatValidationDate(selectedValidation.validationDate)}
+                  </p>
+                </div>
+                {/* Validation Status Badge */}
+                {currentRecord && (
+                  <ValidationStatusBadge
+                    status={{
+                      extractStatus: currentRecord.extract_status || 'Pending',
+                      validationStatus: currentRecord.extract_status || 'Pending',
+                    }}
+                  />
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-2">
