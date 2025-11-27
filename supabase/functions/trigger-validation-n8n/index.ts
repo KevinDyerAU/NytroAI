@@ -51,6 +51,8 @@ serve(async (req) => {
         id,
         summary_id,
         namespace_code,
+        file_search_store_id,
+        file_search_store_name,
         validation_type (code),
         validation_summary!inner (
           unitCode,
@@ -85,48 +87,39 @@ serve(async (req) => {
       );
     }
 
-    const document = documents[0];
-
-    // Expect file_search_store_id to be set by upload-document edge function
-    if (!document.file_search_store_id) {
-      console.error('[Trigger Validation N8n] Document missing file_search_store_id');
-      console.error('[Trigger Validation N8n] upload-document edge function must be called first');
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Document not uploaded to Gemini. Call upload-document edge function first.' 
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-      );
-    }
-
-    console.log('[Trigger Validation N8n] Document:', {
-      id: document.id,
-      fileName: document.file_name,
-      fileSearchStore: document.file_search_store_id
-    });
-
-    // Fetch Gemini operation for this document to get operation status
-    const { data: geminiOp, error: opError } = await supabase
+    // Fetch ALL Gemini operations for ALL documents in this validation
+    const { data: geminiOps, error: opError } = await supabase
       .from('gemini_operations')
-      .select('operation_name, status')
-      .eq('document_id', document.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .select('id, operation_name, status, document_id')
+      .eq('validation_detail_id', validationDetailId)
+      .order('created_at', { ascending: false });
 
-    if (opError || !geminiOp) {
-      console.error('[Trigger Validation N8n] No Gemini operation found for document');
+    if (opError || !geminiOps || geminiOps.length === 0) {
+      console.error('[Trigger Validation N8n] No Gemini operations found for validation');
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'No Gemini upload operation found. Call upload-document first.' 
+          error: 'No Gemini upload operations found. Call upload-document first.' 
         }),
         { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
-    console.log('[Trigger Validation N8n] Gemini operation:', geminiOp.operation_name, 'Status:', geminiOp.status);
+    console.log(`[Trigger Validation N8n] Found ${geminiOps.length} Gemini operations for validation ${validationDetailId}`);
+    
+    // Get file search store from validation_detail (all docs share same store now)
+    const fileSearchStoreId = validationDetail.file_search_store_id;
+    
+    if (!fileSearchStoreId) {
+      console.error('[Trigger Validation N8n] Validation missing file_search_store_id');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Documents not uploaded to Gemini. Call upload-document first.' 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
 
     // Get unit requirements using the same logic as validate-assessment
     const unitCode = validationDetail.validation_summary.unitCode;
@@ -152,25 +145,29 @@ serve(async (req) => {
       );
     }
 
-    // Prepare n8n request for polling and validation
+    // Prepare n8n request with ALL operations to poll
     const n8nRequest = {
       validationDetailId: validationDetail.id,
-      documentId: document.id,
-      fileName: document.file_name,
-      operationName: geminiOp.operation_name, // Gemini operation to poll
-      fileSearchStoreName: document.file_search_store_id, // File Search store (already created by upload-document)
+      operations: geminiOps.map(op => ({
+        id: op.id,
+        operationName: op.operation_name,
+        status: op.status,
+        documentId: op.document_id
+      })),
+      fileSearchStoreId: fileSearchStoreId,
+      fileSearchStoreName: validationDetail.file_search_store_name,
       validationType: validationDetail.validation_type.code,
       unitCode: unitCode,
       unitLink: unitLink,
       rtoCode: validationDetail.validation_summary.rtoCode,
       namespaceCode: validationDetail.namespace_code,
-      requirements: requirements, // Pass the full requirements array
+      requirements: requirements,
       requirementsCount: requirements.length,
     };
 
     console.log('[Trigger Validation N8n] Calling n8n webhook:', {
       validationDetailId,
-      documentId: document.id,
+      operationCount: geminiOps.length,
       validationType: validationDetail.validation_type.code
     });
 
@@ -192,20 +189,16 @@ serve(async (req) => {
       );
     }
 
-    const n8nResult = await n8nResponse.json();
-
-    console.log('[Trigger Validation N8n] Success:', {
-      validationDetailId: n8nResult.validationDetailId,
-      status: n8nResult.status,
-      validationsCount: n8nResult.validationsCount,
-      citationCount: n8nResult.citations?.count
-    });
+    // N8n workflow will handle polling and validation asynchronously
+    // Don't wait for response - just confirm it was triggered
+    console.log('[Trigger Validation N8n] ✅ N8n workflow triggered successfully');
+    console.log('[Trigger Validation N8n] Workflow will poll operation status and call validate-assessment-v2');
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Validation triggered via n8n',
-        result: n8nResult
+        validationDetailId: validationDetailId
       }),
       { 
         status: 200, 

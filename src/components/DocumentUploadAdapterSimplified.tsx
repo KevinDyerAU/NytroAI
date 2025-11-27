@@ -5,7 +5,7 @@
  * Upload completes immediately, validation happens in background via DB trigger.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { DocumentUploadSimplified } from './upload/DocumentUploadSimplified';
 import { getRTOById, fetchRTOById } from '../types/rto';
@@ -38,7 +38,13 @@ export function DocumentUploadAdapterSimplified({
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   const [validationDetailId, setValidationDetailId] = useState<number | undefined>(undefined);
+  const validationDetailIdRef = useRef<number | undefined>(undefined);
   const [isCreatingValidation, setIsCreatingValidation] = useState(false);
+
+  // Sync ref with state
+  useEffect(() => {
+    validationDetailIdRef.current = validationDetailId;
+  }, [validationDetailId]);
 
   // Load RTO data
   useEffect(() => {
@@ -198,11 +204,15 @@ export function DocumentUploadAdapterSimplified({
         }
 
         console.log('[DocumentUploadAdapterSimplified] ✅ Validation created:', data.detailId);
+        
+        // Set validation ID first and wait for state to update
         setValidationDetailId(data.detailId);
         
-        // NOW set the files after validation is created
-        console.log('[DocumentUploadAdapterSimplified] Now proceeding with file upload...');
-        setSelectedFiles(files);
+        // Use setTimeout to ensure state updates before file upload starts
+        setTimeout(() => {
+          console.log('[DocumentUploadAdapterSimplified] Now proceeding with file upload...');
+          setSelectedFiles(files);
+        }, 100);
         
       } catch (error) {
         console.error('[DocumentUploadAdapterSimplified] Exception creating validation:', error);
@@ -223,15 +233,20 @@ export function DocumentUploadAdapterSimplified({
     console.log('[DocumentUploadAdapterSimplified] Supabase upload complete:', { documentId, fileName });
     
     // Track uploaded document
-    setUploadedDocuments(prev => [...prev, { documentId, fileName, storagePath }]);
+    const newDoc = { documentId, fileName, storagePath };
+    let allDocs: typeof uploadedDocuments = [];
     
-    // Update count
-    const newCount = uploadedCount + 1;
-    setUploadedCount(newCount);
-    console.log(`[DocumentUploadAdapterSimplified] Supabase upload progress: ${newCount}/${selectedFiles.length}`);
+    setUploadedDocuments(prev => {
+      allDocs = [...prev, newDoc];
+      return allDocs;
+    });
+    
+    // Update count using functional form
+    setUploadedCount(prev => prev + 1);
+    console.log(`[DocumentUploadAdapterSimplified] Supabase upload progress: ${allDocs.length}/${selectedFiles.length}`);
     
     // If all files uploaded to Supabase, start Gemini uploads
-    if (newCount >= selectedFiles.length) {
+    if (allDocs.length >= selectedFiles.length) {
       console.log('[DocumentUploadAdapterSimplified] ✅ All files uploaded to Supabase!');
       console.log('[DocumentUploadAdapterSimplified] 🚀 Starting Gemini uploads...');
       
@@ -239,10 +254,8 @@ export function DocumentUploadAdapterSimplified({
         duration: 3000,
       });
       
-      // Get all uploaded documents (including the one we just added)
-      const allDocs = [...uploadedDocuments, { documentId, fileName, storagePath }];
-      
-      // Upload each document to Gemini
+      // Upload each document to Gemini (allDocs already includes the latest one)
+      console.log(`[DocumentUploadAdapterSimplified] Using validationDetailId: ${validationDetailIdRef.current}`);
       for (const doc of allDocs) {
         try {
           console.log(`[DocumentUploadAdapterSimplified] Uploading ${doc.fileName} to Gemini...`);
@@ -254,7 +267,7 @@ export function DocumentUploadAdapterSimplified({
               documentType: 'assessment',
               fileName: doc.fileName,
               storagePath: doc.storagePath,
-              validationDetailId: validationDetailId,
+              validationDetailId: validationDetailIdRef.current,
             }
           });
           
@@ -282,10 +295,10 @@ export function DocumentUploadAdapterSimplified({
       console.log('[DocumentUploadAdapterSimplified] ✅ All Gemini uploads initiated!');
       console.log('[DocumentUploadAdapterSimplified] 🎯 Triggering n8n polling workflow...');
       
-      if (validationDetailId) {
+      if (validationDetailIdRef.current) {
         try {
           const { data, error } = await supabase.functions.invoke('trigger-validation-n8n', {
-            body: { validationDetailId }
+            body: { validationDetailId: validationDetailIdRef.current }
           });
           
           if (error) {
