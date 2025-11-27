@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import { Play, Loader2, CheckCircle } from 'lucide-react';
 import { useValidationTrigger } from '../hooks/useValidationTrigger';
 
@@ -47,12 +48,12 @@ export function ValidationTriggerButton({
       {isTriggering ? (
         <>
           <Loader2 className="w-4 h-4 animate-spin" />
-          Starting Validation...
+          Starting...
         </>
       ) : (
         <>
           <Play className="w-4 h-4" />
-          Start Validation
+          Validate
         </>
       )}
     </Button>
@@ -74,11 +75,24 @@ export function ValidationTriggerCard({
 }: ValidationTriggerCardProps) {
   const { trigger, isTriggering } = useValidationTrigger();
   const [isTriggered, setIsTriggered] = React.useState(false);
+  const [confirmText, setConfirmText] = React.useState('');
+
+  // Debug props
+  React.useEffect(() => {
+    console.log('[ValidationTriggerCard] 🎯 Props updated:', {
+      validationDetailId,
+      uploadedCount,
+      totalCount,
+      allUploaded: uploadedCount >= totalCount && totalCount > 0,
+      isConfirmed: confirmText.toLowerCase().trim() === 'validate',
+    });
+  }, [validationDetailId, uploadedCount, totalCount, confirmText]);
 
   const handleTrigger = async () => {
     try {
       await trigger(validationDetailId);
       setIsTriggered(true);
+      setConfirmText(''); // Clear input after success
       
       // Wait a moment to show success message, then navigate
       setTimeout(() => {
@@ -93,6 +107,8 @@ export function ValidationTriggerCard({
   };
 
   const allUploaded = uploadedCount >= totalCount && totalCount > 0;
+  const isConfirmed = confirmText.toLowerCase().trim() === 'validate';
+  const canValidate = allUploaded && isConfirmed;
 
   return (
     <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">
@@ -124,24 +140,45 @@ export function ValidationTriggerCard({
             <div className="space-y-3">
               <p className="text-sm text-blue-800">
                 {allUploaded
-                  ? `All ${totalCount} document${totalCount !== 1 ? 's' : ''} uploaded to Supabase. Click below to start AI processing.`
+                  ? `All ${totalCount} document${totalCount !== 1 ? 's' : ''} uploaded to Supabase. Type "validate" below to confirm.`
                   : `Upload in progress: ${uploadedCount}/${totalCount} documents`}
               </p>
               
+              {allUploaded && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-blue-800">
+                    Type <span className="font-bold">"validate"</span> to confirm:
+                  </label>
+                  <Input
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="validate"
+                    disabled={isTriggering}
+                    className="bg-white border-blue-300 focus:ring-blue-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && canValidate && !isTriggering) {
+                        handleTrigger();
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              
               <Button
                 onClick={handleTrigger}
-                disabled={!allUploaded || isTriggering}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!canValidate || isTriggering}
+                className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isTriggering ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Starting Validation...
+                    Starting...
                   </>
                 ) : (
                   <>
                     <Play className="w-4 h-4 mr-2" />
-                    Start Validation
+                    Validate
                   </>
                 )}
               </Button>
@@ -149,6 +186,12 @@ export function ValidationTriggerCard({
               {!allUploaded && (
                 <p className="text-xs text-blue-600">
                   Complete all uploads before starting validation
+                </p>
+              )}
+              
+              {allUploaded && !isConfirmed && confirmText.length > 0 && (
+                <p className="text-xs text-blue-600">
+                  Please type "validate" exactly to enable the button
                 </p>
               )}
             </div>

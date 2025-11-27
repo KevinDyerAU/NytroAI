@@ -27,6 +27,32 @@ export async function triggerDocumentProcessing(validationDetailId: number): Pro
     throw new Error('N8N document processing URL not configured. Please set VITE_N8N_DOCUMENT_PROCESSING_URL in environment variables.');
   }
 
+  // Import supabase here to avoid circular dependencies
+  const { supabase } = await import('../lib/supabase');
+  
+  // Fetch all documents for this validation to get storage paths
+  const { data: documents, error } = await supabase
+    .from('documents')
+    .select('id, storage_path, file_name')
+    .eq('validation_detail_id', validationDetailId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to fetch documents: ${error.message}`);
+  }
+
+  if (!documents || documents.length === 0) {
+    throw new Error('No documents found for this validation. Please upload files first.');
+  }
+
+  const storagePaths = documents.map(doc => doc.storage_path);
+  
+  console.log('[n8nApi] Sending to n8n:', {
+    validation_detail_id: validationDetailId,
+    storage_paths: storagePaths,
+    document_count: documents.length
+  });
+
   const response = await fetch(n8nUrl, {
     method: 'POST',
     headers: {
@@ -34,6 +60,7 @@ export async function triggerDocumentProcessing(validationDetailId: number): Pro
     },
     body: JSON.stringify({
       validation_detail_id: validationDetailId,
+      storage_paths: storagePaths,
     }),
   });
 

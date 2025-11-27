@@ -139,9 +139,20 @@ export function DocumentUploadAdapterSimplified({
   // Handle file selection (memoized to prevent infinite loop)
   const handleFilesSelected = useCallback(async (files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
-    setSelectedFiles(files);
-    setUploadedCount(0);
-    setIsComplete(false);
+    
+    // Only reset if this is a NEW selection (different length or first selection)
+    setSelectedFiles(prev => {
+      // If same files are already selected, don't reset counts
+      if (prev.length === files.length && prev.length > 0) {
+        console.log('[DocumentUploadAdapterSimplified] ⚠️ Same files already selected, skipping reset');
+        return prev;
+      }
+      
+      console.log('[DocumentUploadAdapterSimplified] 🆕 New file selection, resetting counts');
+      setUploadedCount(0);
+      setIsComplete(false);
+      return files;
+    });
 
     // Create validation record when files are selected
     if (files.length > 0 && !validationDetailId && selectedRTO && selectedUnit) {
@@ -207,41 +218,36 @@ export function DocumentUploadAdapterSimplified({
   }, [validationDetailId, selectedRTO, selectedUnit]);
 
   // Handle upload complete (instant - just storage upload)
-  const handleUploadComplete = (documentId: number) => {
-    console.log('[DocumentUploadAdapterSimplified] Upload complete (instant)');
+  const handleUploadComplete = useCallback((documentId: number) => {
+    console.log('[DocumentUploadAdapterSimplified] ✅ Upload complete callback fired!', {
+      documentId,
+      currentUploadedCount: uploadedCount,
+      totalFiles: selectedFiles.length
+    });
     
     // Update count and check if all files are done
     setUploadedCount(prev => {
       const newCount = prev + 1;
-      console.log(`[DocumentUploadAdapterSimplified] Upload progress: ${newCount}/${selectedFiles.length}`);
+      console.log(`[DocumentUploadAdapterSimplified] 📊 Upload progress: ${newCount}/${selectedFiles.length}`);
       
       // Check if all files uploaded using the NEW count
       if (newCount >= selectedFiles.length) {
-        console.log('[DocumentUploadAdapterSimplified] All files uploaded!');
+        console.log('[DocumentUploadAdapterSimplified] 🎉 All files uploaded!');
         setIsComplete(true);
         
-        // Show success message
-        toast.success('Upload complete! Redirecting to Dashboard...', {
-          description: 'Indexing and validation are running in the background.',
-          duration: 2000,
+        // Show success message - user must type "validate" and click button
+        toast.success('Upload complete!', {
+          description: 'Type "validate" below and click the button to start AI processing.',
+          duration: 5000,
         });
 
-        // Auto-navigate to dashboard after 2 seconds
-        setTimeout(() => {
-          console.log('[DocumentUploadAdapterSimplified] Auto-navigating to dashboard...');
-          if (onValidationSubmit) {
-            onValidationSubmit({
-              validationId: 0, // Will be assigned by edge function
-              documentName: selectedFiles[0]?.name || 'document',
-              unitCode: selectedUnit?.code || 'unknown'
-            });
-          }
-        }, 2000);
+        // NO AUTO-NAVIGATION - User must click "Start Validation" button
+        // Navigation happens in ValidationTriggerCard onSuccess callback
       }
       
       return newCount;
     });
-  };
+  }, [selectedFiles.length, uploadedCount]);
 
   // Reset form to start a new validation
   const handleStartNew = () => {
@@ -404,48 +410,33 @@ export function DocumentUploadAdapterSimplified({
 
         {/* Validation Trigger (n8n) */}
         {validationDetailId && selectedFiles.length > 0 && (
-          <ValidationTriggerCard
-            validationDetailId={validationDetailId}
-            uploadedCount={uploadedCount}
-            totalCount={selectedFiles.length}
-            onSuccess={() => {
-              // Navigate to dashboard after validation starts
-              if (onValidationSubmit) {
-                onValidationSubmit({
-                  validationId: validationDetailId,
-                  documentName: selectedFiles[0]?.name || 'document',
-                  unitCode: selectedUnit?.code || 'unknown'
-                });
-              }
-            }}
-          />
+          <>
+            {console.log('[DocumentUploadAdapterSimplified] 🔍 Rendering ValidationTriggerCard:', {
+              validationDetailId,
+              uploadedCount,
+              totalCount: selectedFiles.length,
+              selectedFilesCount: selectedFiles.length
+            })}
+            <ValidationTriggerCard
+              validationDetailId={validationDetailId}
+              uploadedCount={uploadedCount}
+              totalCount={selectedFiles.length}
+              onSuccess={() => {
+                // Navigate to dashboard after validation starts
+                if (onValidationSubmit) {
+                  onValidationSubmit({
+                    validationId: validationDetailId,
+                    documentName: selectedFiles[0]?.name || 'document',
+                    unitCode: selectedUnit?.code || 'unknown'
+                  });
+                }
+              }}
+            />
+          </>
         )}
 
-        {/* Success Message */}
-        {isComplete && (
-          <Card className="p-6 bg-green-50 border-green-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-green-900">Upload Complete!</h3>
-                  <p className="text-sm text-green-700 mt-1">
-                    {uploadedCount} file{uploadedCount !== 1 ? 's' : ''} uploaded successfully. 
-                    Use the validation trigger above to start processing.
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={handleStartNew}
-                variant="outline"
-                className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-100"
-              >
-                <Plus className="w-4 h-4" />
-                Start New Validation
-              </Button>
-            </div>
-          </Card>
-        )}
+        {/* Success Message - Hidden since ValidationTriggerCard shows the same info */}
+        {/* The ValidationTriggerCard above handles the "upload complete" messaging */}
       </div>
     </div>
   );
