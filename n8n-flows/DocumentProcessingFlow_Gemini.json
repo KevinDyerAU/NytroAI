@@ -55,10 +55,10 @@
         "assignments": {
           "assignments": [
             {
-              "id": "s3-paths-array",
-              "name": "s3_paths",
+              "id": "storage-paths-array",
+              "name": "storage_paths",
               "type": "array",
-              "value": "={{ $json.body.s3_paths }}"
+              "value": "={{ $json.body.storage_paths }}"
             },
             {
               "id": "validation-detail-id",
@@ -78,31 +78,38 @@
     },
     {
       "parameters": {
-        "fieldToSplitOut": "s3_paths",
+        "fieldToSplitOut": "storage_paths",
         "options": {}
       },
-      "id": "split-s3-paths",
-      "name": "Split S3 Paths",
+      "id": "split-storage-paths",
+      "name": "Split Storage Paths",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [900, 300]
     },
     {
       "parameters": {
-        "operation": "download",
-        "bucketName": "smartrtobucket",
-        "fileKey": "={{ $json.s3_paths.replace('s3://smartrtobucket/', '') }}",
-        "options": {}
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/storage/v1/object/documents/{{ $json.storage_paths }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
       },
-      "id": "download-from-s3",
-      "name": "Download from S3",
-      "type": "n8n-nodes-base.awsS3",
+      "id": "download-from-supabase",
+      "name": "Download from Supabase Storage",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 2,
       "position": [1120, 300],
       "credentials": {
-        "aws": {
-          "id": "YOUR_AWS_CREDENTIALS_ID",
-          "name": "AWS account"
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
         }
       }
     },
@@ -131,7 +138,7 @@
             },
             {
               "name": "metadata",
-              "value": "={{ JSON.stringify({ displayName: $('Split S3 Paths').item.json.s3_paths.split('/').pop() }) }}"
+              "value": "={{ JSON.stringify({ displayName: $('Split Storage Paths').item.json.storage_paths.split('/').pop() }) }}"
             }
           ]
         },
@@ -181,7 +188,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Calculate expiry (48 hours from now)\nconst expiryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);\n\nreturn {\n  json: {\n    s3_path: $('Split S3 Paths').item.json.s3_paths,\n    gemini_file_uri: $json.file.uri,\n    gemini_file_name: $json.file.name,\n    gemini_expiry_timestamp: expiryDate.toISOString(),\n    validation_detail_id: $('Prepare Loop Data').first().json.validation_detail_id\n  }\n};"
+        "jsCode": "// Calculate expiry (48 hours from now)\nconst expiryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);\n\nreturn {\n  json: {\n    storage_path: $('Split Storage Paths').item.json.storage_paths,\n    gemini_file_uri: $json.file.uri,\n    gemini_file_name: $json.file.name,\n    gemini_expiry_timestamp: expiryDate.toISOString(),\n    validation_detail_id: $('Prepare Loop Data').first().json.validation_detail_id\n  }\n};"
       },
       "id": "prepare-document-update",
       "name": "Prepare Document Update",
@@ -199,7 +206,7 @@
             {
               "keyName": "storage_path",
               "condition": "eq",
-              "keyValue": "={{ $json.s3_path }}"
+              "keyValue": "={{ $json.storage_path }}"
             },
             {
               "keyName": "validation_detail_id",
@@ -255,7 +262,7 @@
             {
               "keyName": "storage_path",
               "condition": "eq",
-              "keyValue": "={{ $('Split S3 Paths').item.json.s3_paths }}"
+              "keyValue": "={{ $('Split Storage Paths').item.json.storage_paths }}"
             }
           ]
         },
@@ -451,12 +458,12 @@
       "main": [[{"node": "Prepare Loop Data", "type": "main", "index": 0}]]
     },
     "Prepare Loop Data": {
-      "main": [[{"node": "Split S3 Paths", "type": "main", "index": 0}]]
+      "main": [[{"node": "Split Storage Paths", "type": "main", "index": 0}]]
     },
-    "Split S3 Paths": {
-      "main": [[{"node": "Download from S3", "type": "main", "index": 0}]]
+    "Split Storage Paths": {
+      "main": [[{"node": "Download from Supabase Storage", "type": "main", "index": 0}]]
     },
-    "Download from S3": {
+    "Download from Supabase Storage": {
       "main": [[{"node": "Upload to Gemini File API", "type": "main", "index": 0}]]
     },
     "Upload to Gemini File API": {

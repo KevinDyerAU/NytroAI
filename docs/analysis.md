@@ -22,11 +22,11 @@ The current NytroAI system has evolved into a complex architecture with multiple
 
 ### 1. SimpleDocProcessEmbed Flow
 
-**Purpose**: Process documents from S3, extract text via Unstructured.io, and embed into Pinecone
+**Purpose**: Process documents from Supabase Storage, extract text via Unstructured.io, and embed into Pinecone
 
 **Flow Steps**:
 1. Webhook receives `s3Path` and `pineconeNamespace`
-2. Get files from S3 bucket
+2. Get files from Supabase Storage bucket
 3. Loop over each file
 4. Call fastunstructapi (`https://fastunstructpostgres.onrender.com/process`) with S3 path
 5. Unstructured.io extracts text and stores in `elements` table
@@ -86,7 +86,7 @@ UI Upload → AWS S3 → Edge Function → Gemini File Search → Validation
 2. **Background Processing**:
    - `useIndexingProcessor` hook polls every 15 seconds
    - `process-pending-indexing` edge function processes pending operations
-   - Downloads from S3, uploads to Gemini File Search
+   - Downloads from Supabase Storage, uploads to Gemini File Search
    - Polls Gemini operation status
    - Updates `gemini_operations.status = 'completed'`
 
@@ -286,11 +286,11 @@ UI Upload → AWS S3 → Unstructured.io → Elements Table → AI Validation �
 
 #### Flow 1: Document Processing (Replaces SimpleDocProcessEmbed)
 
-**Trigger**: Webhook with `validation_detail_id` and `s3_paths[]`
+**Trigger**: Webhook with `validation_detail_id` and `storage_paths[]`
 
 **Steps**:
 1. **Receive Upload Notification**
-   - Input: `validation_detail_id`, `s3_paths[]` (array of S3 paths)
+   - Input: `validation_detail_id`, `storage_paths[]` (array of S3 paths)
    
 2. **Update Status: "AI Learning"**
    - Update `validation_detail.extractStatus = 'Processing'`
@@ -412,7 +412,7 @@ UI Upload → AWS S3 → Unstructured.io → Elements Table → AI Validation �
 
 2. **Update Upload Component**
    - After S3 upload, call Document Processing Flow webhook
-   - Pass `validation_detail_id` and `s3_paths[]`
+   - Pass `validation_detail_id` and `storage_paths[]`
    - Remove Gemini File Search API calls
 
 3. **Update Status Display**

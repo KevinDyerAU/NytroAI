@@ -102,7 +102,7 @@ POST /v1beta/models/gemini:generateContent
 ### Old NytroAI Architecture (Complex & Flaky)
 
 ```
-UI → S3 → Edge Function → File Search Store → gemini_operations table →
+UI → Supabase Storage → Edge Function → File Search Store → gemini_operations table →
 Database Trigger → HTTP Call → n8n → validate-assessment → Pinecone →
 OpenAI Embeddings → Complex polling → Timing issues
 ```
@@ -119,7 +119,7 @@ OpenAI Embeddings → Complex polling → Timing issues
 ### New Architecture (Simple & Reliable)
 
 ```
-UI → S3 → n8n (upload to File API) → n8n (validate with Gemini) → Done
+UI → Supabase Storage → n8n (upload to File API) → n8n (validate with Gemini) → Done
 ```
 
 **Benefits**:
@@ -154,8 +154,8 @@ UI → S3 → n8n (upload to File API) → n8n (validate with Gemini) → Done
 **Purpose**: Upload documents to Gemini File API
 
 **Steps**:
-1. Webhook receives `validation_detail_id` and `s3_paths`
-2. Download files from S3
+1. Webhook receives `validation_detail_id` and `storage_paths`
+2. Download files from Supabase Storage
 3. Upload each file to Gemini File API (simple upload!)
 4. Get immediate file URIs (no waiting!)
 5. Update `documents` table with URIs and expiry (48 hours)
@@ -425,13 +425,13 @@ CREATE INDEX idx_documents_gemini_expiry ON documents(gemini_expiry_timestamp);
 ### Simple API Calls
 
 ```typescript
-// 1. After S3 upload
+// 1. After Supabase Storage upload
 const response = await fetch('https://your-n8n.com/webhook/document-processing-gemini', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     validation_detail_id: validationId,
-    s3_paths: uploadedPaths
+    storage_paths: uploadedPaths
   })
 });
 
@@ -449,7 +449,7 @@ const { data } = await supabase
 ### Status Flow
 
 ```
-1. Document Upload - Files uploaded to S3
+1. Document Upload - Files uploaded to Supabase Storage
 2. AI Learning - Files processed by Gemini File API
 3. Under Review - AI validation running
 4. Finalised - Results ready in validation_results table
@@ -521,7 +521,7 @@ supabase migration up
 4. Configure credentials:
    - Supabase API
    - Google Gemini API
-   - AWS S3
+   - AWS Supabase Storage
    - Supabase Authorization Header (for edge function)
 
 ### 4. Test
@@ -532,7 +532,7 @@ curl -X POST 'https://your-n8n.com/webhook/document-processing-gemini' \
   -H "Content-Type: application/json" \
   -d '{
     "validation_detail_id": 123,
-    "s3_paths": ["s3://smartrtobucket/test.pdf"]
+    "storage_paths": ["7148/TLIF0025/validation123/test.pdf"]
   }'
 
 # Check status

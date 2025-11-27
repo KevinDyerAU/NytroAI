@@ -311,7 +311,7 @@ and is supported by the Marking Guide (Page 2, Rubric criteria)."
 SELECT COUNT(*) as element_count, 
        COUNT(DISTINCT filename) as file_count
 FROM elements 
-WHERE url IN (:s3_paths);
+WHERE url IN (:storage_paths);
 ```
 
 ### 2. AI Validation Flow

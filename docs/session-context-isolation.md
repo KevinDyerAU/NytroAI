@@ -103,7 +103,7 @@ WHERE validation_detail_id = :validation_detail_id;
 {
   "body": {
     "validation_detail_id": 123,  // ✅ Session identifier
-    "s3_paths": [...]
+    "storage_paths": [...]
   }
 }
 ```

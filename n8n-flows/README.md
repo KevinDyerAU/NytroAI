@@ -299,29 +299,7 @@ documents/
 
 ---
 
-### Option 2: AWS S3 (Alternative)
 
-**When to Use**:
-- Already using AWS infrastructure
-- Need > 200 GB storage
-- Enterprise compliance requirements
-
-**Bucket Configuration**:
-```
-Bucket Name: smartrtobucket
-Region: ap-southeast-2 (Sydney)
-Encryption: AES-256
-```
-
-**Pricing** (100 validations/month):
-- Storage: $0.03/mo
-- Requests: $0.002/mo
-- Bandwidth: $0.14/mo
-- **Total: $0.17/mo**
-
-**Note**: Requires AWS account and additional configuration
-
----
 
 ## Setup Instructions
 
