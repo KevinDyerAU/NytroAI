@@ -29,7 +29,7 @@
           ]
         },
         "options": {
-          "queryName": "validation_summary(unit_code, unitLink, rto_code)"
+          "queryName": "validation_summary(id, unit_code, unitLink, rto_code, created_at)"
         }
       },
       "id": "fetch-validation-context",
@@ -103,20 +103,31 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $('Fetch Validation Context').item.json.validation_summary.unitLink }}",
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/functions/v1/get-requirements",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"unit_code\": $('Fetch Validation Context').item.json.validation_summary.unit_code, \"validation_detail_id\": $('Fetch Validation Context').item.json.id } }}",
         "options": {}
       },
       "id": "fetch-unit-requirements",
-      "name": "Fetch Unit Requirements",
+      "name": "Fetch Unit Requirements (Edge Function)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1120, 400]
+      "position": [1120, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_SUPABASE_AUTH_CREDENTIALS_ID",
+          "name": "Supabase Authorization Header"
+        }
+      }
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Parse unit requirements and group by type\nconst unitData = $input.first().json;\n\n// Extract requirements from different sections\nconst requirements = {\n  knowledge_evidence: unitData.knowledgeEvidence || [],\n  performance_evidence: unitData.performanceEvidence || [],\n  foundation_skills: unitData.foundationSkills || [],\n  elements_performance_criteria: unitData.elementsAndPerformanceCriteria || [],\n  assessment_conditions: unitData.assessmentConditions || []\n};\n\n// Group by type for batch processing\nconst requirementGroups = [];\n\nfor (const [type, items] of Object.entries(requirements)) {\n  if (items && items.length > 0) {\n    requirementGroups.push({\n      validation_type: type,\n      requirements: items,\n      requirements_json: JSON.stringify(items)\n    });\n  }\n}\n\nreturn requirementGroups.map(group => ({ json: group }));"
+        "jsCode": "// Parse requirements from edge function response\nconst response = $input.first().json;\n\nif (!response.success || !response.requirements_by_type) {\n  throw new Error('Failed to fetch requirements from edge function');\n}\n\nconst requirementsByType = response.requirements_by_type;\n\n// Group by type for batch processing\nconst requirementGroups = [];\n\nfor (const [type, items] of Object.entries(requirementsByType)) {\n  if (items && items.length > 0) {\n    requirementGroups.push({\n      validation_type: type,\n      requirements: items,\n      requirements_json: JSON.stringify(items)\n    });\n  }\n}\n\nconsole.log(`Processing ${requirementGroups.length} requirement types`);\nreturn requirementGroups.map(group => ({ json: group }));"
       },
       "id": "group-requirements",
       "name": "Group Requirements by Type",
@@ -127,7 +138,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Prepare Gemini API request with file references\nconst validationType = $json.validation_type;\nconst requirementsJSON = $json.requirements_json;\nconst systemPrompt = $('Fetch System Prompt').first().json.prompt || 'You are an expert RTO validator.';\nconst unitCode = $('Fetch Validation Context').first().json.validation_summary.unit_code;\nconst documents = $('Fetch Gemini File URIs').all().map(item => item.json);\n\n// Build file parts for Gemini\nconst fileParts = documents.map(doc => ({\n  fileData: {\n    mimeType: \"application/pdf\",\n    fileUri: doc.gemini_file_uri\n  }\n}));\n\n// Build prompt\nconst promptText = `${systemPrompt}\n\n**Unit of Competency**: ${unitCode}\n\n**Validation Type**: ${validationType}\n\n**Documents Available** (${documents.length} files):\n${documents.map(d => `- ${d.file_name} (${d.document_type || 'Assessment Document'})`).join('\\n')}\n\n**Requirements** (JSON Array):\n\\`\\`\\`json\n${requirementsJSON}\n\\`\\`\\`\n\n**MULTI-DOCUMENT INSTRUCTIONS**:\nYou have access to ${documents.length} assessment documents.\nWhen citing evidence:\n1. ALWAYS reference the specific document name\n2. Include page numbers from that document\n3. Format: \"Document: [name], Page: [number]\"\n4. Consider evidence across ALL documents\n5. Understand images, charts, and diagrams in the documents\n\nExample: \"Assessment Task (Page 3, Question 5) supported by Marking Guide (Page 2)\"\n\n**Task**: Validate each requirement in the JSON array against ALL assessment documents. Return results in JSON format with the following structure:\n\n\\`\\`\\`json\n{\n  \"validationType\": \"${validationType}\",\n  \"unitCode\": \"${unitCode}\",\n  \"overallStatus\": \"met\" | \"partial\" | \"not_met\",\n  \"summary\": \"Brief overall summary\",\n  \"requirementValidations\": [\n    {\n      \"requirementId\": <id from JSON>,\n      \"requirementNumber\": \"<number from JSON>\",\n      \"requirementText\": \"<text from JSON>\",\n      \"status\": \"met\" | \"partial\" | \"not_met\",\n      \"reasoning\": \"Detailed explanation with document and page references\",\n      \"evidenceFound\": [\n        {\n          \"document\": \"Document name\",\n          \"location\": \"Page X, Section Y\",\n          \"content\": \"Relevant content excerpt\",\n          \"relevance\": \"How this addresses the requirement\"\n        }\n      ],\n      \"gaps\": [\"Gap 1\", \"Gap 2\"],\n      \"smartQuestions\": [\n        {\n          \"question\": \"Proposed assessment question\",\n          \"rationale\": \"Why this addresses the gap\"\n        }\n      ]\n    }\n  ]\n}\n\\`\\`\\`\n\nIMPORTANT: Return ONLY valid JSON, no additional text.`;\n\n// Build Gemini API request body\nconst contents = [\n  ...fileParts,\n  { text: promptText }\n];\n\nreturn {\n  json: {\n    contents: contents,\n    validation_type: validationType,\n    requirements: $json.requirements,\n    document_count: documents.length,\n    document_names: documents.map(d => d.file_name)\n  }\n};"
+        "jsCode": "// Prepare Gemini API request with file references and session context\nconst validationType = $json.validation_type;\nconst requirementsJSON = $json.requirements_json;\nconst systemPrompt = $('Fetch System Prompt').first().json.prompt || 'You are an expert RTO validator.';\nconst validationContext = $('Fetch Validation Context').first().json;\nconst unitCode = validationContext.validation_summary.unit_code;\nconst rtoCode = validationContext.validation_summary.rto_code;\nconst sessionCreatedAt = validationContext.created_at;\nconst documents = $('Fetch Gemini File URIs').all().map(item => item.json);\n\n// Build file parts for Gemini\nconst fileParts = documents.map(doc => ({\n  fileData: {\n    mimeType: \"application/pdf\",\n    fileUri: doc.gemini_file_uri\n  }\n}));\n\n// Build session context\nconst sessionContext = `\n**VALIDATION SESSION CONTEXT**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSession ID: ${validationContext.id}\nSession Created: ${new Date(sessionCreatedAt).toLocaleString()}\nUnit Code: ${unitCode}\nRTO Code: ${rtoCode}\nRequirement Type: ${validationType}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**DOCUMENTS FOR THIS SESSION** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Assessment Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}`).join('\\n')}\n\n**IMPORTANT INSTRUCTIONS**:\n1. This is an ISOLATED validation session\n2. Only consider documents uploaded for THIS session\n3. All citations must reference documents from THIS session only\n4. Include document names and page numbers in all evidence citations\n5. Understand images, charts, and diagrams in the documents\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;\n\n// Build prompt\nconst promptText = `${sessionContext}\n\n${systemPrompt}\n\n**Unit of Competency**: ${unitCode}\n\n**Validation Type**: ${validationType}\n\n**Requirements** (JSON Array):\n\\`\\`\\`json\n${requirementsJSON}\n\\`\\`\\`\n\n**Task**: Validate each requirement in the JSON array against ALL assessment documents. Return results in JSON format with the following structure:\n\n\\`\\`\\`json\n{\n  \"validationType\": \"${validationType}\",\n  \"unitCode\": \"${unitCode}\",\n  \"overallStatus\": \"met\" | \"partial\" | \"not_met\",\n  \"summary\": \"Brief overall summary\",\n  \"requirementValidations\": [\n    {\n      \"requirementId\": <id from JSON>,\n      \"requirementNumber\": \"<number from JSON>\",\n      \"requirementText\": \"<text from JSON>\",\n      \"status\": \"met\" | \"partial\" | \"not_met\",\n      \"reasoning\": \"Detailed explanation with document and page references\",\n      \"evidenceFound\": [\n        {\n          \"document\": \"Document name\",\n          \"location\": \"Page X, Section Y\",\n          \"content\": \"Relevant content excerpt\",\n          \"relevance\": \"How this addresses the requirement\"\n        }\n      ],\n      \"gaps\": [\"Gap 1\", \"Gap 2\"],\n      \"smartQuestions\": [\n        {\n          \"question\": \"Proposed assessment question\",\n          \"rationale\": \"Why this addresses the gap\"\n        }\n      ]\n    }\n  ]\n}\n\\`\\`\\`\n\nIMPORTANT: Return ONLY valid JSON, no additional text.`;\n\n// Build Gemini API request body\nconst contents = [\n  ...fileParts,\n  { text: promptText }\n];\n\nreturn {\n  json: {\n    contents: contents,\n    validation_type: validationType,\n    requirements: $json.requirements,\n    document_count: documents.length,\n    document_names: documents.map(d => d.file_name),\n    session_context: {\n      validation_detail_id: validationContext.id,\n      session_created_at: sessionCreatedAt,\n      unit_code: unitCode,\n      rto_code: rtoCode\n    }\n  }\n};"
       },
       "id": "prepare-gemini-request",
       "name": "Prepare Gemini Request",
@@ -166,7 +177,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Parse Gemini response\nconst response = $json;\nconst validationDetailId = $('Fetch Validation Context').first().json.id;\nconst documentNames = $('Prepare Gemini Request').item.json.document_names;\n\n// Extract text from Gemini response\nlet responseText = '';\nif (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {\n  responseText = response.candidates[0].content.parts[0].text;\n}\n\n// Parse JSON response\nlet validationResult;\ntry {\n  // Remove markdown code blocks if present\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  validationResult = JSON.parse(responseText);\n} catch (error) {\n  console.error('Failed to parse AI response:', error);\n  return {\n    json: {\n      error: 'Failed to parse AI response',\n      raw_response: responseText,\n      validation_detail_id: validationDetailId\n    }\n  };\n}\n\n// Transform to database format with enhanced citations\nconst validationRecords = validationResult.requirementValidations.map(rv => ({\n  validation_detail_id: validationDetailId,\n  requirement_type: validationResult.validationType,\n  requirement_number: rv.requirementNumber,\n  requirement_text: rv.requirementText,\n  status: rv.status,\n  reasoning: rv.reasoning,\n  citations: JSON.stringify((rv.evidenceFound || []).map(evidence => ({\n    document_name: evidence.document || 'Unknown',\n    location: evidence.location,\n    content: evidence.content,\n    relevance: evidence.relevance\n  }))),\n  smart_questions: JSON.stringify(rv.smartQuestions || []),\n  metadata: JSON.stringify({\n    gaps: rv.gaps || [],\n    overall_status: validationResult.overallStatus,\n    summary: validationResult.summary,\n    documents_analyzed: documentNames,\n    validated_at: new Date().toISOString(),\n    validation_method: 'gemini_file_api'\n  })\n}));\n\nreturn validationRecords.map(record => ({ json: record }));"
+        "jsCode": "// Parse Gemini response with enhanced session context\nconst response = $json;\nconst sessionContext = $('Prepare Gemini Request').item.json.session_context;\nconst validationDetailId = sessionContext.validation_detail_id;\nconst documentNames = $('Prepare Gemini Request').item.json.document_names;\n\n// Extract text from Gemini response\nlet responseText = '';\nif (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {\n  responseText = response.candidates[0].content.parts[0].text;\n}\n\n// Parse JSON response\nlet validationResult;\ntry {\n  // Remove markdown code blocks if present\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  validationResult = JSON.parse(responseText);\n} catch (error) {\n  console.error('Failed to parse AI response:', error);\n  return {\n    json: {\n      error: 'Failed to parse AI response',\n      raw_response: responseText,\n      validation_detail_id: validationDetailId\n    }\n  };\n}\n\n// Transform to database format with enhanced session context\nconst validationRecords = validationResult.requirementValidations.map(rv => ({\n  validation_detail_id: validationDetailId,\n  requirement_type: validationResult.validationType,\n  requirement_number: rv.requirementNumber,\n  requirement_text: rv.requirementText,\n  status: rv.status,\n  reasoning: rv.reasoning,\n  citations: JSON.stringify((rv.evidenceFound || []).map(evidence => ({\n    document_name: evidence.document || 'Unknown',\n    location: evidence.location,\n    content: evidence.content,\n    relevance: evidence.relevance\n  }))),\n  smart_questions: JSON.stringify(rv.smartQuestions || []),\n  metadata: JSON.stringify({\n    gaps: rv.gaps || [],\n    overall_status: validationResult.overallStatus,\n    summary: validationResult.summary,\n    documents_analyzed: documentNames,\n    validated_at: new Date().toISOString(),\n    validation_method: 'gemini_file_api',\n    session_context: sessionContext\n  })\n}));\n\nreturn validationRecords.map(record => ({ json: record }));"
       },
       "id": "parse-gemini-response",
       "name": "Parse Gemini Response",
@@ -304,9 +315,9 @@
       "main": [[{"node": "Fetch System Prompt", "type": "main", "index": 0}]]
     },
     "Fetch System Prompt": {
-      "main": [[{"node": "Fetch Unit Requirements", "type": "main", "index": 0}]]
+      "main": [[{"node": "Fetch Unit Requirements (Edge Function)", "type": "main", "index": 0}]]
     },
-    "Fetch Unit Requirements": {
+    "Fetch Unit Requirements (Edge Function)": {
       "main": [[{"node": "Group Requirements by Type", "type": "main", "index": 0}]]
     },
     "Group Requirements by Type": {
@@ -339,5 +350,5 @@
   "tags": [],
   "triggerCount": 1,
   "updatedAt": "2025-01-28T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "2"
 }
