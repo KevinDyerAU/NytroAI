@@ -116,43 +116,43 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/upload/v1beta/files",
+        "url": "={{ $env.SUPABASE_URL }}/functions/v1/upload-to-gemini",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "googlePalmApi",
+        "nodeCredentialType": "supabaseApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "X-Goog-Upload-Protocol",
-              "value": "multipart"
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
             }
           ]
         },
         "sendBody": true,
-        "contentType": "multipart-form-data",
+        "contentType": "json",
         "bodyParameters": {
           "parameters": [
             {
-              "name": "file",
-              "value": "={{ $binary.data }}"
+              "name": "storage_path",
+              "value": "={{ $('Split Storage Paths').item.json.storage_paths }}"
             },
             {
-              "name": "metadata",
-              "value": "={{ JSON.stringify({ displayName: $('Split Storage Paths').item.json.storage_paths.split('/').pop() }) }}"
+              "name": "validation_detail_id",
+              "value": "={{ $('Prepare Loop Data').first().json.validation_detail_id }}"
             }
           ]
         },
         "options": {}
       },
       "id": "upload-to-gemini",
-      "name": "Upload to Gemini File API",
+      "name": "Upload to Gemini File API (Edge Function)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1340, 300],
       "credentials": {
-        "googlePalmApi": {
-          "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
-          "name": "Google Gemini API"
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
         }
       },
       "onError": "continueErrorOutput"
@@ -172,7 +172,7 @@
                 "operation": "exists",
                 "singleValue": true
               },
-              "leftValue": "={{ $json.file }}",
+              "leftValue": "={{ $json.success }}",
               "rightValue": ""
             }
           ]
@@ -461,25 +461,16 @@
       "main": [[{"node": "Split Storage Paths", "type": "main", "index": 0}]]
     },
     "Split Storage Paths": {
-      "main": [[{"node": "Download from Supabase Storage", "type": "main", "index": 0}]]
+      "main": [[{"node": "Upload to Gemini File API (Edge Function)", "type": "main", "index": 0}]]
     },
-    "Download from Supabase Storage": {
-      "main": [[{"node": "Upload to Gemini File API", "type": "main", "index": 0}]]
-    },
-    "Upload to Gemini File API": {
+    "Upload to Gemini File API (Edge Function)": {
       "main": [[{"node": "Check Upload Success", "type": "main", "index": 0}]]
     },
     "Check Upload Success": {
       "main": [
-        [{"node": "Prepare Document Update", "type": "main", "index": 0}],
+        [{"node": "Aggregate Results", "type": "main", "index": 0}],
         [{"node": "Mark Upload Failed", "type": "main", "index": 0}]
       ]
-    },
-    "Prepare Document Update": {
-      "main": [[{"node": "Update Document with Gemini URI", "type": "main", "index": 0}]]
-    },
-    "Update Document with Gemini URI": {
-      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
     },
     "Mark Upload Failed": {
       "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
