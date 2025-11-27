@@ -33,6 +33,7 @@ interface ValidateAssessmentRequest {
   unitCode: string;
   unitLink?: string;  // Optional: URL to training.gov.au unit
   validationType:
+    | 'assessment'  // Validates ALL types
     | 'knowledge_evidence'
     | 'performance_evidence'
     | 'foundation_skills'

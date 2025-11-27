@@ -30,11 +30,17 @@ export interface RequirementsByType {
 export async function fetchRequirements(
   supabase: any,
   unitCode: string,
-  validationType: 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_criteria' | 'assessment_conditions' | 'assessment_instructions' | 'full_validation' | 'learner_guide_validation',
+  validationType: 'assessment' | 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_criteria' | 'assessment_conditions' | 'assessment_instructions' | 'full_validation' | 'learner_guide_validation',
   unitLink?: string | null
 ): Promise<Requirement[]> {
   let requirementTable = '';
   let type: Requirement['type'] | null = null;
+
+  // Handle 'assessment' as a special case that fetches ALL requirements
+  if (validationType === 'assessment' || validationType === 'full_validation') {
+    console.log(`[Requirements Fetcher] Fetching ALL requirements for ${unitCode}`);
+    return await fetchAllRequirements(supabase, unitCode, unitLink);
+  }
 
   switch (validationType) {
     case 'knowledge_evidence':
