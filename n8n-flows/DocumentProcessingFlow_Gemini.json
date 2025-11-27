@@ -12,7 +12,10 @@
       "name": "Webhook - Start Processing",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "doc-processing-gemini-webhook"
     },
     {
@@ -42,7 +45,10 @@
       "name": "Update Status: AI Learning",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [460, 300],
+      "position": [
+        460,
+        300
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "YOUR_SUPABASE_CREDENTIALS_ID",
@@ -74,7 +80,10 @@
       "name": "Prepare Loop Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [680, 300]
+      "position": [
+        680,
+        300
+      ]
     },
     {
       "parameters": {
@@ -85,33 +94,10 @@
       "name": "Split Storage Paths",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [900, 300]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/storage/v1/object/documents/{{ $json.storage_paths }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
-          }
-        }
-      },
-      "id": "download-from-supabase",
-      "name": "Download from Supabase Storage",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 2,
-      "position": [1120, 300],
-      "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
-        }
-      }
+      "position": [
+        900,
+        300
+      ]
     },
     {
       "parameters": {
@@ -148,7 +134,10 @@
       "name": "Upload to Gemini File API (Edge Function)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1340, 300],
+      "position": [
+        1340,
+        300
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "YOUR_SUPABASE_CREDENTIALS_ID",
@@ -183,74 +172,10 @@
       "name": "Check Upload Success",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1560, 300]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Calculate expiry (48 hours from now)\nconst expiryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);\n\nreturn {\n  json: {\n    storage_path: $('Split Storage Paths').item.json.storage_paths,\n    gemini_file_uri: $json.file.uri,\n    gemini_file_name: $json.file.name,\n    gemini_expiry_timestamp: expiryDate.toISOString(),\n    validation_detail_id: $('Prepare Loop Data').first().json.validation_detail_id\n  }\n};"
-      },
-      "id": "prepare-document-update",
-      "name": "Prepare Document Update",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1780, 200]
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "tableId": "documents",
-        "matchType": "allFilters",
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "storage_path",
-              "condition": "eq",
-              "keyValue": "={{ $json.storage_path }}"
-            },
-            {
-              "keyName": "validation_detail_id",
-              "condition": "eq",
-              "keyValue": "={{ $json.validation_detail_id }}"
-            }
-          ]
-        },
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "gemini_file_uri",
-              "fieldValue": "={{ $json.gemini_file_uri }}"
-            },
-            {
-              "fieldId": "gemini_file_name",
-              "fieldValue": "={{ $json.gemini_file_name }}"
-            },
-            {
-              "fieldId": "gemini_upload_timestamp",
-              "fieldValue": "={{ new Date().toISOString() }}"
-            },
-            {
-              "fieldId": "gemini_expiry_timestamp",
-              "fieldValue": "={{ $json.gemini_expiry_timestamp }}"
-            },
-            {
-              "fieldId": "embedding_status",
-              "fieldValue": "completed"
-            }
-          ]
-        }
-      },
-      "id": "update-document-with-gemini-uri",
-      "name": "Update Document with Gemini URI",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [2000, 200],
-      "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
-        }
-      }
+      "position": [
+        1560,
+        300
+      ]
     },
     {
       "parameters": {
@@ -279,7 +204,10 @@
       "name": "Mark Upload Failed",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [1780, 400],
+      "position": [
+        1780,
+        400
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "YOUR_SUPABASE_CREDENTIALS_ID",
@@ -296,7 +224,10 @@
       "name": "Aggregate Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2220, 300]
+      "position": [
+        2220,
+        300
+      ]
     },
     {
       "parameters": {
@@ -323,7 +254,10 @@
       "name": "Check All Successful",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2440, 300]
+      "position": [
+        2440,
+        300
+      ]
     },
     {
       "parameters": {
@@ -356,7 +290,10 @@
       "name": "Update Status: Under Review",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [2660, 200],
+      "position": [
+        2660,
+        200
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "YOUR_SUPABASE_CREDENTIALS_ID",
@@ -395,7 +332,10 @@
       "name": "Update Status: Error",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [2660, 400],
+      "position": [
+        2660,
+        400
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "YOUR_SUPABASE_CREDENTIALS_ID",
@@ -422,7 +362,10 @@
       "name": "Trigger Validation Flow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2880, 200]
+      "position": [
+        2880,
+        200
+      ]
     },
     {
       "parameters": {
@@ -433,7 +376,10 @@
       "name": "Respond Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3100, 200]
+      "position": [
+        3100,
+        200
+      ]
     },
     {
       "parameters": {
@@ -447,51 +393,158 @@
       "name": "Respond Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [3100, 400]
+      "position": [
+        3100,
+        400
+      ]
     }
   ],
   "connections": {
     "Webhook - Start Processing": {
-      "main": [[{"node": "Update Status: AI Learning", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Update Status: AI Learning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Status: AI Learning": {
-      "main": [[{"node": "Prepare Loop Data", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare Loop Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Loop Data": {
-      "main": [[{"node": "Split Storage Paths", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Split Storage Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Split Storage Paths": {
-      "main": [[{"node": "Upload to Gemini File API (Edge Function)", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Upload to Gemini File API (Edge Function)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Upload to Gemini File API (Edge Function)": {
-      "main": [[{"node": "Check Upload Success", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check Upload Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Upload Success": {
       "main": [
-        [{"node": "Aggregate Results", "type": "main", "index": 0}],
-        [{"node": "Mark Upload Failed", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Upload Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Mark Upload Failed": {
-      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Aggregate Results": {
-      "main": [[{"node": "Check All Successful", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check All Successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check All Successful": {
       "main": [
-        [{"node": "Update Status: Under Review", "type": "main", "index": 0}],
-        [{"node": "Update Status: Error", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Update Status: Under Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Update Status: Under Review": {
-      "main": [[{"node": "Trigger Validation Flow", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Trigger Validation Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Status: Error": {
-      "main": [[{"node": "Respond Error", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Trigger Validation Flow": {
-      "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
