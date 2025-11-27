@@ -1,61 +1,79 @@
-# NytroAI n8n Workflows - Simplified Validation Architecture
+# NytroAI n8n Workflows
 
 ## Overview
 
-This directory contains **6 n8n workflows** that implement a simplified validation architecture eliminating Pinecone embeddings in favor of direct document processing with Gemini 2.0's 1M token context window.
+This directory contains **n8n workflows** that power the NytroAI validation system using **Gemini File API** for simple, reliable document processing and validation.
 
-## Architecture Benefits
-
-✅ **No Pinecone** - Eliminates data sovereignty issues and embedding costs  
-✅ **Faster Processing** - No embedding generation delay  
-✅ **Simpler Flow** - Clear, maintainable workflows  
-✅ **Better Performance** - Direct text aggregation from database  
-✅ **Multi-Document Support** - Proper context separation per validation  
-✅ **Lower Cost** - No Pinecone subscription (~$70-100/month savings)
+**Key Benefits**:
+✅ **No embeddings** - Direct validation with 1M token context  
+✅ **No Pinecone** - Eliminates data sovereignty issues  
+✅ **No Unstructured.io** - Gemini handles PDFs natively  
+✅ **Supabase Storage** - No AWS dependency  
+✅ **Simple architecture** - 2 core workflows + 4 results workflows  
 
 ---
 
 ## Workflows
 
-### 1. DocumentProcessingFlow.json
-**Purpose**: Process uploaded documents via Unstructured.io and store in `elements` table
+### Core Validation Workflows
 
-**Trigger**: Webhook POST `/webhook/document-processing`
+#### 1. DocumentProcessingFlow_Gemini.json ⭐ **Recommended**
+
+**Purpose**: Upload documents from Supabase Storage to Gemini File API
+
+**Trigger**: Webhook POST `/webhook/document-processing-gemini`
 
 **Input**:
 ```json
 {
   "validation_detail_id": 123,
-  "s3_paths": [
-    "s3://smartrtobucket/7148/TLIF0025/assessment_task.pdf",
-    "s3://smartrtobucket/7148/TLIF0025/marking_guide.pdf"
+  "storage_paths": [
+    "7148/TLIF0025/validation123/assessment_task.pdf",
+    "7148/TLIF0025/validation123/marking_guide.pdf"
   ]
 }
 ```
 
-**Flow**:
+**Process**:
 1. Update status → "AI Learning" (`extractStatus = 'Processing'`)
-2. Loop over S3 paths
-3. Call fastunstructapi for each file
-4. Verify elements stored in database
-5. Update status → "Under Review" (`extractStatus = 'Completed'`)
-6. Trigger validation flow
+2. Loop over storage paths
+3. Download file from Supabase Storage (`documents` bucket)
+4. Upload to Gemini File API (simple multipart upload)
+5. Get immediate file URI (no waiting!)
+6. Update `documents` table with URI and expiry
+7. Aggregate results
+8. Update status → "Under Review" (`extractStatus = 'Completed'`)
+9. Trigger AIValidationFlow webhook
 
 **Output**:
 ```json
 {
   "success": true,
   "validation_detail_id": 123,
-  "message": "Validation triggered successfully"
+  "processed_files": [
+    {
+      "storage_path": "7148/TLIF0025/validation123/assessment_task.pdf",
+      "gemini_file_uri": "files/abc123",
+      "gemini_file_name": "assessment_task.pdf",
+      "expiry": "2025-01-30T10:30:00Z",
+      "success": true
+    }
+  ]
 }
 ```
 
+**Status Updates**:
+- Start: `extractStatus = 'Processing'`
+- Success: `extractStatus = 'Completed'`, `docExtracted = true`
+- Error: `extractStatus = 'Error'`
+
 ---
 
-### 2. AIValidationFlow.json
-**Purpose**: Validate requirements against documents using Gemini 2.0 Flash
+#### 2. AIValidationFlow_Gemini.json ⭐ **Recommended**
 
-**Trigger**: Webhook POST `/webhook/validation-processing`
+**Purpose**: Validate requirements using Gemini with file references
+
+**Trigger**: Webhook POST `/webhook/validation-processing-gemini`
 
 **Input**:
 ```json
@@ -64,41 +82,19 @@ This directory contains **6 n8n workflows** that implement a simplified validati
 }
 ```
 
-**Flow**:
-1. Fetch validation context (unit_code, unitLink, rto_code)
-2. Fetch document paths from `documents` table
-3. **Aggregate document text from `elements` table with clear document separation**
-4. Fetch system prompt from `prompt` table (where `current = true`)
-5. Fetch all requirements by unitLink
-6. Group requirements by type
-7. Loop: Call Gemini 2.0 Flash for each requirement type
-8. Parse AI response (JSON)
-9. Store results in `validation_results` table
-10. Update status → "Finalised"
-
-**Key Feature**: Multi-document aggregation with document markers:
-```
-═══════════════════════════════════════════════════════════════
-DOCUMENT: Assessment_Task_BSBWHS211.pdf
-Type: Assessment Task
-Source File: assessment_task.pdf
-═══════════════════════════════════════════════════════════════
-
-[PAGE 1]
-{content}
-
-[PAGE 2]
-{content}
-
-═══════════════════════════════════════════════════════════════
-DOCUMENT: Marking_Guide_BSBWHS211.pdf
-Type: Marking Guide
-Source File: marking_guide.pdf
-═══════════════════════════════════════════════════════════════
-
-[PAGE 1]
-{content}
-```
+**Process**:
+1. Fetch validation context (unit_code, RTO, session timestamp)
+2. Fetch Gemini file URIs from `documents` table
+3. Fetch system prompt from `prompt` table (where `current = true`)
+4. **Call `get-requirements` edge function** (database query)
+5. Group requirements by type (KE, PE, FS, EPC, AC)
+6. For each type:
+   - Build prompt with session context
+   - Add file URIs as references
+   - Call Gemini 2.0 Flash Exp
+   - Parse JSON response
+   - Store results in `validation_results` table
+7. Update status → "Finalised"
 
 **Output**:
 ```json
@@ -110,9 +106,36 @@ Source File: marking_guide.pdf
 }
 ```
 
+**Status Updates**:
+- Start: `validationStatus = 'Under Review'`
+- Success: `status = 'completed'`, `validationStatus = 'Finalised'`
+- Error: `validationStatus = 'Error'`
+
+**Session Context** (included in every Gemini call):
+```
+**VALIDATION SESSION CONTEXT**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Session ID: 123
+Session Created: 2025-01-28 10:30:00
+Unit Code: BSBWHS211
+RTO Code: 7148
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**DOCUMENTS FOR THIS SESSION** (3 files):
+1. assessment_task.pdf (Uploaded: 2025-01-28 10:30:00)
+2. marking_guide.pdf (Uploaded: 2025-01-28 10:30:00)
+3. instructions.pdf (Uploaded: 2025-01-28 10:30:00)
+
+IMPORTANT: This is an ISOLATED validation session.
+Only consider documents uploaded for THIS session.
+```
+
 ---
 
-### 3. ReportGenerationFlow.json
+### Results Explorer Workflows
+
+#### 3. ReportGenerationFlow.json
+
 **Purpose**: Generate Markdown report from validation results
 
 **Trigger**: Webhook POST `/webhook/generate-report`
@@ -136,7 +159,7 @@ Source File: marking_guide.pdf
   "success": true,
   "validation_detail_id": 123,
   "report": "# Validation Report\n\n...",
-  "filename": "validation_report_TLIF0025_1738000000000.md"
+  "filename": "validation_report_BSBWHS211_1706400000000.md"
 }
 ```
 
@@ -148,17 +171,11 @@ Source File: marking_guide.pdf
 - Elements & Performance Criteria
 - Assessment Conditions
 
-Each requirement includes:
-- Status emoji (✅ met, ⚠️ partial, ❌ not met)
-- Requirement text
-- Reasoning
-- Evidence found (with citations)
-- Smart questions (if gaps exist)
-
 ---
 
-### 4. SingleRequirementRevalidationFlow.json
-**Purpose**: Revalidate a single requirement with updated AI analysis
+#### 4. SingleRequirementRevalidationFlow.json
+
+**Purpose**: Revalidate a single requirement
 
 **Trigger**: Webhook POST `/webhook/revalidate-requirement`
 
@@ -169,17 +186,7 @@ Each requirement includes:
 }
 ```
 
-**Flow**:
-1. Fetch validation result by ID
-2. Fetch validation context
-3. Fetch all documents for this validation
-4. Aggregate document text (multi-document)
-5. Build focused prompt for single requirement
-6. Call Gemini 2.0 Flash
-7. Parse response
-8. Update `validation_results` table
-
-**Use Case**: User clicks "Revalidate" button in Results Explorer after modifying documents or disagreeing with initial assessment
+**Use Case**: User clicks "Revalidate" in Results Explorer
 
 **Output**:
 ```json
@@ -193,8 +200,9 @@ Each requirement includes:
 
 ---
 
-### 5. SmartQuestionRegenerationFlow.json
-**Purpose**: Regenerate smart questions for a specific requirement
+#### 5. SmartQuestionRegenerationFlow.json
+
+**Purpose**: Regenerate smart questions for a requirement
 
 **Trigger**: Webhook POST `/webhook/regenerate-questions`
 
@@ -206,16 +214,7 @@ Each requirement includes:
 }
 ```
 
-**Flow**:
-1. Fetch validation result
-2. Fetch validation context
-3. Extract gaps from metadata
-4. Build question generation prompt
-5. Call Gemini 2.0 Flash (temperature: 0.7 for creativity)
-6. Parse generated questions
-7. Update `smart_questions` field
-
-**Use Case**: User clicks "Regenerate Questions" in Results Explorer to get alternative suggestions
+**Use Case**: User clicks "Regenerate Questions" in Results Explorer
 
 **Output**:
 ```json
@@ -229,14 +228,14 @@ Each requirement includes:
       "assessmentType": "written",
       "bloomsLevel": "application"
     }
-  ],
-  "message": "Smart questions regenerated successfully"
+  ]
 }
 ```
 
 ---
 
-### 6. AIChatFlow.json
+#### 6. AIChatFlow.json
+
 **Purpose**: Interactive AI chat about validation results
 
 **Trigger**: Webhook POST `/webhook/ai-chat`
@@ -246,105 +245,81 @@ Each requirement includes:
 {
   "validation_detail_id": 123,
   "message": "Why was requirement KE-1 marked as partial?",
-  "conversation_history": [
-    {
-      "role": "user",
-      "content": "Previous message"
-    },
-    {
-      "role": "assistant",
-      "content": "Previous response"
-    }
-  ]
+  "conversation_history": [...]
 }
 ```
 
-**Flow**:
-1. Fetch validation context
-2. Fetch all validation results
-3. Fetch all documents
-4. Aggregate document text (multi-document)
-5. Build chat context with:
-   - Validation summary
-   - All results grouped by type
-   - Full document text (truncated if > 50K tokens)
-6. Call Gemini 2.0 Flash with conversation history
-7. Return AI response
-
-**Use Case**: Results Explorer chat interface for users to ask questions about validation
+**Use Case**: Results Explorer chat interface
 
 **Output**:
 ```json
 {
   "success": true,
-  "validation_detail_id": 123,
-  "message": "Requirement KE-1 was marked as partial because...",
+  "response": "Requirement KE-1 was marked as partial because...",
   "role": "assistant"
 }
 ```
 
 ---
 
-## Multi-Document Context Handling
+## Storage Options
 
-### Database Query Pattern
+### Option 1: Supabase Storage ⭐ **Recommended**
 
-All flows use this pattern to maintain document context isolation:
+**Why Recommended**:
+- ✅ No AWS account needed
+- ✅ Same credentials as database
+- ✅ Simpler configuration
+- ✅ Built-in CDN
+- ✅ Lower cost for small-medium usage
 
-```sql
-SELECT 
-  e.text,
-  e.filename,
-  e.page_number,
-  e.type as element_type,
-  d.file_name as document_name,
-  d.document_type,
-  d.storage_path,
-  d.id as document_id
-FROM documents d
-JOIN elements e ON e.url = d.storage_path
-WHERE d.validation_detail_id = :validation_detail_id
-ORDER BY d.created_at, d.file_name, e.page_number;
+**Bucket Configuration**:
+```
+Bucket Name: documents
+Public: No (private)
+Max File Size: 50 MB (Free), 5 GB (Pro)
+Allowed MIME Types: application/pdf, text/plain, image/*
 ```
 
-**Key Points**:
-- ✅ Each validation has its own documents via `validation_detail_id`
-- ✅ Documents linked to elements via `storage_path = url`
-- ✅ Clear ordering: creation time → file name → page number
-- ✅ No cross-contamination between validations
-
-### Document Aggregation Strategy
-
-```javascript
-const documentSeparator = '═'.repeat(63);
-let aggregatedText = '';
-let currentDocumentId = null;
-
-for (const element of elements) {
-  // New document section
-  if (element.document_id !== currentDocumentId) {
-    aggregatedText += documentSeparator + '\n';
-    aggregatedText += `DOCUMENT: ${element.document_name}\n`;
-    aggregatedText += `Type: ${element.document_type}\n`;
-    aggregatedText += documentSeparator + '\n\n';
-    currentDocumentId = element.document_id;
-  }
-  
-  // Page marker
-  if (element.page_number) {
-    aggregatedText += `[PAGE ${element.page_number}]\n`;
-  }
-  
-  // Content
-  aggregatedText += element.text + '\n\n';
-}
+**Path Structure**:
+```
+documents/
+  ├── {rto_code}/
+  │   ├── {unit_code}/
+  │   │   ├── {validation_id}/
+  │   │   │   ├── assessment_task.pdf
+  │   │   │   ├── marking_guide.pdf
+  │   │   │   └── instructions.pdf
 ```
 
-**Benefits**:
-- Clear visual separation between documents
-- AI can reference specific documents in citations
-- Page numbers are document-relative
-- Maintains context across multiple files
+**Pricing** (100 validations/month, 5MB avg, 3 files):
+- Storage: 1.5 GB × $0.021/GB = $0.03/mo
+- Bandwidth: 1.5 GB × $0.09/GB = $0.14/mo
+- **Total: $0.17/mo** (included in Supabase Pro $25/mo)
+
+---
+
+### Option 2: AWS S3 (Alternative)
+
+**When to Use**:
+- Already using AWS infrastructure
+- Need > 200 GB storage
+- Enterprise compliance requirements
+
+**Bucket Configuration**:
+```
+Bucket Name: smartrtobucket
+Region: ap-southeast-2 (Sydney)
+Encryption: AES-256
+```
+
+**Pricing** (100 validations/month):
+- Storage: $0.03/mo
+- Requests: $0.002/mo
+- Bandwidth: $0.14/mo
+- **Total: $0.17/mo**
+
+**Note**: Requires AWS account and additional configuration
 
 ---
 
@@ -352,326 +327,534 @@ for (const element of elements) {
 
 ### Prerequisites
 
-1. **n8n Instance** - Self-hosted or cloud
-2. **Supabase Project** - With NytroAI database schema
-3. **Google Gemini API Key** - For AI validation
-4. **fastunstructapi** - Running at `https://fastunstructpostgres.onrender.com`
+1. **n8n Instance** (self-hosted or cloud)
+2. **Supabase Project** with NytroAI database schema
+3. **Google Gemini API Key**
+4. **Supabase Storage** bucket named `documents`
 
-### Installation Steps
+### Step 1: Install n8n
 
-1. **Import Workflows**
-   ```bash
-   # In n8n UI: Settings → Import from File
-   # Import each JSON file from this directory
-   ```
+**Option A: Self-Hosted** ⭐ **Recommended**
 
-2. **Configure Credentials**
-   
-   Each workflow needs:
-   - **Supabase API**: Your Supabase URL and anon key
-   - **Google Gemini API**: Your Gemini API key
-   
-   Update credential IDs in each workflow:
-   ```json
-   "credentials": {
-     "supabaseApi": {
-       "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-       "name": "Supabase account"
-     },
-     "googlePalmApi": {
-       "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
-       "name": "Google Gemini API"
-     }
-   }
-   ```
+```bash
+# Install n8n globally
+npm install -g n8n
 
-3. **Activate Workflows**
-   - Enable all 6 workflows in n8n
-   - Note webhook URLs for frontend integration
+# Start n8n
+n8n start
 
-4. **Update Frontend**
-   
-   Replace existing API calls with new webhook URLs:
-   
-   ```typescript
-   // After S3 upload
-   const response = await fetch('https://your-n8n.com/webhook/document-processing', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify({
-       validation_detail_id: detailId,
-       s3_paths: uploadedPaths
-     })
-   });
-   
-   // Generate report
-   const report = await fetch('https://your-n8n.com/webhook/generate-report', {
-     method: 'POST',
-     body: JSON.stringify({ validation_detail_id: detailId })
-   });
-   
-   // Revalidate requirement
-   const revalidate = await fetch('https://your-n8n.com/webhook/revalidate-requirement', {
-     method: 'POST',
-     body: JSON.stringify({ validation_result_id: resultId })
-   });
-   
-   // Regenerate questions
-   const questions = await fetch('https://your-n8n.com/webhook/regenerate-questions', {
-     method: 'POST',
-     body: JSON.stringify({ 
-       validation_result_id: resultId,
-       user_guidance: 'Focus on practical scenarios'
-     })
-   });
-   
-   // AI Chat
-   const chat = await fetch('https://your-n8n.com/webhook/ai-chat', {
-     method: 'POST',
-     body: JSON.stringify({
-       validation_detail_id: detailId,
-       message: userMessage,
-       conversation_history: chatHistory
-     })
-   });
-   ```
+# Access at http://localhost:5678
+```
+
+**Option B: n8n Cloud**
+
+Sign up at https://n8n.io (Starter: $20/mo)
 
 ---
 
-## Testing
+### Step 2: Configure Credentials
 
-### Test Workflow 1: Document Processing
+#### 2.1 Supabase API Credential
+
+1. n8n → Credentials → Add Credential
+2. Type: **Supabase**
+3. Name: `Supabase account`
+4. Configuration:
+   - **Host**: `https://your-project.supabase.co`
+   - **Service Role Key**: `your_service_role_key`
+
+**Where to Find**:
+- Supabase Dashboard → Settings → API
+- Copy "service_role" key (keep secret!)
+
+---
+
+#### 2.2 Google Gemini API Credential
+
+1. n8n → Credentials → Add Credential
+2. Type: **Google PaLM API** (yes, use this for Gemini!)
+3. Name: `Google Gemini API`
+4. Configuration:
+   - **API Key**: `your_gemini_api_key`
+
+**Where to Get**:
+- Go to https://aistudio.google.com/app/apikey
+- Click "Create API Key"
+- Copy key
+
+---
+
+#### 2.3 Supabase Authorization Header (for edge function)
+
+1. n8n → Credentials → Add Credential
+2. Type: **Header Auth**
+3. Name: `Supabase Authorization Header`
+4. Configuration:
+   - **Name**: `Authorization`
+   - **Value**: `Bearer your_supabase_anon_key`
+
+**Where to Find**:
+- Supabase Dashboard → Settings → API
+- Copy "anon" key (public key)
+
+---
+
+### Step 3: Set Environment Variables
+
+**For Self-Hosted n8n**:
+
+Create `.env` file:
+```bash
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Gemini
+GEMINI_API_KEY=your_gemini_api_key
+
+# n8n
+N8N_HOST=your-domain.com
+N8N_PORT=5678
+N8N_PROTOCOL=https
+WEBHOOK_URL=https://your-domain.com
+```
+
+**For n8n Cloud**:
+
+Environment variables are set automatically via credentials.
+
+---
+
+### Step 4: Create Supabase Storage Bucket
+
+**Via Supabase Dashboard**:
+
+1. Supabase Dashboard → Storage
+2. Click "New bucket"
+3. Name: `documents`
+4. Public: **No** (keep private)
+5. File size limit: 50 MB (or 5 GB on Pro)
+6. Allowed MIME types: `application/pdf,text/plain,image/*`
+7. Click "Create bucket"
+
+**Via SQL** (alternative):
+
+```sql
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('documents', 'documents', false);
+```
+
+---
+
+### Step 5: Import Workflows
+
+#### Import Core Workflows
+
+1. n8n → Workflows → Import from File
+2. Select `DocumentProcessingFlow_Gemini.json`
+3. Click "Import"
+4. Repeat for `AIValidationFlow_Gemini.json`
+
+#### Import Results Explorer Workflows
+
+1. Import `ReportGenerationFlow.json`
+2. Import `SingleRequirementRevalidationFlow.json`
+3. Import `SmartQuestionRegenerationFlow.json`
+4. Import `AIChatFlow.json`
+
+---
+
+### Step 6: Update Credential IDs
+
+Each workflow has placeholder credential IDs that need to be updated.
+
+**In DocumentProcessingFlow_Gemini.json**:
+
+1. Open workflow
+2. Click on "Download from Supabase Storage" node
+3. Select credential: `Supabase account`
+4. Click on "Upload to Gemini" node
+5. Select credential: `Google Gemini API`
+6. Save workflow
+
+**Repeat for all workflows**.
+
+**Credentials to update**:
+- `YOUR_SUPABASE_CREDENTIALS_ID` → `Supabase account`
+- `YOUR_GOOGLE_GEMINI_CREDENTIALS_ID` → `Google Gemini API`
+- `YOUR_SUPABASE_AUTH_CREDENTIALS_ID` → `Supabase Authorization Header`
+
+---
+
+### Step 7: Deploy Edge Function
+
+The `get-requirements` edge function fetches requirements from database.
 
 ```bash
-curl -X POST https://your-n8n.com/webhook/document-processing \
+# Navigate to project
+cd /path/to/NytroAI
+
+# Deploy edge function
+supabase functions deploy get-requirements
+
+# Set secrets
+supabase secrets set SUPABASE_URL=https://your-project.supabase.co
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Test edge function
+curl -X POST 'https://your-project.supabase.co/functions/v1/get-requirements' \
+  -H "Authorization: Bearer your_anon_key" \
+  -H "Content-Type: application/json" \
+  -d '{"unitLink": "https://training.gov.au/Training/Details/BSBWHS211"}'
+```
+
+**Expected Response**:
+```json
+{
+  "success": true,
+  "requirements": {
+    "knowledge_evidence": [...],
+    "performance_evidence": [...],
+    "foundation_skills": [...],
+    "elements_performance_criteria": [...],
+    "assessment_conditions": [...]
+  }
+}
+```
+
+---
+
+### Step 8: Activate Workflows
+
+1. Open each workflow
+2. Click "Active" toggle in top right
+3. Verify webhook URL appears
+
+**Webhook URLs**:
+```
+Document Processing: https://your-n8n.com/webhook/document-processing-gemini
+AI Validation: https://your-n8n.com/webhook/validation-processing-gemini
+Report Generation: https://your-n8n.com/webhook/generate-report
+Revalidate Requirement: https://your-n8n.com/webhook/revalidate-requirement
+Regenerate Questions: https://your-n8n.com/webhook/regenerate-questions
+AI Chat: https://your-n8n.com/webhook/ai-chat
+```
+
+---
+
+### Step 9: Test Workflows
+
+#### Test Document Processing
+
+```bash
+curl -X POST 'https://your-n8n.com/webhook/document-processing-gemini' \
   -H "Content-Type: application/json" \
   -d '{
     "validation_detail_id": 123,
-    "s3_paths": [
-      "s3://smartrtobucket/7148/TLIF0025/test.pdf"
+    "storage_paths": [
+      "7148/TLIF0025/test123/test.pdf"
     ]
   }'
 ```
 
-**Expected**: 
-- Status updated to "Processing"
-- Unstructured.io called
-- Elements stored in database
-- Status updated to "Completed"
-- Validation flow triggered
-
-### Test Workflow 2: AI Validation
-
-```bash
-curl -X POST https://your-n8n.com/webhook/validation-processing \
-  -H "Content-Type: application/json" \
-  -d '{
-    "validation_detail_id": 123
-  }'
+**Expected Response**:
+```json
+{
+  "success": true,
+  "validation_detail_id": 123,
+  "processed_files": [...]
+}
 ```
 
-**Expected**:
-- Documents aggregated with separators
-- Requirements fetched
-- AI validation completed
-- Results stored in `validation_results`
-- Status updated to "Finalised"
-
-### Test Workflow 3: Report Generation
-
-```bash
-curl -X POST https://your-n8n.com/webhook/generate-report \
-  -H "Content-Type: application/json" \
-  -d '{
-    "validation_detail_id": 123
-  }'
-```
-
-**Expected**: Markdown report with all validation results
-
-### Test Workflow 4: Single Requirement Revalidation
-
-```bash
-curl -X POST https://your-n8n.com/webhook/revalidate-requirement \
-  -H "Content-Type: application/json" \
-  -d '{
-    "validation_result_id": 456
-  }'
-```
-
-**Expected**: Updated validation result with new status and reasoning
-
-### Test Workflow 5: Smart Question Regeneration
-
-```bash
-curl -X POST https://your-n8n.com/webhook/regenerate-questions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "validation_result_id": 456,
-    "user_guidance": "Focus on workplace scenarios"
-  }'
-```
-
-**Expected**: New set of smart questions
-
-### Test Workflow 6: AI Chat
-
-```bash
-curl -X POST https://your-n8n.com/webhook/ai-chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "validation_detail_id": 123,
-    "message": "Why was requirement KE-1 marked as partial?"
-  }'
-```
-
-**Expected**: Contextual AI response about the validation
+**Check**:
+1. n8n → Executions → View latest execution
+2. Supabase → Table Editor → `documents` → Verify `gemini_file_uri` populated
+3. Supabase → Table Editor → `validation_detail` → Verify `extractStatus = 'Completed'`
 
 ---
 
-## Error Handling
+#### Test Validation
 
-All workflows include:
+```bash
+curl -X POST 'https://your-n8n.com/webhook/validation-processing-gemini' \
+  -H "Content-Type: application/json" \
+  -d '{
+    "validation_detail_id": 123
+  }'
+```
 
-1. **Retry Logic**: Gemini API calls retry 3 times with exponential backoff
-2. **Status Updates**: Database status updated on success/failure
-3. **Error Responses**: Clear error messages returned to frontend
-4. **Logging**: Console logs for debugging
+**Expected Response**:
+```json
+{
+  "success": true,
+  "validation_detail_id": 123,
+  "total_results": 45
+}
+```
+
+**Check**:
+1. n8n → Executions → View latest execution
+2. Supabase → Table Editor → `validation_results` → Verify results inserted
+3. Supabase → Table Editor → `validation_detail` → Verify `validationStatus = 'Finalised'`
+
+---
+
+## Frontend Integration
+
+### Update Frontend Configuration
+
+**Environment Variables** (`.env.local`):
+```bash
+# n8n Webhook URLs
+NEXT_PUBLIC_N8N_DOCUMENT_PROCESSING_URL=https://your-n8n.com/webhook/document-processing-gemini
+NEXT_PUBLIC_N8N_VALIDATION_URL=https://your-n8n.com/webhook/validation-processing-gemini
+NEXT_PUBLIC_N8N_REPORT_URL=https://your-n8n.com/webhook/generate-report
+NEXT_PUBLIC_N8N_REVALIDATE_URL=https://your-n8n.com/webhook/revalidate-requirement
+NEXT_PUBLIC_N8N_REGENERATE_QUESTIONS_URL=https://your-n8n.com/webhook/regenerate-questions
+NEXT_PUBLIC_N8N_AI_CHAT_URL=https://your-n8n.com/webhook/ai-chat
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+```
+
+---
+
+### Upload Flow (Frontend → Supabase Storage → n8n)
+
+```typescript
+// 1. Upload files to Supabase Storage
+const uploadedPaths: string[] = [];
+
+for (const file of files) {
+  const filePath = `${rtoCode}/${unitCode}/${validationId}/${file.name}`;
+  
+  const { data, error } = await supabase.storage
+    .from('documents')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+  
+  if (error) throw error;
+  uploadedPaths.push(data.path);
+}
+
+// 2. Create document records in database
+for (const path of uploadedPaths) {
+  await supabase
+    .from('documents')
+    .insert({
+      validation_detail_id: validationId,
+      file_name: path.split('/').pop(),
+      document_type: 'assessment',
+      storage_path: path
+    });
+}
+
+// 3. Trigger document processing workflow
+const response = await fetch(process.env.NEXT_PUBLIC_N8N_DOCUMENT_PROCESSING_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    validation_detail_id: validationId,
+    storage_paths: uploadedPaths
+  })
+});
+
+const result = await response.json();
+console.log('Processing started:', result);
+```
+
+---
+
+### Poll Status
+
+```typescript
+// Poll validation status every 5 seconds
+const pollStatus = async () => {
+  const { data } = await supabase
+    .from('validation_detail')
+    .select('extractStatus, validationStatus, status')
+    .eq('id', validationId)
+    .single();
+  
+  // extractStatus: 'Not Started' → 'Processing' → 'Completed'
+  // validationStatus: 'Not Started' → 'Under Review' → 'Finalised'
+  // status: 'pending' → 'completed'
+  
+  return data;
+};
+
+// Use in React component
+useEffect(() => {
+  const interval = setInterval(async () => {
+    const status = await pollStatus();
+    
+    if (status.validationStatus === 'Finalised') {
+      clearInterval(interval);
+      // Show results
+    }
+  }, 5000);
+  
+  return () => clearInterval(interval);
+}, [validationId]);
+```
+
+---
+
+### Generate Report
+
+```typescript
+const generateReport = async (validationDetailId: number) => {
+  const response = await fetch(process.env.NEXT_PUBLIC_N8N_REPORT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ validation_detail_id: validationDetailId })
+  });
+  
+  const { report, filename } = await response.json();
+  
+  // Download report
+  const blob = new Blob([report], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+};
+```
+
+---
+
+## Troubleshooting
 
 ### Common Issues
 
-**Issue**: "No requirements found"  
-**Solution**: Ensure `validation_summary.reqExtracted = true` and requirements exist in requirement tables
+#### Issue: "Failed to download from Supabase Storage"
 
-**Issue**: "Elements not found"  
-**Solution**: Verify Unstructured.io processed files and stored in `elements` table with correct `url` field
+**Cause**: Incorrect storage path or permissions
 
-**Issue**: "Gemini API timeout"  
-**Solution**: Check document size (should be < 500K tokens), increase timeout, or split into chunks
+**Fix**:
+1. Check storage path format: `{rto_code}/{unit_code}/{validation_id}/{filename}`
+2. Verify bucket name is `documents`
+3. Check RLS policies allow service role access:
 
-**Issue**: "Document context mixing"  
-**Solution**: Verify `validation_detail_id` filtering in SQL queries
-
----
-
-## Performance Considerations
-
-### Token Limits
-
-- **Gemini 2.0 Flash**: 1,048,576 tokens (1M)
-- **Average document**: 50 pages = ~25K tokens
-- **Safe limit**: 20 documents × 50 pages = 500K tokens
-- **Buffer**: 500K tokens for requirements, prompts, responses
-
-### Optimization Tips
-
-1. **Batch Requirements**: Group by type to reduce API calls
-2. **Cache Results**: Store validation results for reuse
-3. **Parallel Processing**: Validate requirement types in parallel (future enhancement)
-4. **Selective Aggregation**: For very large documents, aggregate only relevant sections
-
----
-
-## Migration from Old System
-
-### Removed Components
-
-- ❌ `useIndexingProcessor` hook
-- ❌ `gemini_operations` table polling
-- ❌ Gemini File Search API calls
-- ❌ Pinecone vector storage
-- ❌ OpenAI embedding generation
-- ❌ Complex database triggers
-
-### Simplified Flow
-
-**Old**:
-```
-Upload → S3 → Edge Function → Gemini File Search → gemini_operations → 
-Polling → Database Trigger → HTTP Call → validate-assessment
-```
-
-**New**:
-```
-Upload → S3 → n8n DocumentProcessing → elements table → 
-n8n AIValidation → validation_results
-```
-
-**Reduction**: 8 steps → 4 steps (50% simpler)
-
----
-
-## Future Enhancements
-
-### Phase 2: Move to Supabase Edge Functions
-
-If n8n proves unreliable, migrate workflows to Supabase Edge Functions:
-
-```typescript
-// supabase/functions/document-processing/index.ts
-serve(async (req) => {
-  const { validation_detail_id, s3_paths } = await req.json();
-  
-  // Same logic as n8n workflow
-  for (const s3Path of s3_paths) {
-    await processWithUnstructured(s3Path);
-  }
-  
-  // Trigger validation
-  await triggerValidation(validation_detail_id);
-});
-```
-
-**Benefits**:
-- Better Supabase integration
-- Easier deployment
-- Version control with Git
-- TypeScript type safety
-
-### Phase 3: Parallel Processing
-
-Validate requirement types in parallel:
-
-```typescript
-const validationPromises = requirementTypes.map(type => 
-  validateRequirementType(type, documents, requirements)
-);
-
-const results = await Promise.all(validationPromises);
-```
-
-**Benefit**: 5x faster validation (5 types in parallel)
-
-### Phase 4: Intelligent Chunking
-
-For 1000+ page documents, chunk by section:
-
-```typescript
-const chunks = intelligentChunk(documents, maxTokens: 400000);
-
-for (const chunk of chunks) {
-  await validateChunk(chunk, requirements);
-}
-
-const mergedResults = mergeChunkResults(results);
+```sql
+-- Allow service role to read all files
+CREATE POLICY "Service role can read all files"
+ON storage.objects FOR SELECT
+TO service_role
+USING (bucket_id = 'documents');
 ```
 
 ---
 
-## Support
+#### Issue: "Gemini API failed: 400 Bad Request"
 
-For issues or questions:
-1. Check n8n execution logs
-2. Review Supabase database status
-3. Verify Gemini API quota
-4. Check fastunstructapi health
+**Cause**: Invalid file format or size
 
-## License
-
-MIT License - See main NytroAI repository
+**Fix**:
+1. Check file is PDF (< 50 MB)
+2. Verify file is not corrupted
+3. Check Gemini API key is valid
+4. View n8n execution logs for detailed error
 
 ---
 
-**Last Updated**: January 28, 2025  
-**Version**: 1.0.0  
-**Author**: NytroAI Team
+#### Issue: "No documents with Gemini URIs found"
+
+**Cause**: Document processing not completed
+
+**Fix**:
+1. Check `documents` table has `gemini_file_uri` values
+2. Verify `extractStatus = 'Completed'`
+3. Check DocumentProcessingFlow execution logs
+4. Ensure files uploaded successfully to Gemini
+
+---
+
+#### Issue: "Failed to fetch requirements from edge function"
+
+**Cause**: Edge function not deployed or wrong URL
+
+**Fix**:
+1. Deploy edge function: `supabase functions deploy get-requirements`
+2. Check edge function URL in AIValidationFlow
+3. View edge function logs: `supabase functions logs get-requirements`
+4. Verify authorization header is correct
+
+---
+
+### Debugging Tips
+
+**View n8n Execution**:
+1. n8n → Executions
+2. Find failed execution
+3. Click to view details
+4. Check each node's input/output
+5. Look for error messages
+
+**View Edge Function Logs**:
+```bash
+supabase functions logs get-requirements --tail
+```
+
+**View Database Logs**:
+- Supabase Dashboard → Logs → Query Logs
+
+**Test Gemini API Directly**:
+```bash
+curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{
+      "parts": [{"text": "Hello"}]
+    }]
+  }'
+```
+
+---
+
+## Performance & Costs
+
+### Processing Times
+
+**Per Validation** (typical assessment):
+- Upload to Supabase Storage: 5-10 seconds (3 files)
+- Upload to Gemini File API: 30-60 seconds (3 files)
+- Validation: 60-120 seconds (5 requirement types)
+- **Total**: 95-190 seconds (1.5-3 minutes)
+
+### Costs
+
+**Per Validation**:
+- Supabase Storage: $0.0017
+- Gemini API: $0.0087
+- **Total**: $0.01
+
+**Monthly** (100 validations):
+- Supabase Pro: $25.00
+- Netlify (Free): $0.00
+- n8n (self-hosted): $10.00
+- Gemini API: $0.87
+- **Total**: $35.87
+
+**See [TECHNICAL_SPECIFICATIONS.md](../docs/TECHNICAL_SPECIFICATIONS.md) for detailed cost breakdowns at all scales.**
+
+---
+
+## Summary
+
+The n8n workflows provide a **simple, reliable, and cost-effective** validation system:
+
+✅ **2 core workflows** - Document processing + validation  
+✅ **4 results workflows** - Reports, revalidation, questions, chat  
+✅ **1 edge function** - Fast database queries  
+✅ **Supabase Storage** - No AWS dependency  
+✅ **Gemini File API** - Native PDF vision, no embeddings  
+✅ **Perfect session isolation** - No cross-contamination  
+✅ **83% cheaper** - $36/mo vs $150-210/mo (old architecture)  
+
+**Result**: Production-ready validation in minutes, not weeks! 🚀
