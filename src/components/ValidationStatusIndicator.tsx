@@ -113,6 +113,9 @@ export function ValidationStatusIndicator({
   const currentStage = stages.find(s => s.key === actualStatus);
   const currentStageIndex = stages.findIndex(s => s.key === actualStatus);
 
+  // Calculate progress based on current stage (20% per stage)
+  const stageProgress = currentStageIndex >= 0 ? (currentStageIndex + 1) * 20 : 0;
+
   return (
     <>
       <div 
