@@ -356,7 +356,7 @@ export function ResultsExplorer_v2({
     const progressInfo = currentRecord ? {
       completed: currentRecord.completed_count || 0,
       total: currentRecord.req_total || 0,
-      status: currentRecord.extract_status || 'Unknown',
+      status: currentRecord.validation_status || 'Unknown',
     } : undefined;
 
     console.log('[ResultsExplorer] Progress info:', {
@@ -368,15 +368,14 @@ export function ResultsExplorer_v2({
       isLoadingEvidence
     });
 
-    // Check if validation is still processing based on extract_status
-    const isCurrentlyProcessing = progressInfo?.status && 
-      ['DocumentProcessing', 'ProcessingInBackground', 'pending', 'Uploading'].includes(progressInfo.status);
+    // Only check validation_status - don't check extract_status
+    const isNotFinalised = currentRecord && currentRecord.validation_status !== 'Finalised';
 
-    // Processing state takes priority over loading - show status even while loading
-    if (isProcessing || isCurrentlyProcessing) {
+    // Show processing message if validation is not finalised
+    if (isNotFinalised && !isLoadingEvidence) {
       return (
-        <ValidationStatusMessage 
-          type="processing" 
+        <ValidationStatusMessage
+          type="processing"
           error={evidenceError || undefined}
           onRefresh={handleRefreshStatus}
           validationProgress={progressInfo}
