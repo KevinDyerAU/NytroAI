@@ -46,10 +46,10 @@ export async function checkValidationStatus(validationDetailId: number): Promise
   try {
     console.log('[checkValidationStatus] Checking validation status for ID:', validationDetailId);
     
-    // Mixed naming: extractStatus (camelCase) + validation_count, validation_status (snake_case)
+    // Query validation_detail with camelCase column names
     const { data, error } = await supabase
       .from('validation_detail')
-      .select('extractStatus, validation_status, validation_count')
+      .select('extractStatus, validation_status, completed_count, req_total')
       .eq('id', validationDetailId)
       .single();
 
