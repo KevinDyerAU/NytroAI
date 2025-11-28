@@ -16,6 +16,8 @@ interface ValidationStatusIndicatorProps {
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   compact?: boolean;
+  extractStatus?: string; // Database column: Controls Stage 2 (Document Processing)
+  validationStatus?: string; // Database column: Controls Stage 3 (Validations)
 }
 
 export function ValidationStatusIndicator({ 
