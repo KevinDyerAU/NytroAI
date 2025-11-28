@@ -204,17 +204,27 @@ export function ResultsExplorer_v2({
     let cancelled = false;
 
     const loadValidationEvidence = async () => {
+      console.log('[ResultsExplorer useEffect] Starting effect', {
+        hasSelectedValidation: !!selectedValidation,
+        selectedValidationId: selectedValidation?.id,
+        lastLoadedValidationId,
+        isLoadingValidations,
+        validationRecordsCount: validationRecords.length
+      });
+
       if (!selectedValidation) {
+        console.log('[ResultsExplorer useEffect] No validation selected, clearing state');
         setValidationEvidenceData([]);
         setEvidenceError(null);
         setIsProcessing(false);
         setLastLoadedValidationId(null);
+        setIsLoadingEvidence(false);
         return;
       }
 
       // Only reload if validation ID actually changed
       if (selectedValidation.id === lastLoadedValidationId) {
-        console.log('[ResultsExplorer] Same validation, skipping reload');
+        console.log('[ResultsExplorer useEffect] Same validation, skipping reload');
         return;
       }
 
@@ -223,51 +233,70 @@ export function ResultsExplorer_v2({
       if (!currentRecord) {
         // If records aren't loaded yet, wait for them
         if (isLoadingValidations) {
-          console.log('[ResultsExplorer] Waiting for validation records to load...');
+          console.log('[ResultsExplorer useEffect] Waiting for validation records to load...');
           return;
         }
-        
+
+        console.log('[ResultsExplorer useEffect] Validation record not found');
         setEvidenceError({
           code: 'NOT_FOUND',
           message: 'Validation record not found',
           retryable: false,
         });
+        setIsLoadingEvidence(false);
         return;
       }
 
       const valDetailId = currentRecord.id;
 
+      console.log('[ResultsExplorer useEffect] Starting data fetch, setting loading=true');
       setIsLoadingEvidence(true);
       setEvidenceError(null);
       setLastLoadedValidationId(selectedValidation.id);
 
       try {
-        console.log('[ResultsExplorer] Fetching validation results for ID:', valDetailId);
-        
+        console.log('[ResultsExplorer useEffect] Fetching validation results for ID:', valDetailId);
+
         const response = await getValidationResults(selectedValidation.id, valDetailId);
-        
-        if (cancelled) return;
+
+        console.log('[ResultsExplorer useEffect] Fetch complete:', {
+          cancelled,
+          hasError: !!response.error,
+          dataLength: response.data.length,
+          isEmpty: response.isEmpty,
+          isProcessing: response.isProcessing
+        });
+
+        if (cancelled) {
+          console.log('[ResultsExplorer useEffect] Effect cancelled, ignoring response');
+          return;
+        }
 
         if (response.error) {
+          console.log('[ResultsExplorer useEffect] Setting error state:', response.error);
           setEvidenceError(response.error);
           setIsProcessing(response.isProcessing);
           setValidationEvidenceData([]);
-          
+
           // Show toast for errors (but not for processing state)
           if (!response.isProcessing) {
             toast.error(response.error.message);
           }
         } else {
+          console.log('[ResultsExplorer useEffect] Setting success state with', response.data.length, 'records');
           setValidationEvidenceData(response.data);
           setEvidenceError(null);
           setIsProcessing(false);
         }
       } catch (error) {
-        if (cancelled) return;
-        
+        if (cancelled) {
+          console.log('[ResultsExplorer useEffect] Effect cancelled during error handling');
+          return;
+        }
+
         const errorMsg = error instanceof Error ? error.message : 'Failed to load validation results';
-        console.error('[ResultsExplorer] Unexpected error:', error);
-        
+        console.error('[ResultsExplorer useEffect] Unexpected error:', error);
+
         setEvidenceError({
           code: 'UNKNOWN',
           message: errorMsg,
@@ -277,7 +306,10 @@ export function ResultsExplorer_v2({
         toast.error(errorMsg);
       } finally {
         if (!cancelled) {
+          console.log('[ResultsExplorer useEffect] Setting loading=false in finally block');
           setIsLoadingEvidence(false);
+        } else {
+          console.log('[ResultsExplorer useEffect] Effect cancelled, NOT setting loading=false');
         }
       }
     };
@@ -285,6 +317,7 @@ export function ResultsExplorer_v2({
     loadValidationEvidence();
 
     return () => {
+      console.log('[ResultsExplorer useEffect] Cleanup - cancelling effect');
       cancelled = true;
     };
   }, [selectedValidation, validationRecords, isLoadingValidations, lastLoadedValidationId]);
@@ -359,26 +392,30 @@ export function ResultsExplorer_v2({
       status: currentRecord.validation_status || 'Unknown',
     } : undefined;
 
-    console.log('[ResultsExplorer] Render state:', {
+    console.log('[ResultsExplorer RENDER] Render state:', {
       selectedValidationId: selectedValidation?.id,
-      currentRecord,
+      currentRecordId: currentRecord?.id,
       progressInfo,
       totalRecords: validationRecords.length,
       isLoadingEvidence,
       validationEvidenceDataLength: validationEvidenceData.length,
       hasError: !!evidenceError,
       validationStatus: currentRecord?.validation_status,
-      errorCode: evidenceError?.code
+      errorCode: evidenceError?.code,
+      lastLoadedValidationId
     });
 
     // Loading state
     if (isLoadingEvidence) {
-      console.log('[ResultsExplorer] Rendering loading state');
+      console.log('[ResultsExplorer RENDER] Returning loading component because isLoadingEvidence=true');
       return <ValidationStatusMessage type="loading" validationProgress={progressInfo} />;
     }
 
+    console.log('[ResultsExplorer RENDER] Not loading, checking other states...');
+
     // Error state
     if (evidenceError) {
+      console.log('[ResultsExplorer RENDER] Returning error component');
       return (
         <ValidationStatusMessage
           type="error"
@@ -391,8 +428,9 @@ export function ResultsExplorer_v2({
 
     // No results state
     if (validationEvidenceData.length === 0) {
+      console.log('[ResultsExplorer RENDER] Returning no-results component');
       return (
-        <ValidationStatusMessage 
+        <ValidationStatusMessage
           type="no-results"
           error={evidenceError || undefined}
           onRefresh={handleRefreshStatus}
@@ -402,6 +440,7 @@ export function ResultsExplorer_v2({
     }
 
     // Success - render results
+    console.log('[ResultsExplorer RENDER] Rendering results list with', validationEvidenceData.length, 'items');
     return (
       <div className="space-y-4">
         {/* Search and filter controls */}
