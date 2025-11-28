@@ -72,10 +72,6 @@ export function Dashboard_v3({
   const [currentPage, setCurrentPage] = useState(persistedState.currentPage || 1);
   const itemsPerPage = 20;
   
-  // Status modal state
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [validationStatuses, setValidationStatuses] = useState<ValidationStatus[]>([]);
-  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
   // Save state to sessionStorage when it changes
   useEffect(() => {
