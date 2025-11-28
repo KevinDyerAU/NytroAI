@@ -460,23 +460,6 @@ export function Dashboard_v3({
                         extractStatus={validation.extract_status}
                         validationStatus={validation.validation_status}
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          loadValidationStatus(validation.id);
-                        }}
-                        disabled={isLoadingStatus}
-                        className="flex items-center gap-1 text-xs"
-                        title="Check document processing status"
-                      >
-                        {isLoadingStatus ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Activity className="w-4 h-4" />
-                        )}
-                      </Button>
                     </div>
                   </div>
 
