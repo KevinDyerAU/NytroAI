@@ -46,23 +46,23 @@ export async function checkValidationStatus(validationDetailId: number): Promise
   try {
     console.log('[checkValidationStatus] Checking validation status for ID:', validationDetailId);
     
-    // Query validation_detail with camelCase column names
+    // Query validation_detail
     const { data, error } = await supabase
       .from('validation_detail')
-      .select('extractStatus, validation_status, completed_count, req_total')
+      .select('*')
       .eq('id', validationDetailId)
       .single();
 
-    console.log('[checkValidationStatus] Query result:', { data, error });
-
     if (error) {
-      console.error('[checkValidationStatus] Database error:', error);
+      console.error('[checkValidationStatus] Database error: Query failed');
       return {
         isReady: false,
         status: 'error',
         message: 'Failed to check validation status',
       };
     }
+
+    console.log('[checkValidationStatus] Query successful, ID:', validationDetailId);
 
     if (!data) {
       console.log('[checkValidationStatus] No data returned for validation ID:', validationDetailId);
