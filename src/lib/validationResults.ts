@@ -196,9 +196,26 @@ export async function getValidationResults(
       };
     }
 
+    // Map database records to ValidationEvidenceRecord interface
+    const mappedData: ValidationEvidenceRecord[] = data.map((record: any) => ({
+      id: record.id?.toString() || '',
+      requirement_number: record.requirement_number || '',
+      requirement_text: record.requirement_text || '',
+      status: record.status || 'not_met',
+      reasoning: record.reasoning || '',
+      mapped_questions: record.mapped_questions || '',
+      unmapped_reasoning: record.unmapped_reasoning || '',
+      document_references: record.document_references || '',
+      smart_question: record.smart_question || '',
+      benchmark_answer: record.benchmark_answer || '',
+      recommendations: record.recommendations || '',
+      table_source: record.table_source || 'validation_results',
+      type: record.type || 'evidence',
+    }));
+
     // Success
     return {
-      data: data as ValidationEvidenceRecord[],
+      data: mappedData,
       error: null,
       isEmpty: false,
       isProcessing: false,
