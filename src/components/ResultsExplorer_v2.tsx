@@ -488,13 +488,46 @@ export function ResultsExplorer_v2({
 
         {/* Results list */}
         {filteredResults.length > 0 ? (
-          filteredResults.map((result) => (
-            <ValidationCard
-              key={result.id}
-              result={result}
-              onClick={() => setSelectedResult(result)}
-            />
-          ))
+          filteredResults.map((record) => {
+            // Transform ValidationEvidenceRecord to ValidationCard's expected format
+            const transformedResult = {
+              id: record.id,
+              requirementNumber: record.requirement_number,
+              type: record.type,
+              requirementText: record.requirement_text,
+              status: record.status as 'met' | 'not-met' | 'partial',
+              reasoning: record.reasoning,
+              evidence: {
+                mappedQuestions: record.mapped_questions ? record.mapped_questions.split('\n').filter(q => q.trim()) : [],
+                unmappedReasoning: record.unmapped_reasoning || '',
+                documentReferences: record.document_references ?
+                  record.document_references.split('\n').filter(ref => ref.trim()) : [],
+              },
+              aiEnhancement: {
+                smartQuestion: record.smart_question || '',
+                benchmarkAnswer: record.benchmark_answer || '',
+                recommendations: record.recommendations ?
+                  record.recommendations.split('\n').filter(rec => rec.trim()) : [],
+              },
+            };
+
+            return (
+              <ValidationCard
+                key={record.id}
+                result={transformedResult}
+                onChatClick={() => setSelectedResult(record)}
+                isReportSigned={false}
+                aiCreditsAvailable={aiCredits.current > 0}
+                validationContext={{
+                  rtoId: selectedRTOId,
+                  unitCode: selectedValidation?.unitCode,
+                  unitTitle: selectedValidation?.unitTitle,
+                  validationType: selectedValidation?.validationType,
+                  validationId: selectedValidation?.id,
+                }}
+              />
+            );
+          })
         ) : (
           <div className="text-center py-12 text-gray-500">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
