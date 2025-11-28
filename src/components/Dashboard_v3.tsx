@@ -182,24 +182,39 @@ export function Dashboard_v3({
   }, [validations]);
 
 
-  // Refresh validations
+  // Auto-refresh validations every 30 seconds
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const refreshValidations = async () => {
-    if (!selectedRTOId || isRefreshing) return;
-    
+
+  const refreshValidations = async (showToast = false) => {
+    if (!rtoCode || isRefreshing) return;
+
     setIsRefreshing(true);
     try {
-      const data = await getActiveValidationsByRTO(selectedRTOId);
+      const data = await getActiveValidationsByRTO(rtoCode);
       setValidations(data || []);
-      toast.success('Validations refreshed');
+      if (showToast) {
+        toast.success('Validations refreshed');
+      }
     } catch (error) {
       console.error('[Dashboard] Error refreshing validations:', error);
-      toast.error('Failed to refresh validations');
+      if (showToast) {
+        toast.error('Failed to refresh validations');
+      }
     } finally {
       setIsRefreshing(false);
     }
   };
+
+  // Set up polling every 30 seconds
+  useEffect(() => {
+    if (!rtoCode) return;
+
+    const interval = setInterval(() => {
+      refreshValidations(false);
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [rtoCode]);
 
   // Show ALL validations (not just actively processing ones)
   const activeValidations = validations;
