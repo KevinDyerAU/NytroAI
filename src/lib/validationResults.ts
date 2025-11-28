@@ -219,6 +219,8 @@ export async function getValidationResults(
       type: record.type || 'evidence',
     }));
 
+    console.log('[getValidationResults] Successfully mapped', mappedData.length, 'records');
+
     // Success
     return {
       data: mappedData,
