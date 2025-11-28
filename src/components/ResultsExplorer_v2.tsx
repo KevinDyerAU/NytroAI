@@ -204,9 +204,11 @@ export function ResultsExplorer_v2({
     let cancelled = false;
 
     const loadValidationEvidence = async () => {
+      const selectedValidationId = selectedValidation?.id;
+
       console.log('[ResultsExplorer useEffect] Starting effect', {
         hasSelectedValidation: !!selectedValidation,
-        selectedValidationId: selectedValidation?.id,
+        selectedValidationId,
         lastLoadedValidationId,
         isLoadingValidations,
         validationRecordsCount: validationRecords.length
@@ -223,13 +225,13 @@ export function ResultsExplorer_v2({
       }
 
       // Only reload if validation ID actually changed
-      if (selectedValidation.id === lastLoadedValidationId) {
+      if (selectedValidationId === lastLoadedValidationId) {
         console.log('[ResultsExplorer useEffect] Same validation, skipping reload');
         return;
       }
 
-      // Find the validation record
-      const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidation.id);
+      // Find the validation record - use the current validationRecords without depending on it
+      const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidationId);
       if (!currentRecord) {
         // If records aren't loaded yet, wait for them
         if (isLoadingValidations) {
@@ -252,12 +254,12 @@ export function ResultsExplorer_v2({
       console.log('[ResultsExplorer useEffect] Starting data fetch, setting loading=true');
       setIsLoadingEvidence(true);
       setEvidenceError(null);
-      setLastLoadedValidationId(selectedValidation.id);
+      setLastLoadedValidationId(selectedValidationId);
 
       try {
         console.log('[ResultsExplorer useEffect] Fetching validation results for ID:', valDetailId);
 
-        const response = await getValidationResults(selectedValidation.id, valDetailId);
+        const response = await getValidationResults(selectedValidationId, valDetailId);
 
         console.log('[ResultsExplorer useEffect] Fetch complete:', {
           cancelled,
@@ -320,7 +322,7 @@ export function ResultsExplorer_v2({
       console.log('[ResultsExplorer useEffect] Cleanup - cancelling effect');
       cancelled = true;
     };
-  }, [selectedValidation, validationRecords, isLoadingValidations, lastLoadedValidationId]);
+  }, [selectedValidation?.id, isLoadingValidations, lastLoadedValidationId]);
 
   // Retry loading evidence
   const handleRetryEvidence = useCallback(() => {
