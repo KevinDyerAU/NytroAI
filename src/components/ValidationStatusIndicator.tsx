@@ -78,7 +78,7 @@ export function ValidationStatusIndicator({
       icon: CheckCircle2,
       color: '#3b82f6',
       bgColor: '#dbeafe',
-      completed: status !== 'pending',
+      completed: actualStatus !== 'pending',
       description: 'Unit selected, documents uploaded'
     },
     {
@@ -87,7 +87,7 @@ export function ValidationStatusIndicator({
       icon: FileText,
       color: '#3b82f6',
       bgColor: '#dbeafe',
-      completed: status === 'docExtracted' || status === 'validated',
+      completed: actualStatus === 'docExtracted' || actualStatus === 'validated',
       description: 'AI learning PDFs (seconds for small files)'
     },
     {
@@ -96,7 +96,7 @@ export function ValidationStatusIndicator({
       icon: BookOpen,
       color: '#60a5fa',
       bgColor: '#dbeafe',
-      completed: status === 'validated',
+      completed: actualStatus === 'validated',
       description: 'Validating documents against training.gov.au requirements'
     },
     {
@@ -105,7 +105,7 @@ export function ValidationStatusIndicator({
       icon: CheckCircle2,
       color: '#22c55e',
       bgColor: '#dcfce7',
-      completed: status === 'validated',
+      completed: actualStatus === 'validated',
       description: 'Reports generated and confirmed'
     }
   ];
