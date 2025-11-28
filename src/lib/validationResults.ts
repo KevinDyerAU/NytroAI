@@ -73,26 +73,26 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       };
     }
 
-    console.log('[checkValidationStatus] Validation data:', {
-      extractStatus: data.extractStatus,
-      validation_status: data.validation_status,
-      completed_count: data.completed_count,
-      req_total: data.req_total
-    });
+    // Handle both camelCase and snake_case column names
+    const extractStatus = data.extractStatus || data.extract_status;
+    const completedCount = data.completed_count || 0;
+    const reqTotal = data.req_total || 0;
+
+    console.log('[checkValidationStatus] Validation status:', extractStatus);
 
     // Check if still processing
     const processingStatuses = ['pending', 'DocumentProcessing', 'Uploading', 'ProcessingInBackground'];
-    if (processingStatuses.includes(data.extractStatus)) {
-      console.log('[checkValidationStatus] Validation still processing:', data.extractStatus);
+    if (processingStatuses.includes(extractStatus)) {
+      console.log('[checkValidationStatus] Validation still processing');
       return {
         isReady: false,
-        status: data.extractStatus,
+        status: extractStatus,
         message: 'Validation is still processing. Please check back in a moment.',
       };
     }
 
     // Check if validation has results
-    const hasResults = data.completed_count > 0 && data.req_total > 0;
+    const hasResults = completedCount > 0 && reqTotal > 0;
     if (!hasResults) {
       console.log('[checkValidationStatus] No validation results yet');
       return {
