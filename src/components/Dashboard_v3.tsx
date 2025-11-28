@@ -22,9 +22,7 @@ import {
   FileText,
   TrendingUp,
   Zap,
-  Info,
-  RefreshCw,
-  Loader2
+  Info
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
 
