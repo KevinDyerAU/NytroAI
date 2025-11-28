@@ -364,7 +364,6 @@ export function ResultsExplorer_v2({
       currentRecord,
       progressInfo,
       totalRecords: validationRecords.length,
-      isProcessing,
       isLoadingEvidence,
       validationEvidenceDataLength: validationEvidenceData.length,
       hasError: !!evidenceError,
@@ -372,41 +371,17 @@ export function ResultsExplorer_v2({
       errorCode: evidenceError?.code
     });
 
-    // Only check validation_status - don't check extract_status
-    const isNotFinalised = currentRecord && currentRecord.validation_status !== 'Finalised';
-
-    console.log('[ResultsExplorer] Render checks:', {
-      isNotFinalised,
-      willShowProcessing: isNotFinalised && !isLoadingEvidence,
-      willShowLoading: isLoadingEvidence,
-      willShowError: !!evidenceError && !isNotFinalised && !isLoadingEvidence,
-      willShowNoResults: validationEvidenceData.length === 0 && !isLoadingEvidence && !evidenceError && !isNotFinalised
-    });
-
-    // Show processing message if validation is not finalised
-    if (isNotFinalised && !isLoadingEvidence) {
-      console.log('[ResultsExplorer] Rendering processing message');
-      return (
-        <ValidationStatusMessage
-          type="processing"
-          error={evidenceError || undefined}
-          onRefresh={handleRefreshStatus}
-          validationProgress={progressInfo}
-        />
-      );
-    }
-
     // Loading state
     if (isLoadingEvidence) {
       console.log('[ResultsExplorer] Rendering loading state');
       return <ValidationStatusMessage type="loading" validationProgress={progressInfo} />;
     }
 
-    // Error state (only if not finalised)
+    // Error state
     if (evidenceError) {
       return (
-        <ValidationStatusMessage 
-          type="error" 
+        <ValidationStatusMessage
+          type="error"
           error={evidenceError}
           onRetry={evidenceError.retryable ? handleRetryEvidence : undefined}
           validationProgress={progressInfo}
