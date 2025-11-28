@@ -34,12 +34,12 @@ export function ValidationStatusIndicator({
   // Determine actual stage based on database columns
   const determineCurrentStage = (): 'pending' | 'reqExtracted' | 'docExtracted' | 'validated' => {
     // Stage 4: Validation complete/finalised
-    if (validationStatus === 'Completed' || validationStatus === 'Finalised') {
+    if (validationStatus === 'Finalised') {
       return 'validated';
     }
 
-    // Stage 3: Validation in progress
-    if (validationStatus === 'In Progress') {
+    // Stage 3: Validation in progress OR document extraction complete
+    if (validationStatus === 'In Progress' || extractStatus === 'Completed') {
       return 'docExtracted';
     }
 
