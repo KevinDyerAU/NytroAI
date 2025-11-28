@@ -368,14 +368,24 @@ export function ResultsExplorer_v2({
       isLoadingEvidence,
       validationEvidenceDataLength: validationEvidenceData.length,
       hasError: !!evidenceError,
-      validationStatus: currentRecord?.validation_status
+      validationStatus: currentRecord?.validation_status,
+      errorCode: evidenceError?.code
     });
 
     // Only check validation_status - don't check extract_status
     const isNotFinalised = currentRecord && currentRecord.validation_status !== 'Finalised';
 
+    console.log('[ResultsExplorer] Render checks:', {
+      isNotFinalised,
+      willShowProcessing: isNotFinalised && !isLoadingEvidence,
+      willShowLoading: isLoadingEvidence,
+      willShowError: !!evidenceError && !isNotFinalised && !isLoadingEvidence,
+      willShowNoResults: validationEvidenceData.length === 0 && !isLoadingEvidence && !evidenceError && !isNotFinalised
+    });
+
     // Show processing message if validation is not finalised
     if (isNotFinalised && !isLoadingEvidence) {
+      console.log('[ResultsExplorer] Rendering processing message');
       return (
         <ValidationStatusMessage
           type="processing"
@@ -388,6 +398,7 @@ export function ResultsExplorer_v2({
 
     // Loading state
     if (isLoadingEvidence) {
+      console.log('[ResultsExplorer] Rendering loading state');
       return <ValidationStatusMessage type="loading" validationProgress={progressInfo} />;
     }
 
