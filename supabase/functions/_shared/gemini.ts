@@ -266,7 +266,9 @@ export function createGeminiClient(config: GeminiConfig) {
 
         if (!response.ok) {
           const error = await response.text();
-          throw new Error(`Failed to get operation: ${error}`);
+          console.error(`[Gemini] getOperation failed with status ${response.status}:`, error);
+          console.error(`[Gemini] Request URL: ${baseUrl}/${operationName}`);
+          throw new Error(`Failed to get operation (${response.status}): ${error || 'No error details'}`);
         }
 
         return await response.json();

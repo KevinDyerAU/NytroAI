@@ -75,6 +75,20 @@ serve(async (req) => {
     console.log('[create-validation-record] Found existing validation_summary with requirements:', existingSummary.id);
     const summaryId = existingSummary.id;
 
+    // Update validation_summary with rtoCode (may be missing from initial creation)
+    console.log('[create-validation-record] 1.5. Updating validation_summary with rtoCode:', rtoCode);
+    const { error: updateError } = await supabase
+      .from('validation_summary')
+      .update({ rtoCode: rtoCode })
+      .eq('id', summaryId);
+
+    if (updateError) {
+      console.error('[create-validation-record] Error updating validation_summary with rtoCode:', updateError);
+      // Don't fail - rtoCode is optional, just log the error
+    } else {
+      console.log('[create-validation-record] Successfully updated validation_summary with rtoCode');
+    }
+
     // Step 2: Get or create validation_type
     console.log('[create-validation-record] 2. Looking up validation_type:', validationType);
     let validationTypeId: number;
