@@ -490,12 +490,21 @@ export function ResultsExplorer_v2({
         {filteredResults.length > 0 ? (
           filteredResults.map((record) => {
             // Transform ValidationEvidenceRecord to ValidationCard's expected format
+            // Normalize status to match expected values
+            const normalizeStatus = (status: string): 'met' | 'not-met' | 'partial' => {
+              const normalized = status?.toLowerCase().replace(/\s+/g, '-');
+              if (normalized === 'met') return 'met';
+              if (normalized === 'not-met' || normalized === 'notmet') return 'not-met';
+              if (normalized === 'partial') return 'partial';
+              return 'not-met'; // default fallback
+            };
+
             const transformedResult = {
               id: record.id,
               requirementNumber: record.requirement_number,
               type: record.type,
               requirementText: record.requirement_text,
-              status: record.status as 'met' | 'not-met' | 'partial',
+              status: normalizeStatus(record.status),
               reasoning: record.reasoning,
               evidence: {
                 mappedQuestions: record.mapped_questions ? record.mapped_questions.split('\n').filter(q => q.trim()) : [],

@@ -24,10 +24,17 @@ export function StatusBadge({ status, showIcon = true, size = 'md' }: StatusBadg
       label: 'PARTIAL',
       color: 'bg-[#fef3c7] text-[#92400e] border-[#f59e0b]',
       icon: AlertCircle
+    },
+    unknown: {
+      label: 'UNKNOWN',
+      color: 'bg-[#f1f5f9] text-[#475569] border-[#94a3b8]',
+      icon: Clock
     }
   };
 
-  const config = configs[status];
+  // Normalize status and provide fallback
+  const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '-') as keyof typeof configs;
+  const config = configs[normalizedStatus] || configs.unknown;
   const Icon = config.icon;
 
   const sizeClasses = {
