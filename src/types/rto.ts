@@ -596,22 +596,10 @@ let activeValidationsErrorLogged = false;
 
 export async function getActiveValidationsByRTO(rtoCode: string): Promise<ValidationRecord[]> {
   try {
-    // Query validation_detail directly - using actual column names (camelCase)
+    // Query validation_detail - select all columns and let the database return what exists
     const { data, error } = await supabase
       .from('validation_detail')
-      .select(`
-        id,
-        namespace_code,
-        extractStatus,
-        docExtracted,
-        created_at,
-        summary_id,
-        validationType_id,
-        completed_count,
-        req_total,
-        validation_progress,
-        validation_status
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
