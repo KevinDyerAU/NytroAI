@@ -20,14 +20,44 @@ interface ValidationStatusIndicatorProps {
   validationStatus?: string; // Database column: Controls Stage 3 (Validations)
 }
 
-export function ValidationStatusIndicator({ 
-  status, 
-  progress, 
+export function ValidationStatusIndicator({
+  status,
+  progress,
   size = 'md',
   showLabel = true,
-  compact = false 
+  compact = false,
+  extractStatus,
+  validationStatus
 }: ValidationStatusIndicatorProps) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+
+  // Determine actual stage based on database columns
+  const determineCurrentStage = (): 'pending' | 'reqExtracted' | 'docExtracted' | 'validated' => {
+    // Stage 4: Validation complete/finalised
+    if (validationStatus === 'Completed' || validationStatus === 'Finalised') {
+      return 'validated';
+    }
+
+    // Stage 3: Validation in progress
+    if (validationStatus === 'In Progress') {
+      return 'docExtracted';
+    }
+
+    // Stage 2: Document processing in progress
+    if (
+      extractStatus === 'In Progress' ||
+      extractStatus === 'ProcessingInBackground' ||
+      extractStatus === 'DocumentProcessing' ||
+      extractStatus === 'Uploading'
+    ) {
+      return 'reqExtracted';
+    }
+
+    // Stage 1: Pending/default
+    return 'pending';
+  };
+
+  const actualStatus = extractStatus || validationStatus ? determineCurrentStage() : status;
 
   const sizeConfig = {
     sm: { circle: 40, stroke: 4, text: 'text-xs', label: 'text-xs' },
