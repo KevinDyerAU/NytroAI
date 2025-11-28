@@ -596,18 +596,10 @@ let activeValidationsErrorLogged = false;
 
 export async function getActiveValidationsByRTO(rtoCode: string): Promise<ValidationRecord[]> {
   try {
-    // Query validation_detail with joins to get unit_code and validation_type
+    // Query validation_detail - try simple query first
     const { data, error } = await supabase
       .from('validation_detail')
-      .select(`
-        *,
-        validation_summary:summary_id (
-          unit_code
-        ),
-        validation_type:validationType_id (
-          validation_type
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
