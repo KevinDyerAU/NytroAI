@@ -271,7 +271,7 @@ export function ValidationStatusIndicator({
 
           <div className="bg-[#eff6ff] border border-[#3b82f6] rounded-lg p-4">
             <p className="text-sm text-[#64748b]">
-              <span className="font-poppins text-[#1e293b]">Current Progress:</span> {progress}% complete
+              <span className="font-poppins text-[#1e293b]">Current Progress:</span> {stageProgress}% complete
               {currentStage && ` - ${currentStage.label} stage`}
             </p>
             {(extractStatus || validationStatus) && (
