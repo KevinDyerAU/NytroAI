@@ -359,13 +359,16 @@ export function ResultsExplorer_v2({
       status: currentRecord.validation_status || 'Unknown',
     } : undefined;
 
-    console.log('[ResultsExplorer] Progress info:', {
+    console.log('[ResultsExplorer] Render state:', {
       selectedValidationId: selectedValidation?.id,
       currentRecord,
       progressInfo,
       totalRecords: validationRecords.length,
       isProcessing,
-      isLoadingEvidence
+      isLoadingEvidence,
+      validationEvidenceDataLength: validationEvidenceData.length,
+      hasError: !!evidenceError,
+      validationStatus: currentRecord?.validation_status
     });
 
     // Only check validation_status - don't check extract_status
