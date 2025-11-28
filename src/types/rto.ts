@@ -613,7 +613,10 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
     if (error) {
       // Only log error once - avoid reading response body stream multiple times
       if (!activeValidationsErrorLogged) {
-        console.error('[getActiveValidationsByRTO] Query failed:', error);
+        console.error('[getActiveValidationsByRTO] Query failed');
+        console.error('[getActiveValidationsByRTO] Error message:', error.message);
+        console.error('[getActiveValidationsByRTO] Error details:', error.details);
+        console.error('[getActiveValidationsByRTO] Error hint:', error.hint);
         activeValidationsErrorLogged = true;
       }
       return [];
