@@ -271,6 +271,11 @@ export function ValidationStatusIndicator({
               <span className="font-poppins text-[#1e293b]">Current Progress:</span> {progress}% complete
               {currentStage && ` - ${currentStage.label} stage`}
             </p>
+            {(extractStatus || validationStatus) && (
+              <p className="text-xs text-[#64748b] mt-2">
+                <span className="font-poppins">Database Status:</span> Extract: {extractStatus || 'N/A'} | Validation: {validationStatus || 'N/A'}
+              </p>
+            )}
           </div>
 
           <AlertDialogFooter>
