@@ -110,8 +110,8 @@ export function ValidationStatusIndicator({
     }
   ];
 
-  const currentStage = stages.find(s => s.key === status);
-  const currentStageIndex = stages.findIndex(s => s.key === status);
+  const currentStage = stages.find(s => s.key === actualStatus);
+  const currentStageIndex = stages.findIndex(s => s.key === actualStatus);
 
   return (
     <>
