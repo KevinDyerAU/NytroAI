@@ -181,35 +181,6 @@ export function Dashboard_v3({
     };
   }, [validations]);
 
-  // Load validation status for a specific validation_detail
-  const loadValidationStatus = async (validationDetailId: number) => {
-    setIsLoadingStatus(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('get-validation-detail-status', {
-        body: { validationDetailId }
-      });
-
-      if (error) {
-        console.error('[Dashboard] Error loading status:', error);
-        toast.error('Failed to load validation status');
-        return;
-      }
-
-      console.log('[Dashboard] Validation detail status response:', data);
-
-      // Parse the status data
-      const statusData = data?.status || [];
-
-      console.log('[Dashboard] Parsed status data:', statusData);
-      setValidationStatuses(statusData);
-      setShowStatusModal(true);
-    } catch (err) {
-      console.error('[Dashboard] Exception loading status:', err);
-      toast.error('An error occurred while loading status');
-    } finally {
-      setIsLoadingStatus(false);
-    }
-  };
 
   // Refresh validations
   const [isRefreshing, setIsRefreshing] = useState(false);
