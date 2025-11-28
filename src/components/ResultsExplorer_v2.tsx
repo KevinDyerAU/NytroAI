@@ -254,7 +254,6 @@ export function ResultsExplorer_v2({
       console.log('[ResultsExplorer useEffect] Starting data fetch, setting loading=true');
       setIsLoadingEvidence(true);
       setEvidenceError(null);
-      setLastLoadedValidationId(selectedValidationId);
 
       try {
         console.log('[ResultsExplorer useEffect] Fetching validation results for ID:', valDetailId);
@@ -289,6 +288,8 @@ export function ResultsExplorer_v2({
           setValidationEvidenceData(response.data);
           setEvidenceError(null);
           setIsProcessing(false);
+          // Only mark as loaded after successful data fetch
+          setLastLoadedValidationId(selectedValidationId);
         }
       } catch (error) {
         if (cancelled) {
