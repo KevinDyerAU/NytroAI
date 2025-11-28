@@ -12,6 +12,8 @@ import { getRTOById, fetchRTOById } from '../types/rto';
 import { supabase } from '../lib/supabase';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Label } from './ui/label';
 import { FileText, CheckCircle, Info, Plus } from 'lucide-react';
 import { ValidationTriggerCard } from './ValidationTriggerButton';
 
@@ -41,6 +43,7 @@ export function DocumentUploadAdapterSimplified({
   const [validationDetailId, setValidationDetailId] = useState<number | undefined>(undefined);
   const validationDetailIdRef = useRef<number | undefined>(undefined);
   const [isCreatingValidation, setIsCreatingValidation] = useState(false);
+  const [validationType, setValidationType] = useState<'unit' | 'learner_guide'>('unit');
 
   // Sync ref with state
   useEffect(() => {
@@ -316,25 +319,9 @@ export function DocumentUploadAdapterSimplified({
           </div>
         </div>
 
-        {/* Info Card */}
-        <Card className="p-6 bg-blue-50 border-blue-200">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="space-y-2">
-              <h3 className="font-semibold text-blue-900">Instant Upload Process</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>✅ Upload completes in &lt;1 second</li>
-                <li>✅ You can close this page immediately</li>
-                <li>✅ Processing happens automatically in the background</li>
-                <li>✅ Check the Dashboard for progress and results</li>
-              </ul>
-            </div>
-          </div>
-        </Card>
-
         {/* RTO Info */}
         {selectedRTO && (
-          <Card className="p-4 bg-white">
+          <Card className="p-4 bg-white border-[#e2e8f0]">
             <div className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-[#3b82f6]" />
               <div>
@@ -344,6 +331,65 @@ export function DocumentUploadAdapterSimplified({
             </div>
           </Card>
         )}
+
+        {/* Validation Type Selection - Side by Side Tiles */}
+        <RadioGroup value={validationType} onValueChange={(value: 'unit' | 'learner_guide') => setValidationType(value)}>
+          <div className="flex gap-4">
+          {/* Unit of Competency - Blue Tile */}
+          <div
+            onClick={() => setValidationType('unit')}
+            className={`flex-1 relative cursor-pointer rounded-xl border-2 transition-all ${
+              validationType === 'unit'
+                ? 'border-[#3b82f6] bg-[#dbeafe]'
+                : 'border-[#e2e8f0] bg-white hover:border-[#3b82f6]/50'
+            }`}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                  validationType === 'unit' ? 'bg-[#3b82f6]' : 'bg-[#dbeafe]'
+                }`}>
+                  <FileText className={`w-6 h-6 ${
+                    validationType === 'unit' ? 'text-white' : 'text-[#3b82f6]'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-[#1e293b]">Unit of Competency</h3>
+                  <p className="text-sm text-[#64748b]">Validate assessment documents</p>
+                </div>
+                <RadioGroupItem value="unit" id="unit-tile" checked={validationType === 'unit'} />
+              </div>
+            </div>
+          </div>
+
+          {/* Learner Guide - Green Tile */}
+          <div
+            onClick={() => setValidationType('learner_guide')}
+            className={`flex-1 relative cursor-pointer rounded-xl border-2 transition-all ${
+              validationType === 'learner_guide'
+                ? 'border-[#22c55e] bg-[#dcfce7]'
+                : 'border-[#e2e8f0] bg-white hover:border-[#22c55e]/50'
+            }`}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                  validationType === 'learner_guide' ? 'bg-[#22c55e]' : 'bg-[#dcfce7]'
+                }`}>
+                  <FileText className={`w-6 h-6 ${
+                    validationType === 'learner_guide' ? 'text-white' : 'text-[#22c55e]'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-[#1e293b]">Learner Guide</h3>
+                  <p className="text-sm text-[#64748b]">Validate learner materials</p>
+                </div>
+                <RadioGroupItem value="learner_guide" id="learner-guide-tile" checked={validationType === 'learner_guide'} />
+              </div>
+            </div>
+          </div>
+          </div>
+        </RadioGroup>
 
         {/* Unit Selection */}
         <Card className="p-6 bg-white">
