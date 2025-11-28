@@ -9,7 +9,7 @@ import { documentUploadService, UploadProgress } from '../../services/DocumentUp
 interface DocumentUploadProps {
   unitCode: string;
   validationDetailId?: number;
-  onUploadComplete: (documentId: number) => void;
+  onUploadComplete: (documentId: number, fileName: string, storagePath: string) => void;
   onFilesSelected?: (files: File[]) => void;
   triggerUpload?: boolean;
 }
@@ -162,8 +162,8 @@ export function DocumentUploadSimplified({
             return updated;
           });
 
-          // Notify parent (documentId will be assigned by edge function)
-          onUploadComplete(0);
+          // Notify parent with document details
+          onUploadComplete(result.documentId, result.fileName, result.storagePath);
 
           toast.success(`${fileState.file.name} uploaded - processing in background`);
 

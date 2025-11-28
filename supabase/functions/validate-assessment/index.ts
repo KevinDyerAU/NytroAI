@@ -45,6 +45,7 @@ interface ValidateAssessmentRequest {
   documentId: number;
   unitCode: string;
   validationType:
+    | 'assessment'
     | 'knowledge_evidence'
     | 'performance_evidence'
     | 'foundation_skills'
@@ -111,9 +112,13 @@ serve(async (req) => {
   try {
     const requestData: ValidateAssessmentRequest = await req.json();
     let { documentId, unitCode, validationType, validationDetailId, customPrompt, promptId, namespace } = requestData;
+    
+    // Normalize unit code to lowercase for database queries (database stores lowercase)
+    const unitCodeLower = unitCode.toLowerCase();
+    
     console.log('[validate-assessment] Request data:', {
       documentId,
-      unitCode,
+      unitCode: unitCodeLower,
       validationType,
       validationDetailId,
       hasCustomPrompt: !!customPrompt,
@@ -160,11 +165,11 @@ serve(async (req) => {
       return createErrorResponse(`Document not found: ${documentId}`);
     }
 
-    // Get unit requirements
+    // Get unit requirements (use lowercase for database query)
     const { data: unit, error: unitError } = await supabase
       .from('UnitOfCompetency')
       .select('*')
-      .eq('unitCode', unitCode)
+      .eq('unitCode', unitCodeLower)
       .single();
 
     if (unitError || !unit) {
@@ -177,9 +182,12 @@ serve(async (req) => {
       console.log(`[Validate Assessment] Using Link from UnitOfCompetency: ${unitLink}`);
     }
 
-    // Get requirements for this unit using the new requirements fetcher
-    console.log(`[Validate Assessment] Fetching requirements for ${unitCode}, type: ${validationType}, unitLink: ${unitLink}`);
-    const requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType, unitLink);
+    // Map "assessment" to "full_validation" for requirements fetching
+    const requirementValidationType = validationType === 'assessment' ? 'full_validation' : validationType;
+    
+    // Get requirements for this unit using the new requirements fetcher (use lowercase)
+    console.log(`[Validate Assessment] Fetching requirements for ${unitCodeLower}, type: ${validationType} (mapped to ${requirementValidationType}), unitLink: ${unitLink}`);
+    const requirements: Requirement[] = await fetchRequirements(supabase, unitCodeLower, requirementValidationType, unitLink);
     console.log(`[Validate Assessment] Retrieved ${requirements.length} requirements`);
 
     // Check if we have requirements - if not, we cannot validate
@@ -204,6 +212,7 @@ serve(async (req) => {
       'elements_criteria': 2,
       'assessment_conditions': 4,
       'assessment_instructions': 7,
+      'assessment': 10, // Maps to full_validation
       'full_validation': 10, // UnitOfCompetency
       'learner_guide_validation': 11, // LearnerGuide - single-prompt validation
     };
@@ -313,30 +322,17 @@ serve(async (req) => {
       ? 'training_package'  // Learner guides
       : 'assessment';        // Assessment documents
     
-    // Check what metadata is actually on the document
+    // SKIP ALL METADATA FILTERS - dedicated store per RTO
+    // Since rto7148assessments is a dedicated store for RTO 7148, 
+    // we don't need filters - all documents are relevant
     const docMetadata = document.metadata || {};
     console.log(`[Validate Assessment] Document metadata:`, JSON.stringify(docMetadata));
     
-    let metadataFilter: string | undefined;
+    let metadataFilter: string | undefined = undefined;
     
-    // Use namespace filter ONLY if the document actually has namespace in its metadata
-    if (namespace && docMetadata.namespace && unitCode) {
-      // Filter by namespace AND unit-code to get documents from THIS specific validation session for THIS unit
-      // NOTE: Gemini stores unit_code in uppercase, so use uppercase in filter
-      const unitCodeUpper = unitCode.toUpperCase();
-      metadataFilter = `namespace="${namespace}" AND unit-code="${unitCodeUpper}" AND document-type="${documentType}"`;
-      console.log(`[Validate Assessment] Using namespace filter: ${namespace}, unit-code: ${unitCodeUpper}, document-type: ${documentType}`);
-    } else if (unitCode) {
-      // Use unit-code filter (for documents uploaded without namespace)
-      // NOTE: Gemini stores unit_code in uppercase, so use uppercase in filter
-      const unitCodeUpper = unitCode.toUpperCase();
-      metadataFilter = `unit-code="${unitCodeUpper}" AND document-type="${documentType}"`;
-      console.log(`[Validate Assessment] Using unit-code filter: ${unitCodeUpper}, document-type: ${documentType}`);
-      console.log(`[Validate Assessment] Note: Document does not have namespace in metadata, using unit-code fallback`);
-    }
-    
-    console.log(`[Validate Assessment] Metadata filter string: "${metadataFilter}"`);
-    console.log(`[Validate Assessment] Expected metadata on documents: namespace=${namespace}, unit-code=${unitCode}, document-type=${documentType}`);
+    console.log(`[Validate Assessment] ⚠️ Using dedicated RTO store - NO FILTER`);
+    console.log(`[Validate Assessment] Will search ALL documents in store: ${fileSearchStoreResourceName}`);
+    console.log(`[Validate Assessment] Reason: Metadata filtering is unreliable - dedicated store ensures relevance`);
 
     // DEBUG: List all documents in the store to verify they exist
     console.log(`[Validate Assessment] 🔍 DEBUG: Listing ALL documents in store...`);
@@ -350,12 +346,6 @@ serve(async (req) => {
           console.log(`[Validate Assessment]       Name: ${doc.name}`);
           console.log(`[Validate Assessment]       Metadata: ${JSON.stringify(doc.customMetadata || {}, null, 2)}`);
         });
-        
-        // Show what we're filtering for
-        console.log(`[Validate Assessment] 🎯 We are filtering for:`);
-        console.log(`[Validate Assessment]       namespace = "${namespace}"`);
-        console.log(`[Validate Assessment]       unit-code = "${unitCode}"`);
-        console.log(`[Validate Assessment]       document-type = "${documentType}"`);
       } else {
         console.error(`[Validate Assessment] ⚠️ No documents found in File Search store!`);
         console.error(`[Validate Assessment] This means documents weren't uploaded or are in a different store.`);
@@ -365,51 +355,17 @@ serve(async (req) => {
       console.error(`[Validate Assessment] Error details:`, JSON.stringify(listError, null, 2));
     }
 
-    // Query with File Search - Gemini will search ALL documents matching the filter
-    console.log(`[Validate Assessment] Querying File Search store: ${fileSearchStoreResourceName}`);
-    let response = await gemini.generateContentWithFileSearch(
+    // Query with File Search - NO FILTER (dedicated store)
+    console.log(`[Validate Assessment] Querying File Search store (no filter): ${fileSearchStoreResourceName}`);
+    const response = await gemini.generateContentWithFileSearch(
       prompt,
       [fileSearchStoreResourceName],
-      metadataFilter
+      undefined // No filter - search all documents in dedicated store
     );
     
     // Log grounding information
-    let groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     console.log(`[Validate Assessment] Grounding chunks found: ${groundingChunks.length}`);
-    
-    // RETRY LOGIC: If no chunks found with namespace, try fallback strategies
-    if (groundingChunks.length === 0) {
-      console.log(`[Validate Assessment] WARNING: No grounding chunks with filter: ${metadataFilter}`);
-      
-      // Try with unit-code filter instead
-      if (namespace && unitCode) {
-        const fallbackFilter = `unit-code="${unitCode}" AND document-type="${documentType}"`;
-        console.log(`[Validate Assessment] RETRY #1: Trying unit-code filter: ${fallbackFilter}`);
-        response = await gemini.generateContentWithFileSearch(
-          prompt,
-          [fileSearchStoreResourceName],
-          fallbackFilter
-        );
-        groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        console.log(`[Validate Assessment] RETRY #1 result: ${groundingChunks.length} chunks found`);
-      }
-      
-      // If still no results, try without metadata filter (documents might not be indexed yet)
-      if (groundingChunks.length === 0) {
-        console.log(`[Validate Assessment] RETRY #2: Trying without metadata filter`);
-        response = await gemini.generateContentWithFileSearch(
-          prompt,
-          [fileSearchStoreResourceName],
-          undefined // No filter - search all documents in store
-        );
-        groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        console.log(`[Validate Assessment] RETRY #2 result: ${groundingChunks.length} chunks found`);
-        
-        if (groundingChunks.length > 0) {
-          console.warn(`[Validate Assessment] ⚠️ Documents found WITHOUT metadata filter. This suggests metadata indexing is delayed or incomplete.`);
-        }
-      }
-    }
     
     if (groundingChunks.length > 0) {
       console.log(`[Validate Assessment] ✅ Sample chunks:`, groundingChunks.slice(0, 3).map((c: any) => ({
@@ -417,9 +373,9 @@ serve(async (req) => {
         pages: c.fileSearchChunk?.pageNumbers
       })));
     } else {
-      console.error(`[Validate Assessment] ❌ No documents found in File Search store after all retry attempts`);
+      console.error(`[Validate Assessment] ❌ No grounding chunks found - Gemini could not find relevant content`);
       return createErrorResponse(
-        `No assessment documents found for namespace "${namespace}" or unit "${unitCode}". Please ensure documents are uploaded and indexed with the correct metadata before validation.`,
+        `No relevant content found in File Search store. Documents may still be indexing or the prompt may need adjustment.`,
         404
       );
     }

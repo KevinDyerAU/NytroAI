@@ -5,7 +5,7 @@
  * Upload completes immediately, validation happens in background via DB trigger.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { DocumentUploadSimplified } from './upload/DocumentUploadSimplified';
 import { getRTOById, fetchRTOById } from '../types/rto';
@@ -30,6 +30,8 @@ export function DocumentUploadAdapterSimplified({
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedCount, setUploadedCount] = useState(0);
+  const [geminiUploadCount, setGeminiUploadCount] = useState(0);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Array<{ documentId: number; fileName: string; storagePath: string }>>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [allUnits, setAllUnits] = useState<any[]>([]);
@@ -37,7 +39,13 @@ export function DocumentUploadAdapterSimplified({
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   const [validationDetailId, setValidationDetailId] = useState<number | undefined>(undefined);
+  const validationDetailIdRef = useRef<number | undefined>(undefined);
   const [isCreatingValidation, setIsCreatingValidation] = useState(false);
+
+  // Sync ref with state
+  useEffect(() => {
+    validationDetailIdRef.current = validationDetailId;
+  }, [validationDetailId]);
 
   // Load RTO data
   useEffect(() => {
@@ -154,7 +162,7 @@ export function DocumentUploadAdapterSimplified({
       return files;
     });
 
-    // Create validation record when files are selected
+    // Create validation record when files are selected (MUST complete before upload)
     if (files.length > 0 && !validationDetailId && selectedRTO && selectedUnit) {
       setIsCreatingValidation(true);
       try {
@@ -206,14 +214,28 @@ export function DocumentUploadAdapterSimplified({
           return;
         }
 
-        console.log('[DocumentUploadAdapterSimplified] Validation created:', data.detailId);
+        console.log('[DocumentUploadAdapterSimplified] ✅ Validation created:', data.detailId);
+        
+        // Set validation ID first and wait for state to update
         setValidationDetailId(data.detailId);
+        
+        // Use setTimeout to ensure state updates before file upload starts
+        setTimeout(() => {
+          console.log('[DocumentUploadAdapterSimplified] Now proceeding with file upload...');
+          setSelectedFiles(files);
+        }, 100);
+        
       } catch (error) {
         console.error('[DocumentUploadAdapterSimplified] Exception creating validation:', error);
         toast.error('Failed to create validation record');
+        return;
       } finally {
         setIsCreatingValidation(false);
       }
+    } else if (validationDetailId) {
+      // Validation already exists, proceed with upload
+      console.log('[DocumentUploadAdapterSimplified] Using existing validation:', validationDetailId);
+      setSelectedFiles(files);
     }
   }, [validationDetailId, selectedRTO, selectedUnit]);
 
