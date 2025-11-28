@@ -635,9 +635,9 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       id: record.id,
       unit_code: record.namespace_code || null,
       qualification_code: null,
-      extract_status: record.extract_status || 'Pending',
+      extract_status: record.extractStatus || 'Pending',
       validation_status: record.validation_status || 'Pending',
-      doc_extracted: record.doc_extracted || false,
+      doc_extracted: record.docExtracted || false,
       req_extracted: false,
       num_of_req: record.req_total || 0,
       req_total: record.req_total || 0,
@@ -648,7 +648,7 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       error_message: null,
     }));
 
-    console.log(`[getActiveValidationsByRTO] Found ${records.length} validations for RTO: ${rtoCode}`);
+    console.log(`[getActiveValidationsByRTO] Found ${records.length} validations`);
     return records;
   } catch (error) {
     if (!activeValidationsErrorLogged) {
