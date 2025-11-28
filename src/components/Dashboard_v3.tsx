@@ -490,6 +490,8 @@ export function Dashboard_v3({
                         size="sm"
                         showLabel={true}
                         compact={false}
+                        extractStatus={validation.extract_status}
+                        validationStatus={validation.validation_status}
                       />
                       <Button
                         variant="ghost"
