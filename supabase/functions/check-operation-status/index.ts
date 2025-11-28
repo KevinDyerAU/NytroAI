@@ -87,10 +87,23 @@ serve(async (req) => {
       supabaseClient: supabase,
     });
 
-    console.log(`[Check Operation] Checking Gemini status for: ${operation.operation_name}`);
+    // Gemini upload endpoint returns: "fileSearchStores/.../upload/operations/..."
+    // But getOperation expects: "fileSearchStores/.../operations/..."
+    // Strip /upload from the path
+    const operationNameForStatus = operation.operation_name.replace('/upload/operations/', '/operations/');
+    console.log(`[Check Operation] Original operation name: ${operation.operation_name}`);
+    console.log(`[Check Operation] Checking Gemini status for: ${operationNameForStatus}`);
+    console.log(`[Check Operation] Document ID: ${operation.document_id}`);
+    console.log(`[Check Operation] Validation Detail ID: ${operation.validation_detail_id}`);
 
     try {
-      const geminiOperation = await gemini.getOperation(operation.operation_name);
+      console.log(`[Check Operation] Calling gemini.getOperation...`);
+      const geminiOperation = await gemini.getOperation(operationNameForStatus);
+      console.log(`[Check Operation] Gemini response received:`, {
+        done: geminiOperation.done,
+        hasError: !!geminiOperation.error,
+        hasResponse: !!geminiOperation.response
+      });
       
       const now = new Date();
       const startedAt = new Date(operation.started_at);

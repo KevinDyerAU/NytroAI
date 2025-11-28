@@ -94,23 +94,74 @@ serve(async (req) => {
       supabaseClient: supabase,
     });
 
-    // Get or create File Search store for this RTO
-    const storeName = `rto-${rtoCode.toLowerCase()}-assessments`;
+    // Get or create File Search store
+    // If validationDetailId provided: create dedicated per-validation store
+    // Otherwise: use shared RTO store (legacy behavior)
+    let storeName: string;
     let fileSearchStore;
 
-    try {
-      // Try to get existing store
-      const stores = await gemini.listFileSearchStores();
-      fileSearchStore = stores.find((s) => s.displayName === storeName);
+    if (validationDetailId) {
+      // NEW: Per-validation dedicated store (isolated, no filter needed)
+      // Check validation_detail for existing store ID (saved from first upload)
+      try {
+        const { data: validationDetail } = await supabase
+          .from('validation_detail')
+          .select('file_search_store_id, file_search_store_name')
+          .eq('id', validationDetailId)
+          .single();
 
-      if (!fileSearchStore) {
-        // Create new store
-        console.log(`Creating new File Search store: ${storeName}`);
-        fileSearchStore = await gemini.createFileSearchStore(storeName);
+        if (validationDetail?.file_search_store_id) {
+          // Reuse existing store from validation_detail
+          // Trust the database - don't verify with Gemini (avoids race condition)
+          fileSearchStore = {
+            name: validationDetail.file_search_store_id,
+            displayName: validationDetail.file_search_store_name,
+          };
+          storeName = validationDetail.file_search_store_name || 'unknown';
+          console.log(`♻️ Reusing store from validation_detail: ${storeName}`);
+          console.log(`   Store ID: ${fileSearchStore.name}`);
+        } else {
+          // First file - create new store and save ID to validation_detail
+          storeName = `validation${validationDetailId}${unitCode?.toLowerCase() || 'unknown'}${Date.now()}`;
+          console.log(`Creating first store for validation ${validationDetailId}: ${storeName}`);
+          fileSearchStore = await gemini.createFileSearchStore(storeName);
+          console.log(`✅ Created new store: ${fileSearchStore.name}`);
+          console.log(`   Display name returned by Gemini: ${fileSearchStore.displayName}`);
+          
+          // Save store ID to validation_detail for reuse
+          await supabase
+            .from('validation_detail')
+            .update({
+              file_search_store_id: fileSearchStore.name,
+              file_search_store_name: fileSearchStore.displayName,
+            })
+            .eq('id', validationDetailId);
+          
+          console.log(`✅ Saved store ID to validation_detail`);
+        }
+      } catch (error) {
+        console.error('Error managing File Search store:', error);
+        return createErrorResponse('Failed to manage File Search store', 500);
       }
-    } catch (error) {
-      console.error('Error managing File Search store:', error);
-      return createErrorResponse('Failed to manage File Search store', 500);
+    } else {
+      // LEGACY: Shared RTO store (deprecated but kept for backwards compatibility)
+      storeName = `rto-${rtoCode.toLowerCase()}-assessments`;
+      console.warn(`⚠️ Using legacy shared store: ${storeName} (no validationDetailId provided)`);
+      
+      try {
+        // Try to get existing store
+        const stores = await gemini.listFileSearchStores();
+        fileSearchStore = stores.find((s) => s.displayName === storeName);
+
+        if (!fileSearchStore) {
+          // Create new store
+          console.log(`Creating new File Search store: ${storeName}`);
+          fileSearchStore = await gemini.createFileSearchStore(storeName);
+        }
+      } catch (error) {
+        console.error('Error managing File Search store:', error);
+        return createErrorResponse('Failed to manage File Search store', 500);
+      }
     }
 
     // Get file bytes from either fileContent (base64) or storagePath
@@ -181,18 +232,36 @@ serve(async (req) => {
     const uploadDuration = Date.now() - uploadStart;
 
     console.log(`✓ Upload operation initiated in ${uploadDuration}ms`);
-    console.log(`Operation name: ${operation.name}`);
+    console.log(`Operation name from Gemini: ${operation.name}`);
+    
+    // Gemini may return either:
+    // - Short form: "operations/123" 
+    // - Full form: "fileSearchStores/abc/operations/123"
+    // - Upload form: "fileSearchStores/abc/upload/operations/123"
+    // Use it as-is if it starts with "fileSearchStores/", otherwise prepend store name
+    console.log(`[DEBUG] Raw operation.name from Gemini: "${operation.name}"`);
+    console.log(`[DEBUG] fileSearchStore.name: "${fileSearchStore.name}"`);
+    console.log(`[DEBUG] Starts with fileSearchStores/: ${operation.name.startsWith('fileSearchStores/')}`);
+    
+    const fullOperationName = operation.name.startsWith('fileSearchStores/') 
+      ? operation.name 
+      : `${fileSearchStore.name}/${operation.name}`;
+    
+    console.log(`[DEBUG] Constructed fullOperationName: "${fullOperationName}"`);
+    console.log(`Full operation name: ${fullOperationName}`);
     console.log(`Now waiting for Gemini to process and index the document...`);
 
     // Create operation tracking record
+    console.log(`[DEBUG] Inserting into gemini_operations with operation_name: "${fullOperationName}"`);
     const { data: operationRecord, error: opRecordError } = await supabase
       .from('gemini_operations')
       .insert({
-        operation_name: operation.name,
+        operation_name: fullOperationName,
         operation_type: 'document_embedding',
         status: 'pending',
         progress_percentage: 0,
         max_wait_time_ms: 60000, // 60 seconds for small files
+        validation_detail_id: validationDetailId || null, // Link to validation for auto-trigger
         metadata: {
           file_name: fileName,
           file_size: fileBytes.length,
@@ -206,22 +275,11 @@ serve(async (req) => {
       console.error('Warning: Failed to create operation tracking record:', opRecordError);
     }
 
-    console.log(`Starting waitForOperation for: ${operation.name}`);
-    console.log(`Max wait time: 60 seconds (small files should complete in 5-10 seconds)`);
+    // NEW FLOW: Return immediately, let n8n poll for completion
+    console.log(`✓ Upload initiated! n8n will poll operation status.`);
+    console.log(`Operation will be tracked in gemini_operations table (id: ${operationRecord?.id})`);
 
-    // Wait for operation to complete (small files should be 5-10 seconds)
-    // Pass 60000ms (60 seconds) as max wait time and operation ID for tracking
-    const completedOperation = await gemini.waitForOperation(
-      operation.name,
-      60000, // 60 seconds instead of 5 minutes
-      operationRecord?.id
-    );
-
-    console.log(`waitForOperation completed successfully for: ${operation.name}`);
-
-    console.log(`Document successfully processed and indexed by Gemini`);
-
-    // Store document metadata in Supabase
+    // Create document record immediately (embedding_status = 'processing')
     const { data: document, error: docError } = await supabase
       .from('documents')
       .insert({
@@ -230,14 +288,20 @@ serve(async (req) => {
         document_type: documentType,
         file_name: fileName,
         display_name: displayName || fileName,
+        storage_path: storagePath || null,
         file_search_store_id: fileSearchStore.name,
-        file_search_document_id: completedOperation.name,
         metadata: documentMetadata,
-        embedding_status: 'completed',
+        embedding_status: 'processing', // Will be updated by check-operation-status
+        validation_detail_id: validationDetailId || null,
         uploaded_at: new Date().toISOString(),
       })
       .select()
       .single();
+
+    if (docError) {
+      console.error('Error creating document record:', docError);
+      return createErrorResponse('Failed to create document record', 500);
+    }
 
     // Link operation record to document
     if (operationRecord && document) {
@@ -247,31 +311,19 @@ serve(async (req) => {
         .eq('id', operationRecord.id);
     }
 
-    if (docError) {
-      console.error('Error storing document metadata:', docError);
-      // Document is uploaded to Gemini but failed to store in DB
-      // You might want to clean up the Gemini document here
-      return createErrorResponse('Failed to store document metadata', 500);
-    }
-
     const duration = Date.now() - startTime;
-    console.log(`[upload-document] Document uploaded successfully: ${document.id}`);
+    console.log(`[upload-document] Document record created: ${document.id}`);
     console.log('[upload-document] SUCCESS - Duration:', duration, 'ms');
+    console.log('[upload-document] Indexing will happen asynchronously');
     console.log('[upload-document] END', new Date().toISOString());
     console.log('='.repeat(80));
 
     return createSuccessResponse({
       success: true,
-      document: {
-        id: document.id,
-        fileName: document.file_name,
-        displayName: document.display_name,
-        documentType: document.document_type,
-        fileSearchStoreId: document.file_search_store_id,
-        fileSearchDocumentId: document.file_search_document_id,
-        uploadedAt: document.uploaded_at,
-      },
-      message: 'Document uploaded and indexed successfully',
+      documentId: document.id,
+      operationName: fullOperationName,
+      fileSearchStoreName: fileSearchStore.name,
+      message: 'Upload initiated. n8n will poll for completion.',
     });
   } catch (error) {
     const duration = Date.now() - startTime;
