@@ -615,14 +615,10 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       .order('created_at', { ascending: false });
 
     if (error) {
-      // Only log full error details once
+      // Only log error once - avoid reading response body stream multiple times
       if (!activeValidationsErrorLogged) {
-        console.error('[getActiveValidationsByRTO] Error:', error?.message || 'Unknown error');
-        console.error('[getActiveValidationsByRTO] Details:', error?.details);
-        console.error('[getActiveValidationsByRTO] Code:', error?.code);
+        console.error('[getActiveValidationsByRTO] Query failed:', error);
         activeValidationsErrorLogged = true;
-      } else {
-        console.warn('[getActiveValidationsByRTO] Validation fetch failed (already logged)');
       }
       return [];
     }
