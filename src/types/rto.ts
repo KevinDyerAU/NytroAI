@@ -601,10 +601,10 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       .from('validation_detail')
       .select(`
         *,
-        validation_summary!summary_id (
+        validation_summary:summary_id (
           unit_code
         ),
-        validation_type!validationType_id (
+        validation_type:validationType_id (
           validation_type
         )
       `)
