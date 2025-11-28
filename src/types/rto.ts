@@ -596,10 +596,18 @@ let activeValidationsErrorLogged = false;
 
 export async function getActiveValidationsByRTO(rtoCode: string): Promise<ValidationRecord[]> {
   try {
-    // Query validation_detail - select all columns and let the database return what exists
+    // Query validation_detail with joins to get unit_code and validation_type
     const { data, error } = await supabase
       .from('validation_detail')
-      .select('*')
+      .select(`
+        *,
+        validation_summary!summary_id (
+          unit_code
+        ),
+        validation_type!validationType_id (
+          validation_type
+        )
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -618,7 +626,7 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
     // Handle both camelCase and snake_case column names
     const records: ValidationRecord[] = (data || []).map((record: any) => ({
       id: record.id,
-      unit_code: record.namespace_code || record.rtoCode || null,
+      unit_code: record.validation_summary?.unit_code || record.namespace_code || record.rtoCode || null,
       qualification_code: null,
       extract_status: record.extractStatus || record.extract_status || 'Pending',
       validation_status: record.validation_status || 'Pending',
@@ -629,7 +637,7 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       completed_count: record.completed_count || 0,
       created_at: record.created_at,
       summary_id: record.summary_id || 0,
-      validation_type: null,
+      validation_type: record.validation_type?.validation_type || null,
       error_message: null,
     }));
 
