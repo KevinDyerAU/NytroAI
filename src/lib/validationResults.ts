@@ -73,25 +73,14 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       };
     }
 
-    // Only check validation_status
+    // Always return ready - no processing state checks
     const validationStatus = data.validation_status;
 
-    console.log('[checkValidationStatus] Validation status:', validationStatus);
+    console.log('[checkValidationStatus] Validation status:', validationStatus, '- always returning ready');
 
-    // Only show results if validation_status is 'Finalised'
-    if (validationStatus !== 'Finalised') {
-      console.log('[checkValidationStatus] Validation not finalised yet, status:', validationStatus);
-      return {
-        isReady: false,
-        status: validationStatus || 'in_progress',
-        message: 'Validation is in progress. Results will be available when finalised.',
-      };
-    }
-
-    console.log('[checkValidationStatus] Validation finalised and ready');
     return {
       isReady: true,
-      status: validationStatus,
+      status: validationStatus || 'ready',
       message: 'Validation results are ready',
     };
   } catch (error) {
