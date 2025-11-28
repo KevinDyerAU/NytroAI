@@ -161,10 +161,15 @@ export async function getValidationResults(
     }
 
     // Fetch validation results directly from validation_results table
+    const numericId = typeof valDetailId === 'string' ? parseInt(valDetailId, 10) : valDetailId;
+    console.log('[getValidationResults] Querying with ID:', numericId, 'type:', typeof numericId);
+
     const { data, error } = await supabase
       .from('validation_results')
       .select('*')
-      .eq('validation_detail_id', valDetailId);
+      .eq('validation_detail_id', numericId);
+
+    console.log('[getValidationResults] Query returned:', data?.length || 0, 'records');
 
     if (error) {
       console.error('[getValidationResults] Database error:', error);
@@ -184,6 +189,7 @@ export async function getValidationResults(
 
     // Check if data is empty
     if (!data || data.length === 0) {
+      console.log('[getValidationResults] No records returned for ID:', numericId);
       return {
         data: [],
         error: {
