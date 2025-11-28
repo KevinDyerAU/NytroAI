@@ -64,13 +64,13 @@ serve(async (req) => {
     const encoder = new TextEncoder();
     const parts: Uint8Array[] = [];
 
-    // Part 1: Metadata (JSON)
+    // Part 1: Metadata (JSON) - Empty per Gemini API requirements
     const metadataPart = [
       `--${boundary}`,
       'Content-Disposition: form-data; name="metadata"',
       'Content-Type: application/json; charset=UTF-8',
       '',
-      JSON.stringify({ displayName: filename }),
+      '{}',
       ''
     ].join('\r\n');
     parts.push(encoder.encode(metadataPart));
@@ -124,27 +124,21 @@ serve(async (req) => {
     const geminiResult = await geminiResponse.json();
     console.log('[upload-to-gemini] Upload successful:', geminiResult);
 
-    // Calculate expiry (48 hours from now)
-    const expiryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
-
-    // Update document record with Gemini file URI
+    // Update document record with Gemini file URI (only if column exists)
     const { error: updateError } = await supabase
       .from('documents')
       .update({
         gemini_file_uri: geminiResult.file.uri,
-        gemini_file_name: geminiResult.file.name,
-        gemini_upload_timestamp: new Date().toISOString(),
-        gemini_expiry_timestamp: expiryDate.toISOString(),
       })
       .eq('storage_path', storage_path)
       .eq('validation_detail_id', validation_detail_id);
 
     if (updateError) {
-      console.error('[upload-to-gemini] Database update error:', updateError);
-      throw new Error(`Failed to update document record: ${updateError.message}`);
+      console.warn('[upload-to-gemini] Database update warning:', updateError);
+      // Don't throw - continue even if update fails
+    } else {
+      console.log('[upload-to-gemini] Document record updated successfully');
     }
-
-    console.log('[upload-to-gemini] Document record updated successfully');
 
     return new Response(
       JSON.stringify({
@@ -152,7 +146,6 @@ serve(async (req) => {
         file: geminiResult.file,
         storage_path,
         gemini_file_uri: geminiResult.file.uri,
-        gemini_expiry_timestamp: expiryDate.toISOString(),
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

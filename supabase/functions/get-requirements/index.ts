@@ -24,11 +24,11 @@ serve(async (req) => {
   }
 
   try {
-    const { unit_code, validation_detail_id } = await req.json();
+    const { validation_detail_id } = await req.json();
 
-    if (!unit_code) {
+    if (!validation_detail_id) {
       return new Response(
-        JSON.stringify({ error: 'unit_code is required' }),
+        JSON.stringify({ error: 'validation_detail_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -39,17 +39,56 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log(`[Get Requirements] Fetching requirements for unit: ${unit_code}`);
+    console.log(`[Get Requirements] Fetching validation detail: ${validation_detail_id}`);
+
+    // Get unit_url from validation_summary via summary_id
+    const { data: validationDetail, error: validationError } = await supabaseClient
+      .from('validation_detail')
+      .select(`
+        summary_id,
+        validation_summary!inner(
+          unitCode,
+          unitLink
+        )
+      `)
+      .eq('id', validation_detail_id)
+      .single();
+
+    if (validationError || !validationDetail) {
+      console.error('[Get Requirements] Failed to fetch validation detail:', validationError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Validation detail not found',
+          validation_detail_id 
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const unit_url = validationDetail.validation_summary?.unitLink;
+    const unit_code = validationDetail.validation_summary?.unitCode;
+
+    if (!unit_url) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No unit_url found for this validation',
+          validation_detail_id 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[Get Requirements] Fetching requirements for unit: ${unit_code} (${unit_url})`);
 
     const allRequirements: Requirement[] = [];
 
     // Define requirement tables to query
     const tables = [
-      { name: 'knowledge_evidence', type: 'knowledge_evidence' },
-      { name: 'performance_evidence', type: 'performance_evidence' },
-      { name: 'foundation_skills', type: 'foundation_skills' },
-      { name: 'elements_performance_criteria', type: 'elements_performance_criteria' },
-      { name: 'assessment_conditions', type: 'assessment_conditions' }
+      { name: 'knowledge_evidence_requirements', type: 'knowledge_evidence' },
+      { name: 'performance_evidence_requirements', type: 'performance_evidence' },
+      { name: 'foundation_skills_requirements', type: 'foundation_skills' },
+      { name: 'elements_performance_criteria_requirements', type: 'elements_performance_criteria' },
+      { name: 'assessment_conditions_requirements', type: 'assessment_conditions' }
     ];
 
     // Fetch from each table
@@ -57,9 +96,8 @@ serve(async (req) => {
       try {
         const { data, error } = await supabaseClient
           .from(table.name)
-          .select('id, number, text, description')
-          .eq('unit_code', unit_code)
-          .order('number');
+          .select('*')
+          .eq('unit_url', unit_url);
 
         if (error) {
           console.warn(`[Get Requirements] Error fetching from ${table.name}:`, error.message);
@@ -67,12 +105,12 @@ serve(async (req) => {
         }
 
         if (data && data.length > 0) {
-          const requirements = data.map((item: any) => ({
+          const requirements = data.map((item: any, index: number) => ({
             id: item.id,
-            number: item.number || '',
-            text: item.text || item.description || '',
+            number: item.requirement_number || item.number || String(index + 1),
+            text: item.knowledge_point || item.performance_task || item.skill_description || item.text || item.description || '',
             type: table.type,
-            description: item.description
+            description: item.description || item.knowledge_point || item.performance_task || item.skill_description || ''
           }));
           
           allRequirements.push(...requirements);
