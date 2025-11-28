@@ -76,7 +76,8 @@ export async function checkValidationStatus(validationDetailId: number): Promise
     console.log('[checkValidationStatus] Validation data:', {
       extractStatus: data.extractStatus,
       validation_status: data.validation_status,
-      validation_count: data.validation_count
+      completed_count: data.completed_count,
+      req_total: data.req_total
     });
 
     // Check if still processing
@@ -91,8 +92,9 @@ export async function checkValidationStatus(validationDetailId: number): Promise
     }
 
     // Check if validation has results
-    if (data.validation_count === 0) {
-      console.log('[checkValidationStatus] No validation results yet, count is 0');
+    const hasResults = data.completed_count > 0 && data.req_total > 0;
+    if (!hasResults) {
+      console.log('[checkValidationStatus] No validation results yet');
       return {
         isReady: false,
         status: 'no_results',
