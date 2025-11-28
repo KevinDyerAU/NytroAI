@@ -112,62 +112,74 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     setIsScanning(true);
 
     try {
-      // Get Supabase session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
+      const n8nUrl = import.meta.env.VITE_N8N_WEB_SCRAPE_URL;
       
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            unitCode: unitCode,
-            rtoId: selectedRTOId ? parseInt(selectedRTOId) : undefined,
-          }),
-        }
-      );
-
-      let result;
-      try {
-        // Clone the response to safely read the body without stream conflicts
-        try {
-          result = await response.clone().json();
-        } catch (cloneError) {
-          // Fallback: if cloning fails, try reading directly
-          console.warn('Clone json() failed, attempting direct read:', cloneError);
-          result = await response.json();
-        }
-      } catch (jsonError) {
-        console.error('Failed to parse response:', jsonError);
-        if (!response.ok) {
-          console.error('Webhook request failed:');
-          console.error('Status:', response.status, response.statusText);
-        }
-        throw new Error(`Failed to parse response: ${jsonError.message}`);
+      if (!n8nUrl) {
+        throw new Error('N8N Web Scrape URL not configured. Please set VITE_N8N_WEB_SCRAPE_URL in environment variables.');
       }
 
+      // Build callback webhook URL (for n8n to send results back)
+      const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`;
+      
+      const response = await fetch(n8nUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          originUrl: originUrl,
+          webhookUrl: webhookUrl,
+          executionMode: 'production',
+        }),
+      });
+
+      // Check response status first
       if (!response.ok) {
         console.error('Webhook request failed:');
         console.error('Status:', response.status, response.statusText);
-        console.error('Response:', result);
-        throw new Error('Webhook request failed');
-      } else {
-        console.log('Webhook request successful');
-        setSuccessMessage(`Successfully extracted requirements for ${unitCode}. The unit and all its requirements have been saved to the database.`);
-        setShowSuccessAlert(true);
-
-        // Refresh the units list
-        await fetchExistingUnits();
         
-        // Auto-dismiss after 8 seconds and clear filter
-        setTimeout(() => {
-          setShowSuccessAlert(false);
-          setUnitCode('');
-        }, 8000);
+        // Try to get error message from response body
+        let errorText = 'Webhook request failed';
+        try {
+          const text = await response.text();
+          if (text) {
+            errorText = text;
+          }
+        } catch (e) {
+          // Ignore if we can't read the error
+        }
+        
+        throw new Error(errorText);
       }
+
+      // Response is OK - try to parse JSON if there's content
+      let result = null;
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const text = await response.text();
+          if (text && text.trim()) {
+            result = JSON.parse(text);
+          }
+        } catch (jsonError) {
+          console.warn('Could not parse JSON response, but request was successful:', jsonError);
+          // Continue anyway since the request was successful
+        }
+      }
+
+      console.log('Webhook request successful', result);
+      setSuccessMessage(`Successfully initiated extraction for ${unitCode}. Requirements will be processed and saved to the database.`);
+      setShowSuccessAlert(true);
+
+      // Refresh the units list
+      await fetchExistingUnits();
+      
+      // Auto-dismiss after 8 seconds and clear filter
+      setTimeout(() => {
+        setShowSuccessAlert(false);
+        setUnitCode('');
+      }, 8000);
     } catch (error) {
       console.error('Error sending webhook:', error);
     } finally {
