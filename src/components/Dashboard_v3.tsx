@@ -366,22 +366,6 @@ export function Dashboard_v3({
             <span>Active Validations</span>
             <span className="text-sm font-normal text-[#64748b]">({activeValidations.length})</span>
           </h3>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={refreshValidations}
-              disabled={isRefreshing}
-              className="flex items-center gap-2"
-            >
-              {isRefreshing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              Refresh
-            </Button>
-          </div>
         </div>
 
         {/* Processing Information Banner - n8n 4-Stage Flow */}
