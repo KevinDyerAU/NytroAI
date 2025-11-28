@@ -75,12 +75,10 @@ export async function checkValidationStatus(validationDetailId: number): Promise
 
     // Handle both camelCase and snake_case column names
     const extractStatus = data.extractStatus || data.extract_status;
-    const completedCount = data.completed_count || 0;
-    const reqTotal = data.req_total || 0;
 
     console.log('[checkValidationStatus] Validation status:', extractStatus);
 
-    // Check if still processing
+    // Check if still processing (only check extract status, not counts)
     const processingStatuses = ['pending', 'DocumentProcessing', 'Uploading', 'ProcessingInBackground'];
     if (processingStatuses.includes(extractStatus)) {
       console.log('[checkValidationStatus] Validation still processing');
@@ -91,21 +89,11 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       };
     }
 
-    // Check if validation has results
-    const hasResults = completedCount > 0 && reqTotal > 0;
-    if (!hasResults) {
-      console.log('[checkValidationStatus] No validation results yet');
-      return {
-        isReady: false,
-        status: 'no_results',
-        message: 'No validation results available yet.',
-      };
-    }
-
-    console.log('[checkValidationStatus] Validation results ready');
+    // Don't check counts - let the query run and return what exists in validation_results table
+    console.log('[checkValidationStatus] Validation ready, status:', extractStatus);
     return {
       isReady: true,
-      status: data.validation_status || 'completed',
+      status: data.validation_status || extractStatus || 'completed',
       message: 'Validation results are ready',
     };
   } catch (error) {
