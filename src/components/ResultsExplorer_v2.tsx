@@ -383,13 +383,13 @@ export function ResultsExplorer_v2({
       );
     }
 
-    // Loading state (only if not processing)
+    // Loading state
     if (isLoadingEvidence) {
       return <ValidationStatusMessage type="loading" validationProgress={progressInfo} />;
     }
 
-    // Error state
-    if (evidenceError && !isProcessing) {
+    // Error state (only if not finalised)
+    if (evidenceError) {
       return (
         <ValidationStatusMessage 
           type="error" 
