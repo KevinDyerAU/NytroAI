@@ -22,9 +22,7 @@ import {
   FileText,
   TrendingUp,
   Zap,
-  Info,
-  RefreshCw,
-  Loader2
+  Info
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
 
@@ -72,10 +70,6 @@ export function Dashboard_v3({
   const [currentPage, setCurrentPage] = useState(persistedState.currentPage || 1);
   const itemsPerPage = 20;
   
-  // Status modal state
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [validationStatuses, setValidationStatuses] = useState<ValidationStatus[]>([]);
-  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
   // Save state to sessionStorage when it changes
   useEffect(() => {
@@ -185,54 +179,40 @@ export function Dashboard_v3({
     };
   }, [validations]);
 
-  // Load validation status for a specific validation_detail
-  const loadValidationStatus = async (validationDetailId: number) => {
-    setIsLoadingStatus(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('get-validation-detail-status', {
-        body: { validationDetailId }
-      });
 
-      if (error) {
-        console.error('[Dashboard] Error loading status:', error);
-        toast.error('Failed to load validation status');
-        return;
-      }
-
-      console.log('[Dashboard] Validation detail status response:', data);
-
-      // Parse the status data
-      const statusData = data?.status || [];
-
-      console.log('[Dashboard] Parsed status data:', statusData);
-      setValidationStatuses(statusData);
-      setShowStatusModal(true);
-    } catch (err) {
-      console.error('[Dashboard] Exception loading status:', err);
-      toast.error('An error occurred while loading status');
-    } finally {
-      setIsLoadingStatus(false);
-    }
-  };
-
-  // Refresh validations
+  // Auto-refresh validations every 30 seconds
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const refreshValidations = async () => {
-    if (!selectedRTOId || isRefreshing) return;
-    
+
+  const refreshValidations = async (showToast = false) => {
+    if (!rtoCode || isRefreshing) return;
+
     setIsRefreshing(true);
     try {
-      const data = await getActiveValidationsByRTO(selectedRTOId);
+      const data = await getActiveValidationsByRTO(rtoCode);
       setValidations(data || []);
-      toast.success('Validations refreshed');
+      if (showToast) {
+        toast.success('Validations refreshed');
+      }
     } catch (error) {
       console.error('[Dashboard] Error refreshing validations:', error);
-      toast.error('Failed to refresh validations');
+      if (showToast) {
+        toast.error('Failed to refresh validations');
+      }
     } finally {
       setIsRefreshing(false);
     }
   };
+
+  // Set up polling every 30 seconds
+  useEffect(() => {
+    if (!rtoCode) return;
+
+    const interval = setInterval(() => {
+      refreshValidations(false);
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [rtoCode]);
 
   // Show ALL validations (not just actively processing ones)
   const activeValidations = validations;
@@ -384,22 +364,6 @@ export function Dashboard_v3({
             <span>Active Validations</span>
             <span className="text-sm font-normal text-[#64748b]">({activeValidations.length})</span>
           </h3>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={refreshValidations}
-              disabled={isRefreshing}
-              className="flex items-center gap-2"
-            >
-              {isRefreshing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              Refresh
-            </Button>
-          </div>
         </div>
 
         {/* Processing Information Banner - n8n 4-Stage Flow */}
@@ -490,24 +454,9 @@ export function Dashboard_v3({
                         size="sm"
                         showLabel={true}
                         compact={false}
+                        extractStatus={validation.extract_status}
+                        validationStatus={validation.validation_status}
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          loadValidationStatus(validation.id);
-                        }}
-                        disabled={isLoadingStatus}
-                        className="flex items-center gap-1 text-xs"
-                        title="Check document processing status"
-                      >
-                        {isLoadingStatus ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Activity className="w-4 h-4" />
-                        )}
-                      </Button>
                     </div>
                   </div>
 
@@ -588,113 +537,6 @@ export function Dashboard_v3({
           </div>
         )}
       </Card>
-
-      {/* Validation Status Modal */}
-      <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
-        <DialogContent className="w-[100vw] max-w-[100vw] h-[75vh] max-h-[75vh] overflow-y-auto bg-white p-4">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5" />
-              Validation Processing Status (Last 6 Hours)
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="mt-4">
-            {(!validationStatuses || validationStatuses.length === 0) ? (
-              <div className="text-center py-8 text-gray-500">
-                No recent validation activity in the last 6 hours
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[35%]">File Name</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Embedding</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Gemini</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[18%]">Progress</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Validation</th>
-                      <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-500 uppercase w-[11%]">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {validationStatuses.map((status, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-0" title={status.file_name}>
-                          {status.file_name}
-                        </td>
-                        <td className="px-2 py-2">
-                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            status.embedding_status === 'completed' 
-                              ? 'bg-green-100 text-green-800'
-                              : status.embedding_status === 'processing'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {status.embedding_status}
-                          </span>
-                        </td>
-                        <td className="px-2 py-2">
-                          {status.gemini_status ? (
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              status.gemini_status === 'completed' 
-                                ? 'bg-green-100 text-green-800'
-                                : status.gemini_status === 'processing'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : status.gemini_status === 'failed'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {status.gemini_status}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2">
-                          {status.progress_percentage !== null ? (
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-[50px]">
-                                <div 
-                                  className="bg-blue-600 h-1.5 rounded-full" 
-                                  style={{ width: `${status.progress_percentage}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-gray-600 whitespace-nowrap">{status.progress_percentage}%</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2">
-                          {status.extractStatus ? (
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              status.extractStatus === 'Completed' 
-                                ? 'bg-green-100 text-green-800'
-                                : status.extractStatus === 'Processing'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : status.extractStatus === 'Failed'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {status.extractStatus}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 text-right whitespace-nowrap">
-                          {status.minutes_ago}m
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

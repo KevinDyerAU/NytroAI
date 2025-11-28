@@ -204,70 +204,102 @@ export function ResultsExplorer_v2({
     let cancelled = false;
 
     const loadValidationEvidence = async () => {
+      const selectedValidationId = selectedValidation?.id;
+
+      console.log('[ResultsExplorer useEffect] Starting effect', {
+        hasSelectedValidation: !!selectedValidation,
+        selectedValidationId,
+        lastLoadedValidationId,
+        isLoadingValidations,
+        validationRecordsCount: validationRecords.length
+      });
+
       if (!selectedValidation) {
+        console.log('[ResultsExplorer useEffect] No validation selected, clearing state');
         setValidationEvidenceData([]);
         setEvidenceError(null);
         setIsProcessing(false);
         setLastLoadedValidationId(null);
+        setIsLoadingEvidence(false);
         return;
       }
 
       // Only reload if validation ID actually changed
-      if (selectedValidation.id === lastLoadedValidationId) {
-        console.log('[ResultsExplorer] Same validation, skipping reload');
+      if (selectedValidationId === lastLoadedValidationId) {
+        console.log('[ResultsExplorer useEffect] Same validation, skipping reload');
         return;
       }
 
-      // Find the validation record
-      const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidation.id);
+      // Find the validation record - use the current validationRecords without depending on it
+      const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidationId);
       if (!currentRecord) {
         // If records aren't loaded yet, wait for them
         if (isLoadingValidations) {
-          console.log('[ResultsExplorer] Waiting for validation records to load...');
+          console.log('[ResultsExplorer useEffect] Waiting for validation records to load...');
           return;
         }
-        
+
+        console.log('[ResultsExplorer useEffect] Validation record not found');
         setEvidenceError({
           code: 'NOT_FOUND',
           message: 'Validation record not found',
           retryable: false,
         });
+        setIsLoadingEvidence(false);
         return;
       }
 
       const valDetailId = currentRecord.id;
 
+      console.log('[ResultsExplorer useEffect] Starting data fetch, setting loading=true');
       setIsLoadingEvidence(true);
       setEvidenceError(null);
-      setLastLoadedValidationId(selectedValidation.id);
 
       try {
-        console.log('[ResultsExplorer] Fetching validation results for ID:', valDetailId);
-        
-        const response = await getValidationResults(selectedValidation.id, valDetailId);
-        
-        if (cancelled) return;
+        console.log('[ResultsExplorer useEffect] Fetching validation results for ID:', valDetailId);
+
+        const response = await getValidationResults(selectedValidationId, valDetailId);
+
+        console.log('[ResultsExplorer useEffect] Fetch complete:', {
+          cancelled,
+          hasError: !!response.error,
+          dataLength: response.data.length,
+          isEmpty: response.isEmpty,
+          isProcessing: response.isProcessing
+        });
+
+        if (cancelled) {
+          console.log('[ResultsExplorer useEffect] Effect cancelled, ignoring response');
+          return;
+        }
 
         if (response.error) {
+          console.log('[ResultsExplorer useEffect] Setting error state:', response.error);
           setEvidenceError(response.error);
           setIsProcessing(response.isProcessing);
           setValidationEvidenceData([]);
-          
+
           // Show toast for errors (but not for processing state)
           if (!response.isProcessing) {
             toast.error(response.error.message);
           }
         } else {
+          console.log('[ResultsExplorer useEffect] Setting success state with', response.data.length, 'records');
           setValidationEvidenceData(response.data);
           setEvidenceError(null);
           setIsProcessing(false);
+          // Only mark as loaded after successful data fetch
+          setLastLoadedValidationId(selectedValidationId);
         }
       } catch (error) {
-        if (cancelled) return;
-        
+        if (cancelled) {
+          console.log('[ResultsExplorer useEffect] Effect cancelled during error handling');
+          return;
+        }
+
         const errorMsg = error instanceof Error ? error.message : 'Failed to load validation results';
-        console.error('[ResultsExplorer] Unexpected error:', error);
-        
+        console.error('[ResultsExplorer useEffect] Unexpected error:', error);
+
         setEvidenceError({
           code: 'UNKNOWN',
           message: errorMsg,
@@ -277,7 +309,10 @@ export function ResultsExplorer_v2({
         toast.error(errorMsg);
       } finally {
         if (!cancelled) {
+          console.log('[ResultsExplorer useEffect] Setting loading=false in finally block');
           setIsLoadingEvidence(false);
+        } else {
+          console.log('[ResultsExplorer useEffect] Effect cancelled, NOT setting loading=false');
         }
       }
     };
@@ -285,9 +320,10 @@ export function ResultsExplorer_v2({
     loadValidationEvidence();
 
     return () => {
+      console.log('[ResultsExplorer useEffect] Cleanup - cancelling effect');
       cancelled = true;
     };
-  }, [selectedValidation, validationRecords, isLoadingValidations, lastLoadedValidationId]);
+  }, [selectedValidation?.id, isLoadingValidations, lastLoadedValidationId]);
 
   // Retry loading evidence
   const handleRetryEvidence = useCallback(() => {
@@ -356,44 +392,36 @@ export function ResultsExplorer_v2({
     const progressInfo = currentRecord ? {
       completed: currentRecord.completed_count || 0,
       total: currentRecord.req_total || 0,
-      status: currentRecord.extract_status || 'Unknown',
+      status: currentRecord.validation_status || 'Unknown',
     } : undefined;
 
-    console.log('[ResultsExplorer] Progress info:', {
+    console.log('[ResultsExplorer RENDER] Render state:', {
       selectedValidationId: selectedValidation?.id,
-      currentRecord,
+      currentRecordId: currentRecord?.id,
       progressInfo,
       totalRecords: validationRecords.length,
-      isProcessing,
-      isLoadingEvidence
+      isLoadingEvidence,
+      validationEvidenceDataLength: validationEvidenceData.length,
+      hasError: !!evidenceError,
+      validationStatus: currentRecord?.validation_status,
+      errorCode: evidenceError?.code,
+      lastLoadedValidationId
     });
 
-    // Check if validation is still processing based on extract_status
-    const isCurrentlyProcessing = progressInfo?.status && 
-      ['DocumentProcessing', 'ProcessingInBackground', 'pending', 'Uploading'].includes(progressInfo.status);
-
-    // Processing state takes priority over loading - show status even while loading
-    if (isProcessing || isCurrentlyProcessing) {
-      return (
-        <ValidationStatusMessage 
-          type="processing" 
-          error={evidenceError || undefined}
-          onRefresh={handleRefreshStatus}
-          validationProgress={progressInfo}
-        />
-      );
-    }
-
-    // Loading state (only if not processing)
+    // Loading state
     if (isLoadingEvidence) {
+      console.log('[ResultsExplorer RENDER] Returning loading component because isLoadingEvidence=true');
       return <ValidationStatusMessage type="loading" validationProgress={progressInfo} />;
     }
 
+    console.log('[ResultsExplorer RENDER] Not loading, checking other states...');
+
     // Error state
-    if (evidenceError && !isProcessing) {
+    if (evidenceError) {
+      console.log('[ResultsExplorer RENDER] Returning error component');
       return (
-        <ValidationStatusMessage 
-          type="error" 
+        <ValidationStatusMessage
+          type="error"
           error={evidenceError}
           onRetry={evidenceError.retryable ? handleRetryEvidence : undefined}
           validationProgress={progressInfo}
@@ -403,8 +431,9 @@ export function ResultsExplorer_v2({
 
     // No results state
     if (validationEvidenceData.length === 0) {
+      console.log('[ResultsExplorer RENDER] Returning no-results component');
       return (
-        <ValidationStatusMessage 
+        <ValidationStatusMessage
           type="no-results"
           error={evidenceError || undefined}
           onRefresh={handleRefreshStatus}
@@ -414,6 +443,7 @@ export function ResultsExplorer_v2({
     }
 
     // Success - render results
+    console.log('[ResultsExplorer RENDER] Rendering results list with', validationEvidenceData.length, 'items');
     return (
       <div className="space-y-4">
         {/* Search and filter controls */}
@@ -458,13 +488,55 @@ export function ResultsExplorer_v2({
 
         {/* Results list */}
         {filteredResults.length > 0 ? (
-          filteredResults.map((result) => (
-            <ValidationCard
-              key={result.id}
-              result={result}
-              onClick={() => setSelectedResult(result)}
-            />
-          ))
+          filteredResults.map((record) => {
+            // Transform ValidationEvidenceRecord to ValidationCard's expected format
+            // Normalize status to match expected values
+            const normalizeStatus = (status: string): 'met' | 'not-met' | 'partial' => {
+              const normalized = status?.toLowerCase().replace(/\s+/g, '-');
+              if (normalized === 'met') return 'met';
+              if (normalized === 'not-met' || normalized === 'notmet') return 'not-met';
+              if (normalized === 'partial') return 'partial';
+              return 'not-met'; // default fallback
+            };
+
+            const transformedResult = {
+              id: record.id,
+              requirementNumber: record.requirement_number,
+              type: record.type,
+              requirementText: record.requirement_text,
+              status: normalizeStatus(record.status),
+              reasoning: record.reasoning,
+              evidence: {
+                mappedQuestions: record.mapped_questions ? record.mapped_questions.split('\n').filter(q => q.trim()) : [],
+                unmappedReasoning: record.unmapped_reasoning || '',
+                documentReferences: record.document_references ?
+                  record.document_references.split('\n').filter(ref => ref.trim()) : [],
+              },
+              aiEnhancement: {
+                smartQuestion: record.smart_question || '',
+                benchmarkAnswer: record.benchmark_answer || '',
+                recommendations: record.recommendations ?
+                  record.recommendations.split('\n').filter(rec => rec.trim()) : [],
+              },
+            };
+
+            return (
+              <ValidationCard
+                key={record.id}
+                result={transformedResult}
+                onChatClick={() => setSelectedResult(record)}
+                isReportSigned={false}
+                aiCreditsAvailable={aiCredits.current > 0}
+                validationContext={{
+                  rtoId: selectedRTOId,
+                  unitCode: selectedValidation?.unitCode,
+                  unitTitle: selectedValidation?.unitTitle,
+                  validationType: selectedValidation?.validationType,
+                  validationId: selectedValidation?.id,
+                }}
+              />
+            );
+          })
         ) : (
           <div className="text-center py-12 text-gray-500">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />

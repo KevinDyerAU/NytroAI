@@ -16,16 +16,48 @@ interface ValidationStatusIndicatorProps {
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   compact?: boolean;
+  extractStatus?: string; // Database column: Controls Stage 2 (Document Processing)
+  validationStatus?: string; // Database column: Controls Stage 3 (Validations)
 }
 
-export function ValidationStatusIndicator({ 
-  status, 
-  progress, 
+export function ValidationStatusIndicator({
+  status,
+  progress,
   size = 'md',
   showLabel = true,
-  compact = false 
+  compact = false,
+  extractStatus,
+  validationStatus
 }: ValidationStatusIndicatorProps) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+
+  // Determine actual stage based on database columns
+  const determineCurrentStage = (): 'pending' | 'reqExtracted' | 'docExtracted' | 'validated' => {
+    // Stage 4: Validation complete/finalised
+    if (validationStatus === 'Finalised') {
+      return 'validated';
+    }
+
+    // Stage 3: Validation in progress OR document extraction complete
+    if (validationStatus === 'In Progress' || extractStatus === 'Completed') {
+      return 'docExtracted';
+    }
+
+    // Stage 2: Document processing in progress
+    if (
+      extractStatus === 'In Progress' ||
+      extractStatus === 'ProcessingInBackground' ||
+      extractStatus === 'DocumentProcessing' ||
+      extractStatus === 'Uploading'
+    ) {
+      return 'reqExtracted';
+    }
+
+    // Stage 1: Pending/default
+    return 'pending';
+  };
+
+  const actualStatus = extractStatus || validationStatus ? determineCurrentStage() : status;
 
   const sizeConfig = {
     sm: { circle: 40, stroke: 4, text: 'text-xs', label: 'text-xs' },
@@ -46,7 +78,7 @@ export function ValidationStatusIndicator({
       icon: CheckCircle2,
       color: '#3b82f6',
       bgColor: '#dbeafe',
-      completed: status !== 'pending',
+      completed: actualStatus !== 'pending',
       description: 'Unit selected, documents uploaded'
     },
     {
@@ -55,7 +87,7 @@ export function ValidationStatusIndicator({
       icon: FileText,
       color: '#3b82f6',
       bgColor: '#dbeafe',
-      completed: status === 'docExtracted' || status === 'validated',
+      completed: actualStatus === 'docExtracted' || actualStatus === 'validated',
       description: 'AI learning PDFs (seconds for small files)'
     },
     {
@@ -64,7 +96,7 @@ export function ValidationStatusIndicator({
       icon: BookOpen,
       color: '#60a5fa',
       bgColor: '#dbeafe',
-      completed: status === 'validated',
+      completed: actualStatus === 'validated',
       description: 'Validating documents against training.gov.au requirements'
     },
     {
@@ -73,13 +105,16 @@ export function ValidationStatusIndicator({
       icon: CheckCircle2,
       color: '#22c55e',
       bgColor: '#dcfce7',
-      completed: status === 'validated',
+      completed: actualStatus === 'validated',
       description: 'Reports generated and confirmed'
     }
   ];
 
-  const currentStage = stages.find(s => s.key === status);
-  const currentStageIndex = stages.findIndex(s => s.key === status);
+  const currentStage = stages.find(s => s.key === actualStatus);
+  const currentStageIndex = stages.findIndex(s => s.key === actualStatus);
+
+  // Calculate progress based on current stage (20% per stage)
+  const stageProgress = currentStageIndex >= 0 ? (currentStageIndex + 1) * 20 : 0;
 
   return (
     <>
@@ -192,10 +227,10 @@ export function ValidationStatusIndicator({
           <div className="space-y-4 py-4">
             {stages.map((stage, index) => {
               const Icon = stage.icon;
-              const isCurrentStage = stage.key === status;
-              
+              const isCurrentStage = stage.key === actualStatus;
+
               return (
-                <div 
+                <div
                   key={stage.key}
                   className={`
                     flex gap-3 p-3 rounded-lg border
@@ -236,9 +271,14 @@ export function ValidationStatusIndicator({
 
           <div className="bg-[#eff6ff] border border-[#3b82f6] rounded-lg p-4">
             <p className="text-sm text-[#64748b]">
-              <span className="font-poppins text-[#1e293b]">Current Progress:</span> {progress}% complete
+              <span className="font-poppins text-[#1e293b]">Current Progress:</span> {stageProgress}% complete
               {currentStage && ` - ${currentStage.label} stage`}
             </p>
+            {(extractStatus || validationStatus) && (
+              <p className="text-xs text-[#64748b] mt-2">
+                <span className="font-poppins">Database Status:</span> Extract: {extractStatus || 'N/A'} | Validation: {validationStatus || 'N/A'}
+              </p>
+            )}
           </div>
 
           <AlertDialogFooter>

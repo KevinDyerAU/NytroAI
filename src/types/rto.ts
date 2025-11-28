@@ -596,59 +596,47 @@ let activeValidationsErrorLogged = false;
 
 export async function getActiveValidationsByRTO(rtoCode: string): Promise<ValidationRecord[]> {
   try {
-    // Query validation_detail directly - using actual column names
+    // Query validation_detail - try simple query first
     const { data, error } = await supabase
       .from('validation_detail')
-      .select(`
-        id,
-        namespace_code,
-        extractStatus,
-        docExtracted,
-        created_at,
-        summary_id,
-        validationType_id,
-        completed_count,
-        validation_total,
-        validation_progress,
-        validation_status
-      `)
-      .eq('namespace_code', rtoCode)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      // Only log full error details once
+      // Only log error once - avoid reading response body stream multiple times
       if (!activeValidationsErrorLogged) {
-        console.error('[getActiveValidationsByRTO] Error:', error?.message || 'Unknown error');
-        console.error('[getActiveValidationsByRTO] Details:', error?.details);
-        console.error('[getActiveValidationsByRTO] Code:', error?.code);
+        console.error('[getActiveValidationsByRTO] Query failed');
+        console.error('[getActiveValidationsByRTO] Error message:', error.message);
+        console.error('[getActiveValidationsByRTO] Error details:', error.details);
+        console.error('[getActiveValidationsByRTO] Error hint:', error.hint);
         activeValidationsErrorLogged = true;
-      } else {
-        console.warn('[getActiveValidationsByRTO] Validation fetch failed (already logged)');
       }
       return [];
     }
 
     // Reset error flag on success
     activeValidationsErrorLogged = false;
-    
+
     // Map database columns to ValidationRecord interface
+    // Handle both camelCase and snake_case column names
     const records: ValidationRecord[] = (data || []).map((record: any) => ({
       id: record.id,
-      unit_code: record.namespace_code || null, // Using namespace_code as fallback
-      qualification_code: null, // Not in validation_detail table
-      extract_status: record.extractStatus || 'Pending',
-      validation_status: record.validation_status || 'Pending', // n8n status tracking
-      doc_extracted: record.docExtracted || false,
-      req_extracted: false, // Not in validation_detail table
-      num_of_req: record.validation_total || 0,
-      req_total: record.validation_total || 0,
+      unit_code: record.validation_summary?.unit_code || record.namespace_code || record.rtoCode || null,
+      qualification_code: null,
+      extract_status: record.extractStatus || record.extract_status || 'Pending',
+      validation_status: record.validation_status || 'Pending',
+      doc_extracted: record.docExtracted !== undefined ? record.docExtracted : (record.doc_extracted || false),
+      req_extracted: false,
+      num_of_req: record.req_total || 0,
+      req_total: record.req_total || 0,
       completed_count: record.completed_count || 0,
       created_at: record.created_at,
       summary_id: record.summary_id || 0,
-      validation_type: null, // Can add lookup later if needed
-      error_message: null, // Not in validation_detail table
+      validation_type: record.validation_type?.validation_type || null,
+      error_message: null,
     }));
-    
+
+    console.log(`[getActiveValidationsByRTO] Found ${records.length} validations`);
     return records;
   } catch (error) {
     if (!activeValidationsErrorLogged) {

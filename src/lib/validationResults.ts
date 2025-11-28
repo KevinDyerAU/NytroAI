@@ -46,23 +46,23 @@ export async function checkValidationStatus(validationDetailId: number): Promise
   try {
     console.log('[checkValidationStatus] Checking validation status for ID:', validationDetailId);
     
-    // Mixed naming: extractStatus (camelCase) + validation_count, validation_status (snake_case)
+    // Query validation_detail
     const { data, error } = await supabase
       .from('validation_detail')
-      .select('extractStatus, validation_status, validation_count')
+      .select('*')
       .eq('id', validationDetailId)
       .single();
 
-    console.log('[checkValidationStatus] Query result:', { data, error });
-
     if (error) {
-      console.error('[checkValidationStatus] Database error:', error);
+      console.error('[checkValidationStatus] Database error: Query failed');
       return {
         isReady: false,
         status: 'error',
         message: 'Failed to check validation status',
       };
     }
+
+    console.log('[checkValidationStatus] Query successful, ID:', validationDetailId);
 
     if (!data) {
       console.log('[checkValidationStatus] No data returned for validation ID:', validationDetailId);
@@ -73,37 +73,14 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       };
     }
 
-    console.log('[checkValidationStatus] Validation data:', {
-      extractStatus: data.extractStatus,
-      validation_status: data.validation_status,
-      validation_count: data.validation_count
-    });
+    // Always return ready - no processing state checks
+    const validationStatus = data.validation_status;
 
-    // Check if still processing
-    const processingStatuses = ['pending', 'DocumentProcessing', 'Uploading', 'ProcessingInBackground'];
-    if (processingStatuses.includes(data.extractStatus)) {
-      console.log('[checkValidationStatus] Validation still processing:', data.extractStatus);
-      return {
-        isReady: false,
-        status: data.extractStatus,
-        message: 'Validation is still processing. Please check back in a moment.',
-      };
-    }
+    console.log('[checkValidationStatus] Validation status:', validationStatus, '- always returning ready');
 
-    // Check if validation has results
-    if (data.validation_count === 0) {
-      console.log('[checkValidationStatus] No validation results yet, count is 0');
-      return {
-        isReady: false,
-        status: 'no_results',
-        message: 'No validation results available yet.',
-      };
-    }
-
-    console.log('[checkValidationStatus] Validation results ready');
     return {
       isReady: true,
-      status: data.validation_status || 'completed',
+      status: validationStatus || 'ready',
       message: 'Validation results are ready',
     };
   } catch (error) {
@@ -158,34 +135,27 @@ export async function getValidationResults(
       };
     }
 
-    // Fetch validation results using RPC function
-    // Explicitly convert to bigint to avoid signature ambiguity
-    const { data, error } = await supabase.rpc('get_validation_results', {
-      p_val_detail_id: BigInt(valDetailId),
-    });
+    // Fetch validation results directly from validation_results table
+    const numericId = typeof valDetailId === 'string' ? parseInt(valDetailId, 10) : valDetailId;
+    console.log('[getValidationResults] Querying with ID:', numericId, 'type:', typeof numericId);
+
+    const { data, error } = await supabase
+      .from('validation_results')
+      .select('*')
+      .eq('validation_detail_id', numericId);
+
+    console.log('[getValidationResults] Query returned:', data?.length || 0, 'records');
 
     if (error) {
-      console.error('[getValidationResults] RPC error:', error);
-      
-      // Categorize error
-      let errorCode: ValidationResultsError['code'] = 'DATABASE_ERROR';
-      let retryable = true;
-      
-      if (error.message?.includes('function') && error.message?.includes('does not exist')) {
-        errorCode = 'DATABASE_ERROR';
-        retryable = false;
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorCode = 'NETWORK_ERROR';
-        retryable = true;
-      }
-      
+      console.error('[getValidationResults] Database error:', error);
+
       return {
         data: [],
         error: {
-          code: errorCode,
-          message: `Failed to fetch validation results: ${error.message}`,
+          code: 'DATABASE_ERROR',
+          message: `Failed to fetch validation results`,
           details: error,
-          retryable,
+          retryable: true,
         },
         isEmpty: true,
         isProcessing: false,
@@ -194,6 +164,7 @@ export async function getValidationResults(
 
     // Check if data is empty
     if (!data || data.length === 0) {
+      console.log('[getValidationResults] No records returned for ID:', numericId);
       return {
         data: [],
         error: {
@@ -206,9 +177,28 @@ export async function getValidationResults(
       };
     }
 
+    // Map database records to ValidationEvidenceRecord interface
+    const mappedData: ValidationEvidenceRecord[] = data.map((record: any) => ({
+      id: record.id?.toString() || '',
+      requirement_number: record.requirement_number || '',
+      requirement_text: record.requirement_text || '',
+      status: record.status || 'not_met',
+      reasoning: record.reasoning || '',
+      mapped_questions: record.mapped_questions || '',
+      unmapped_reasoning: record.unmapped_reasoning || '',
+      document_references: record.document_references || '',
+      smart_question: record.smart_question || '',
+      benchmark_answer: record.benchmark_answer || '',
+      recommendations: record.recommendations || '',
+      table_source: record.table_source || 'validation_results',
+      type: record.type || 'evidence',
+    }));
+
+    console.log('[getValidationResults] Successfully mapped', mappedData.length, 'records');
+
     // Success
     return {
-      data: data as ValidationEvidenceRecord[],
+      data: mappedData,
       error: null,
       isEmpty: false,
       isProcessing: false,
