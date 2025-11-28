@@ -73,22 +73,10 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       };
     }
 
-    // Handle both camelCase and snake_case column names
-    const extractStatus = data.extractStatus || data.extract_status;
+    // Only check validation_status
     const validationStatus = data.validation_status;
 
-    console.log('[checkValidationStatus] Extract status:', extractStatus, 'Validation status:', validationStatus);
-
-    // Check if still processing (only check extract status, not counts)
-    const processingStatuses = ['pending', 'DocumentProcessing', 'Uploading', 'ProcessingInBackground'];
-    if (processingStatuses.includes(extractStatus)) {
-      console.log('[checkValidationStatus] Validation still processing');
-      return {
-        isReady: false,
-        status: extractStatus,
-        message: 'Validation is still processing. Please check back in a moment.',
-      };
-    }
+    console.log('[checkValidationStatus] Validation status:', validationStatus);
 
     // Only show results if validation_status is 'Finalised'
     if (validationStatus !== 'Finalised') {
