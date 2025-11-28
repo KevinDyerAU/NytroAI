@@ -596,19 +596,19 @@ let activeValidationsErrorLogged = false;
 
 export async function getActiveValidationsByRTO(rtoCode: string): Promise<ValidationRecord[]> {
   try {
-    // Query validation_detail directly - using actual column names
+    // Query validation_detail directly - using actual column names (snake_case)
     const { data, error } = await supabase
       .from('validation_detail')
       .select(`
         id,
         namespace_code,
-        extractStatus,
-        docExtracted,
+        extract_status,
+        doc_extracted,
         created_at,
         summary_id,
-        validationType_id,
+        validation_type_id,
         completed_count,
-        validation_total,
+        req_total,
         validation_progress,
         validation_status
       `)
@@ -630,25 +630,26 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
 
     // Reset error flag on success
     activeValidationsErrorLogged = false;
-    
+
     // Map database columns to ValidationRecord interface
     const records: ValidationRecord[] = (data || []).map((record: any) => ({
       id: record.id,
-      unit_code: record.namespace_code || null, // Using namespace_code as fallback
-      qualification_code: null, // Not in validation_detail table
-      extract_status: record.extractStatus || 'Pending',
-      validation_status: record.validation_status || 'Pending', // n8n status tracking
-      doc_extracted: record.docExtracted || false,
-      req_extracted: false, // Not in validation_detail table
-      num_of_req: record.validation_total || 0,
-      req_total: record.validation_total || 0,
+      unit_code: record.namespace_code || null,
+      qualification_code: null,
+      extract_status: record.extract_status || 'Pending',
+      validation_status: record.validation_status || 'Pending',
+      doc_extracted: record.doc_extracted || false,
+      req_extracted: false,
+      num_of_req: record.req_total || 0,
+      req_total: record.req_total || 0,
       completed_count: record.completed_count || 0,
       created_at: record.created_at,
       summary_id: record.summary_id || 0,
-      validation_type: null, // Can add lookup later if needed
-      error_message: null, // Not in validation_detail table
+      validation_type: null,
+      error_message: null,
     }));
-    
+
+    console.log(`[getActiveValidationsByRTO] Found ${records.length} validations for RTO: ${rtoCode}`);
     return records;
   } catch (error) {
     if (!activeValidationsErrorLogged) {
