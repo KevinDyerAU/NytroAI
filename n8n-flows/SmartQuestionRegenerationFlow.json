@@ -1,0 +1,253 @@
+{
+  "name": "SmartQuestionRegenerationFlow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "regenerate-questions",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Regenerate Questions",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "regenerate-questions-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_results",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_result_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-validation-result",
+      "name": "Fetch Validation Result",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_detail",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Fetch Validation Result').item.json.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "validation_summary(unit_code)"
+        }
+      },
+      "id": "fetch-validation-context",
+      "name": "Fetch Validation Context",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const validationResult = $('Fetch Validation Result').first().json;\nconst validationContext = $('Fetch Validation Context').first().json;\nconst userGuidance = $('Webhook - Regenerate Questions').first().json.body.user_guidance || '';\n\nconst requirement = {\n  type: validationResult.requirement_type,\n  number: validationResult.requirement_number,\n  text: validationResult.requirement_text\n};\n\n// Parse existing gaps from metadata\nlet gaps = [];\nif (validationResult.metadata) {\n  const metadata = typeof validationResult.metadata === 'string' ? JSON.parse(validationResult.metadata) : validationResult.metadata;\n  gaps = metadata.gaps || [];\n}\n\nconst prompt = `You are an expert RTO assessment designer. Generate smart assessment questions to address gaps in the following requirement.\n\n**Unit Code:** ${validationContext.validation_summary.unit_code}\n\n**Requirement Type:** ${requirement.type}\n\n**Requirement ${requirement.number}:**\n${requirement.text}\n\n**Current Status:** ${validationResult.status}\n\n**Reasoning:** ${validationResult.reasoning}\n\n**Identified Gaps:**\n${gaps.map((gap, i) => `${i + 1}. ${gap}`).join('\\n')}\n\n${userGuidance ? `**User Guidance:** ${userGuidance}\\n\\n` : ''}\n**Task:** Generate 3-5 high-quality assessment questions that would address these gaps. Questions should be:\n- Directly related to the requirement\n- Appropriate for the assessment type (written, practical, or oral)\n- Clear and unambiguous\n- Assessable and measurable\n\nReturn results in JSON format:\n\n\\`\\`\\`json\n{\n  \"questions\": [\n    {\n      \"question\": \"Full question text\",\n      \"rationale\": \"Why this question addresses the gap\",\n      \"assessmentType\": \"written\" | \"practical\" | \"oral\",\n      \"bloomsLevel\": \"knowledge\" | \"comprehension\" | \"application\" | \"analysis\" | \"synthesis\" | \"evaluation\"\n    }\n  ]\n}\n\\`\\`\\`\n\nIMPORTANT: Return ONLY valid JSON, no additional text.`;\n\nreturn {\n  json: {\n    prompt: prompt,\n    validation_result_id: validationResult.id\n  }\n};"
+      },
+      "id": "prepare-question-generation-prompt",
+      "name": "Prepare Question Generation Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": $json.prompt\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"maxOutputTokens\": 2048,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "call-gemini-api",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 400],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response = $input.first().json;\nconst validationResultId = $('Prepare Question Generation Prompt').first().json.validation_result_id;\n\nlet responseText = '';\nif (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {\n  responseText = response.candidates[0].content.parts[0].text;\n}\n\nlet questionResult;\ntry {\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  questionResult = JSON.parse(responseText);\n} catch (error) {\n  return {\n    json: {\n      error: 'Failed to parse AI response',\n      raw_response: responseText,\n      validation_result_id: validationResultId\n    }\n  };\n}\n\nreturn {\n  json: {\n    validation_result_id: validationResultId,\n    smart_questions: JSON.stringify(questionResult.questions || [])\n  }\n};"
+      },
+      "id": "parse-questions",
+      "name": "Parse Questions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_results",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_result_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "smart_questions",
+              "fieldValue": "={{ $json.smart_questions }}"
+            }
+          ]
+        }
+      },
+      "id": "update-smart-questions",
+      "name": "Update Smart Questions",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_result_id\": $json.validation_result_id, \"questions\": JSON.parse($json.smart_questions), \"message\": \"Smart questions regenerated successfully\" } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1780, 400]
+    }
+  ],
+  "connections": {
+    "Webhook - Regenerate Questions": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Result": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Context": {
+      "main": [
+        [
+          {
+            "node": "Prepare Question Generation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Question Generation Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Questions": {
+      "main": [
+        [
+          {
+            "node": "Update Smart Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Smart Questions": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,519 @@
+{
+  "name": "AIValidationFlow_Gemini",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "validation-processing-gemini",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ac0b3fa4-5b09-452f-9a49-db82cb71e369",
+      "name": "Webhook - Start Validation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        80,
+        16
+      ],
+      "webhookId": "validation-processing-gemini-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "prompt",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "current",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "0d093347-e56d-4c56-a764-aad61ce2ecd5",
+      "name": "Fetch System Prompt",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        896,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://dfqxmjmggokneiuljkta.supabase.co/functions/v1/get-requirements",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"validation_detail_id\": $('Webhook - Start Validation').item.json.body.validation_detail_id } }}",
+        "options": {}
+      },
+      "id": "8406094b-cced-40d9-9e14-17340674f702",
+      "name": "Fetch Unit Requirements (Edge Function)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "g7Y4HgWkwgkDqjLL",
+          "name": "Header Auth Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse requirements from edge function response\nconst response = $input.first().json;\n\nif (!response.success || !response.requirements_by_type) {\n  throw new Error('Failed to fetch requirements from edge function');\n}\n\nconst requirementsByType = response.requirements_by_type;\n\n// Group by type for batch processing\nconst requirementGroups = [];\n\nfor (const [type, items] of Object.entries(requirementsByType)) {\n  if (items && items.length > 0) {\n    requirementGroups.push({\n      validation_type: type,\n      requirements: items,\n      requirements_json: JSON.stringify(items)\n    });\n  }\n}\n\nconsole.log(`Processing ${requirementGroups.length} requirement types`);\nreturn requirementGroups.map(group => ({ json: group }));"
+      },
+      "id": "104b9eee-ab0d-426a-8ee0-dea16a84d795",
+      "name": "Group Requirements by Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "\n\n// Get data from webhook and previous nodes\nconst validationDetailId = $('Webhook - Start Validation').first().json.body.validation_detail_id;\nconst geminiFiles = $('Webhook - Start Validation').first().json.body.gemini_file_uris; // Passed from webhook\nconst systemPrompt = $('Fetch System Prompt').first().json.prompt || 'You are an expert RTO validator.';\nconst validationContext = $('Fetch Summary Context').first().json;\nconst unitCode = validationContext.unitCode;\nconst rtoCode = validationContext.rtoCode;\nconst requirementsData = $('Fetch Summary Context').first().json;\n\n// Build file parts for Gemini API\nconst fileParts = geminiFiles.map(file => ({\n  fileData: {\n    mimeType: \"application/pdf\",\n    fileUri: file.gemini_file_uri\n  }\n}));\n\n// Build requirements text\nconst requirementsText = `\n**UNIT REQUIREMENTS TO VALIDATE**\n\n${JSON.stringify(requirementsData.requirements_by_type, null, 2)}\n`;\n\n// Build user prompt\nconst userPrompt = `${requirementsText}\n\n**INSTRUCTIONS:**\nAnalyze the uploaded assessment documents and validate against ALL requirements listed above.\n\nFor each requirement, provide:\n1. Status: \"Addressed\", \"Partially Addressed\", or \"Not Addressed\"\n2. Evidence found with document name and page/section\n3. Reasoning for your assessment\n4. Smart questions if gaps exist\n\nReturn your response in this JSON format:\n{\n  \"validationType\": \"assessment\",\n  \"overallStatus\": \"string\",\n  \"summary\": \"string\",\n  \"requirementValidations\": [\n    {\n      \"requirementNumber\": \"string\",\n      \"requirementText\": \"string\",\n      \"status\": \"Addressed|Partially Addressed|Not Addressed\",\n      \"reasoning\": \"string\",\n      \"evidenceFound\": [\n        {\n          \"document\": \"filename.pdf\",\n          \"location\": \"Page X, Section Y\",\n          \"content\": \"quote from document\",\n          \"relevance\": \"explanation\"\n        }\n      ],\n      \"gaps\": [\"string\"],\n      \"smartQuestions\": [\"string\"]\n    }\n  ]\n}`;\n\n// Build contents array for Gemini API\nconst contents = [\n  {\n    role: \"user\",\n    parts: [\n      { text: systemPrompt },\n      ...fileParts,\n      { text: userPrompt }\n    ]\n  }\n];\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    contents: contents,\n    document_names: geminiFiles.map(f => f.file_name || f.storage_path.split('/').pop())\n  }\n};"
+      },
+      "id": "6679e2ff-2739-48d0-8e13-1f0561f55ac6",
+      "name": "Prepare Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  contents: $json.contents,\n  generationConfig: {\n    temperature: 0.1,\n    maxOutputTokens: 8192,\n    responseMimeType: \"application/json\"\n  }\n} }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "f0c5f90e-99cc-4ac8-befa-8570f19f46bb",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1872,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "dGpgXD22mXx7C0C6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini response with enhanced session context\nconst response = $json;\n\nconst validationDetailId = $('Prepare Gemini Request').item.json.validation_detail_id;\nconst documentNames = $('Prepare Gemini Request').item.json.document_names;\n\n// Extract text from Gemini response\nlet responseText = '';\nif (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {\n  responseText = response.candidates[0].content.parts[0].text;\n}\n\n// Parse JSON response\nlet validationResult;\ntry {\n  // Remove markdown code blocks if present\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  validationResult = JSON.parse(responseText);\n} catch (error) {\n  console.error('Failed to parse AI response:', error);\n  return {\n    json: {\n      error: 'Failed to parse AI response',\n      raw_response: responseText,\n      validation_detail_id: validationDetailId\n    }\n  };\n}\n\n// Transform to database format with enhanced session context\nconst validationRecords = validationResult.requirementValidations.map(rv => ({\n  validation_detail_id: validationDetailId,\n  requirement_type: validationResult.validationType,\n  requirement_number: rv.requirementNumber,\n  requirement_text: rv.requirementText,\n  status: rv.status,\n  reasoning: rv.reasoning,\n  citations: JSON.stringify((rv.evidenceFound || []).map(evidence => ({\n    document_name: evidence.document || 'Unknown',\n    location: evidence.location,\n    content: evidence.content,\n    relevance: evidence.relevance\n  }))),\n  smart_questions: JSON.stringify(rv.smartQuestions || []),\n  metadata: JSON.stringify({\n    gaps: rv.gaps || [],\n    overall_status: validationResult.overallStatus,\n    summary: validationResult.summary,\n    documents_analyzed: documentNames,\n    validated_at: new Date().toISOString(),\n    validation_method: 'gemini_file_api',\n    session_context: $('Prepare Gemini Request').item.json\n  })\n}));\n\nreturn validationRecords.map(record => ({ json: record }));"
+      },
+      "id": "57d4ce20-06c9-48ec-af3a-937cb935f24e",
+      "name": "Parse Gemini Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "validation_results",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "validation_detail_id",
+              "fieldValue": "={{ $json.validation_detail_id }}"
+            },
+            {
+              "fieldId": "requirement_type",
+              "fieldValue": "={{ $json.requirement_type }}"
+            },
+            {
+              "fieldId": "requirement_number",
+              "fieldValue": "={{ $json.requirement_number }}"
+            },
+            {
+              "fieldId": "requirement_text",
+              "fieldValue": "={{ $json.requirement_text }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "reasoning",
+              "fieldValue": "={{ $json.reasoning }}"
+            },
+            {
+              "fieldId": "citations",
+              "fieldValue": "={{ $json.citations }}"
+            },
+            {
+              "fieldId": "smart_questions",
+              "fieldValue": "={{ $json.smart_questions }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $json.metadata }}"
+            }
+          ]
+        }
+      },
+      "id": "c0a0cedd-37a3-4888-ba12-8df6e88f275d",
+      "name": "Store Validation Results",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2304,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all validation results\nconst allResults = $input.all();\nconst validationDetailId = $('Fetch Validation Detail Context').first().json.id;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    total_results: allResults.length,\n    success: true\n  }\n};"
+      },
+      "id": "75f73331-29f8-4078-9a64-93b3c13c1f16",
+      "name": "Aggregate Validation Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "validation_status",
+              "fieldValue": "Finalised"
+            }
+          ]
+        }
+      },
+      "id": "b780245a-56e8-4f69-b839-eb1d539acec0",
+      "name": "Update Status: Finalised",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2752,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_detail_id\": $json.validation_detail_id, \"total_results\": $json.total_results, \"message\": \"Validation completed successfully\" } }}",
+        "options": {}
+      },
+      "id": "b4056e52-df53-425c-88fa-6b60db41dce4",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2976,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_detail",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        }
+      },
+      "id": "d18e07b8-af6b-411b-bb33-4bd36d378e85",
+      "name": "Fetch Validation Detail Context",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        304,
+        16
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_summary",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.summary_id }}"
+            }
+          ]
+        }
+      },
+      "id": "d4aa09d1-7287-4959-bec2-46f0df9ca81e",
+      "name": "Fetch Summary Context",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook - Start Validation": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-gtoa.onrender.com",
+            "user-agent": "axios/1.8.3",
+            "content-length": "425",
+            "accept": "application/json,text/*;q=0.99",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "74.220.52.1",
+            "cf-ipcountry": "SG",
+            "cf-ray": "9a57a7cb3b7c5542-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "render-proxy-ttl": "4",
+            "rndr-id": "f40fe503-7476-40e2",
+            "true-client-ip": "74.220.52.1",
+            "x-forwarded-for": "74.220.52.1, 172.69.165.5",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1764309736219592"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "validation_detail_id": 713,
+            "gemini_file_uris": [
+              {
+                "storage_path": "7148/tlif0025/1764305341783_TLIF0025_AT2.pdf",
+                "gemini_file_uri": "https://generativelanguage.googleapis.com/v1beta/files/aqu733qvc112",
+                "file_name": "1764305341783_TLIF0025_AT2.pdf"
+              },
+              {
+                "storage_path": "7148/tlif0025/1764305345056_AT3.pdf",
+                "gemini_file_uri": "https://generativelanguage.googleapis.com/v1beta/files/9howyxw5hsa9",
+                "file_name": "1764305345056_AT3.pdf"
+              }
+            ]
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/validation-processing-gemini",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook - Start Validation": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Detail Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch System Prompt": {
+      "main": [
+        [
+          {
+            "node": "Fetch Unit Requirements (Edge Function)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Unit Requirements (Edge Function)": {
+      "main": [
+        [
+          {
+            "node": "Group Requirements by Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group Requirements by Type": {
+      "main": [
+        [
+          {
+            "node": "Prepare Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response": {
+      "main": [
+        [
+          {
+            "node": "Store Validation Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Validation Results": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Validation Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Validation Results": {
+      "main": [
+        [
+          {
+            "node": "Update Status: Finalised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Finalised": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Detail Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch Summary Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Summary Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch System Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "532295df-7038-4c31-8237-ad1c6d3c6907",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "95d6963b6972a46c66ec607d883cc8d928cf66d74dca93fd344bc76103b3281b"
+  },
+  "id": "BxRA1JnOhdV2FIiz",
+  "tags": []
+}

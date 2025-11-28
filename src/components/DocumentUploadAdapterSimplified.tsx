@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { FileText, CheckCircle, Info, Plus } from 'lucide-react';
+import { ValidationTriggerCard } from './ValidationTriggerButton';
 
 interface DocumentUploadAdapterSimplifiedProps {
   selectedRTOId: string;
@@ -147,9 +148,19 @@ export function DocumentUploadAdapterSimplified({
   const handleFilesSelected = useCallback(async (files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
     
-    // Don't set files yet - wait for validation to be created first
-    setUploadedCount(0);
-    setIsComplete(false);
+    // Only reset if this is a NEW selection (different length or first selection)
+    setSelectedFiles(prev => {
+      // If same files are already selected, don't reset counts
+      if (prev.length === files.length && prev.length > 0) {
+        console.log('[DocumentUploadAdapterSimplified] ⚠️ Same files already selected, skipping reset');
+        return prev;
+      }
+      
+      console.log('[DocumentUploadAdapterSimplified] 🆕 New file selection, resetting counts');
+      setUploadedCount(0);
+      setIsComplete(false);
+      return files;
+    });
 
     // Create validation record when files are selected (MUST complete before upload)
     if (files.length > 0 && !validationDetailId && selectedRTO && selectedUnit) {
@@ -228,113 +239,37 @@ export function DocumentUploadAdapterSimplified({
     }
   }, [validationDetailId, selectedRTO, selectedUnit]);
 
-  // Handle upload complete (Supabase storage upload)
-  const handleUploadComplete = async (documentId: number, fileName: string, storagePath: string) => {
-    console.log('[DocumentUploadAdapterSimplified] Supabase upload complete:', { documentId, fileName });
-    
-    // Track uploaded document
-    const newDoc = { documentId, fileName, storagePath };
-    let allDocs: typeof uploadedDocuments = [];
-    
-    setUploadedDocuments(prev => {
-      allDocs = [...prev, newDoc];
-      return allDocs;
+  // Handle upload complete (instant - just storage upload)
+  const handleUploadComplete = useCallback((documentId: number) => {
+    console.log('[DocumentUploadAdapterSimplified] ✅ Upload complete callback fired!', {
+      documentId,
+      currentUploadedCount: uploadedCount,
+      totalFiles: selectedFiles.length
     });
     
-    // Update count using functional form
-    setUploadedCount(prev => prev + 1);
-    console.log(`[DocumentUploadAdapterSimplified] Supabase upload progress: ${allDocs.length}/${selectedFiles.length}`);
-    
-    // If all files uploaded to Supabase, start Gemini uploads
-    if (allDocs.length >= selectedFiles.length) {
-      console.log('[DocumentUploadAdapterSimplified] ✅ All files uploaded to Supabase!');
-      console.log('[DocumentUploadAdapterSimplified] 🚀 Starting Gemini uploads...');
+    // Update count and check if all files are done
+    setUploadedCount(prev => {
+      const newCount = prev + 1;
+      console.log(`[DocumentUploadAdapterSimplified] 📊 Upload progress: ${newCount}/${selectedFiles.length}`);
       
-      toast.info('Files uploaded! Starting indexing...', {
-        duration: 3000,
-      });
-      
-      // Upload each document to Gemini (allDocs already includes the latest one)
-      console.log(`[DocumentUploadAdapterSimplified] Using validationDetailId: ${validationDetailIdRef.current}`);
-      for (const doc of allDocs) {
-        try {
-          console.log(`[DocumentUploadAdapterSimplified] Uploading ${doc.fileName} to Gemini...`);
-          
-          const { data, error } = await supabase.functions.invoke('upload-document', {
-            body: {
-              rtoCode: selectedRTO?.code,
-              unitCode: selectedUnit?.code,
-              documentType: 'assessment',
-              fileName: doc.fileName,
-              storagePath: doc.storagePath,
-              validationDetailId: validationDetailIdRef.current,
-            }
-          });
-          
-          if (error) {
-            console.error(`[DocumentUploadAdapterSimplified] Gemini upload failed for ${doc.fileName}:`, error);
-            toast.error(`Failed to index ${doc.fileName}`, {
-              description: error.message,
-              duration: 5000,
-            });
-            continue;
-          }
-          
-          console.log(`[DocumentUploadAdapterSimplified] ✅ Gemini upload started for ${doc.fileName}:`, data);
-          
-          // Update Gemini upload count
-          setGeminiUploadCount(prev => prev + 1);
-          
-        } catch (err) {
-          console.error(`[DocumentUploadAdapterSimplified] Exception uploading ${doc.fileName}:`, err);
-          toast.error(`Failed to index ${doc.fileName}`);
-        }
+      // Check if all files uploaded using the NEW count
+      if (newCount >= selectedFiles.length) {
+        console.log('[DocumentUploadAdapterSimplified] 🎉 All files uploaded!');
+        setIsComplete(true);
+        
+        // Show success message - user must type "validate" and click button
+        toast.success('Upload complete!', {
+          description: 'Type "validate" below and click the button to start AI processing.',
+          duration: 5000,
+        });
+
+        // NO AUTO-NAVIGATION - User must click "Start Validation" button
+        // Navigation happens in ValidationTriggerCard onSuccess callback
       }
       
-      // All Gemini uploads initiated - now trigger n8n polling
-      console.log('[DocumentUploadAdapterSimplified] ✅ All Gemini uploads initiated!');
-      console.log('[DocumentUploadAdapterSimplified] 🎯 Triggering n8n polling workflow...');
-      
-      if (validationDetailIdRef.current) {
-        try {
-          const { data, error } = await supabase.functions.invoke('trigger-validation-n8n', {
-            body: { validationDetailId: validationDetailIdRef.current }
-          });
-          
-          if (error) {
-            console.error('[DocumentUploadAdapterSimplified] Failed to trigger validation:', error);
-            toast.error('Failed to start validation', {
-              description: error.message,
-              duration: 5000,
-            });
-          } else {
-            console.log('[DocumentUploadAdapterSimplified] ✅ Validation workflow started:', data);
-            setIsComplete(true);
-            
-            toast.success('Validation started!', {
-              description: 'Your documents are being validated. Check Dashboard for results.',
-              duration: 4000,
-            });
-          }
-        } catch (err) {
-          console.error('[DocumentUploadAdapterSimplified] Exception triggering validation:', err);
-          toast.error('Failed to start validation');
-        }
-      }
-      
-      // Auto-navigate to dashboard after 3 seconds
-      setTimeout(() => {
-        console.log('[DocumentUploadAdapterSimplified] Auto-navigating to dashboard...');
-        if (onValidationSubmit) {
-          onValidationSubmit({
-            validationId: 0,
-            documentName: selectedFiles[0]?.name || 'document',
-            unitCode: selectedUnit?.code || 'unknown'
-          });
-        }
-      }, 3000);
-    }
-  };
+      return newCount;
+    });
+  }, [selectedFiles.length, uploadedCount]);
 
   // Reset form to start a new validation
   const handleStartNew = () => {
@@ -423,7 +358,17 @@ export function DocumentUploadAdapterSimplified({
                 placeholder={isLoadingUnits ? "Loading units..." : "Search by code or title (e.g., BSBWHS521)"}
                 value={unitSearchTerm}
                 onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
-                onFocus={() => unitSearchTerm && setShowUnitDropdown(true)}
+                onFocus={() => {
+                  // Only show dropdown if user is searching and hasn't selected a unit yet
+                  // or if search term differs from selected unit
+                  if (unitSearchTerm && (!selectedUnit || unitSearchTerm !== selectedUnit.code)) {
+                    setShowUnitDropdown(true);
+                  }
+                }}
+                onBlur={() => {
+                  // Close dropdown when clicking outside (with small delay to allow click on dropdown items)
+                  setTimeout(() => setShowUnitDropdown(false), 200);
+                }}
                 disabled={isLoadingUnits}
                 className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3b82f6] disabled:bg-gray-100"
               />
@@ -485,31 +430,35 @@ export function DocumentUploadAdapterSimplified({
           )}
         </Card>
 
-        {/* Success Message */}
-        {isComplete && (
-          <Card className="p-6 bg-green-50 border-green-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-green-900">Upload Complete!</h3>
-                  <p className="text-sm text-green-700 mt-1">
-                    {uploadedCount} file{uploadedCount !== 1 ? 's' : ''} uploaded successfully. 
-                    Processing is happening in the background. Check the Dashboard for progress.
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={handleStartNew}
-                variant="outline"
-                className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-100"
-              >
-                <Plus className="w-4 h-4" />
-                Start New Validation
-              </Button>
-            </div>
-          </Card>
+        {/* Validation Trigger (n8n) */}
+        {validationDetailId && selectedFiles.length > 0 && (
+          <>
+            {console.log('[DocumentUploadAdapterSimplified] 🔍 Rendering ValidationTriggerCard:', {
+              validationDetailId,
+              uploadedCount,
+              totalCount: selectedFiles.length,
+              selectedFilesCount: selectedFiles.length
+            })}
+            <ValidationTriggerCard
+              validationDetailId={validationDetailId}
+              uploadedCount={uploadedCount}
+              totalCount={selectedFiles.length}
+              onSuccess={() => {
+                // Navigate to dashboard after validation starts
+                if (onValidationSubmit) {
+                  onValidationSubmit({
+                    validationId: validationDetailId,
+                    documentName: selectedFiles[0]?.name || 'document',
+                    unitCode: selectedUnit?.code || 'unknown'
+                  });
+                }
+              }}
+            />
+          </>
         )}
+
+        {/* Success Message - Hidden since ValidationTriggerCard shows the same info */}
+        {/* The ValidationTriggerCard above handles the "upload complete" messaging */}
       </div>
     </div>
   );

@@ -1,0 +1,310 @@
+/**
+ * n8n API Integration Utilities
+ * 
+ * Provides functions to call n8n webhooks for various operations:
+ * - Document processing
+ * - Validation processing
+ * - Report generation
+ * - Requirement revalidation
+ * - Question regeneration
+ * - AI chat
+ */
+
+interface N8nResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+/**
+ * Trigger document processing via n8n (uploads to Gemini File API)
+ * This should be called FIRST after files are uploaded to Supabase Storage
+ * Fetches storage paths from database and sends to n8n for processing
+ */
+export async function triggerDocumentProcessing(validationDetailId: number): Promise<N8nResponse> {
+  const n8nUrl = import.meta.env.VITE_N8N_DOCUMENT_PROCESSING_URL;
+  
+  if (!n8nUrl) {
+    throw new Error('N8N document processing URL not configured. Please set VITE_N8N_DOCUMENT_PROCESSING_URL in environment variables.');
+  }
+
+  // Import supabase here to avoid circular dependencies
+  const { supabase } = await import('../lib/supabase');
+  
+  // Retry logic: Wait for edge function to create document records
+  let documents: any[] | null = null;
+  let attempts = 0;
+  const maxAttempts = 10;
+  const retryDelay = 1000; // 1 second between retries
+
+  console.log('[n8nApi] ⏳ Waiting for document records to be created...');
+
+  while (attempts < maxAttempts) {
+    attempts++;
+    
+    // Fetch all documents for this validation to get storage paths
+    const { data, error } = await supabase
+      .from('documents')
+      .select('id, storage_path, file_name')
+      .eq('validation_detail_id', validationDetailId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to fetch documents: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      documents = data;
+      console.log(`[n8nApi] ✅ Found ${data.length} document(s) after ${attempts} attempt(s)`);
+      break;
+    }
+
+    if (attempts < maxAttempts) {
+      console.log(`[n8nApi] ⏳ Attempt ${attempts}/${maxAttempts}: No documents yet, retrying...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
+  }
+
+  if (!documents || documents.length === 0) {
+    throw new Error(`No documents found for validation ${validationDetailId} after ${maxAttempts} attempts. The edge function may still be creating records. Please wait a moment and try again.`);
+  }
+
+  const storagePaths = documents.map(doc => doc.storage_path);
+
+  console.log('[n8nApi] 📤 Calling n8n webhook:', {
+    url: n8nUrl,
+    validation_detail_id: validationDetailId,
+    storage_paths: storagePaths,
+    document_count: documents.length,
+  });
+
+  const response = await fetch(n8nUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      validation_detail_id: validationDetailId,
+      storage_paths: storagePaths,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`Document processing trigger failed (${response.status}): ${errorText}`);
+  }
+
+  const result = await response.json();
+  
+  console.log('[n8nApi] ✅ n8n response:', result);
+
+  return result;
+}
+
+/**
+ * Trigger validation processing via n8n
+ * @deprecated This is called automatically by n8n after document processing completes
+ */
+export async function triggerValidation(validationDetailId: number): Promise<N8nResponse> {
+  const n8nUrl = import.meta.env.VITE_N8N_VALIDATION_URL;
+  
+  if (!n8nUrl) {
+    throw new Error('N8N validation URL not configured. Please set VITE_N8N_VALIDATION_URL in environment variables.');
+  }
+
+  const response = await fetch(n8nUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      validation_detail_id: validationDetailId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`Validation trigger failed (${response.status}): ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Generate validation report via n8n
+ */
+export async function generateReport(validationDetailId: number): Promise<{
+  success: boolean;
+  report?: string;
+  filename?: string;
+  error?: string;
+}> {
+  const n8nUrl = import.meta.env.VITE_N8N_REPORT_URL;
+  
+  if (!n8nUrl) {
+    throw new Error('N8N report URL not configured. Please set VITE_N8N_REPORT_URL in environment variables.');
+  }
+
+  const response = await fetch(n8nUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      validation_detail_id: validationDetailId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`Report generation failed (${response.status}): ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Download report as file
+ */
+export function downloadReport(reportContent: string, filename: string): void {
+  const blob = new Blob([reportContent], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'validation_report.md';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Revalidate a single requirement via n8n
+ */
+export async function revalidateRequirement(validationResultId: number): Promise<N8nResponse> {
+  const n8nUrl = import.meta.env.VITE_N8N_REVALIDATE_URL;
+  
+  if (!n8nUrl) {
+    throw new Error('N8N revalidate URL not configured. Please set VITE_N8N_REVALIDATE_URL in environment variables.');
+  }
+
+  const response = await fetch(n8nUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      validation_result_id: validationResultId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`Revalidation failed (${response.status}): ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Regenerate smart questions for a requirement via n8n
+ */
+export async function regenerateQuestions(
+  validationResultId: number,
+  userGuidance: string
+): Promise<{
+  success: boolean;
+  questions?: Array<{
+    id: number;
+    question_text: string;
+    context: string;
+  }>;
+  error?: string;
+}> {
+  const n8nUrl = import.meta.env.VITE_N8N_REGENERATE_QUESTIONS_URL;
+  
+  if (!n8nUrl) {
+    throw new Error('N8N regenerate questions URL not configured. Please set VITE_N8N_REGENERATE_QUESTIONS_URL in environment variables.');
+  }
+
+  const response = await fetch(n8nUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      validation_result_id: validationResultId,
+      user_guidance: userGuidance,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`Question regeneration failed (${response.status}): ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Send message to AI chat via n8n
+ */
+export async function sendAIChatMessage(
+  validationDetailId: number,
+  message: string,
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+): Promise<{
+  success: boolean;
+  response?: string;
+  error?: string;
+}> {
+  const n8nUrl = import.meta.env.VITE_N8N_AI_CHAT_URL;
+  
+  if (!n8nUrl) {
+    throw new Error('N8N AI chat URL not configured. Please set VITE_N8N_AI_CHAT_URL in environment variables.');
+  }
+
+  const response = await fetch(n8nUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      validation_detail_id: validationDetailId,
+      message: message,
+      conversation_history: conversationHistory,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`AI Chat failed (${response.status}): ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Check if n8n webhooks are configured
+ */
+export function checkN8nConfiguration(): {
+  validation: boolean;
+  report: boolean;
+  revalidate: boolean;
+  regenerateQuestions: boolean;
+  aiChat: boolean;
+  allConfigured: boolean;
+} {
+  const config = {
+    validation: !!import.meta.env.VITE_N8N_VALIDATION_URL,
+    report: !!import.meta.env.VITE_N8N_REPORT_URL,
+    revalidate: !!import.meta.env.VITE_N8N_REVALIDATE_URL,
+    regenerateQuestions: !!import.meta.env.VITE_N8N_REGENERATE_QUESTIONS_URL,
+    aiChat: !!import.meta.env.VITE_N8N_AI_CHAT_URL,
+  };
+
+  return {
+    ...config,
+    allConfigured: Object.values(config).every(v => v),
+  };
+}

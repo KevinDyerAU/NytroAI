@@ -16,15 +16,11 @@ import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance
 import { PromptMaintenance } from '../components/maintenance/PromptMaintenance';
 import { TriggerValidation } from '../components/maintenance/TriggerValidation';
 import { useAuth } from '../hooks/useAuth';
-import { useIndexingProcessor } from '../hooks/useIndexingProcessor';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
 
 export function DashboardPage() {
   const { user } = useAuth();
-  
-  // Indexing processor - polls every 15 seconds to process pending uploads
-  useIndexingProcessor();
   
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedValidationId, setSelectedValidationId] = useState<string | null>(null);

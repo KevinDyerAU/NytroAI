@@ -1,0 +1,165 @@
+/**
+ * useResultsActions Hook
+ * 
+ * Hook for Results Explorer actions via n8n webhooks:
+ * - Generate report
+ * - Revalidate requirement
+ * - Regenerate smart questions
+ */
+
+import { useState } from 'react';
+import { toast } from 'sonner';
+import {
+  generateReport,
+  downloadReport,
+  revalidateRequirement,
+  regenerateQuestions,
+} from '../lib/n8nApi';
+
+interface UseResultsActionsReturn {
+  generateAndDownloadReport: (validationDetailId: number) => Promise<void>;
+  revalidate: (validationResultId: number) => Promise<void>;
+  regenerateSmartQuestions: (validationResultId: number, userGuidance: string) => Promise<any>;
+  isGeneratingReport: boolean;
+  isRevalidating: boolean;
+  isRegeneratingQuestions: boolean;
+  error: string | null;
+}
+
+export function useResultsActions(onRefresh?: () => void): UseResultsActionsReturn {
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isRevalidating, setIsRevalidating] = useState(false);
+  const [isRegeneratingQuestions, setIsRegeneratingQuestions] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const generateAndDownloadReport = async (validationDetailId: number) => {
+    setIsGeneratingReport(true);
+    setError(null);
+
+    try {
+      console.log('[useResultsActions] Generating report:', validationDetailId);
+      
+      toast.loading('Generating validation report...', { id: 'generate-report' });
+
+      const result = await generateReport(validationDetailId);
+
+      if (result.success && result.report) {
+        downloadReport(result.report, result.filename || 'validation_report.md');
+        
+        toast.success('Report generated and downloaded!', {
+          id: 'generate-report',
+          description: 'Check your downloads folder.',
+        });
+      } else {
+        throw new Error(result.error || 'Failed to generate report');
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to generate report';
+      setError(errorMsg);
+      console.error('[useResultsActions] Report generation error:', errorMsg);
+      
+      toast.error('Failed to generate report', {
+        id: 'generate-report',
+        description: errorMsg,
+      });
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const revalidate = async (validationResultId: number) => {
+    setIsRevalidating(true);
+    setError(null);
+
+    try {
+      console.log('[useResultsActions] Revalidating requirement:', validationResultId);
+      
+      toast.loading('Revalidating requirement...', { id: 'revalidate' });
+
+      const result = await revalidateRequirement(validationResultId);
+
+      if (result.success) {
+        toast.success('Requirement revalidated!', {
+          id: 'revalidate',
+          description: 'Results updated.',
+        });
+
+        // Trigger refresh if callback provided
+        if (onRefresh) {
+          onRefresh();
+        }
+      } else {
+        throw new Error(result.error || 'Failed to revalidate requirement');
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to revalidate';
+      setError(errorMsg);
+      console.error('[useResultsActions] Revalidation error:', errorMsg);
+      
+      toast.error('Failed to revalidate', {
+        id: 'revalidate',
+        description: errorMsg,
+      });
+    } finally {
+      setIsRevalidating(false);
+    }
+  };
+
+  const regenerateSmartQuestions = async (
+    validationResultId: number,
+    userGuidance: string
+  ) => {
+    setIsRegeneratingQuestions(true);
+    setError(null);
+
+    try {
+      console.log('[useResultsActions] Regenerating questions:', {
+        validationResultId,
+        guidanceLength: userGuidance.length,
+      });
+      
+      toast.loading('Regenerating smart questions...', { id: 'regenerate-questions' });
+
+      const result = await regenerateQuestions(validationResultId, userGuidance);
+
+      if (result.success && result.questions) {
+        toast.success('Questions regenerated!', {
+          id: 'regenerate-questions',
+          description: `Generated ${result.questions.length} new questions.`,
+        });
+
+        // Trigger refresh if callback provided
+        if (onRefresh) {
+          onRefresh();
+        }
+
+        return result.questions;
+      } else {
+        throw new Error(result.error || 'Failed to regenerate questions');
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to regenerate questions';
+      setError(errorMsg);
+      console.error('[useResultsActions] Question regeneration error:', errorMsg);
+      
+      toast.error('Failed to regenerate questions', {
+        id: 'regenerate-questions',
+        description: errorMsg,
+      });
+
+      return null;
+    } finally {
+      setIsRegeneratingQuestions(false);
+    }
+  };
+
+  return {
+    generateAndDownloadReport,
+    revalidate,
+    regenerateSmartQuestions,
+    isGeneratingReport,
+    isRevalidating,
+    isRegeneratingQuestions,
+    error,
+  };
+}

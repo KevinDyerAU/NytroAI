@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase';
 import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rto';
 import { getValidationStage } from '../types/validation';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
+import { ValidationStatusBadge } from './ValidationStatusBadge';
 import {
   Activity,
   FileText,
@@ -401,19 +402,31 @@ export function Dashboard_v3({
           </div>
         </div>
 
-        {/* Processing Information Banner */}
-        {activeValidations.some(v => v.extract_status === 'ProcessingInBackground' || v.extract_status === 'DocumentProcessing') && (
+        {/* Processing Information Banner - n8n 4-Stage Flow */}
+        {activeValidations.some(v => 
+          v.extract_status === 'In Progress' || 
+          v.extract_status === 'ProcessingInBackground' || 
+          v.extract_status === 'DocumentProcessing' ||
+          v.validation_status === 'In Progress'
+        ) && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900 flex items-center gap-2">
               <Info className="w-4 h-4 flex-shrink-0" />
               <span>
-                <strong>Note:</strong> Some validations are being processed by AI. Small PDFs typically complete Stage 2 (Document Processing) in seconds and automatically advance to Stage 3 (Validations). No action needed.
+                <strong>Note:</strong> Validations progress through 4 stages: (1) Document Upload → (2) AI Learning → (3) Under Review → (4) Finalised. Processing happens automatically in the background.
               </span>
             </p>
           </div>
         )}
 
         <div className="space-y-4">
+          {/* 
+            n8n 4-Stage Status Flow:
+            1. Document Upload: extractStatus='Pending', validationStatus='Pending'
+            2. AI Learning: extractStatus='In Progress' (files processing by Gemini)
+            3. Under Review: extractStatus='Completed', validationStatus='In Progress'
+            4. Finalised: validationStatus='Finalised' (results ready)
+          */}
           {activeValidations.length > 0 ? (
             paginatedValidations.map((validation) => {
               const stage = getValidationStage(
@@ -450,23 +463,13 @@ export function Dashboard_v3({
                       </div>
                       <p className="text-sm text-[#64748b] mb-1 flex items-center gap-2">
                         <span>Status:</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          (validation.extract_status === 'ProcessingInBackground' || validation.extract_status === 'DocumentProcessing')
-                            ? 'bg-blue-100 text-blue-800'
-                            : validation.extract_status === 'Uploading'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : validation.extract_status === 'Failed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {validation.extract_status === 'DocumentProcessing'
-                            ? 'Stage 2: Document Processing'
-                            : validation.extract_status === 'ProcessingInBackground'
-                            ? 'Stage 3: Validations'
-                            : validation.extract_status === 'Uploading'
-                            ? 'Uploading'
-                            : validation.extract_status || 'Pending'}
-                        </span>
+                        <ValidationStatusBadge
+                          status={{
+                            extractStatus: validation.extract_status || 'Pending',
+                            validationStatus: validation.validation_status || 'Pending',
+                          }}
+                          className="text-xs"
+                        />
                       </p>
                       <p className="text-xs text-[#94a3b8]">
                         Created: {formatValidationDate(validation.created_at)}
@@ -508,9 +511,11 @@ export function Dashboard_v3({
                     </div>
                   </div>
 
-                  {/* Show progress tracker for all active validations */}
-                  {(validation.extract_status === 'DocumentProcessing' || 
+                  {/* Show progress tracker for active validations (Stage 2 & 3) */}
+                  {(validation.extract_status === 'In Progress' || 
+                    validation.extract_status === 'DocumentProcessing' || 
                     validation.extract_status === 'ProcessingInBackground' ||
+                    validation.validation_status === 'In Progress' ||
                     validation.extract_status === 'Uploading') && (
                     <div className="mt-3">
                       <ValidationProgressTracker
@@ -525,20 +530,29 @@ export function Dashboard_v3({
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs text-[#64748b]">
                       <span>
-                        {validation.extract_status === 'DocumentProcessing'
-                          ? 'Document Processing'
-                          : 'Validations Progress'
+                        {(validation.extract_status === 'In Progress' || 
+                          validation.extract_status === 'DocumentProcessing')
+                          ? 'AI Learning'
+                          : validation.validation_status === 'In Progress'
+                          ? 'Validation Progress'
+                          : 'Progress'
                         }
                       </span>
                       <span>
-                        {validation.extract_status === 'DocumentProcessing'
-                          ? 'AI Learning...'
+                        {(validation.extract_status === 'In Progress' || 
+                          validation.extract_status === 'DocumentProcessing')
+                          ? 'Processing...'
                           : `${validation.completed_count || 0} / ${validation.req_total || 0}`
                         }
                       </span>
                     </div>
                     <Progress
-                      value={validation.extract_status === 'DocumentProcessing' ? 0 : progress}
+                      value={
+                        (validation.extract_status === 'In Progress' || 
+                         validation.extract_status === 'DocumentProcessing') 
+                          ? 0 
+                          : progress
+                      }
                       className="h-2 bg-[#dbeafe]"
                     />
                   </div>

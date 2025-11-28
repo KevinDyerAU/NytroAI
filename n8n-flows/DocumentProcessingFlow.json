@@ -1,0 +1,533 @@
+{
+  "name": "DocumentProcessingFlow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "document-processing",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Start Processing",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "doc-processing-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Processing"
+            }
+          ]
+        }
+      },
+      "id": "update-status-processing",
+      "name": "Update Status: AI Learning",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s3-paths-array",
+              "name": "s3_paths",
+              "type": "array",
+              "value": "={{ $json.body.s3_paths }}"
+            },
+            {
+              "id": "validation-detail-id",
+              "name": "validation_detail_id",
+              "type": "number",
+              "value": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-loop-data",
+      "name": "Prepare Loop Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "s3_paths",
+        "options": {}
+      },
+      "id": "split-s3-paths",
+      "name": "Split S3 Paths",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fastunstructpostgres.onrender.com/process",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "s3Path",
+              "value": "={{ $json.s3_paths }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "call-unstructured-api",
+      "name": "Process with Unstructured.io",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-error",
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              },
+              "leftValue": "={{ $json.error }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-extraction-success",
+      "name": "Check Extraction Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "elements",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "url",
+              "keyValue": "={{ $('Split S3 Paths').item.json.s3_paths }}"
+            }
+          ]
+        }
+      },
+      "id": "verify-elements-stored",
+      "name": "Verify Elements Stored",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Count total files processed and errors\nconst allItems = $input.all();\nconst totalFiles = allItems.length;\nconst successfulFiles = allItems.filter(item => !item.json.error).length;\nconst failedFiles = totalFiles - successfulFiles;\n\nreturn {\n  json: {\n    validation_detail_id: $('Prepare Loop Data').first().json.validation_detail_id,\n    total_files: totalFiles,\n    successful_files: successfulFiles,\n    failed_files: failedFiles,\n    all_successful: failedFiles === 0\n  }\n};"
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "all-successful",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "leftValue": "={{ $json.all_successful }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-all-successful",
+      "name": "Check All Successful",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Completed"
+            },
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-completed",
+      "name": "Update Status: Under Review",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2220, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Error"
+            },
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ false }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status-error",
+      "name": "Update Status: Error",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2220, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE_URL }}/webhook/validation-processing",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "validation_detail_id",
+              "value": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "trigger-validation-flow",
+      "name": "Trigger Validation Flow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_detail_id\": $json.validation_detail_id, \"message\": \"Validation triggered successfully\" } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"validation_detail_id\": $json.validation_detail_id, \"message\": \"Document processing failed\", \"details\": $json } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2660, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Split S3 Paths').item.json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Error"
+            }
+          ]
+        }
+      },
+      "id": "update-status-extraction-error",
+      "name": "Update Status: Extraction Error",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Start Processing": {
+      "main": [
+        [
+          {
+            "node": "Update Status: AI Learning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: AI Learning": {
+      "main": [
+        [
+          {
+            "node": "Prepare Loop Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Loop Data": {
+      "main": [
+        [
+          {
+            "node": "Split S3 Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split S3 Paths": {
+      "main": [
+        [
+          {
+            "node": "Process with Unstructured.io",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process with Unstructured.io": {
+      "main": [
+        [
+          {
+            "node": "Check Extraction Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Extraction Success": {
+      "main": [
+        [
+          {
+            "node": "Verify Elements Stored",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Extraction Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Elements Stored": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Extraction Error": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Check All Successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check All Successful": {
+      "main": [
+        [
+          {
+            "node": "Update Status: Under Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Under Review": {
+      "main": [
+        [
+          {
+            "node": "Trigger Validation Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Error": {
+      "main": [
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Validation Flow": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}

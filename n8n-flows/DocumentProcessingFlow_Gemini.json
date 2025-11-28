@@ -1,0 +1,618 @@
+{
+  "name": "DocumentProcessingFlow_Gemini",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "document-processing-gemini",
+        "options": {}
+      },
+      "id": "aa1dac4b-aaac-407e-aec5-91386fff491b",
+      "name": "Webhook - Start Processing",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2992,
+        -32
+      ],
+      "webhookId": "doc-processing-gemini-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Processing"
+            }
+          ]
+        }
+      },
+      "id": "926e6713-f348-464a-bcb0-888bbbc8c88a",
+      "name": "Update Status: AI Learning",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2768,
+        -32
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "storage-paths-array",
+              "name": "storage_paths",
+              "type": "array",
+              "value": "={{ $('Webhook - Start Processing').item.json.body.storage_paths }}"
+            },
+            {
+              "id": "validation-detail-id",
+              "name": "validation_detail_id",
+              "type": "number",
+              "value": "={{ $('Webhook - Start Processing').item.json.body.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10743055-69f3-4129-b09c-3a17c3834471",
+      "name": "Prepare Loop Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2544,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://dfqxmjmggokneiuljkta.supabase.co/functions/v1/upload-to-gemini",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmcXhtam1nZ29rbmVpdWxqa3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2MDg0NjIsImV4cCI6MjA3NzE4NDQ2Mn0.vPf2oAVXSZPNvWip08QLNvvHGx1dT8njRQdS568OxkE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "storage_path",
+              "value": "={{ $json.storage_path }}"
+            },
+            {
+              "name": "validation_detail_id",
+              "value": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1bb24a9a-6402-4f56-b2f0-3a1a897825eb",
+      "name": "Upload to Gemini File API (Edge Function)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2016,
+        -32
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-success",
+              "operator": {
+                "type": "boolean",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.success }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f06aa011-5f58-4919-8eee-df844cc33a0d",
+      "name": "Check Upload Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1664,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "documents",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "storage_path",
+              "condition": "eq",
+              "keyValue": "={{ $json.storage_path }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "embedding_status",
+              "fieldValue": "failed"
+            }
+          ]
+        }
+      },
+      "id": "e45cc65e-b042-41ef-ad28-61ecedf86006",
+      "name": "Mark Upload Failed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1456,
+        64
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate results from all file uploads\nconst allItems = $input.all();\nconst totalFiles = allItems.length;\nconst successfulFiles = allItems.filter(item => item.json.gemini_file_uri).length;\nconst failedFiles = totalFiles - successfulFiles;\n\nreturn {\n  json: {\n    validation_detail_id: $('Prepare Loop Data').first().json.validation_detail_id,\n    total_files: totalFiles,\n    successful_files: successfulFiles,\n    failed_files: failedFiles,\n    all_successful: failedFiles === 0\n  }\n};"
+      },
+      "id": "3cb7de66-08db-468f-8ba1-e3da3e13596b",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "all-successful",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Aggregate Results').item.json.all_successful }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "9103d059-8a7a-4292-b645-06563c8dbcf7",
+      "name": "Check All Successful",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -752,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Completed"
+            },
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "id": "049d49b9-f9e2-46cc-a565-9fea89019700",
+      "name": "Update Status: Under Review",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_detail",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_detail_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Error"
+            },
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ false }}"
+            }
+          ]
+        }
+      },
+      "id": "5bb71cef-a360-4f37-8142-6a661ad84280",
+      "name": "Update Status: Error",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        64
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://n8n-gtoa.onrender.com/webhook/validation-processing-gemini",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c815349f-dd8c-4337-b22e-29770cafa2b1",
+      "name": "Trigger Validation Flow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        64,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const storagePaths = $input.item.json.storage_paths;\nconst validationDetailId = $input.item.json.validation_detail_id;\n\nreturn storagePaths.map(path => ({\n  json: {\n    storage_path: path,\n    validation_detail_id: validationDetailId\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2288,
+        -32
+      ],
+      "id": "18d80fd8-61c6-4ec1-b088-a1dab2a52db5",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare webhook payload\nconst validationDetailId = $('Codes').item.json.validation_detail_id;\nconst geminiFiles = $('Codes').first().json.gemini_files;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    gemini_file_uris: geminiFiles\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        -320
+      ],
+      "id": "2a2d2f2e-2490-47a2-8eee-4aff243382c3",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all Gemini URIs\nconst uploadResults = $('Check Upload Success').all();\nconst geminiFiles = uploadResults.map(item => ({\n  storage_path: item.json.storage_path,\n  gemini_file_uri: item.json.gemini_file_uri,\n  file_name: item.json.storage_path.split('/').pop()\n}));\n\nreturn {\n  json: {\n    validation_detail_id: $json.validation_detail_id,\n    gemini_files: geminiFiles\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        -128
+      ],
+      "id": "a51eca09-c863-43c3-bd7a-cb21b7954d40",
+      "name": "Codes"
+    }
+  ],
+  "pinData": {
+    "Webhook - Start Processing": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-gtoa.onrender.com",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "content-length": "131",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "69.67.149.74",
+            "cf-ipcountry": "US",
+            "cf-ray": "9a573ced4ae10fcc-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "origin": "http://localhost:3000",
+            "priority": "u=1, i",
+            "referer": "http://localhost:3000/",
+            "render-proxy-ttl": "4",
+            "rndr-id": "4c7b710c-595a-43ba",
+            "sec-ch-ua": "\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "true-client-ip": "69.67.149.74",
+            "x-forwarded-for": "69.67.149.74, 172.68.242.57",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1764305359044643"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "validation_detail_id": 713,
+            "storage_paths": [
+              "7148/tlif0025/1764305341783_TLIF0025_AT2.pdf",
+              "7148/tlif0025/1764305345056_AT3.pdf"
+            ]
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/document-processing-gemini",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook - Start Processing": {
+      "main": [
+        [
+          {
+            "node": "Update Status: AI Learning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: AI Learning": {
+      "main": [
+        [
+          {
+            "node": "Prepare Loop Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Loop Data": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Gemini File API (Edge Function)": {
+      "main": [
+        [
+          {
+            "node": "Check Upload Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Upload Success": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Upload Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Upload Failed": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Codes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check All Successful": {
+      "main": [
+        [
+          {
+            "node": "Update Status: Under Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Under Review": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Error": {
+      "main": [
+        []
+      ]
+    },
+    "Trigger Validation Flow": {
+      "main": [
+        []
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Upload to Gemini File API (Edge Function)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Trigger Validation Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Codes": {
+      "main": [
+        [
+          {
+            "node": "Check All Successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ae380d0c-ad36-46bc-a8f3-a4392d1e674f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "95d6963b6972a46c66ec607d883cc8d928cf66d74dca93fd344bc76103b3281b"
+  },
+  "id": "XTvhhdxAogrjq1Nt",
+  "tags": []
+}

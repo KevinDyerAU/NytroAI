@@ -1,0 +1,382 @@
+{
+  "name": "SingleRequirementRevalidationFlow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "revalidate-requirement",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Revalidate Requirement",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "revalidate-requirement-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_results",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.validation_result_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-validation-result",
+      "name": "Fetch Validation Result",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "validation_detail",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Fetch Validation Result').item.json.validation_detail_id }}"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "validation_summary(unit_code, unitLink)"
+        }
+      },
+      "id": "fetch-validation-context",
+      "name": "Fetch Validation Context",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "documents",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "validation_detail_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Fetch Validation Result').item.json.validation_detail_id }}"
+            }
+          ]
+        }
+      },
+      "id": "fetch-document-paths",
+      "name": "Fetch Document Paths",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const documents = $input.all();\nconst s3Paths = documents.map(doc => doc.json.storage_path);\n\nreturn {\n  json: {\n    s3_paths: s3Paths\n  }\n};"
+      },
+      "id": "prepare-s3-paths",
+      "name": "Prepare S3 Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT text, filename, page_number FROM elements WHERE url = ANY($1::text[]) ORDER BY filename, page_number",
+        "options": {
+          "queryParams": "={{ JSON.stringify([$json.s3_paths]) }}"
+        }
+      },
+      "id": "fetch-document-text",
+      "name": "Fetch Document Text",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const elements = $input.all();\nlet aggregatedText = '';\nlet currentFilename = '';\n\nfor (const element of elements) {\n  const { text, filename, page_number } = element.json;\n  \n  if (filename !== currentFilename) {\n    if (currentFilename !== '') aggregatedText += '\\n\\n';\n    aggregatedText += `[DOCUMENT: ${filename}]\\n`;\n    currentFilename = filename;\n  }\n  \n  if (page_number) {\n    aggregatedText += `\\n[PAGE ${page_number}]\\n`;\n  }\n  \n  if (text) {\n    aggregatedText += text + '\\n';\n  }\n}\n\nreturn {\n  json: {\n    aggregated_text: aggregatedText\n  }\n};"
+      },
+      "id": "aggregate-document-text",
+      "name": "Aggregate Document Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const validationResult = $('Fetch Validation Result').first().json;\nconst validationContext = $('Fetch Validation Context').first().json;\nconst aggregatedText = $input.first().json.aggregated_text;\n\nconst requirement = {\n  id: validationResult.id,\n  type: validationResult.requirement_type,\n  number: validationResult.requirement_number,\n  text: validationResult.requirement_text\n};\n\nconst prompt = `You are an expert RTO validator. Revalidate the following requirement against the assessment documents.\n\n**Unit Code:** ${validationContext.validation_summary.unit_code}\n\n**Requirement Type:** ${requirement.type}\n\n**Requirement ${requirement.number}:**\n${requirement.text}\n\n**Assessment Documents:**\n${aggregatedText}\n\n**Task:** Validate this single requirement and return results in JSON format:\n\n\\`\\`\\`json\n{\n  \"requirementId\": ${requirement.id},\n  \"requirementNumber\": \"${requirement.number}\",\n  \"requirementText\": \"${requirement.text}\",\n  \"status\": \"met\" | \"partial\" | \"not_met\",\n  \"reasoning\": \"Detailed explanation of validation\",\n  \"evidenceFound\": [\n    {\n      \"location\": \"Page X, Section Y\",\n      \"content\": \"Relevant content\",\n      \"relevance\": \"How this addresses the requirement\"\n    }\n  ],\n  \"gaps\": [\"Gap 1\", \"Gap 2\"],\n  \"smartQuestions\": [\n    {\n      \"question\": \"Proposed question\",\n      \"rationale\": \"Why this addresses the gap\"\n    }\n  ]\n}\n\\`\\`\\`\n\nIMPORTANT: Return ONLY valid JSON, no additional text.`;\n\nreturn {\n  json: {\n    prompt: prompt,\n    validation_result_id: validationResult.id,\n    validation_detail_id: validationResult.validation_detail_id\n  }\n};"
+      },
+      "id": "prepare-revalidation-prompt",
+      "name": "Prepare Revalidation Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": $json.prompt\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"maxOutputTokens\": 4096,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "call-gemini-api",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 400],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response = $input.first().json;\nconst validationResultId = $('Prepare Revalidation Prompt').first().json.validation_result_id;\n\nlet responseText = '';\nif (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {\n  responseText = response.candidates[0].content.parts[0].text;\n}\n\nlet revalidationResult;\ntry {\n  responseText = responseText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  revalidationResult = JSON.parse(responseText);\n} catch (error) {\n  return {\n    json: {\n      error: 'Failed to parse AI response',\n      raw_response: responseText,\n      validation_result_id: validationResultId\n    }\n  };\n}\n\nreturn {\n  json: {\n    validation_result_id: validationResultId,\n    status: revalidationResult.status,\n    reasoning: revalidationResult.reasoning,\n    citations: JSON.stringify(revalidationResult.evidenceFound || []),\n    smart_questions: JSON.stringify(revalidationResult.smartQuestions || []),\n    metadata: JSON.stringify({\n      gaps: revalidationResult.gaps || [],\n      revalidated_at: new Date().toISOString()\n    })\n  }\n};"
+      },
+      "id": "parse-revalidation-result",
+      "name": "Parse Revalidation Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "validation_results",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.validation_result_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "reasoning",
+              "fieldValue": "={{ $json.reasoning }}"
+            },
+            {
+              "fieldId": "citations",
+              "fieldValue": "={{ $json.citations }}"
+            },
+            {
+              "fieldId": "smart_questions",
+              "fieldValue": "={{ $json.smart_questions }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $json.metadata }}"
+            }
+          ]
+        }
+      },
+      "id": "update-validation-result",
+      "name": "Update Validation Result",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2440, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"validation_result_id\": $json.validation_result_id, \"status\": $json.status, \"message\": \"Requirement revalidated successfully\" } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2660, 400]
+    }
+  ],
+  "connections": {
+    "Webhook - Revalidate Requirement": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Result": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch Document Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Document Paths": {
+      "main": [
+        [
+          {
+            "node": "Prepare S3 Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare S3 Paths": {
+      "main": [
+        [
+          {
+            "node": "Fetch Document Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Document Text": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Document Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Document Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare Revalidation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Revalidation Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse Revalidation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Revalidation Result": {
+      "main": [
+        [
+          {
+            "node": "Update Validation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Validation Result": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}

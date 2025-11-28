@@ -309,19 +309,7 @@ export function DocumentUploadSimplified({
         </Button>
       )}
 
-      {/* Info Message */}
-      {files.some(f => f.progress.stage === 'completed') && (
-        <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5" />
-          <div className="text-sm text-blue-800">
-            <p className="font-medium">Files uploaded successfully!</p>
-            <p className="mt-1">
-              Indexing and validation are running in the background. 
-              Check the Dashboard for status updates.
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Info Message removed - ValidationTriggerCard in parent handles this now */}
     </div>
   );
 }
