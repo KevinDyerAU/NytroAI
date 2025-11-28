@@ -615,13 +615,14 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
     activeValidationsErrorLogged = false;
 
     // Map database columns to ValidationRecord interface
+    // Handle both camelCase and snake_case column names
     const records: ValidationRecord[] = (data || []).map((record: any) => ({
       id: record.id,
-      unit_code: record.namespace_code || null,
+      unit_code: record.namespace_code || record.rtoCode || null,
       qualification_code: null,
-      extract_status: record.extractStatus || 'Pending',
+      extract_status: record.extractStatus || record.extract_status || 'Pending',
       validation_status: record.validation_status || 'Pending',
-      doc_extracted: record.docExtracted || false,
+      doc_extracted: record.docExtracted !== undefined ? record.docExtracted : (record.doc_extracted || false),
       req_extracted: false,
       num_of_req: record.req_total || 0,
       req_total: record.req_total || 0,
