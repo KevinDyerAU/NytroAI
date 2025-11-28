@@ -160,34 +160,22 @@ export async function getValidationResults(
       };
     }
 
-    // Fetch validation results using RPC function
-    // Explicitly convert to bigint to avoid signature ambiguity
-    const { data, error } = await supabase.rpc('get_validation_results', {
-      p_val_detail_id: BigInt(valDetailId),
-    });
+    // Fetch validation results directly from validation_results table
+    const { data, error } = await supabase
+      .from('validation_results')
+      .select('*')
+      .eq('validation_detail_id', valDetailId);
 
     if (error) {
-      console.error('[getValidationResults] RPC error:', error);
-      
-      // Categorize error
-      let errorCode: ValidationResultsError['code'] = 'DATABASE_ERROR';
-      let retryable = true;
-      
-      if (error.message?.includes('function') && error.message?.includes('does not exist')) {
-        errorCode = 'DATABASE_ERROR';
-        retryable = false;
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorCode = 'NETWORK_ERROR';
-        retryable = true;
-      }
-      
+      console.error('[getValidationResults] Database error:', error);
+
       return {
         data: [],
         error: {
-          code: errorCode,
-          message: `Failed to fetch validation results: ${error.message}`,
+          code: 'DATABASE_ERROR',
+          message: `Failed to fetch validation results`,
           details: error,
-          retryable,
+          retryable: true,
         },
         isEmpty: true,
         isProcessing: false,
