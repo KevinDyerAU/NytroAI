@@ -224,10 +224,10 @@ export function ValidationStatusIndicator({
           <div className="space-y-4 py-4">
             {stages.map((stage, index) => {
               const Icon = stage.icon;
-              const isCurrentStage = stage.key === status;
-              
+              const isCurrentStage = stage.key === actualStatus;
+
               return (
-                <div 
+                <div
                   key={stage.key}
                   className={`
                     flex gap-3 p-3 rounded-lg border
