@@ -1,0 +1,41 @@
+graph TB
+    subgraph "User Interface Layer"
+        UI[React/TypeScript Frontend<br/>Netlify Hosted]
+    end
+    
+    subgraph "Storage & Database Layer"
+        SB_DB[(Supabase PostgreSQL<br/>Validation Data)]
+        SB_STORAGE[Supabase Storage<br/>Document Bucket]
+    end
+    
+    subgraph "Workflow Automation Layer"
+        N8N[n8n Workflows<br/>Document Processing<br/>AI Validation]
+    end
+    
+    subgraph "AI Processing Layer"
+        GEMINI[Google Gemini 2.0 Flash<br/>1M Token Context<br/>File API]
+    end
+    
+    subgraph "Edge Functions"
+        EDGE[Supabase Edge Functions<br/>get-requirements]
+    end
+    
+    UI -->|Upload Documents| SB_STORAGE
+    UI -->|Trigger Validation| N8N
+    UI -->|Query Results| SB_DB
+    
+    N8N -->|Read Documents| SB_STORAGE
+    N8N -->|Upload Files| GEMINI
+    N8N -->|Call Validation| GEMINI
+    N8N -->|Fetch Requirements| EDGE
+    N8N -->|Store Results| SB_DB
+    
+    EDGE -->|Query Requirements| SB_DB
+    GEMINI -->|Process Documents| GEMINI
+    
+    style UI fill:#e1f5ff
+    style SB_DB fill:#d4edda
+    style SB_STORAGE fill:#d4edda
+    style N8N fill:#fff3cd
+    style GEMINI fill:#f8d7da
+    style EDGE fill:#d1ecf1

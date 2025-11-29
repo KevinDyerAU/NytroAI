@@ -1,0 +1,39 @@
+graph LR
+    START([User Uploads<br/>Assessment Documents]) --> STORE[Store in<br/>Supabase Storage]
+    STORE --> PROCESS[Document Processing<br/>Workflow]
+    PROCESS --> UPLOAD[Upload to<br/>Gemini File API]
+    UPLOAD --> TRIGGER[User Triggers<br/>Validation]
+    
+    TRIGGER --> FETCH[Fetch Documents<br/>& Requirements]
+    FETCH --> SPLIT[Split into<br/>Individual Requirements]
+    
+    SPLIT --> LOOP{For Each<br/>Requirement}
+    
+    LOOP --> SESSION[Build Session Context<br/>+ Unique Session ID]
+    SESSION --> MOUNT[Mount Document Files<br/>to Gemini Request]
+    MOUNT --> RATE[Rate Limit Check<br/>15-1000 RPM]
+    RATE --> CALL[Call Gemini API<br/>with Context]
+    
+    CALL --> PARSE[Parse Response<br/>+ Rich Metadata]
+    PARSE --> SAVE[Save Validation Result<br/>to Database]
+    SAVE --> PROGRESS[Update Progress<br/>Tracking]
+    
+    PROGRESS --> LOOP
+    
+    LOOP -->|All Done| COMPLETE[Mark Validation<br/>Complete]
+    COMPLETE --> END([User Views<br/>Results in UI])
+    
+    CALL -.->|Error| ERROR[Update Status: Error]
+    FETCH -.->|Error| ERROR
+    SAVE -.->|Error| ERROR
+    ERROR -.-> END
+    
+    style START fill:#e1f5ff
+    style STORE fill:#d4edda
+    style UPLOAD fill:#f8d7da
+    style LOOP fill:#fff3cd
+    style SESSION fill:#d1ecf1
+    style CALL fill:#f8d7da
+    style SAVE fill:#d4edda
+    style END fill:#e1f5ff
+    style ERROR fill:#f8d7da
