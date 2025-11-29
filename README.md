@@ -1,4 +1,4 @@
-# NytroAI
+# NytroAI: AI-Powered RTO Assessment Validation
 
 **AI-powered RTO assessment validation using Gemini 2.0 for maximum accuracy and compliance.**
 
@@ -9,11 +9,13 @@
 
 ---
 
-## Overview
+## 1. Overview
 
 NytroAI validates RTO (Registered Training Organisation) assessment documents against unit requirements using Google's Gemini 2.0 API. The system validates **each requirement individually** for maximum accuracy, with comprehensive citations and smart question generation.
 
-###Key Features
+This new, simplified architecture significantly reduces complexity and operational costs while enhancing validation accuracy. By leveraging the large context window of Google's Gemini 2.0 Flash model, the system eliminates the need for complex embedding and vector database pipelines, resulting in a more efficient, cost-effective, and reliable solution.
+
+### Key Features
 
 - ✅ **Individual requirement validation** - One requirement at a time for maximum accuracy
 - ✅ **Session context isolation** - Prevents cross-contamination between validations
@@ -22,150 +24,112 @@ NytroAI validates RTO (Registered Training Organisation) assessment documents ag
 - ✅ **Multi-document support** - Validates across multiple PDFs
 - ✅ **Real-time progress tracking** - See validation status as it runs
 - ✅ **Database-driven prompts** - Easy to update and version
-- ✅ **Rate limit handling** - Automatic retry and backoff
+- ✅ **Comprehensive Error Handling** - All external calls protected with error handlers
 
 ---
 
-## Architecture
+## 2. High-Level System Architecture
 
-![Simplified Architecture](docs/diagrams/simplified-architecture.png)
+The modernized NytroAI architecture is composed of four primary layers, working in concert to provide a seamless validation experience. The system is built on a foundation of Supabase for data and file storage, n8n for workflow automation, and Google Gemini for AI-powered analysis.
 
-### Components
+![High-Level Component Diagram](docs/diagrams/simplified-architecture.png)
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **Frontend** | React/Next.js (Netlify) | User interface for uploads and results |
-| **Database** | Supabase PostgreSQL | Stores requirements, results, and metadata |
-| **Storage** | Supabase Storage | Stores uploaded PDF documents |
-| **Workflows** | n8n (self-hosted) | Orchestrates processing and validation |
-| **Edge Functions** | Supabase Deno | Handles Gemini uploads and database queries |
-| **AI** | Gemini 2.0 Flash | Validates requirements with 1M context |
+### Architecture Comparison
 
-### Why This Architecture?
+The new architecture represents a fundamental simplification of the system's design.
 
-**Simple**: 3 platforms (Supabase, n8n, Gemini) instead of 5+  
-**Cost-effective**: $35-85/month for 100 validations  
-**Accurate**: Individual validation prevents confusion  
-**Scalable**: Handles 1000+ page documents  
-**Reliable**: Rate limiting and retry logic built-in  
+| Feature | Old Architecture (5+ Platforms) | New Architecture (3 Platforms) |
+| :--- | :--- | :--- |
+| **Core Stack** | React, AWS S3, Unstructured.io, OpenAI, Pinecone, Gemini | React, Supabase, n8n, Gemini |
+| **Data Flow** | UI → S3 → Unstructured → Embeddings → Pinecone → Gemini | UI → Supabase → n8n → Gemini |
+| **AI Method** | Vector Search + File Search Stores | Simple File API + Large Context |
+| **Complexity** | High (multiple data handoffs, complex pipeline) | **Low** (unified backend, direct API calls) |
+| **Maintainability** | Difficult (multiple services to manage and debug) | **Easy** (centralized logic in n8n) |
 
 ---
 
-## Costs & Rate Limits
+## 3. End-to-End Validation Workflow
 
-### Monthly Costs (100 validations/month)
+The validation process is designed for accuracy and transparency, with each step orchestrated by the n8n workflow. The system validates one requirement at a time to ensure the highest degree of focus and accuracy from the AI model.
 
-| Component | Tier | Cost | Notes |
-|-----------|------|------|-------|
-| **Supabase** | Pro | $25/mo | Database + storage |
-| **n8n** | Self-hosted | $10/mo | VM hosting (2 vCPU, 4GB RAM) |
-| **Gemini API** | Free | $0/mo | Up to 1,500 RPD |
-| **Netlify** | Free | $0/mo | Hosting |
-| **Total (Free Gemini)** | | **$35/mo** | |
-| | | | |
-| **Gemini API** | Paid | $50/mo | 1000 RPM, better SLA |
-| **Total (Paid Gemini)** | | **$85/mo** | |
+![Validation Workflow Diagram](docs/diagrams/validation-flow.png)
 
-### Per Validation Costs
+**Workflow Steps:**
 
-**Free tier**: $0.50 per validation (50 requirements × $0.01)  
-**Paid tier**: $0.50 per validation (same cost, faster)
-
-**Cost breakdown per validation**:
-- Gemini API: $0.50 (50 requirements × ~200K tokens × $0.15/1M input + $0.60/1M output)
-- Supabase: $0.00 (included in Pro plan)
-- n8n: $0.00 (included in hosting)
-
-### Rate Limits
-
-| Tier | RPM | RPD | Cost | Use Case |
-|------|-----|-----|------|----------|
-| **Free** | 15 | 1,500 | $0 | Development, testing, low volume |
-| **Paid** | 1,000 | 50,000 | $50/mo | Production, high volume |
-
-**Validation time**:
-- Free tier: 3-4 minutes (50 requirements ÷ 15 RPM)
-- Paid tier: 60-90 seconds (50 requirements ÷ 1000 RPM)
+1.  **Upload & Store**: The user uploads assessment documents, which are stored in a dedicated Supabase Storage bucket.
+2.  **Processing & File API**: An n8n workflow processes the documents and uploads them to the Gemini File API, receiving a unique file URI for each.
+3.  **Trigger Validation**: The user initiates the validation from the UI.
+4.  **Fetch Context**: The workflow fetches all necessary documents and requirements from the Supabase database.
+5.  **Individual Requirement Loop**: The workflow splits the validation into a loop, processing **one requirement at a time**.
+6.  **Build Session Context**: For each requirement, a unique session context is built. This includes the specific requirement text, document metadata, and a unique session ID. This is the core of our accuracy strategy.
+7.  **Call Gemini API**: The workflow makes a call to the Gemini API, providing the session context and mounting the relevant document files directly via their URIs.
+8.  **Save & Update**: The structured JSON response from Gemini is parsed, and the results are saved to the database. The UI progress is updated in real-time.
+9.  **Error Handling**: If any external call fails (database, Gemini API, etc.), the workflow branches to an error handler that updates the validation status to 'error' and stops the process gracefully.
+10. **Completion**: Once all requirements are processed, the validation is marked as 'completed'.
 
 ---
 
-## Validation Strategy
+## 4. Cost Analysis
 
-### Individual Requirement Validation
+The architectural simplification has led to a dramatic reduction in monthly operational costs, from over **$200/month** to an estimated **$35-$85/month**.
 
-NytroAI validates **each requirement individually** rather than in batches. This approach was chosen for **maximum accuracy**.
+| Service | Old Architecture (Est. Monthly Cost) | New Architecture (Actual Monthly Cost) |
+| :--- | :--- | :--- |
+| **Vector DB (Pinecone)** | $70 (Starter Plan) | $0 |
+| **Embedding API (OpenAI)** | $20 (Usage-based) | $0 |
+| **File Processing (Unstructured.io)** | $50 (Usage-based) | $0 |
+| **Primary Storage (AWS S3)** | $5 | $0 (included in Supabase) |
+| **Database & Backend (Supabase)** | $0 | $25 (Pro Plan) |
+| **Workflow Automation (n8n)** | $0 (Self-hosted) | $10 (Est. for cloud stability) |
+| **AI Model (Gemini API)** | $50+ (Complex usage) | $50 (Est. based on token usage) |
+| **Total Estimated Cost** | **~$245/month** | **~$85/month** |
 
-#### Why Individual Validation?
-
-| Aspect | Individual | Batch |
-|--------|-----------|-------|
-| **Accuracy** | ⭐⭐⭐⭐⭐ Excellent | ⭐⭐⭐ Good |
-| **Reasoning** | Clear, focused | Can be confused |
-| **Citations** | Precise | May mix up sources |
-| **Debugging** | Easy to verify | Hard to debug |
-| **Cost** | $0.50/validation | $0.07/validation |
-| **Speed** | 3-4 min (free) | 30 sec |
-
-**Decision**: Accuracy is the top priority, so we use individual validation.
-
-#### How It Works
-
-```
-For each validation (e.g., TLIF0006):
-  1. Upload documents to Gemini File API (once)
-  2. Get all requirements (50 items)
-  3. For EACH requirement:
-     a. Build prompt with full session context
-     b. Include ALL documents (via file URIs)
-     c. Validate ONE requirement
-     d. Get detailed result with citations
-     e. Save to validation_results table
-     f. Update progress (1/50, 2/50, etc.)
-  4. Takes ~3 minutes (free) or ~60 seconds (paid)
-  5. Costs ~$0.50 total
-```
-
-#### Session Context Isolation
-
-Each validation has a unique **session context** to prevent cross-contamination:
-
-```
-Session ID: 123
-Session Created: 2025-01-28 10:30:00
-Unit Code: TLIF0006
-RTO Code: 7148
-Documents: 
-  - TLIF0006_Assessment.pdf (uploaded 2025-01-28 10:30:00)
-  - TLIF0006_LearnerGuide.pdf (uploaded 2025-01-28 10:30:15)
-
-IMPORTANT: Only consider documents from THIS session!
-```
-
-This ensures that if multiple users validate the same unit, their documents don't get mixed up.
-
-#### Simple File API (Not File Search Stores)
-
-We use Gemini's **simple File API**, not File Search Stores:
-
-```
-Upload → files/abc123 → Pass to generateContent
-```
-
-**Benefits**:
-- ✅ Simple (no stores, no operations)
-- ✅ Immediate URI
-- ✅ 48-hour expiry (enough for validation)
-- ✅ No complexity
-
-**Why not File Search Stores?**
-- ❌ Complex (stores, operations, polling)
-- ❌ Store ID vs Name confusion
-- ❌ Only needed for RAG/semantic search
-- ❌ Overkill for validation use case
+This represents a **~65% reduction** in estimated monthly costs, with the potential for even lower costs depending on AI usage volume.
 
 ---
 
-## Quick Start
+## 5. Accuracy & Validation Strategy
+
+The cornerstone of the new architecture is the **Individual Requirement Validation** strategy. This approach was chosen to maximize accuracy by preventing AI model confusion and context dilution.
+
+### Validation Strategy Comparison
+
+| Strategy | Description | Pros | Cons |
+| :--- | :--- | :--- | :--- |
+| **Batch Validation** | All requirements are sent to the AI in a single prompt. | - Faster (single API call)<br>- Cheaper (fewer calls) | - **Low Accuracy**: AI gets confused, misses details<br>- **Poor Citations**: Evidence is often generic or incorrect<br>- **Context Dilution**: Key details are lost in the noise |
+| **Individual Requirement Validation** | Each requirement is validated in a separate, isolated API call with its own session context. | - **High Accuracy**: AI focuses on one task at a time<br>- **Rich Citations**: Evidence is specific and relevant<br>- **Strong Context**: Session context provides clear instructions | - Slower (multiple API calls)<br>- More expensive (more calls, but worth the accuracy) |
+
+By adopting the individual validation strategy, NytroAI prioritizes **correctness and reliability** over raw speed, which is critical for compliance-focused tasks.
+
+---
+
+## 6. File Storage & Per-Requirement Strategy
+
+The system's file handling and session management are designed for simplicity and robustness.
+
+### File Storage Strategy
+
+- **Simple Bucket Storage**: All documents are stored in a single Supabase Storage bucket. The path structure is `/{unit_code}/{validation_id}/{filename}`. This is simple and easy to manage.
+- **No Pre-processing**: Documents are stored as-is. There is no need for chunking, embedding, or any other complex pre-processing steps.
+- **Direct Mounting via Gemini File API**: The n8n workflow uploads the raw files directly to the Gemini File API. This API provides a simple, stable URI (e.g., `files/abc123xyz`) that can be used to mount the file into any subsequent API call. This eliminates the need for complex and often unreliable File Search Stores.
+
+### Per-Requirement Strategy
+
+This is the most critical aspect of the new architecture. For every single requirement being validated:
+
+1.  **A Unique Session Context is Built**: This is a block of text that provides the AI with critical information about the current task, including:
+    - A unique `session_id`
+    - The `unit_code` and `rto_code`
+    - The total number of requirements and the current index (e.g., "Requirement 5 of 20")
+    - A list of all documents available for the session, with their Gemini file URIs.
+2.  **Files are Mounted**: The Gemini file URIs for all relevant documents are included in the API request.
+3.  **The Prompt is Focused**: The prompt asks the AI to validate only the *current* requirement against the *provided* documents.
+
+This ensures that each validation is an **isolated, stateless operation**, preventing information from one requirement from bleeding into the next. This is the key to achieving high accuracy and reliable, traceable results.
+
+---
+
+## 7. Quick Start
 
 ### Prerequisites
 
@@ -194,7 +158,6 @@ supabase link --project-ref your-project-ref
 supabase db push
 
 # Deploy edge functions
-supabase functions deploy upload-to-gemini
 supabase functions deploy get-requirements
 
 # Set secrets
@@ -210,8 +173,9 @@ supabase secrets set GEMINI_API_KEY=your_gemini_api_key
 # 3. Import n8n-flows/AIValidationFlow_Gemini_Enhanced.json
 
 # Configure credentials
-# 1. Supabase API (URL + service role key)
-# 2. Gemini API (API key)
+# 1. Postgres (Supabase database connection string)
+# 2. HTTP Header Auth (Supabase anon key)
+# 3. Google Gemini API (API key)
 
 # Set environment variables
 GEMINI_API_KEY=your_gemini_api_key
@@ -232,262 +196,26 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-### 5. Test End-to-End
-
-```bash
-# 1. Upload a test document (PDF)
-# 2. Trigger document processing
-# 3. Trigger validation
-# 4. View results in Results Explorer
-```
-
-**See [IMPLEMENTATION_GUIDE.md](docs/IMPLEMENTATION_GUIDE.md) for detailed setup instructions.**
-
 ---
 
-## Workflows
-
-### 1. Document Processing Flow
-
-![Document Processing Flow](docs/diagrams/document-processing-flow.png)
-
-**Purpose**: Upload documents to Gemini File API
-
-**Steps**:
-1. User uploads PDF to Supabase Storage
-2. n8n workflow triggered
-3. Edge function downloads file and uploads to Gemini
-4. Gemini file URI saved to database
-5. Ready for validation
-
-**Time**: ~30 seconds per document
-
-### 2. AI Validation Flow
-
-![Validation Flow](docs/diagrams/validation-flow.png)
-
-**Purpose**: Validate each requirement individually
-
-**Steps**:
-1. User triggers validation
-2. n8n fetches requirements and documents
-3. For each requirement:
-   - Fetch prompt template
-   - Build request with session context
-   - Call Gemini API
-   - Save result to database
-4. Update validation status
-
-**Time**: 3-4 minutes (free tier) or 60-90 seconds (paid tier)
-
----
-
-## Documentation
-
-### Getting Started
-
-- **[IMPLEMENTATION_GUIDE.md](docs/IMPLEMENTATION_GUIDE.md)** - Complete deployment guide (30-60 min)
-- **[TECHNICAL_SPECIFICATIONS.md](docs/TECHNICAL_SPECIFICATIONS.md)** - Specs, costs, performance, limits
-- **[DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)** - Production deployment guide
-
-### Architecture & Strategy
-
-- **[VALIDATION_STRATEGY.md](docs/VALIDATION_STRATEGY.md)** - Individual vs batch validation analysis
-- **[INDIVIDUAL_VALIDATION_ARCHITECTURE.md](docs/INDIVIDUAL_VALIDATION_ARCHITECTURE.md)** - System architecture
-- **[ENHANCED_WORKFLOW_SUMMARY.md](docs/ENHANCED_WORKFLOW_SUMMARY.md)** - Enhanced workflow summary
-
-### Prompts & Validation
-
-- **[PROMPTS.md](docs/PROMPTS.md)** - Complete prompt system documentation (77KB)
-- **[WORKFLOW_COMPARISON.md](docs/WORKFLOW_COMPARISON.md)** - Workflow comparison
-
-### API & Integration
-
-- **[API_REFERENCE.md](docs/API_REFERENCE.md)** - Complete API reference with curl examples
-- **[FRONTEND_INTEGRATION.md](docs/FRONTEND_INTEGRATION.md)** - Frontend integration guide
-
-### Technical Deep Dives
-
-- **[FILE_MOUNTING_LOGIC.md](docs/FILE_MOUNTING_LOGIC.md)** ⭐ - Critical Gemini file URI mounting explained
-- **[FILE_MOUNTING_VERIFICATION.md](docs/FILE_MOUNTING_VERIFICATION.md)** - Verification that file mounting is correct
-
-### n8n Workflows
-
-- **[n8n-flows/README.md](n8n-flows/README.md)** - n8n workflows overview
-- **[AIValidationFlow_Gemini_Enhanced_README.md](n8n-flows/AIValidationFlow_Gemini_Enhanced_README.md)** - Enhanced workflow details
-
-### Complete Index
-
-See **[docs/INDEX.md](docs/INDEX.md)** for the complete documentation index with role-based navigation and learning paths.
-
----
-
-## Database Schema
+## 8. Database Schema
 
 ### Key Tables
 
 | Table | Purpose |
 |-------|---------|
 | `validation_details` | Validation sessions (unit, RTO, status) |
-| `documents` | Uploaded documents with Gemini file URIs |
-| `validation_results` | Individual requirement results (one row per requirement) |
-| `prompts` | Prompt templates for each requirement type |
-| `knowledge_evidence` | Knowledge requirements |
-| `performance_evidence` | Performance requirements |
-| `foundation_skills` | Foundation skills requirements |
-| `assessment_conditions` | Assessment conditions |
-
-### Validation Results Schema
-
-```sql
-CREATE TABLE validation_results (
-  id BIGSERIAL PRIMARY KEY,
-  validation_detail_id BIGINT REFERENCES validation_details(id),
-  requirement_type TEXT NOT NULL,  -- 'KE', 'PE', 'FS', 'AC', 'E_PC'
-  requirement_number TEXT,
-  requirement_text TEXT,
-  status TEXT NOT NULL,  -- 'met', 'partially_met', 'not_met', 'not_found'
-  reasoning TEXT,
-  mapped_content TEXT,
-  unmapped_content TEXT,
-  recommendations TEXT,
-  citations JSONB,  -- [{document_name, location, content, relevance}]
-  smart_questions JSONB,  -- [{question, purpose, expected_answer}]
-  metadata JSONB,  -- {confidence_score, documents_analyzed, session_context, etc.}
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-**See [TECHNICAL_SPECIFICATIONS.md](docs/TECHNICAL_SPECIFICATIONS.md) for complete schema.**
+| `validation_summary` | Summary of validation results |
+| `documents` | Uploaded documents and their Gemini URIs |
+| `validation_results` | Individual requirement validation results |
+| `prompts` | Stores prompt templates for validation |
 
 ---
 
-## Development
+## 9. References
 
-### Project Structure
+[1] Google AI. "Gemini 2.0 Flash API Documentation." [https://ai.google.dev/docs](https://ai.google.dev/docs)
 
-```
-NytroAI/
-├── src/                          # Frontend (React/Next.js)
-│   ├── components/               # UI components
-│   ├── services/                 # API services
-│   └── hooks/                    # React hooks
-│
-├── supabase/
-│   ├── migrations/               # Database migrations
-│   └── functions/                # Edge functions
-│       ├── upload-to-gemini/     # Upload to Gemini File API
-│       └── get-requirements/     # Fetch requirements from DB
-│
-├── n8n-flows/                    # n8n workflow JSON files
-│   ├── DocumentProcessingFlow_Gemini.json
-│   └── AIValidationFlow_Gemini_Enhanced.json
-│
-└── docs/                         # Documentation
-    ├── diagrams/                 # Architecture diagrams
-    ├── guides/                   # Deployment guides
-    └── archive/                  # Historical documentation
-```
+[2] Supabase. "Supabase Documentation." [https://supabase.com/docs](https://supabase.com/docs)
 
-### Running Locally
-
-```bash
-# Frontend
-npm run dev
-
-# Supabase (local)
-supabase start
-supabase db reset  # Reset database
-supabase functions serve  # Serve edge functions locally
-
-# n8n (local)
-docker run -p 5678:5678 n8nio/n8n
-```
-
-### Testing
-
-```bash
-# Run tests
-npm test
-
-# Test edge functions
-supabase functions serve upload-to-gemini
-curl -X POST http://localhost:54321/functions/v1/upload-to-gemini \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"storage_path": "test.pdf", "validation_detail_id": 1}'
-```
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**1. Gemini API 400 Error: "Multipart body does not contain 2 or 3 parts"**
-
-**Solution**: Use the `upload-to-gemini` edge function instead of calling Gemini directly from n8n. The edge function handles the complex multipart/related format correctly.
-
-**2. Validation stuck at "processing"**
-
-**Solution**: Check n8n workflow execution logs. Likely causes:
-- Rate limit exceeded (wait or upgrade to paid tier)
-- Gemini API key invalid
-- Documents not uploaded to Gemini yet
-
-**3. Citations missing document names**
-
-**Solution**: Ensure documents table has `file_name` and `document_type` columns populated. The enhanced workflow includes this metadata automatically.
-
-**4. Cross-contamination between validations**
-
-**Solution**: The enhanced workflow includes session context isolation. Ensure you're using `AIValidationFlow_Gemini_Enhanced.json`, not the older workflows.
-
-**See [TECHNICAL_SPECIFICATIONS.md](docs/TECHNICAL_SPECIFICATIONS.md) for more troubleshooting.**
-
----
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## Acknowledgments
-
-- **Google Gemini** - AI validation engine
-- **Supabase** - Backend infrastructure
-- **n8n** - Workflow automation
-- **Netlify** - Frontend hosting
-
----
-
-## Support
-
-- **Documentation**: [docs/INDEX.md](docs/INDEX.md)
-- **Issues**: [GitHub Issues](https://github.com/KevinDyerAU/NytroAI/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/KevinDyerAU/NytroAI/discussions)
-
----
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
-
----
-
-**Built with ❤️ for RTO compliance and validation**
+[3] n8n. "n8n Documentation." [https://docs.n8n.io/](https://docs.n8n.io/)
