@@ -102,7 +102,7 @@ export function useValidationProgress(validationId: number): UseValidationProgre
       try {
         const { data, error: fetchError } = await supabase
           .from('validation_detail')
-          .select('*')
+          .select('*, document_type')
           .eq('id', validationId)
           .single();
 
@@ -116,6 +116,7 @@ export function useValidationProgress(validationId: number): UseValidationProgre
             unitCode: data.unit_code,
             qualificationCode: data.qualification_code,
             validationType: data.validation_type,
+            documentType: data.document_type || 'unit',
             status: data.req_extracted ? (data.doc_extracted ? 'docExtracted' : 'reqExtracted') : 'pending',
             progress: data.req_total ? Math.round((data.completed_count || 0) / data.req_total * 100) : 0,
             docExtracted: data.doc_extracted || false,
@@ -212,6 +213,7 @@ export function useValidationProgress(validationId: number): UseValidationProgre
             unitCode: updatedData.unit_code,
             qualificationCode: updatedData.qualification_code,
             validationType: updatedData.validation_type,
+            documentType: updatedData.document_type || 'unit',
             status: updatedData.req_extracted ? (updatedData.doc_extracted ? 'docExtracted' : 'reqExtracted') : 'pending',
             progress: updatedData.req_total ? Math.round((updatedData.completed_count || 0) / updatedData.req_total * 100) : 0,
             docExtracted: updatedData.doc_extracted || false,

@@ -8,6 +8,7 @@ interface CreateValidationRecordRequest {
   unitLink?: string;
   qualificationCode?: string | null;
   validationType: string;
+  documentType?: string;
   pineconeNamespace: string;
 }
 
@@ -23,7 +24,8 @@ serve(async (req) => {
       unitCode, 
       unitLink,
       qualificationCode, 
-      validationType, 
+      validationType,
+      documentType, 
       pineconeNamespace 
     } = requestData;
 
@@ -135,6 +137,7 @@ serve(async (req) => {
         summary_id: summaryId,
         validationType_id: validationTypeId,
         namespace_code: pineconeNamespace,
+        document_type: documentType || 'unit', // Default to 'unit' if not specified
         docExtracted: false,
         extractStatus: 'Uploading',
         numOfReq: 0,

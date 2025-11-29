@@ -192,6 +192,7 @@ export function DocumentUploadAdapterSimplified({
             unitCode: selectedUnit.code,
             unitLink: selectedUnit.Link, // Pass unit URL for requirements linking (REQUIRED)
             validationType: 'assessment',
+            documentType: validationType, // Pass document type (unit or learner_guide)
             pineconeNamespace: sessionNamespace // Session-specific namespace for document filtering
           }
         });

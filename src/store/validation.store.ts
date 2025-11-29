@@ -5,6 +5,7 @@ export interface ValidationProgress {
   unitCode: string;
   qualificationCode: string;
   validationType: string;
+  documentType?: string;
   status: 'pending' | 'reqExtracted' | 'docExtracted' | 'validated';
   progress: number;
   docExtracted: boolean;

@@ -13,7 +13,7 @@ import { SmartQuestionMaintenance } from '../components/maintenance/SmartQuestio
 import { ValidationsMaintenance } from '../components/maintenance/ValidationsMaintenance';
 import { RequirementsMaintenance } from '../components/maintenance/RequirementsMaintenance';
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
-import { PromptMaintenance } from '../components/maintenance/PromptMaintenance';
+import { PromptMaintenanceNew as PromptMaintenance } from '../components/maintenance/PromptMaintenanceNew';
 import { TriggerValidation } from '../components/maintenance/TriggerValidation';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';

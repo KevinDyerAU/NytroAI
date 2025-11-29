@@ -119,6 +119,11 @@ export function ValidationDashboard({
               </h1>
               <p className="text-[#64748b]">
                 {documentName} • {unitCode}
+                {validationProgress?.documentType && (
+                  <span className="ml-2">
+                    • <span className="capitalize">{validationProgress.documentType.replace('_', ' ')}</span>
+                  </span>
+                )}
               </p>
             </div>
           </div>
