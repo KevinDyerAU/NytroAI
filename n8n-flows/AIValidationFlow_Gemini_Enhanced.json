@@ -12,10 +12,7 @@
       "name": "Webhook - Start Validation",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        400
-      ],
+      "position": [240, 400],
       "webhookId": "ai-validation-enhanced-webhook"
     },
     {
@@ -27,10 +24,7 @@
       "name": "Respond Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        460,
-        400
-      ]
+      "position": [460, 400]
     },
     {
       "parameters": {
@@ -39,66 +33,48 @@
       },
       "id": "update-status-processing",
       "name": "Update Status: Processing",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        680,
-        400
-      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 400],
       "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIALS_ID",
+          "name": "Supabase Postgres"
         }
       }
     },
     {
       "parameters": {
-        "operation": "get",
-        "tableId": "validation_detail",
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "id",
-              "condition": "eq",
-              "keyValue": "={{ $json.body.validation_detail_id }}"
-            }
-          ]
-        },
-        "options": {
-          "queryName": "validation_summary(id, unit_code, unitLink, rto_code, created_at)"
-        }
+        "operation": "executeQuery",
+        "query": "SELECT vd.*, vs.id as summary_id, vs.unit_code, vs.unitLink, vs.rto_code, vs.created_at as summary_created_at FROM validation_detail vd JOIN validation_summary vs ON vd.validation_summary_id = vs.id WHERE vd.id = {{ $json.body.validation_detail_id }}"
       },
       "id": "fetch-validation-context",
       "name": "Fetch Validation Context",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        900,
-        400
-      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 400],
       "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIALS_ID",
+          "name": "Supabase Postgres"
         }
       }
     },
     {
       "parameters": {
-        "operation": "get",
+        "operation": "getMany",
         "tableId": "documents",
         "returnAll": true,
         "filters": {
           "conditions": [
             {
               "keyName": "validation_detail_id",
-              "condition": "eq",
+              "condition": "equals",
               "keyValue": "={{ $json.body.validation_detail_id }}"
             },
             {
               "keyName": "gemini_file_uri",
-              "condition": "isNotEmpty"
+              "condition": "isNotNull"
             }
           ]
         }
@@ -107,10 +83,7 @@
       "name": "Fetch Documents with Metadata",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [
-        1120,
-        400
-      ],
+      "position": [1120, 400],
       "credentials": {
         "supabaseApi": {
           "id": "YOUR_SUPABASE_CREDENTIALS_ID",
@@ -126,17 +99,14 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\"unit_code\": $('Fetch Validation Context').item.json.validation_summary.unit_code, \"validation_detail_id\": $('Fetch Validation Context').item.json.id} }}",
+        "jsonBody": "={{ {\"unit_code\": $('Fetch Validation Context').item.json.unit_code, \"validation_detail_id\": $('Fetch Validation Context').item.json.id} }}",
         "options": {}
       },
       "id": "fetch-requirements",
       "name": "Fetch Requirements (Edge Function)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1340,
-        400
-      ],
+      "position": [1340, 400],
       "credentials": {
         "httpHeaderAuth": {
           "id": "YOUR_SUPABASE_AUTH_CREDENTIALS_ID",
@@ -147,16 +117,13 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Split requirements into individual items for individual validation\nconst response = $input.first().json;\nconst validationContext = $('Fetch Validation Context').first().json;\nconst documents = $('Fetch Documents with Metadata').all().map(item => item.json);\n\nif (!response.success || !response.requirements_by_type) {\n  throw new Error('Failed to fetch requirements from edge function');\n}\n\nconst requirementsByType = response.requirements_by_type;\nconst allRequirements = [];\n\n// Flatten all requirements with type information\nfor (const [type, items] of Object.entries(requirementsByType)) {\n  if (items && items.length > 0) {\n    items.forEach((req, index) => {\n      allRequirements.push({\n        ...req,\n        requirement_type: type,\n        requirement_index: index,\n        validation_detail_id: validationContext.id,\n        unit_code: validationContext.validation_summary.unit_code,\n        rto_code: validationContext.validation_summary.rto_code,\n        session_created_at: validationContext.created_at,\n        session_id: validationContext.id,\n        document_count: documents.length,\n        document_metadata: documents.map(d => ({\n          file_name: d.file_name,\n          document_type: d.document_type,\n          created_at: d.created_at,\n          gemini_file_uri: d.gemini_file_uri\n        }))\n      });\n    });\n  }\n}\n\nconsole.log(`Split into ${allRequirements.length} individual requirements`);\nreturn allRequirements.map((req, idx) => ({\n  json: {\n    ...req,\n    total_requirements: allRequirements.length,\n    current_index: idx + 1\n  }\n}));"
+        "jsCode": "// Split requirements into individual items for individual validation\nconst response = $input.first().json;\nconst validationContext = $('Fetch Validation Context').first().json;\nconst documents = $('Fetch Documents with Metadata').all().map(item => item.json);\n\nif (!response.success || !response.requirements_by_type) {\n  throw new Error('Failed to fetch requirements from edge function');\n}\n\nconst requirementsByType = response.requirements_by_type;\nconst allRequirements = [];\n\n// Flatten all requirements with type information\nfor (const [type, items] of Object.entries(requirementsByType)) {\n  if (items && items.length > 0) {\n    items.forEach((req, index) => {\n      allRequirements.push({\n        ...req,\n        requirement_type: type,\n        requirement_index: index,\n        validation_detail_id: validationContext.id,\n        unit_code: validationContext.unit_code,\n        rto_code: validationContext.rto_code,\n        session_created_at: validationContext.created_at,\n        session_id: validationContext.id,\n        document_count: documents.length,\n        document_metadata: documents.map(d => ({\n          file_name: d.file_name,\n          document_type: d.document_type,\n          created_at: d.created_at,\n          gemini_file_uri: d.gemini_file_uri\n        }))\n      });\n    });\n  }\n}\n\nconsole.log(`Split into ${allRequirements.length} individual requirements`);\nreturn allRequirements.map((req, idx) => ({\n  json: {\n    ...req,\n    total_requirements: allRequirements.length,\n    current_index: idx + 1\n  }\n}));"
       },
       "id": "split-requirements",
       "name": "Split into Individual Requirements",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1560,
-        400
-      ]
+      "position": [1560, 400]
     },
     {
       "parameters": {
@@ -165,16 +132,13 @@
       },
       "id": "update-total",
       "name": "Update Total Requirements",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        1780,
-        400
-      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1780, 400],
       "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIALS_ID",
+          "name": "Supabase Postgres"
         }
       }
     },
@@ -185,32 +149,26 @@
       },
       "id": "fetch-prompt",
       "name": "Fetch Prompt Template",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        2000,
-        400
-      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [2000, 400],
       "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIALS_ID",
+          "name": "Supabase Postgres"
         }
       }
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Prepare Gemini request with FULL session context\nconst requirement = $json;\nconst promptData = $input.first().json;\nconst documents = requirement.document_metadata;\n\n// Build session context (from original workflow)\nconst sessionContext = `\n**VALIDATION SESSION CONTEXT**\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nSession ID: ${requirement.session_id}\nSession Created: ${new Date(requirement.session_created_at).toLocaleString()}\nUnit Code: ${requirement.unit_code}\nRTO Code: ${requirement.rto_code}\nRequirement Type: ${requirement.requirement_type}\nRequirement ${requirement.current_index} of ${requirement.total_requirements}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n**DOCUMENTS FOR THIS SESSION** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Assessment Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n\n**IMPORTANT INSTRUCTIONS**:\n1. This is an ISOLATED validation session\n2. Only consider documents uploaded for THIS session (${new Date(requirement.session_created_at).toLocaleString()})\n3. All citations must reference documents from THIS session only\n4. Include document names and page numbers in all evidence citations\n5. Understand images, charts, and diagrams in the documents\n6. This is requirement ${requirement.current_index} of ${requirement.total_requirements}\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n`;\n\n// Replace variables in prompt template\nlet promptText = promptData.prompt_text || 'Validate the following requirement against the provided documents.';\npromptText = promptText\n  .replace(/{{requirement_number}}/g, requirement.requirement_number || '')\n  .replace(/{{requirement_text}}/g, requirement.requirement_text || '')\n  .replace(/{{requirement_type}}/g, requirement.requirement_type || '')\n  .replace(/{{unit_code}}/g, requirement.unit_code || '')\n  .replace(/{{document_type}}/g, requirement.document_type || 'unit');\n\n// Build file parts\nconst fileParts = documents.map(doc => ({\n  fileData: {\n    mimeType: \"application/pdf\",\n    fileUri: doc.gemini_file_uri\n  }\n}));\n\n// Build complete prompt with session context\nconst fullPrompt = `${sessionContext}\\n\\n${promptText}`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{text: promptData.system_instruction || 'You are an expert RTO validator.'}]\n  },\n  contents: [\n    ...fileParts.map(file => ({parts: [file]})),\n    {parts: [{text: fullPrompt}]}\n  ],\n  generationConfig: {\n    ...(promptData.generation_config || {}),\n    temperature: 0.1,\n    maxOutputTokens: 8192,\n    responseMimeType: \"application/json\",\n    responseSchema: promptData.output_schema || {}\n  }\n};\n\nreturn {\n  json: {\n    ...requirement,\n    gemini_request: geminiRequest,\n    prompt_used: fullPrompt,\n    session_context: sessionContext\n  }\n};"
+        "jsCode": "// Prepare Gemini request with FULL session context\nconst requirement = $json;\nconst promptData = $input.first().json;\nconst documents = requirement.document_metadata;\n\n// Build session context (from original workflow)\nconst sessionContext = `\n**VALIDATION SESSION CONTEXT**\n────────────────────────────────────────────────────────────────────\nSession ID: ${requirement.session_id}\nSession Created: ${new Date(requirement.session_created_at).toLocaleString()}\nUnit Code: ${requirement.unit_code}\nRTO Code: ${requirement.rto_code}\nRequirement Type: ${requirement.requirement_type}\nRequirement ${requirement.current_index} of ${requirement.total_requirements}\n────────────────────────────────────────────────────────────────────\n\n**DOCUMENTS FOR THIS SESSION** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Assessment Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n\n**IMPORTANT INSTRUCTIONS**:\n1. This is an ISOLATED validation session\n2. Only consider documents uploaded for THIS session (${new Date(requirement.session_created_at).toLocaleString()})\n3. All citations must reference documents from THIS session only\n4. Include document names and page numbers in all evidence citations\n5. Understand images, charts, and diagrams in the documents\n6. This is requirement ${requirement.current_index} of ${requirement.total_requirements}\n\n────────────────────────────────────────────────────────────────────\n`;\n\n// Replace variables in prompt template\nlet promptText = promptData.prompt_text || 'Validate the following requirement against the provided documents.';\npromptText = promptText\n  .replace(/{{requirement_number}}/g, requirement.requirement_number || '')\n  .replace(/{{requirement_text}}/g, requirement.requirement_text || '')\n  .replace(/{{requirement_type}}/g, requirement.requirement_type || '')\n  .replace(/{{unit_code}}/g, requirement.unit_code || '')\n  .replace(/{{document_type}}/g, requirement.document_type || 'unit');\n\n// Build file parts\nconst fileParts = documents.map(doc => ({\n  fileData: {\n    mimeType: \"application/pdf\",\n    fileUri: doc.gemini_file_uri\n  }\n}));\n\n// Build complete prompt with session context\nconst fullPrompt = `${sessionContext}\\n\\n${promptText}`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{text: promptData.system_instruction || 'You are an expert RTO validator.'}]\n  },\n  contents: [\n    ...fileParts.map(file => ({parts: [file]})),\n    {parts: [{text: fullPrompt}]}\n  ],\n  generationConfig: {\n    ...(promptData.generation_config || {}),\n    temperature: 0.1,\n    maxOutputTokens: 8192,\n    responseMimeType: \"application/json\",\n    responseSchema: promptData.output_schema || {}\n  }\n};\n\nreturn {\n  json: {\n    ...requirement,\n    gemini_request: geminiRequest,\n    prompt_used: fullPrompt,\n    session_context: sessionContext\n  }\n};"
       },
       "id": "prepare-request",
       "name": "Prepare Request with Session Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2220,
-        400
-      ]
+      "position": [2220, 400]
     },
     {
       "parameters": {
@@ -221,10 +179,7 @@
       "name": "Rate Limit Delay",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2440,
-        400
-      ]
+      "position": [2440, 400]
     },
     {
       "parameters": {
@@ -249,10 +204,7 @@
       "name": "Call Gemini API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        2660,
-        400
-      ],
+      "position": [2660, 400],
       "credentials": {
         "googlePalmApi": {
           "id": "YOUR_GOOGLE_GEMINI_CREDENTIALS_ID",
@@ -269,14 +221,11 @@
       "name": "Parse Response with Rich Metadata",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2880,
-        400
-      ]
+      "position": [2880, 400]
     },
     {
       "parameters": {
-        "operation": "insert",
+        "operation": "create",
         "tableId": "validation_results",
         "fieldsUi": {
           "fieldValues": [
@@ -335,10 +284,7 @@
       "name": "Save Validation Result",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [
-        3100,
-        400
-      ],
+      "position": [3100, 400],
       "credentials": {
         "supabaseApi": {
           "id": "YOUR_SUPABASE_CREDENTIALS_ID",
@@ -353,16 +299,13 @@
       },
       "id": "update-progress",
       "name": "Update Progress",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        3320,
-        400
-      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [3320, 400],
       "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIALS_ID",
+          "name": "Supabase Postgres"
         }
       }
     },
@@ -377,10 +320,7 @@
       "name": "Aggregate Results",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
-      "position": [
-        3540,
-        400
-      ]
+      "position": [3540, 400]
     },
     {
       "parameters": {
@@ -389,36 +329,30 @@
       },
       "id": "update-status-completed",
       "name": "Update Status: Completed",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        3760,
-        400
-      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [3760, 400],
       "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIALS_ID",
+          "name": "Supabase Postgres"
         }
       }
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE validation_detail SET validation_status = 'failed', error_message = '{{ $json.error.message }}', updated_at = NOW() WHERE id = {{ $json.validation_detail_id }}"
+        "query": "UPDATE validation_detail SET validation_status = 'error', error_message = '{{ $json.error.message || \"Unknown error\" }}', updated_at = NOW() WHERE id = {{ $('Webhook - Start Validation').item.json.body.validation_detail_id }}"
       },
       "id": "update-status-error",
       "name": "Update Status: Error",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        2880,
-        600
-      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [2880, 700],
       "credentials": {
-        "supabaseApi": {
-          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
-          "name": "Supabase account"
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIALS_ID",
+          "name": "Supabase Postgres"
         }
       }
     }
@@ -454,6 +388,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -462,6 +403,13 @@
         [
           {
             "node": "Fetch Documents with Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
             "type": "main",
             "index": 0
           }
@@ -476,6 +424,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -484,6 +439,13 @@
         [
           {
             "node": "Split into Individual Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
             "type": "main",
             "index": 0
           }
@@ -509,6 +471,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -517,6 +486,13 @@
         [
           {
             "node": "Prepare Request with Session Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
             "type": "main",
             "index": 0
           }
@@ -582,6 +558,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -590,6 +573,13 @@
         [
           {
             "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status: Error",
             "type": "main",
             "index": 0
           }
@@ -614,6 +604,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2025-01-29T00:00:00.000Z",
-  "versionId": "1"
+  "updatedAt": "2025-01-30T00:00:00.000Z",
+  "versionId": "2"
 }
