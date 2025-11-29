@@ -15,41 +15,37 @@ interface AICreditsPageProps {
 interface CreditPackage {
   id: string;
   name: string;
-  credits: number;
-  price: number;
+  credits?: number;
+  price?: number;
+  priceLabel?: string;
   popular?: boolean;
   description: string;
+  isEnquiry?: boolean;
 }
 
 const creditPackages: CreditPackage[] = [
   {
-    id: 'starter',
-    name: 'Starter Pack',
-    credits: 100,
-    price: 9.99,
-    description: 'Perfect for trying out AI features',
+    id: 'core',
+    name: 'Core',
+    price: 1500,
+    priceLabel: 'month',
+    description: 'Get started with the essentials. Core gives you the key compliance and validation tools you need to manage and maintain standards with confidence.',
+    credits: 5000,
   },
   {
-    id: 'professional',
-    name: 'Professional Pack',
-    credits: 500,
-    price: 39.99,
+    id: 'pro',
+    name: 'Pro',
+    price: 4500,
+    priceLabel: 'month',
     popular: true,
-    description: 'Most popular for regular users',
+    description: 'Built for growth. Pro unlocks advanced automation, analytics, and integrations to streamline and elevate performance across your organisation.',
+    credits: 20000,
   },
   {
     id: 'enterprise',
-    name: 'Enterprise Pack',
-    credits: 2000,
-    price: 129.99,
-    description: 'Best value for heavy users',
-  },
-  {
-    id: 'unlimited',
-    name: 'Unlimited Pack',
-    credits: 10000,
-    price: 499.99,
-    description: 'Maximum credits for large organizations',
+    name: 'Enterprise',
+    description: 'Designed for scale. Enterprise delivers complete customisation, dedicated support, and enterprise-grade control for large, multi-site or complex operations.',
+    isEnquiry: true,
   },
 ];
 
@@ -227,8 +223,8 @@ export function AICreditsPage({ selectedRTOId, onCreditsAdded }: AICreditsPagePr
           </div>
         </Card>
 
-        {/* Credit Packages */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Subscription Tiers */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {creditPackages.map((pkg) => (
             <Card
               key={pkg.id}
@@ -248,48 +244,56 @@ export function AICreditsPage({ selectedRTOId, onCreditsAdded }: AICreditsPagePr
               )}
 
               <div className="text-center mb-6 mt-2">
-                <h3 className="text-xl font-poppins font-bold text-[#1e293b] mb-2">
+                <h3 className="text-2xl font-poppins font-bold text-[#1e293b] mb-4">
                   {pkg.name}
                 </h3>
-                <p className="text-sm text-[#64748b] mb-4">{pkg.description}</p>
+                <p className="text-sm text-[#64748b] mb-6 min-h-[80px]">{pkg.description}</p>
                 
-                <div className="mb-4">
-                  <div className="text-4xl font-bold text-[#1e293b]">
-                    ${pkg.price}
+                {pkg.isEnquiry ? (
+                  <div className="mb-6">
+                    <div className="text-2xl font-bold text-[#1e293b]">
+                      Enquire for pricing
+                    </div>
                   </div>
-                  <div className="text-sm text-[#64748b]">AUD</div>
-                </div>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <div className="text-4xl font-bold text-[#1e293b]">
+                        ${pkg.price?.toLocaleString()}
+                      </div>
+                      <div className="text-sm text-[#64748b] mt-1">{pkg.priceLabel}</div>
+                    </div>
 
-                <div className="bg-[#f1f5f9] rounded-lg p-3 mb-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <Zap className="w-5 h-5 text-[#8b5cf6]" />
-                    <span className="text-2xl font-bold text-[#1e293b]">
-                      {pkg.credits.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="text-xs text-[#64748b] mt-1">AI Credits</div>
-                </div>
-
-                <div className="text-xs text-[#64748b] mb-4">
-                  ${(pkg.price / pkg.credits).toFixed(3)} per credit
-                </div>
+                    {pkg.credits && (
+                      <div className="bg-[#f1f5f9] rounded-lg p-3 mb-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <Zap className="w-5 h-5 text-[#8b5cf6]" />
+                          <span className="text-2xl font-bold text-[#1e293b]">
+                            {pkg.credits.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="text-xs text-[#64748b] mt-1">AI Credits / month</div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <Button
-                onClick={() => handlePurchase(pkg)}
-                disabled={isLoading || !currentRTO}
+                onClick={() => pkg.isEnquiry ? window.location.href = 'mailto:sales@nytro.ai' : handlePurchase(pkg)}
+                disabled={!pkg.isEnquiry && (isLoading || !currentRTO)}
                 className={`w-full ${
                   pkg.popular
                     ? 'bg-[#8b5cf6] hover:bg-[#7c3aed]'
                     : 'bg-[#60a5fa] hover:bg-[#3b82f6]'
                 } text-white font-poppins font-semibold shadow-md`}
               >
-                {isLoading && selectedPackage === pkg.id ? (
+                {!pkg.isEnquiry && isLoading && selectedPackage === pkg.id ? (
                   'Processing...'
                 ) : (
                   <>
                     <Check className="w-4 h-4 mr-2" />
-                    Purchase Now
+                    Get Started
                   </>
                 )}
               </Button>
