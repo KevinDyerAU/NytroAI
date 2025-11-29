@@ -1,0 +1,52 @@
+graph TB
+    subgraph "User Interface"
+        UI[React/Next.js Frontend<br/>Netlify]
+    end
+
+    subgraph "Backend - Supabase"
+        DB[(PostgreSQL Database)]
+        STORAGE[Storage Bucket<br/>documents/]
+        EF1[Edge Function<br/>upload-to-gemini]
+        EF2[Edge Function<br/>get-requirements]
+    end
+
+    subgraph "Workflow Automation - n8n"
+        N8N1[Document Processing<br/>Workflow]
+        N8N2[AI Validation<br/>Workflow]
+    end
+
+    subgraph "AI - Gemini API"
+        GEMINI[Gemini 2.0 Flash<br/>File API]
+    end
+
+    %% User uploads documents
+    UI -->|1. Upload files| STORAGE
+    UI -->|2. Create validation record| DB
+
+    %% Document processing flow
+    UI -->|3. Trigger processing| N8N1
+    N8N1 -->|4. Get file paths| DB
+    N8N1 -->|5. Call edge function| EF1
+    EF1 -->|6. Download file| STORAGE
+    EF1 -->|7. Upload to Gemini| GEMINI
+    GEMINI -->|8. Return file URI| EF1
+    EF1 -->|9. Save file URI| DB
+
+    %% Validation flow
+    UI -->|10. Trigger validation| N8N2
+    N8N2 -->|11. Get requirements| EF2
+    EF2 -->|12. Query requirements| DB
+    N8N2 -->|13. Get file URIs| DB
+    N8N2 -->|14. Validate each requirement| GEMINI
+    GEMINI -->|15. Return results| N8N2
+    N8N2 -->|16. Save results| DB
+    DB -->|17. Display results| UI
+
+    style UI fill:#e1f5ff
+    style DB fill:#fff4e6
+    style STORAGE fill:#fff4e6
+    style EF1 fill:#fff4e6
+    style EF2 fill:#fff4e6
+    style N8N1 fill:#f3e5f5
+    style N8N2 fill:#f3e5f5
+    style GEMINI fill:#e8f5e9

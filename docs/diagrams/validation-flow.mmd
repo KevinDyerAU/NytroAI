@@ -1,0 +1,52 @@
+sequenceDiagram
+    participant UI as Frontend
+    participant N8N as n8n Workflow
+    participant EF as get-requirements<br/>Edge Function
+    participant DB as Database
+    participant PROMPTS as prompts table
+    participant GEM as Gemini API
+
+    Note over UI,GEM: Individual Requirement Validation Flow
+
+    UI->>N8N: 1. Trigger AIValidationFlow<br/>(validation_detail_id)
+
+    N8N->>DB: 2. Fetch validation context<br/>(session isolation)
+    DB-->>N8N: unit_code, rto_code, session_id, created_at
+
+    N8N->>DB: 3. Fetch documents with metadata
+    DB-->>N8N: gemini_file_uris[], file_names[], types[]
+
+    N8N->>EF: 4. Get requirements<br/>(unit_code, document_type)
+    EF->>DB: Query requirements tables<br/>(knowledge_evidence, performance_evidence, etc.)
+    DB-->>EF: requirements[]
+    EF-->>N8N: requirements[] (50 items)
+
+    N8N->>DB: 5. Update total_requirements count
+    
+    loop For EACH requirement individually
+        N8N->>PROMPTS: 6. Fetch prompt template<br/>(requirement_type, document_type)
+        PROMPTS-->>N8N: prompt_text, system_instruction, output_schema
+
+        N8N->>N8N: 7. Build request with session context<br/>+ file URIs + prompt
+
+        N8N->>N8N: 8. Rate limit delay<br/>(15 RPM free, 1000 RPM paid)
+
+        N8N->>GEM: 9. Validate ONE requirement<br/>(files + prompt)
+        Note over GEM: 1M token context<br/>All documents available<br/>Focus on single requirement
+        GEM-->>N8N: status, reasoning, citations, smart_questions
+
+        N8N->>DB: 10. Save individual result<br/>validation_results table
+        Note over DB: One row per requirement<br/>with rich metadata
+
+        N8N->>DB: 11. Update progress<br/>(X of 50 complete)
+    end
+
+    N8N->>DB: 12. Update validation status: "completed"
+    DB-->>N8N: success
+
+    N8N-->>UI: Validation complete
+
+    UI->>DB: 13. Query validation_results
+    DB-->>UI: All requirement results with citations
+
+    Note over UI,GEM: Individual validation ensures maximum accuracy!
