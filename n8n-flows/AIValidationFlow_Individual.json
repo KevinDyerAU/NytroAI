@@ -1,0 +1,355 @@
+{
+  "name": "AI Validation Flow - Individual Requirements",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-validation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-start",
+      "name": "Webhook - Start Validation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": true, \"validation_detail_id\": $json.validation_detail_id, \"message\": \"Validation started\"} }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_status = 'processing', updated_at = NOW() WHERE id = {{ $json.validation_detail_id }}"
+      },
+      "id": "update-status-processing",
+      "name": "Update Status: Processing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/functions/v1/get-requirements",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "unit_code",
+              "value": "={{ $json.unit_code }}"
+            },
+            {
+              "name": "document_type",
+              "value": "={{ $json.document_type || 'unit' }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "get-requirements",
+      "name": "Get Requirements",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const requirements = $input.first().json.requirements || [];\nconst validationDetailId = $input.first().json.validation_detail_id;\nconst unitCode = $input.first().json.unit_code;\nconst documentType = $input.first().json.document_type || 'unit';\n\nreturn requirements.map((req, index) => ({\n  json: {\n    ...req,\n    validation_detail_id: validationDetailId,\n    unit_code: unitCode,\n    document_type: documentType,\n    requirement_index: index,\n    total_requirements: requirements.length\n  }\n}));"
+      },
+      "id": "split-requirements",
+      "name": "Split Requirements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_total = {{ $json.total_requirements }}, updated_at = NOW() WHERE id = {{ $json.validation_detail_id }}"
+      },
+      "id": "update-total",
+      "name": "Update Total Requirements",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1250, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT prompt_text, system_instruction, output_schema, generation_config FROM prompts WHERE prompt_type = 'validation' AND requirement_type = '{{ $json.requirement_type }}' AND document_type = '{{ $json.document_type }}' AND is_active = true AND is_default = true LIMIT 1"
+      },
+      "id": "fetch-prompt",
+      "name": "Fetch Prompt Template",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT gemini_file_uri, filename FROM documents WHERE validation_detail_id = {{ $json.validation_detail_id }} AND gemini_file_uri IS NOT NULL"
+      },
+      "id": "get-documents",
+      "name": "Get Documents",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const promptTemplate = $input.first().json.prompt_text;\nconst systemInstruction = $input.first().json.system_instruction;\nconst outputSchema = $input.first().json.output_schema;\nconst generationConfig = $input.first().json.generation_config;\nconst requirement = $input.item.json;\nconst documents = $input.all().filter(item => item.json.gemini_file_uri);\n\n// Replace variables in prompt\nconst prompt = promptTemplate\n  .replace(/{{requirement_number}}/g, requirement.requirement_number)\n  .replace(/{{requirement_text}}/g, requirement.requirement_text)\n  .replace(/{{requirement_type}}/g, requirement.requirement_type)\n  .replace(/{{unit_code}}/g, requirement.unit_code)\n  .replace(/{{document_type}}/g, requirement.document_type);\n\n// Build Gemini request\nconst fileData = documents.map(doc => ({\n  fileData: {\n    mimeType: \"application/pdf\",\n    fileUri: doc.json.gemini_file_uri\n  }\n}));\n\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{text: systemInstruction}]\n  },\n  contents: [\n    ...fileData.map(file => ({parts: [file]})),\n    {parts: [{text: prompt}]}\n  ],\n  generationConfig: {\n    ...generationConfig,\n    responseMimeType: \"application/json\",\n    responseSchema: outputSchema\n  }\n};\n\nreturn {\n  json: {\n    ...requirement,\n    gemini_request: geminiRequest,\n    prompt_used: prompt\n  }\n};"
+      },
+      "id": "prepare-validation-request",
+      "name": "Prepare Validation Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tier = $env.GEMINI_TIER || 'free';\nconst rpm = tier === 'paid' ? 1000 : 15;\nconst delayMs = Math.ceil((60 / rpm) * 1000);\n\nawait new Promise(resolve => setTimeout(resolve, delayMs));\n\nreturn $input.all();"
+      },
+      "id": "rate-limit-delay",
+      "name": "Rate Limit Delay",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gemini_request }}",
+        "options": {
+          "retry": {
+            "retry": {
+              "maxRetries": 3,
+              "retryOnStatusCodes": "429,500,502,503,504"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "call-gemini",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2250, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst requirement = $input.first().json;\n\nlet validationResult;\ntry {\n  const content = response.candidates[0].content.parts[0].text;\n  validationResult = JSON.parse(content);\n} catch (error) {\n  validationResult = {\n    status: \"error\",\n    reasoning: \"Failed to parse Gemini response: \" + error.message,\n    error: true\n  };\n}\n\nreturn {\n  json: {\n    validation_detail_id: requirement.validation_detail_id,\n    requirement_type: requirement.requirement_type,\n    requirement_number: requirement.requirement_number,\n    requirement_text: requirement.requirement_text,\n    status: validationResult.status,\n    reasoning: validationResult.reasoning,\n    mapped_content: validationResult.mapped_content || null,\n    unmapped_content: validationResult.unmapped_content || null,\n    recommendations: validationResult.recommendations || null,\n    smart_questions: validationResult.smart_question ? [validationResult.smart_question] : [],\n    citations: validationResult.doc_references || null,\n    metadata: {\n      confidence_score: validationResult.confidence_score || null,\n      prompt_used: requirement.prompt_used,\n      gemini_model: \"gemini-2.0-flash-exp\",\n      validation_timestamp: new Date().toISOString()\n    }\n  }\n};"
+      },
+      "id": "parse-validation-result",
+      "name": "Parse Validation Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "validation_results",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "validation_detail_id", "fieldValue": "={{ $json.validation_detail_id }}"},
+            {"fieldId": "requirement_type", "fieldValue": "={{ $json.requirement_type }}"},
+            {"fieldId": "requirement_number", "fieldValue": "={{ $json.requirement_number }}"},
+            {"fieldId": "requirement_text", "fieldValue": "={{ $json.requirement_text }}"},
+            {"fieldId": "status", "fieldValue": "={{ $json.status }}"},
+            {"fieldId": "reasoning", "fieldValue": "={{ $json.reasoning }}"},
+            {"fieldId": "mapped_content", "fieldValue": "={{ $json.mapped_content }}"},
+            {"fieldId": "unmapped_content", "fieldValue": "={{ $json.unmapped_content }}"},
+            {"fieldId": "recommendations", "fieldValue": "={{ $json.recommendations }}"},
+            {"fieldId": "smart_questions", "fieldValue": "={{ JSON.stringify($json.smart_questions) }}"},
+            {"fieldId": "citations", "fieldValue": "={{ $json.citations }}"},
+            {"fieldId": "metadata", "fieldValue": "={{ JSON.stringify($json.metadata) }}"}
+          ]
+        }
+      },
+      "id": "save-result",
+      "name": "Save Validation Result",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_count = validation_count + 1, validation_progress = ROUND((validation_count + 1)::numeric / validation_total * 100, 2), updated_at = NOW() WHERE id = {{ $json.validation_detail_id }}"
+      },
+      "id": "update-progress",
+      "name": "Update Progress",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2850, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "aggregateItems",
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "all_results",
+        "options": {}
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [3050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_status = 'completed', validation_progress = 100, updated_at = NOW() WHERE id = {{ $json.validation_detail_id }}"
+      },
+      "id": "update-status-completed",
+      "name": "Update Status: Completed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3250, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_status = 'failed', error_message = '{{ $json.error.message }}', updated_at = NOW() WHERE id = {{ $json.validation_detail_id }}"
+      },
+      "id": "update-status-error",
+      "name": "Update Status: Error",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2450, 500],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase - NytroAI"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Start Validation": {
+      "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
+    },
+    "Respond Success": {
+      "main": [[{"node": "Update Status: Processing", "type": "main", "index": 0}]]
+    },
+    "Update Status: Processing": {
+      "main": [[{"node": "Get Requirements", "type": "main", "index": 0}]]
+    },
+    "Get Requirements": {
+      "main": [[{"node": "Split Requirements", "type": "main", "index": 0}]]
+    },
+    "Split Requirements": {
+      "main": [[{"node": "Update Total Requirements", "type": "main", "index": 0}]]
+    },
+    "Update Total Requirements": {
+      "main": [[{"node": "Fetch Prompt Template", "type": "main", "index": 0}]]
+    },
+    "Fetch Prompt Template": {
+      "main": [[{"node": "Get Documents", "type": "main", "index": 0}]]
+    },
+    "Get Documents": {
+      "main": [[{"node": "Prepare Validation Request", "type": "main", "index": 0}]]
+    },
+    "Prepare Validation Request": {
+      "main": [[{"node": "Rate Limit Delay", "type": "main", "index": 0}]]
+    },
+    "Rate Limit Delay": {
+      "main": [[{"node": "Call Gemini API", "type": "main", "index": 0}]]
+    },
+    "Call Gemini API": {
+      "main": [
+        [{"node": "Parse Validation Result", "type": "main", "index": 0}],
+        [{"node": "Update Status: Error", "type": "main", "index": 0}]
+      ]
+    },
+    "Parse Validation Result": {
+      "main": [[{"node": "Save Validation Result", "type": "main", "index": 0}]]
+    },
+    "Save Validation Result": {
+      "main": [[{"node": "Update Progress", "type": "main", "index": 0}]]
+    },
+    "Update Progress": {
+      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
+    },
+    "Aggregate Results": {
+      "main": [[{"node": "Update Status: Completed", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-29T00:00:00.000Z",
+  "versionId": "1"
+}

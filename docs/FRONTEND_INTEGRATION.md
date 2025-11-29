@@ -11,22 +11,22 @@ This guide explains how to integrate the simplified n8n validation architecture 
 ### What's New
 
 1. **New Upload Service** - `DocumentUploadService_n8n.ts`
-   - Uploads to Supabase Storage (unchanged)
-   - Creates document records (unchanged)
-   - Calls n8n webhook for processing (new)
-   - No more edge function calls
+  - Uploads to Supabase Storage (unchanged)
+  - Creates document records (unchanged)
+  - Calls n8n webhook for processing (new)
+  - No more edge function calls
 
-2. **Environment Variables** - n8n webhook URLs
-   - `VITE_N8N_DOCUMENT_PROCESSING_URL`
-   - `VITE_N8N_VALIDATION_URL`
-   - `VITE_N8N_REPORT_URL`
-   - `VITE_N8N_REVALIDATE_URL`
-   - `VITE_N8N_REGENERATE_QUESTIONS_URL`
-   - `VITE_N8N_AI_CHAT_URL`
+1. **Environment Variables** - n8n webhook URLs
+  - `VITE_N8N_DOCUMENT_PROCESSING_URL`
+  - `VITE_N8N_VALIDATION_URL`
+  - `VITE_N8N_REPORT_URL`
+  - `VITE_N8N_REVALIDATE_URL`
+  - `VITE_N8N_REGENERATE_QUESTIONS_URL`
+  - `VITE_N8N_AI_CHAT_URL`
 
-3. **Simplified Flow**
-   - Upload → Supabase Storage → Create Record → n8n Webhook → Done
-   - No more: Edge functions, database triggers, operation polling
+1. **Simplified Flow**
+  - Upload → Supabase Storage → Create Record → n8n Webhook → Done
+  - No more: Edge functions, database triggers, operation polling
 
 ---
 
@@ -51,9 +51,12 @@ VITE_N8N_AI_CHAT_URL=https://your-n8n.com/webhook/ai-chat
 ```
 
 **For Netlify Deployment**:
+
 1. Go to Netlify Dashboard → Site settings → Environment variables
-2. Add all `VITE_N8N_*` variables
-3. Redeploy site
+
+1. Add all `VITE_N8N_*` variables
+
+1. Redeploy site
 
 ---
 
@@ -82,7 +85,7 @@ const result = await documentUploadService.uploadDocument(
   documentType,
   validationDetailId,
   onProgress
-);
+ );
 
 // New
 const result = await documentUploadServiceN8n.uploadDocument(
@@ -415,20 +418,20 @@ export function useValidationStatus(validationDetailId: number) {
 ### 4 Simple Stages
 
 1. **Document Upload** - Files uploaded to Supabase Storage
-   - `validation_detail.extractStatus = 'Pending'`
-   - `validation_detail.validationStatus = 'Pending'`
+  - `validation_detail.extractStatus = 'Pending'`
+  - `validation_detail.validationStatus = 'Pending'`
 
-2. **AI Learning** - Files being processed by Gemini
-   - `validation_detail.extractStatus = 'In Progress'`
-   - n8n uploads files to Gemini File API
+1. **AI Learning** - Files being processed by Gemini
+  - `validation_detail.extractStatus = 'In Progress'`
+  - n8n uploads files to Gemini File API
 
-3. **Under Review** - AI validation running
-   - `validation_detail.extractStatus = 'Completed'`
-   - `validation_detail.validationStatus = 'In Progress'`
+1. **Under Review** - AI validation running
+  - `validation_detail.extractStatus = 'Completed'`
+  - `validation_detail.validationStatus = 'In Progress'`
 
-4. **Finalised** - Results ready
-   - `validation_detail.validationStatus = 'Finalised'`
-   - Results in `validation_results` table
+1. **Finalised** - Results ready
+  - `validation_detail.validationStatus = 'Finalised'`
+  - Results in `validation_results` table
 
 ### Status Display Component
 
@@ -470,40 +473,61 @@ function ValidationStatusBadge({ status }: { status: ValidationStatus }) {
 ### Test Upload Flow
 
 1. Upload a test PDF
-2. Check Supabase Storage - file should be there
-3. Check `documents` table - record should exist
-4. Check n8n execution - should show success
-5. Check `documents` table - `gemini_file_uri` should be populated
-6. Check `validation_detail` - `extractStatus` should be 'Completed'
+
+1. Check Supabase Storage - file should be there
+
+1. Check `documents` table - record should exist
+
+1. Check n8n execution - should show success
+
+1. Check `documents` table - `gemini_file_uri` should be populated
+
+1. Check `validation_detail` - `extractStatus` should be 'Completed'
 
 ### Test Validation Flow
 
 1. Trigger validation
-2. Check n8n execution - should show success
-3. Check `validation_results` table - results should appear
-4. Check `validation_detail` - `validationStatus` should be 'Finalised'
+
+1. Check n8n execution - should show success
+
+1. Check `validation_results` table - results should appear
+
+1. Check `validation_detail` - `validationStatus` should be 'Finalised'
 
 ### Test Results Explorer
 
 1. Generate report - should download Markdown file
-2. Revalidate requirement - should update result
-3. Regenerate questions - should show new questions
-4. AI chat - should respond to questions
+
+1. Revalidate requirement - should update result
+
+1. Regenerate questions - should show new questions
+
+1. AI chat - should respond to questions
 
 ---
 
 ## Migration Checklist
 
 - [ ] Update `.env.local` with n8n webhook URLs
+
 - [ ] Update upload component to use `DocumentUploadService_n8n`
+
 - [ ] Add validation trigger function
+
 - [ ] Add report generation function
+
 - [ ] Add revalidate requirement function
+
 - [ ] Add regenerate questions function
+
 - [ ] Add AI chat component
+
 - [ ] Test upload flow end-to-end
+
 - [ ] Test validation flow end-to-end
+
 - [ ] Test all Results Explorer features
+
 - [ ] Deploy to Netlify with new environment variables
 
 ---
@@ -513,34 +537,50 @@ function ValidationStatusBadge({ status }: { status: ValidationStatus }) {
 ### Upload Fails
 
 **Check**:
+
 1. Supabase Storage bucket exists (`documents`)
-2. RLS policies allow authenticated users to upload
-3. File size < 50 MB (Free) or 5 GB (Pro)
-4. n8n webhook URL is correct
+
+1. RLS policies allow authenticated users to upload
+
+1. File size < 50 MB (Free) or 5 GB (Pro)
+
+1. n8n webhook URL is correct
 
 ### n8n Processing Fails
 
 **Check**:
+
 1. n8n workflow is active
-2. n8n credentials are configured (Supabase, Gemini)
-3. Check n8n execution logs for errors
-4. Verify Gemini API key is valid
+
+1. n8n credentials are configured (Supabase, Gemini)
+
+1. Check n8n execution logs for errors
+
+1. Verify Gemini API key is valid
 
 ### Validation Doesn't Start
 
 **Check**:
+
 1. `documents` table has `gemini_file_uri` populated
-2. n8n validation workflow is active
-3. Check n8n execution logs
-4. Verify validation_detail_id exists
+
+1. n8n validation workflow is active
+
+1. Check n8n execution logs
+
+1. Verify validation_detail_id exists
 
 ### Results Not Appearing
 
 **Check**:
+
 1. Validation completed successfully (check n8n logs)
-2. `validation_results` table has records
-3. `validation_detail.validationStatus = 'Finalised'`
-4. Frontend is polling correct validation_detail_id
+
+1. `validation_results` table has records
+
+1. `validation_detail.validationStatus = 'Finalised'`
+
+1. Frontend is polling correct validation_detail_id
 
 ---
 
@@ -548,15 +588,17 @@ function ValidationStatusBadge({ status }: { status: ValidationStatus }) {
 
 The frontend integration is straightforward:
 
-✅ **Upload** - Same Supabase Storage upload, new n8n webhook call  
-✅ **Validation** - Call n8n webhook instead of edge function  
-✅ **Status** - Poll validation_detail table (unchanged)  
-✅ **Results** - Call n8n webhooks for all Results Explorer features  
+✅ **Upload** - Same Supabase Storage upload, new n8n webhook call✅ **Validation** - Call n8n webhook instead of edge function✅ **Status** - Poll validation_detail table (unchanged)✅ **Results** - Call n8n webhooks for all Results Explorer features
 
 **Key Benefits**:
+
 - Simpler code (no edge function complexity)
+
 - Easier debugging (check n8n execution logs)
+
 - More reliable (fewer failure points)
+
 - Faster (no operation polling)
 
 **Migration Time**: 1-2 hours for experienced developer
+

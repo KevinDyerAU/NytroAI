@@ -15,6 +15,65 @@ This directory contains **n8n workflows** that power the NytroAI validation syst
 
 ## Workflows
 
+### ⭐ Recommended: Enhanced Workflow
+
+#### AIValidationFlow_Gemini_Enhanced.json - **Best of Both Worlds**
+
+**Purpose**: Individual validation with session context isolation
+
+**Why Use This**:
+- ✅ **Maximum accuracy** - Individual validation (one requirement at a time)
+- ✅ **Session isolation** - Prevents cross-contamination between validation runs
+- ✅ **Document metadata** - Full context (names, types, timestamps)
+- ✅ **Rich citations** - Structured format with document references
+- ✅ **Rate limiting** - Multi-user safe (15 RPM free, 1000 RPM paid)
+- ✅ **Progress tracking** - Real-time updates (validation_count, validation_progress)
+- ✅ **Database prompts** - Easy to update without code changes
+
+**Trigger**: Webhook POST `/webhook/ai-validation-enhanced`
+
+**Input**:
+```json
+{
+  "validation_detail_id": 123
+}
+```
+
+**Process**:
+1. Fetch validation context (session ID, timestamp, unit, RTO)
+2. Fetch documents with full metadata (names, types, upload times)
+3. Fetch requirements from edge function
+4. **Split into individual requirements** (50 separate validations)
+5. For each requirement:
+   - Fetch requirement-specific prompt from database
+   - Build request with full session context
+   - Rate limit delay (4s free tier, 60ms paid tier)
+   - Call Gemini API
+   - Parse response with rich metadata
+   - Save to validation_results
+   - Update progress (1/50, 2/50, etc.)
+6. Aggregate results
+7. Update status → "Finalised"
+
+**Output**:
+```json
+{
+  "success": true,
+  "validation_detail_id": 123,
+  "total_results": 50,
+  "message": "Validation completed successfully"
+}
+```
+
+**Performance**:
+- **Free tier**: 3-4 minutes (50 requirements × 4s)
+- **Paid tier**: 60-90 seconds (50 requirements × 1-2s)
+- **Cost**: ~$0.50 per validation
+
+**See [AIValidationFlow_Gemini_Enhanced_README.md](./AIValidationFlow_Gemini_Enhanced_README.md) for complete documentation.**
+
+---
+
 ### Core Validation Workflows
 
 #### 1. DocumentProcessingFlow_Gemini.json ⭐ **Recommended**
