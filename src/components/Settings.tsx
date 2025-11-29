@@ -18,12 +18,10 @@ interface RTO {
 }
 
 export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
-  // Settings component with General and Purchase tabs
   const [activeTab, setActiveTab] = useState('general');
   const [currentRTO, setCurrentRTO] = useState<RTO | null>(null);
   const [isLoadingRTO, setIsLoadingRTO] = useState(false);
 
-  // Fetch RTO details from database
   useEffect(() => {
     const loadRTODetails = async () => {
       if (!selectedRTOId) {
@@ -59,7 +57,6 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
     loadRTODetails();
   }, [selectedRTOId]);
 
-  // Check for tab parameter in URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab');
@@ -85,9 +82,7 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
             </TabsTrigger>
           </TabsList>
 
-          {/* General Settings Tab */}
           <TabsContent value="general">
-            {/* Selected RTO Info */}
             <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft mb-8">
               <h2 className="text-lg font-poppins font-semibold text-[#1e293b] mb-4">
                 Current RTO
@@ -108,7 +103,6 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
               )}
             </Card>
 
-            {/* Information */}
             <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
               <h3 className="text-lg font-poppins font-semibold text-[#1e293b] mb-6">
                 About Credits
@@ -161,7 +155,6 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
             </Card>
           </TabsContent>
 
-          {/* Purchase AI Credits Tab */
           <TabsContent value="purchase">
             <AICreditsPage selectedRTOId={selectedRTOId} onCreditsAdded={onCreditsAdded} />
           </TabsContent>

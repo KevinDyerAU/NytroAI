@@ -9,24 +9,12 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { PlayCircle, AlertCircle, CheckCircle, Loader2, Search, ExternalLink, FileText, Eye, Activity } from 'lucide-react';
+import { PlayCircle, AlertCircle, CheckCircle, Loader2, Search, ExternalLink, FileText, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
 interface TriggerValidationProps {
   onViewResults?: (detailId: number) => void;
-}
-
-interface ValidationStatus {
-  file_name: string;
-  embedding_status: string;
-  gemini_status: string | null;
-  progress_percentage: number | null;
-  extractStatus: string | null;
-  requirements_found: number | null;
-  uploaded_at: string;
-  minutes_ago: number;
 }
 
 interface ValidationDetail {
@@ -61,10 +49,6 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
   
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
   const [availablePrompts, setAvailablePrompts] = useState<PromptOption[]>([]);
-  
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [validationStatuses, setValidationStatuses] = useState<ValidationStatus[]>([]);
-  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
   // Load recent validations
   useEffect(() => {
@@ -120,35 +104,6 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
       }
     } catch (err) {
       console.error('[TriggerValidation] Exception loading prompts:', err);
-    }
-  };
-
-  const loadValidationStatus = async () => {
-    setIsLoadingStatus(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('get-validation-status');
-
-      console.log('[TriggerValidation] Status response:', { data, error });
-
-      if (error) {
-        console.error('Error loading status:', error);
-        toast.error('Failed to load validation status');
-        return;
-      }
-
-      // The edge function returns {status: [...], total: N}
-      const statusData = data?.status || [];
-
-      console.log('[TriggerValidation] Parsed status data:', statusData);
-      console.log('[TriggerValidation] Debug: JSON =', JSON.stringify(statusData));
-      console.log('[TriggerValidation] Debug: isArray =', Array.isArray(statusData));
-      setValidationStatuses(statusData);
-      setShowStatusModal(true);
-    } catch (err) {
-      console.error('Exception loading status:', err);
-      toast.error('Failed to load validation status');
-    } finally {
-      setIsLoadingStatus(false);
     }
   };
 
@@ -231,30 +186,15 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
               Test and compare validation prompts on existing documents without re-uploading.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={loadValidationStatus}
-              disabled={isLoadingStatus}
-              className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20"
-            >
-              {isLoadingStatus ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Activity className="w-4 h-4" />
-              )}
-              Check Status
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => window.open('/#/maintenance', '_blank')}
-              className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20"
-            >
-              <FileText className="w-4 h-4" />
-              Edit Prompts
-              <ExternalLink className="w-3 h-3" />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={() => window.open('/#/maintenance', '_blank')}
+            className="flex items-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20"
+          >
+            <FileText className="w-4 h-4" />
+            Edit Prompts
+            <ExternalLink className="w-3 h-3" />
+          </Button>
         </div>
       </div>
 
@@ -589,113 +529,6 @@ export function TriggerValidation({ onViewResults }: TriggerValidationProps = {}
           </div>
         </div>
       </Card>
-
-      {/* Validation Status Modal */}
-      <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
-        <DialogContent className="w-[100vw] max-w-[100vw] h-[75vh] max-h-[75vh] overflow-y-auto bg-white p-4">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5" />
-              Validation Processing Status (Last 6 Hours)
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="mt-4">
-            {validationStatuses.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No recent validation activity in the last 6 hours
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[35%]">File Name</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Embedding</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Gemini</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[18%]">Progress</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase w-[12%]">Validation</th>
-                      <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-500 uppercase w-[11%]">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {validationStatuses.map((status, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-0" title={status.file_name}>
-                          {status.file_name}
-                        </td>
-                        <td className="px-2 py-2">
-                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            status.embedding_status === 'completed' 
-                              ? 'bg-green-100 text-green-800'
-                              : status.embedding_status === 'processing'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {status.embedding_status}
-                          </span>
-                        </td>
-                        <td className="px-2 py-2">
-                          {status.gemini_status ? (
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              status.gemini_status === 'completed' 
-                                ? 'bg-green-100 text-green-800'
-                                : status.gemini_status === 'processing'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : status.gemini_status === 'failed'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {status.gemini_status}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2">
-                          {status.progress_percentage !== null ? (
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-[50px]">
-                                <div 
-                                  className="bg-blue-600 h-1.5 rounded-full" 
-                                  style={{ width: `${status.progress_percentage}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-gray-600 whitespace-nowrap">{status.progress_percentage}%</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2">
-                          {status.extractStatus ? (
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              status.extractStatus === 'Completed' 
-                                ? 'bg-green-100 text-green-800'
-                                : status.extractStatus === 'Processing'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : status.extractStatus === 'Failed'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {status.extractStatus}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 text-right whitespace-nowrap">
-                          {status.minutes_ago}m
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
     </div>
   );
