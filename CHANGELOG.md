@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation Overhaul (2025-11-29)
+
+#### Added
+- New simplified architecture diagrams (Mermaid + PNG)
+  - `docs/diagrams/simplified-architecture.mmd` and `.png`
+  - `docs/diagrams/document-processing-flow.mmd` and `.png`
+  - `docs/diagrams/validation-flow.mmd` and `.png`
+- Comprehensive new README with costs, rate limits, and validation strategy
+
+#### Changed
+- **README.md** - Complete rewrite focusing on:
+  - Simplified Gemini File API architecture (not File Search Stores)
+  - Individual requirement validation strategy
+  - Clear costs ($35-85/month) and rate limits (15-1000 RPM)
+  - Session context isolation
+  - Removed Google AI Studio references (now Gemini API)
+  - Removed outdated upload pipeline documentation
+
+#### Removed
+- **37 outdated documentation files** including:
+  - Root level: ARCHITECTURE.md, DEVELOPER_GUIDE.md, EDGE_FUNCTIONS.md, MIGRATION_GUIDE.md, PER_VALIDATION_STORES.md, PR_DESCRIPTION.md, QUICK_START.md, README_N8N.md, README_OLD.md, and 12 more
+  - docs/: ARCHITECTURE.md, MIGRATION_GUIDE.md, N8N_*.md files, TROUBLESHOOTING.md, UPLOAD_FLOW.md, USER_GUIDE.md, and 10 more
+  - docs/migration/: Entire directory removed
+  - Outdated guides, archive folders, and migration scripts
+
+### Enhanced Validation System (2025-11-28)
+
+#### Added
+- Individual requirement validation workflow
+- Rate limiting and retry logic
+- Session context isolation
+- Database-driven prompts system
+- Real-time progress tracking
+- Enhanced workflow: `AIValidationFlow_Gemini_Enhanced.json`
+- Comprehensive prompts documentation (77KB)
+
+#### Changed
+- Validation strategy from batch to individual (accuracy priority)
+- Architecture from 5 platforms to 3 platforms
+- Cost from $150-210/month to $35-85/month (78-85% reduction)
+
 ### Planned
 - Phase 4: AI prompt optimization
 - Performance tracking and metrics

@@ -1,0 +1,45 @@
+sequenceDiagram
+    participant UI as Frontend
+    participant SB as Supabase Storage
+    participant DB as Database
+    participant N8N as n8n Workflow
+    participant EF as upload-to-gemini<br/>Edge Function
+    participant GEM as Gemini File API
+
+    Note over UI,GEM: Document Processing Flow
+
+    UI->>SB: 1. Upload PDF to storage bucket
+    SB-->>UI: storage_path
+
+    UI->>DB: 2. Create document record
+    Note over DB: documents table<br/>storage_path, validation_detail_id
+
+    UI->>N8N: 3. Trigger DocumentProcessingFlow<br/>(webhook with validation_detail_id)
+
+    N8N->>DB: 4. Fetch documents by validation_detail_id
+    DB-->>N8N: storage_paths[]
+
+    loop For each document
+        N8N->>EF: 5. Call upload-to-gemini<br/>(storage_path, validation_detail_id)
+        
+        EF->>SB: 6. Download file from storage
+        SB-->>EF: file binary data
+        
+        EF->>GEM: 7. Upload to Gemini File API<br/>(multipart/related format)
+        Note over GEM: File stored for 48 hours
+        GEM-->>EF: gemini_file_uri (files/abc123)
+        
+        EF->>DB: 8. Update document record<br/>(gemini_file_uri, timestamps)
+        DB-->>EF: success
+        
+        EF-->>N8N: success, gemini_file_uri
+    end
+
+    N8N->>DB: 9. Update validation status: "documents_processed"
+    DB-->>N8N: success
+
+    N8N->>N8N: 10. Trigger AIValidationFlow<br/>(webhook with validation_detail_id)
+
+    N8N-->>UI: Processing complete
+
+    Note over UI,GEM: Ready for validation!
