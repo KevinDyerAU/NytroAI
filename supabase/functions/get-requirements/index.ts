@@ -121,22 +121,22 @@ serve(async (req) => {
             switch (table.type) {
               case 'knowledge_evidence':
                 number = item.ke_number || String(index + 1);
-                text = item.knowledge_point || '';
-                description = item.knowledge_point || '';
+                text = item.knowled_point || '';  // Note: Database has typo 'knowled_point' not 'knowledge_point'
+                description = item.knowled_point || '';
                 display_type = 'Knowledge Evidence';
                 break;
               
               case 'performance_evidence':
                 number = item.pe_number || String(index + 1);
-                text = item.performance_task || '';
-                description = item.performance_task || '';
+                text = item.performance_evidence || '';  // Database field is 'performance_evidence' not 'performance_task'
+                description = item.performance_evidence || '';
                 display_type = 'Performance Evidence';
                 break;
               
               case 'foundation_skills':
                 number = item.fs_number || String(index + 1);
-                text = item.skill_description || '';
-                description = item.skill_description || '';
+                text = item.skill_point || '';  // Database field is 'skill_point' not 'skill_description'
+                description = item.skill_point || '';
                 display_type = 'Foundation Skills';
                 break;
               
