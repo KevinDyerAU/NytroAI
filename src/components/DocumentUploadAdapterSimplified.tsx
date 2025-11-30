@@ -147,6 +147,23 @@ export function DocumentUploadAdapterSimplified({
     }
   };
 
+  // Handle Enter key to auto-select exact match
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && unitSearchTerm && filteredUnits.length > 0) {
+      // Check for exact match first
+      const exactMatch = filteredUnits.find(
+        unit => unit.unitCode?.toUpperCase() === unitSearchTerm.toUpperCase()
+      );
+      
+      if (exactMatch) {
+        handleUnitSelect(exactMatch);
+      } else {
+        // Select first result if no exact match
+        handleUnitSelect(filteredUnits[0]);
+      }
+    }
+  };
+
   // Handle file selection (memoized to prevent infinite loop)
   const handleFilesSelected = useCallback(async (files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
@@ -238,13 +255,18 @@ export function DocumentUploadAdapterSimplified({
     }
   }, [selectedRTO, selectedUnit, validationType, validationDetailId, isCreatingValidation, selectedFiles, uploadedCount]);
 
-  // Handle upload complete (instant - just storage upload)
-  const handleUploadComplete = useCallback((documentId: number) => {
+  // Handle upload complete (storage + DB record created)
+  const handleUploadComplete = useCallback((documentId: number, fileName: string, storagePath: string) => {
     console.log('[DocumentUploadAdapterSimplified] ✅ Upload complete callback fired!', {
       documentId,
+      fileName,
+      storagePath,
       currentUploadedCount: uploadedCount,
       totalFiles: selectedFiles.length
     });
+    
+    // Add to uploaded documents list
+    setUploadedDocuments(prev => [...prev, { documentId, fileName, storagePath }]);
     
     // Update count and check if all files are done
     setUploadedCount(prev => {
@@ -397,9 +419,10 @@ export function DocumentUploadAdapterSimplified({
               </label>
               <input
                 type="text"
-                placeholder={isLoadingUnits ? "Loading units..." : "Search by code or title (e.g., BSBWHS521)"}
+                placeholder={isLoadingUnits ? "Loading units..." : "Search by code or title (e.g., BSBWHS521). Press Enter to select."}
                 value={unitSearchTerm}
                 onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
                 onFocus={() => {
                   // Only show dropdown if user is searching and hasn't selected a unit yet
                   // or if search term differs from selected unit
@@ -486,6 +509,7 @@ export function DocumentUploadAdapterSimplified({
               validationDetailId={validationDetailId}
               uploadedCount={uploadedCount}
               totalCount={selectedFiles.length}
+              storagePaths={uploadedDocuments.map(doc => doc.storagePath)}
               onSuccess={() => {
                 // Navigate to dashboard after validation starts
                 if (onValidationSubmit) {

@@ -19,63 +19,24 @@ interface N8nResponse<T = any> {
 /**
  * Trigger document processing via n8n (uploads to Gemini File API)
  * This should be called FIRST after files are uploaded to Supabase Storage
- * Fetches storage paths from database and sends to n8n for processing
+ * Sends validation_detail_id + storage_paths directly to n8n for processing
  */
-export async function triggerDocumentProcessing(validationDetailId: number): Promise<N8nResponse> {
+export async function triggerDocumentProcessing(validationDetailId: number, storagePaths: string[]): Promise<N8nResponse> {
   const n8nUrl = import.meta.env.VITE_N8N_DOCUMENT_PROCESSING_URL;
   
   if (!n8nUrl) {
     throw new Error('N8N document processing URL not configured. Please set VITE_N8N_DOCUMENT_PROCESSING_URL in environment variables.');
   }
 
-  // Import supabase here to avoid circular dependencies
-  const { supabase } = await import('../lib/supabase');
-  
-  // Retry logic: Wait for edge function to create document records
-  let documents: any[] | null = null;
-  let attempts = 0;
-  const maxAttempts = 10;
-  const retryDelay = 1000; // 1 second between retries
-
-  console.log('[n8nApi] ⏳ Waiting for document records to be created...');
-
-  while (attempts < maxAttempts) {
-    attempts++;
-    
-    // Fetch all documents for this validation to get storage paths
-    const { data, error } = await supabase
-      .from('documents')
-      .select('id, storage_path, file_name')
-      .eq('validation_detail_id', validationDetailId)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      throw new Error(`Failed to fetch documents: ${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      documents = data;
-      console.log(`[n8nApi] ✅ Found ${data.length} document(s) after ${attempts} attempt(s)`);
-      break;
-    }
-
-    if (attempts < maxAttempts) {
-      console.log(`[n8nApi] ⏳ Attempt ${attempts}/${maxAttempts}: No documents yet, retrying...`);
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
-    }
+  if (!storagePaths || storagePaths.length === 0) {
+    throw new Error('No storage paths provided. Please upload files first.');
   }
-
-  if (!documents || documents.length === 0) {
-    throw new Error(`No documents found for validation ${validationDetailId} after ${maxAttempts} attempts. The edge function may still be creating records. Please wait a moment and try again.`);
-  }
-
-  const storagePaths = documents.map(doc => doc.storage_path);
 
   console.log('[n8nApi] 📤 Calling n8n webhook:', {
     url: n8nUrl,
     validation_detail_id: validationDetailId,
     storage_paths: storagePaths,
-    document_count: documents.length,
+    document_count: storagePaths.length,
   });
 
   const response = await fetch(n8nUrl, {

@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { triggerDocumentProcessing } from '../lib/n8nApi';
 
 interface UseValidationTriggerReturn {
-  trigger: (validationDetailId: number) => Promise<void>;
+  trigger: (validationDetailId: number, storagePaths: string[]) => Promise<void>;
   isTriggering: boolean;
   error: string | null;
 }
@@ -19,14 +19,18 @@ export function useValidationTrigger(): UseValidationTriggerReturn {
   const [isTriggering, setIsTriggering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const trigger = async (validationDetailId: number) => {
+  const trigger = async (validationDetailId: number, storagePaths: string[]) => {
     setIsTriggering(true);
     setError(null);
 
     try {
-      console.log('[useValidationTrigger] Triggering document processing:', validationDetailId);
+      console.log('[useValidationTrigger] Triggering document processing:', {
+        validationDetailId,
+        storagePathsCount: storagePaths.length,
+        storagePaths
+      });
       
-      const result = await triggerDocumentProcessing(validationDetailId);
+      const result = await triggerDocumentProcessing(validationDetailId, storagePaths);
 
       if (result.success) {
         toast.success('Validation started!', {

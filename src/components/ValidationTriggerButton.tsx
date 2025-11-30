@@ -64,6 +64,7 @@ interface ValidationTriggerCardProps {
   validationDetailId: number;
   uploadedCount: number;
   totalCount: number;
+  storagePaths: string[];
   onSuccess?: () => void;
 }
 
@@ -71,6 +72,7 @@ export function ValidationTriggerCard({
   validationDetailId,
   uploadedCount,
   totalCount,
+  storagePaths,
   onSuccess,
 }: ValidationTriggerCardProps) {
   const { trigger, isTriggering } = useValidationTrigger();
@@ -83,14 +85,15 @@ export function ValidationTriggerCard({
       validationDetailId,
       uploadedCount,
       totalCount,
+      storagePathsCount: storagePaths.length,
       allUploaded: uploadedCount >= totalCount && totalCount > 0,
       isConfirmed: confirmText.toLowerCase().trim() === 'validate',
     });
-  }, [validationDetailId, uploadedCount, totalCount, confirmText]);
+  }, [validationDetailId, uploadedCount, totalCount, storagePaths, confirmText]);
 
   const handleTrigger = async () => {
     try {
-      await trigger(validationDetailId);
+      await trigger(validationDetailId, storagePaths);
       setIsTriggered(true);
       setConfirmText(''); // Clear input after success
       

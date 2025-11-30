@@ -18,21 +18,20 @@ interface DocumentUploadProps {
 interface FileState {
   file: File;
   progress: UploadProgress;
-  documentId?: number;
+  storagePath?: string;
 }
 
 /**
  * Simplified Document Upload Component
  * 
- * Instant Upload Flow:
+ * Upload Flow:
  * 1. User selects files
- * 2. Files upload to storage (completes instantly)
- * 3. User can continue working immediately
- * 4. Background: Edge function creates document records
- * 5. Background: DB triggers handle indexing and validation
- * 6. Dashboard shows real-time status updates
+ * 2. User clicks "Upload Files" → Files upload to storage + DB records created
+ * 3. User types "validate" → Parent triggers n8n with validation_detail_id + storage_paths
+ * 4. n8n uploads files to Gemini and validates
+ * 5. Dashboard shows real-time status updates
  * 
- * Key: Upload completes BEFORE edge function call
+ * Key: Document records exist in DB BEFORE n8n call
  */
 export function DocumentUploadSimplified({ 
   unitCode, 
@@ -203,15 +202,16 @@ export function DocumentUploadSimplified({
             }
           );
 
-          // Upload complete! Processing continues in background
+          // Upload complete! Save storage path and documentId
           setFiles(prev => {
             const updated = [...prev];
             updated[i] = { 
-              ...updated[i], 
+              ...updated[i],
+              storagePath: result.storagePath,
               progress: {
                 stage: 'completed',
                 progress: 100,
-                message: 'Upload complete - processing in background',
+                message: 'Upload complete',
               }
             };
             return updated;
@@ -220,7 +220,7 @@ export function DocumentUploadSimplified({
           // Notify parent with document details
           onUploadComplete(result.documentId, result.fileName, result.storagePath);
 
-          toast.success(`${fileState.file.name} uploaded - processing in background`);
+          toast.success(`${fileState.file.name} uploaded successfully`);
 
         } catch (error) {
           console.error('[Upload] Error uploading file:', error);
@@ -243,7 +243,8 @@ export function DocumentUploadSimplified({
         }
       }
 
-      toast.success('All files uploaded - processing in background');
+      console.log('[Upload] All files uploaded and documents created. Parent will trigger n8n.');
+      toast.success('All files uploaded successfully');
       
       // Reset notification flag for next upload batch
       hasNotifiedFilesRef.current = false;
@@ -364,7 +365,6 @@ export function DocumentUploadSimplified({
         </Button>
       )}
 
-      {/* Info Message removed - ValidationTriggerCard in parent handles this now */}
     </div>
   );
 }

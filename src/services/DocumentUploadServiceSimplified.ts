@@ -17,21 +17,23 @@ export interface UploadResult {
 /**
  * Simplified Document Upload Service
  * 
- * New Flow:
+ * Correct Flow:
  * 1. Upload file to Supabase Storage
- * 2. Create document record in DB
- * 3. DB trigger automatically handles:
- *    - Gemini indexing
- *    - Validation triggering
- *    - Status updates
+ * 2. Create document record in database (status: 'pending')
+ * 3. After ALL files uploaded, parent triggers n8n with validation_detail_id + storage_paths
+ * 4. n8n calls upload-document edge function which:
+ *    - Reads existing document records from DB
+ *    - Uploads files to Gemini
+ *    - Updates document status to 'processing'/'completed'
+ *    - Triggers validation when all done
  * 
  * The Dashboard polls for status updates.
- * On failure, user can retry using the same document.
  */
 export class DocumentUploadServiceSimplified {
   
   /**
-   * Upload a file - simple and fast
+   * Upload a file to storage - returns storage path
+   * Document creation happens later via n8n
    */
   async uploadDocument(
     file: File,
@@ -42,9 +44,9 @@ export class DocumentUploadServiceSimplified {
     onProgress?: (progress: UploadProgress) => void
   ): Promise<UploadResult> {
     try {
-      console.log('[Upload] Starting upload for:', file.name, 'Size:', file.size, 'bytes');
+      console.log('[Upload] Starting storage upload for:', file.name, 'Size:', file.size, 'bytes');
       
-      // Stage 1: Upload to Supabase Storage
+      // Upload to Supabase Storage
       onProgress?.({
         stage: 'uploading',
         progress: 10,
@@ -63,17 +65,16 @@ export class DocumentUploadServiceSimplified {
       try {
         const storagePath = await this.uploadToStorage(file, rtoCode, unitCode);
         clearInterval(progressInterval);
-        console.log('[Upload] File uploaded to storage:', storagePath);
+        console.log('[Upload] ✅ File uploaded to storage:', storagePath);
 
-        // Stage 1.5: Creating document record
+        // Create document record in database
         onProgress?.({
           stage: 'uploading',
           progress: 95,
           message: 'Creating document record...',
         });
 
-        // Stage 2: Trigger indexing in background (fast)
-        const documentId = await this.triggerIndexingBackground(
+        const documentId = await this.createDocumentRecord(
           file.name,
           storagePath,
           rtoCode,
@@ -82,15 +83,15 @@ export class DocumentUploadServiceSimplified {
           validationDetailId
         );
 
-        // Done! User can continue working
+        // Done! Document created and ready for n8n
         onProgress?.({
           stage: 'completed',
           progress: 100,
-          message: 'Upload complete - processing in background',
+          message: 'Upload complete',
         });
 
         return {
-          documentId: documentId || 0,
+          documentId,
           fileName: file.name,
           storagePath,
         };
@@ -113,6 +114,56 @@ export class DocumentUploadServiceSimplified {
 
       throw error;
     }
+  }
+
+  /**
+   * Create document record in database
+   */
+  private async createDocumentRecord(
+    fileName: string,
+    storagePath: string,
+    rtoCode: string,
+    unitCode: string,
+    documentType: string,
+    validationDetailId?: number
+  ): Promise<number> {
+    console.log('[Upload] Creating document record in database...');
+
+    // Get RTO ID
+    const { data: rto, error: rtoError } = await supabase
+      .from('RTO')
+      .select('id')
+      .eq('code', rtoCode)
+      .single();
+
+    if (rtoError || !rto) {
+      throw new Error(`Failed to find RTO: ${rtoCode}`);
+    }
+
+    // Create document record
+    const { data: document, error: docError } = await supabase
+      .from('documents')
+      .insert({
+        rto_id: rto.id,
+        unit_code: unitCode,
+        document_type: documentType,
+        file_name: fileName,
+        display_name: fileName,
+        storage_path: storagePath,
+        embedding_status: 'pending',
+        validation_detail_id: validationDetailId || null,
+        uploaded_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (docError || !document) {
+      console.error('[Upload] Failed to create document record:', docError);
+      throw new Error(`Failed to create document record: ${docError?.message}`);
+    }
+
+    console.log('[Upload] ✅ Document record created with ID:', document.id);
+    return document.id;
   }
 
   /**
@@ -156,70 +207,6 @@ export class DocumentUploadServiceSimplified {
     return data.path;
   }
 
-  /**
-   * Create document record and trigger background indexing (fast, non-blocking)
-   */
-  private async triggerIndexingBackground(
-    fileName: string,
-    storagePath: string,
-    rtoCode: string,
-    unitCode: string,
-    documentType: string,
-    validationDetailId?: number
-  ): Promise<number | null> {
-    console.log('[Upload] Creating document record (fast path)...');
-    console.log('[Upload] validationDetailId:', validationDetailId);
-    
-    // Use new function name to bypass CDN cache
-    const { data, error } = await supabase.functions.invoke('create-document-fast', {
-      body: {
-        rtoCode,
-        unitCode,
-        documentType,
-        fileName,
-        storagePath,
-        validationDetailId,
-      },
-    });
-    
-    if (error) {
-      console.error('[Upload] create-document-fast error:', error);
-      
-      // Fallback to upload-document-async if still having issues
-      console.warn('[Upload] Falling back to upload-document-async...');
-      
-      const fallbackPayload: Record<string, any> = {
-        rtoCode,
-        unitCode,
-        documentType,
-        fileName,
-        storagePath,
-      };
-      
-      if (validationDetailId) {
-        fallbackPayload.validationDetailId = validationDetailId;
-      }
-      
-      const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('upload-document-async', {
-        body: fallbackPayload,
-      });
-      
-      if (fallbackError) {
-        console.error('[Upload] Fallback also failed:', fallbackError);
-        throw new Error(`Failed to create document: ${fallbackError.message}`);
-      }
-      
-      console.log('[Upload] Fallback successful:', fallbackData);
-      return fallbackData?.document?.id || fallbackData?.documentId || null;
-    }
-    
-    console.log('[Upload] Document record created successfully (fast path):', data);
-    
-    // Don't trigger n8n here - let the component trigger it once after ALL documents are uploaded
-    // This prevents multiple n8n calls for each document
-    
-    return data?.document?.id || null;
-  }
 
   /**
    * Retry indexing for a failed document
