@@ -6,7 +6,7 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 interface Requirement {
@@ -14,7 +14,10 @@ interface Requirement {
   number: string;
   text: string;
   type: string;
+  display_type: string;
   description?: string;
+  element?: string;
+  element_number?: string;
 }
 
 serve(async (req) => {
@@ -105,13 +108,71 @@ serve(async (req) => {
         }
 
         if (data && data.length > 0) {
-          const requirements = data.map((item: any, index: number) => ({
-            id: item.id,
-            number: item.requirement_number || item.number || String(index + 1),
-            text: item.knowledge_point || item.performance_task || item.skill_description || item.text || item.description || '',
-            type: table.type,
-            description: item.description || item.knowledge_point || item.performance_task || item.skill_description || ''
-          }));
+          // Map fields based on table type
+          const requirements = data.map((item: any, index: number) => {
+            let number = String(index + 1);
+            let text = '';
+            let description = '';
+            let display_type = '';
+            let element: string | undefined = undefined;
+            let element_number: string | undefined = undefined;
+
+            // Table-specific field mapping
+            switch (table.type) {
+              case 'knowledge_evidence':
+                number = item.ke_number || String(index + 1);
+                text = item.knowledge_point || '';
+                description = item.knowledge_point || '';
+                display_type = 'Knowledge Evidence';
+                break;
+              
+              case 'performance_evidence':
+                number = item.pe_number || String(index + 1);
+                text = item.performance_task || '';
+                description = item.performance_task || '';
+                display_type = 'Performance Evidence';
+                break;
+              
+              case 'foundation_skills':
+                number = item.fs_number || String(index + 1);
+                text = item.skill_description || '';
+                description = item.skill_description || '';
+                display_type = 'Foundation Skills';
+                break;
+              
+              case 'elements_performance_criteria':
+                number = item.epc_number || String(index + 1);
+                text = item.performance_criteria || '';
+                description = item.element ? `${item.element}: ${item.performance_criteria}` : item.performance_criteria || '';
+                display_type = 'Performance Criteria';
+                // Extract element and element number
+                element = item.element || undefined;
+                // Try to extract element number from epc_number (e.g., "1.1" -> element "1")
+                if (item.epc_number) {
+                  const match = item.epc_number.match(/^(\d+)\./); // Match "1." from "1.1"
+                  element_number = match ? match[1] : undefined;
+                }
+                break;
+              
+              case 'assessment_conditions':
+                number = item.ac_number || String(index + 1);
+                text = item.condition_text || '';
+                description = item.condition_text || '';
+                display_type = 'Assessment Conditions';
+                break;
+            }
+
+            return {
+              id: item.id,
+              number,
+              text,
+              type: table.type,
+              display_type,
+              description,
+              element,
+              element_number
+            };
+          });
           
           allRequirements.push(...requirements);
           console.log(`[Get Requirements] ✓ Fetched ${requirements.length} from ${table.name}`);
