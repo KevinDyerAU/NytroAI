@@ -7,18 +7,28 @@ import { supabase } from './supabase';
 
 export interface ValidationEvidenceRecord {
   id: string;
+  validation_detail_id?: number;
   requirement_number: string;
   requirement_text: string;
+  requirement_type: string;
   status: string;
   reasoning: string;
-  mapped_questions: string;
-  unmapped_reasoning: string;
-  document_references: string;
-  smart_question: string;
+  mapped_content: string; // JSON string of mapped questions
+  doc_references: string; // JSON string or text of document references
+  smart_questions: string;
   benchmark_answer: string;
-  recommendations: string;
-  table_source: string;
-  type: string;
+  citations: string; // JSON string of citations
+  created_at?: string;
+  updated_at?: string;
+  
+  // Legacy fields for backward compatibility (deprecated)
+  mapped_questions?: string;
+  unmapped_reasoning?: string;
+  document_references?: string;
+  smart_question?: string;
+  recommendations?: string;
+  table_source?: string;
+  type?: string;
 }
 
 export interface ValidationResultsError {
@@ -180,18 +190,26 @@ export async function getValidationResults(
     // Map database records to ValidationEvidenceRecord interface
     const mappedData: ValidationEvidenceRecord[] = data.map((record: any) => ({
       id: record.id?.toString() || '',
+      validation_detail_id: record.validation_detail_id,
       requirement_number: record.requirement_number || '',
       requirement_text: record.requirement_text || '',
+      requirement_type: record.requirement_type || record.type || '',
       status: record.status || 'not_met',
       reasoning: record.reasoning || '',
-      mapped_questions: record.mapped_questions || '',
-      unmapped_reasoning: record.unmapped_reasoning || '',
-      document_references: record.document_references || '',
-      smart_question: record.smart_question || '',
+      mapped_content: record.mapped_content || record.mapped_questions || '',
+      doc_references: record.doc_references || record.document_references || '',
+      smart_questions: record.smart_questions || record.smart_question || '',
       benchmark_answer: record.benchmark_answer || '',
+      citations: record.citations || '',
+      created_at: record.created_at,
+      updated_at: record.updated_at,
+      // Legacy fields for backward compatibility
+      mapped_questions: record.mapped_questions || record.mapped_content,
+      document_references: record.document_references || record.doc_references,
+      smart_question: record.smart_question || record.smart_questions,
       recommendations: record.recommendations || '',
       table_source: record.table_source || 'validation_results',
-      type: record.type || 'evidence',
+      type: record.type || record.requirement_type || 'evidence',
     }));
 
     console.log('[getValidationResults] Successfully mapped', mappedData.length, 'records');

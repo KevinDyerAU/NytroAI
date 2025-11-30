@@ -10,21 +10,24 @@ import { toast } from 'sonner';
 
 interface ValidationResult {
   id: string;
-  requirementNumber: string;
-  type: string;
-  requirementText: string;
+  validation_detail_id?: number;
+  requirement_number: string;
+  requirement_type: string;
+  requirement_text: string;
   status: 'met' | 'not-met' | 'partial';
   reasoning: string;
-  evidence: {
-    mappedQuestions: string[];
-    unmappedReasoning: string;
-    documentReferences: (string | number)[];
-  };
-  aiEnhancement: {
-    smartQuestion: string;
-    benchmarkAnswer: string;
-    recommendations: string[];
-  };
+  mapped_content: string; // JSON string of mapped questions
+  doc_references: string; // JSON string or text of document references
+  smart_questions: string;
+  benchmark_answer: string;
+  citations: string; // JSON string of citations
+  created_at?: string;
+  updated_at?: string;
+  
+  // Helper properties for backward compatibility (can be computed from DB fields)
+  requirementNumber?: string; // alias for requirement_number
+  type?: string; // alias for requirement_type
+  requirementText?: string; // alias for requirement_text
 }
 
 interface ValidationCardProps {
@@ -42,12 +45,48 @@ interface ValidationCardProps {
 }
 
 export function ValidationCard({ result, onChatClick, isReportSigned = false, aiCreditsAvailable = true, validationContext }: ValidationCardProps) {
+  // Helper functions to parse JSON fields and provide backward compatibility
+  const getRequirementNumber = () => result.requirement_number || result.requirementNumber || '';
+  const getRequirementType = () => result.requirement_type || result.type || '';
+  const getRequirementText = () => result.requirement_text || result.requirementText || '';
+  
+  const getMappedQuestions = (): string[] => {
+    try {
+      if (!result.mapped_content) return [];
+      const parsed = JSON.parse(result.mapped_content);
+      return Array.isArray(parsed) ? parsed : parsed.mappedQuestions || [];
+    } catch {
+      return [];
+    }
+  };
+  
+  const getDocReferences = (): (string | number)[] => {
+    try {
+      if (!result.doc_references) return [];
+      const parsed = JSON.parse(result.doc_references);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // If not JSON, split by newlines or commas
+      return result.doc_references ? result.doc_references.split(/[\n,]/).filter(Boolean) : [];
+    }
+  };
+  
+  const getCitations = (): any[] => {
+    try {
+      if (!result.citations) return [];
+      const parsed = JSON.parse(result.citations);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+  
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedQuestion, setEditedQuestion] = useState(result.aiEnhancement.smartQuestion);
-  const [editedAnswer, setEditedAnswer] = useState(result.aiEnhancement.benchmarkAnswer);
+  const [editedQuestion, setEditedQuestion] = useState(result.smart_questions || '');
+  const [editedAnswer, setEditedAnswer] = useState(result.benchmark_answer || '');
   const [aiContext, setAiContext] = useState('');
-  const [generatedCitations, setGeneratedCitations] = useState<any[]>([]);
+  const [generatedCitations, setGeneratedCitations] = useState<any[]>(getCitations());
   const [isGenerating, setIsGenerating] = useState(false);
   const [showRevalidateDialog, setShowRevalidateDialog] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -62,6 +101,10 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
     
     try {
       // Build comprehensive context including current validation state
+      const mappedQuestions = getMappedQuestions();
+      const requirementNumber = getRequirementNumber();
+      const requirementText = getRequirementText();
+      
       const comprehensiveContext = `
 === CONTEXT SCOPE: SINGLE VALIDATION RESULT ONLY ===
 Validation Result ID: ${result.id}
@@ -72,30 +115,29 @@ IMPORTANT: Only consider the information below for THIS SPECIFIC requirement.
 Do NOT reference or incorporate information from other validation results.
 
 ## Current Requirement
-${result.requirementNumber}: ${result.requirementText}
+${requirementNumber}: ${requirementText}
 
 ## Current Validation Status
 - Status: ${result.status}
 - Reasoning: ${result.reasoning}
 
 ## Evidence
-${result.evidence.mappedQuestions.length > 0 ? `- Mapped Questions:\n${result.evidence.mappedQuestions.map(q => `  * ${q}`).join('\n')}` : ''}
-${result.evidence.unmappedReasoning ? `- Analysis: ${result.evidence.unmappedReasoning}` : ''}
+${mappedQuestions.length > 0 ? `- Mapped Questions:\n${mappedQuestions.map(q => `  * ${q}`).join('\n')}` : ''}
 
 ## Current SMART Question
-${result.aiEnhancement.smartQuestion}
+${result.smart_questions}
 
 ## Current Benchmark Answer
-${result.aiEnhancement.benchmarkAnswer}
+${result.benchmark_answer}
 
 ## User Feedback/Additional Context
 ${aiContext}
 
 ## Task
-Based ONLY on the above context for ${result.requirementNumber}, generate an improved SMART question and benchmark answer that:
+Based ONLY on the above context for ${requirementNumber}, generate an improved SMART question and benchmark answer that:
 1. Incorporates the user's feedback and context
 2. Addresses the current validation status and evidence shown above
-3. Maintains alignment with ${result.requirementNumber} ONLY
+3. Maintains alignment with ${requirementNumber} ONLY
 4. Provides clear, measurable assessment criteria
 5. Does NOT mix in information from other requirements or validation results
 
@@ -123,8 +165,8 @@ Return only a JSON object with this structure:
             rtoCode: validationContext?.rtoId || 'unknown',
             metadata: {
               validationResultId: result.id,
-              requirementNumber: result.requirementNumber,
-              requirementType: result.type,
+              requirementNumber: getRequirementNumber(),
+              requirementType: getRequirementType(),
               currentStatus: result.status,
               validationType: validationContext?.validationType,
               unitCode: validationContext?.unitCode,
@@ -155,15 +197,15 @@ Return only a JSON object with this structure:
         } else {
           // Fallback: use the response as-is with basic formatting
           improvedContent = {
-            question: data.answer || data.response || `Enhanced question for ${result.requirementNumber} based on your feedback`,
+            question: data.answer || data.response || `Enhanced question for ${getRequirementNumber()} based on your feedback`,
             benchmark_answer: `Please refer to the AI response for details.`
           };
         }
       } catch (parseError) {
         console.warn('Could not parse JSON from AI response, using fallback');
         improvedContent = {
-          question: `${result.aiEnhancement.smartQuestion}\n\n[AI Enhancement]: ${data.answer?.substring(0, 200) || 'Generated with your context'}`,
-          benchmark_answer: data.answer || data.response || result.aiEnhancement.benchmarkAnswer
+          question: `${result.smart_questions}\n\n[AI Enhancement]: ${data.answer?.substring(0, 200) || 'Generated with your context'}`,
+          benchmark_answer: data.answer || data.response || result.benchmark_answer
         };
       }
 
@@ -186,17 +228,20 @@ Return only a JSON object with this structure:
 
   const handleSave = () => {
     // In a real app, this would update the backend
-    result.aiEnhancement.smartQuestion = editedQuestion;
-    result.aiEnhancement.benchmarkAnswer = editedAnswer;
+    result.smart_questions = editedQuestion;
+    result.benchmark_answer = editedAnswer;
+    if (generatedCitations.length > 0) {
+      result.citations = JSON.stringify(generatedCitations);
+    }
     setIsEditing(false);
     setAiContext('');
   };
 
   const handleCancel = () => {
-    setEditedQuestion(result.aiEnhancement.smartQuestion);
-    setEditedAnswer(result.aiEnhancement.benchmarkAnswer);
+    setEditedQuestion(result.smart_questions);
+    setEditedAnswer(result.benchmark_answer);
     setAiContext('');
-    setGeneratedCitations([]);
+    setGeneratedCitations(getCitations());
     setIsEditing(false);
   };
 
@@ -216,10 +261,10 @@ Return only a JSON object with this structure:
     setConfirmText('');
 
     // Mock revalidation - simulating API call
-    toast.loading(`Revalidating ${result.requirementNumber}...`, { id: 'revalidate' });
+    toast.loading(`Revalidating ${getRequirementNumber()}...`, { id: 'revalidate' });
     
     setTimeout(() => {
-      toast.success(`${result.requirementNumber} has been queued for revalidation`, { id: 'revalidate' });
+      toast.success(`${getRequirementNumber()} has been queued for revalidation`, { id: 'revalidate' });
       setIsRevalidating(false);
       // In a real app, this would trigger a backend revalidation process
       // and eventually refresh the data
@@ -232,13 +277,13 @@ Return only a JSON object with this structure:
       <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {result.type && (
+            {getRequirementType() && (
               <div className="font-poppins font-semibold text-[#3b82f6]">
-                {result.type}
+                {getRequirementType()}
               </div>
             )}
             <div className="font-poppins text-[#3b82f6]">
-              {result.requirementNumber}
+              {getRequirementNumber()}
             </div>
             <StatusBadge status={result.status} />
           </div>
@@ -262,7 +307,7 @@ Return only a JSON object with this structure:
         </div>
 
         <p className={`text-sm text-[#1e293b] ${expanded ? '' : 'line-clamp-2'}`}>
-          {result.requirementText}
+          {getRequirementText()}
         </p>
       </div>
 
@@ -287,11 +332,11 @@ Return only a JSON object with this structure:
               Evidence
             </h4>
             <div className="bg-white border border-[#dbeafe] rounded-lg p-4 space-y-3">
-              {result.evidence.mappedQuestions.length > 0 && (
+              {getMappedQuestions().length > 0 && (
                 <div>
                   <p className="text-sm text-[#64748b] mb-2">Mapped Questions:</p>
                   <ul className="space-y-1">
-                    {result.evidence.mappedQuestions.map((q, i) => (
+                    {getMappedQuestions().map((q, i) => (
                       <li key={i} className="text-sm pl-4 border-l-2 border-[#22c55e] text-[#475569]">
                         {q}
                       </li>
@@ -300,21 +345,14 @@ Return only a JSON object with this structure:
                 </div>
               )}
               
-              {result.evidence.unmappedReasoning && (
-                <div>
-                  <p className="text-sm text-[#64748b] mb-2">Analysis:</p>
-                  <p className="text-sm text-[#f59e0b]">{result.evidence.unmappedReasoning}</p>
-                </div>
-              )}
-              
-              {result.evidence.documentReferences.length > 0 && (
+              {getDocReferences().length > 0 && (
                 <div>
                   <p className="text-sm text-[#64748b] mb-2 flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Document References:
                   </p>
                   <div className="space-y-1">
-                    {result.evidence.documentReferences.map((ref, index) => (
+                    {getDocReferences().map((ref, index) => (
                       <div
                         key={index}
                         className="px-3 py-2 bg-[#dbeafe] border border-[#3b82f6] rounded text-xs text-[#1e40af]"
@@ -436,25 +474,35 @@ Return only a JSON object with this structure:
                   <div>
                     <p className="text-sm text-[#3b82f6] mb-2">SMART Question:</p>
                     <p className="text-sm bg-[#dbeafe] p-3 rounded border border-[#93c5fd] text-[#1e293b]">
-                      {result.aiEnhancement.smartQuestion}
+                      {result.smart_questions}
                     </p>
                   </div>
                   
                   <div>
                     <p className="text-sm text-[#3b82f6] mb-2">Benchmark Answer:</p>
-                    <p className="text-sm text-[#64748b]">{result.aiEnhancement.benchmarkAnswer}</p>
+                    <p className="text-sm text-[#64748b]">{result.benchmark_answer}</p>
                   </div>
                   
-                  {result.aiEnhancement.recommendations.length > 0 && (
+                  {getCitations().length > 0 && (
                     <div>
-                      <p className="text-sm text-[#3b82f6] mb-2">Recommendations:</p>
-                      <ul className="space-y-1">
-                        {result.aiEnhancement.recommendations.map((rec, i) => (
-                          <li key={i} className="text-sm pl-4 border-l-2 border-[#3b82f6] text-[#64748b]">
-                            {rec}
-                          </li>
+                      <p className="text-sm text-[#3b82f6] mb-2">Citations:</p>
+                      <div className="space-y-1">
+                        {getCitations().map((citation: any, idx: number) => (
+                          <div key={idx} className="flex items-start gap-2 text-xs">
+                            <FileText className="w-3 h-3 text-[#3b82f6] mt-0.5 flex-shrink-0" />
+                            {citation.type === 'file' && citation.displayName && (
+                              <div className="text-[#64748b]">
+                                <span className="font-medium text-[#1e293b]">{citation.displayName}</span>
+                                {citation.pageNumbers && citation.pageNumbers.length > 0 && (
+                                  <span className="text-[#3b82f6] ml-1">
+                                    (Pages: {citation.pageNumbers.join(', ')})
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   )}
                 </>
@@ -544,7 +592,7 @@ Return only a JSON object with this structure:
               Confirm Revalidation
             </AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to revalidate {result.requirementNumber}. This action will replace all existing content.
+              You are about to revalidate {getRequirementNumber()}. This action will replace all existing content.
             </AlertDialogDescription>
           </AlertDialogHeader>
           

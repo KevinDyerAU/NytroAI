@@ -653,18 +653,28 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
 
 export interface ValidationEvidenceRecord {
   id: string;
+  validation_detail_id?: number;
   requirement_number: string;
   requirement_text: string;
+  requirement_type: string;
   status: 'met' | 'not-met' | 'partial';
   reasoning: string;
-  mapped_questions: string;
-  unmapped_reasoning: string;
-  document_references: string;
-  smart_question: string;
+  mapped_content: string; // JSON string of mapped questions
+  doc_references: string; // JSON string or text of document references
+  smart_questions: string;
   benchmark_answer: string;
-  recommendations: string;
-  table_source: string;
-  type: string;
+  citations: string; // JSON string of citations
+  created_at?: string;
+  updated_at?: string;
+  
+  // Legacy fields for backward compatibility (deprecated)
+  mapped_questions?: string;
+  unmapped_reasoning?: string;
+  document_references?: string;
+  smart_question?: string;
+  recommendations?: string;
+  table_source?: string;
+  type?: string;
 }
 
 /**
