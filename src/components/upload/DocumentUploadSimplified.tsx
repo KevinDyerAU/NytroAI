@@ -12,6 +12,7 @@ interface DocumentUploadProps {
   onUploadComplete: (documentId: number, fileName: string, storagePath: string) => void;
   onFilesSelected?: (files: File[]) => void;
   triggerUpload?: boolean;
+  clearFilesOnNewValidation?: boolean;
 }
 
 interface FileState {
@@ -38,28 +39,70 @@ export function DocumentUploadSimplified({
   validationDetailId, 
   onUploadComplete, 
   onFilesSelected, 
-  triggerUpload = false 
+  triggerUpload = false,
+  clearFilesOnNewValidation = false
 }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<FileState[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const { user } = useAuthStore();
   const hasNotifiedFilesRef = useRef(false);
+  const previousValidationIdRef = useRef<number | undefined>(undefined);
 
   // Notify parent ONCE when files are initially selected (not on progress updates)
   useEffect(() => {
     if (files.length > 0 && onFilesSelected && !hasNotifiedFilesRef.current) {
-      onFilesSelected(files.map(f => f.file));
-      hasNotifiedFilesRef.current = true;
+      const validFiles = files.filter(f => f?.file).map(f => f.file);
+      if (validFiles.length > 0) {
+        onFilesSelected(validFiles);
+        hasNotifiedFilesRef.current = true;
+      }
     }
   }, [files, onFilesSelected]);
 
-  // Auto-upload when triggered
+  // Clear files when validationDetailId CHANGES (not when first set)
   useEffect(() => {
+    if (clearFilesOnNewValidation && validationDetailId !== undefined) {
+      const previousValidationId = previousValidationIdRef.current;
+      
+      // Only clear if validation ID actually changed (not first time being set)
+      const isValidationIdChange = previousValidationId !== undefined && previousValidationId !== validationDetailId;
+      
+      console.log('[DocumentUploadSimplified] 🔍 Validation ID check:', {
+        previousValidationId,
+        currentValidationId: validationDetailId,
+        isValidationIdChange,
+        filesLength: files.length,
+        isUploading
+      });
+      
+      if (isValidationIdChange && !isUploading) {
+        console.log('[DocumentUploadSimplified] 🧹 Validation ID changed, clearing old files');
+        setFiles([]);
+        hasNotifiedFilesRef.current = false;
+      } else if (isValidationIdChange && isUploading) {
+        console.log('[DocumentUploadSimplified] ⏸️ Upload in progress, delaying file clear');
+      }
+      
+      // Update ref for next comparison
+      previousValidationIdRef.current = validationDetailId;
+    }
+  }, [validationDetailId, clearFilesOnNewValidation, isUploading]);
+
+  // Auto-upload when triggered (should NOT fire in manual mode)
+  useEffect(() => {
+    console.log('[DocumentUploadSimplified] 🔍 Auto-upload check:', {
+      triggerUpload,
+      filesLength: files.length,
+      isUploading,
+      willAutoUpload: triggerUpload && files.length > 0 && !isUploading
+    });
+    
     if (triggerUpload && files.length > 0 && !isUploading) {
+      console.log('[DocumentUploadSimplified] ⚠️ AUTO-UPLOADING (should not happen in manual mode!)');
       handleUpload();
     }
-  }, [triggerUpload]);
+  }, [triggerUpload, files.length, isUploading]);
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -73,7 +116,13 @@ export function DocumentUploadSimplified({
       },
     }));
 
-    setFiles(prev => [...prev, ...newFiles]);
+    // Replace files instead of appending if clearFilesOnNewValidation is true
+    if (clearFilesOnNewValidation) {
+      setFiles(newFiles);
+      hasNotifiedFilesRef.current = false;
+    } else {
+      setFiles(prev => [...prev, ...newFiles]);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -115,6 +164,12 @@ export function DocumentUploadSimplified({
       // Upload all files
       for (let i = 0; i < files.length; i++) {
         const fileState = files[i];
+        
+        // Skip if file is undefined (can happen if files are cleared during upload)
+        if (!fileState?.file) {
+          console.warn(`[DocumentUploadSimplified] Skipping undefined file at index ${i}`);
+          continue;
+        }
         
         console.log(`[DocumentUploadSimplified] Uploading file ${i + 1}/${files.length}:`, fileState.file.name);
         
@@ -248,7 +303,7 @@ export function DocumentUploadSimplified({
             </Button>
           </div>
 
-          {files.map((fileState, index) => (
+          {files.filter(f => f?.file).map((fileState, index) => (
             <div
               key={index}
               className="flex items-center gap-3 p-3 border rounded-lg"
@@ -256,8 +311,8 @@ export function DocumentUploadSimplified({
               <FileText className="h-5 w-5 text-gray-400" />
               
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{fileState.file.name}</p>
-                <p className="text-xs text-gray-500">{fileState.progress.message}</p>
+                <p className="text-sm font-medium truncate">{fileState.file?.name || 'Unknown file'}</p>
+                <p className="text-xs text-gray-500">{fileState.progress?.message || 'Pending'}</p>
                 
                 {fileState.progress.stage === 'uploading' && (
                   <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">

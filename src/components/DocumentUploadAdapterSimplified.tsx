@@ -151,22 +151,22 @@ export function DocumentUploadAdapterSimplified({
   const handleFilesSelected = useCallback(async (files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
     
-    // Only reset if this is a NEW selection (different length or first selection)
-    setSelectedFiles(prev => {
-      // If same files are already selected, don't reset counts
-      if (prev.length === files.length && prev.length > 0) {
-        console.log('[DocumentUploadAdapterSimplified] ⚠️ Same files already selected, skipping reset');
-        return prev;
-      }
-      
-      console.log('[DocumentUploadAdapterSimplified] 🆕 New file selection, resetting counts');
+    // Only reset counts if we don't have a validation or if files are different
+    const filesChanged = selectedFiles.length !== files.length || 
+                         selectedFiles.some((f, i) => f?.name !== files[i]?.name);
+    
+    if (!validationDetailId || filesChanged) {
+      console.log('[DocumentUploadAdapterSimplified] 🆕 File selection, resetting counts');
       setUploadedCount(0);
       setIsComplete(false);
-      return files;
-    });
+    } else {
+      console.log('[DocumentUploadAdapterSimplified] ℹ️ Same files, keeping upload count:', uploadedCount);
+    }
+    
+    setSelectedFiles(files);
 
-    // Create validation record when files are selected (MUST complete before upload)
-    if (files.length > 0 && !validationDetailId && selectedRTO && selectedUnit) {
+    // Create NEW validation record ONLY if we don't have one or if not currently creating
+    if (files.length > 0 && selectedRTO && selectedUnit && !validationDetailId && !isCreatingValidation) {
       setIsCreatingValidation(true);
       try {
         console.log('[DocumentUploadAdapterSimplified] Creating validation record...');
@@ -192,6 +192,7 @@ export function DocumentUploadAdapterSimplified({
             unitCode: selectedUnit.code,
             unitLink: selectedUnit.Link, // Pass unit URL for requirements linking (REQUIRED)
             validationType: 'assessment',
+            documentType: validationType, // Pass document type (unit or learner_guide)
             pineconeNamespace: sessionNamespace // Session-specific namespace for document filtering
           }
         });
@@ -219,14 +220,9 @@ export function DocumentUploadAdapterSimplified({
 
         console.log('[DocumentUploadAdapterSimplified] ✅ Validation created:', data.detailId);
         
-        // Set validation ID first and wait for state to update
+        // Set validation ID - user will manually click Upload button
         setValidationDetailId(data.detailId);
-        
-        // Use setTimeout to ensure state updates before file upload starts
-        setTimeout(() => {
-          console.log('[DocumentUploadAdapterSimplified] Now proceeding with file upload...');
-          setSelectedFiles(files);
-        }, 100);
+        console.log('[DocumentUploadAdapterSimplified] ✅ Validation created, ready for manual upload:', data.detailId);
         
       } catch (error) {
         console.error('[DocumentUploadAdapterSimplified] Exception creating validation:', error);
@@ -236,11 +232,11 @@ export function DocumentUploadAdapterSimplified({
         setIsCreatingValidation(false);
       }
     } else if (validationDetailId) {
-      // Validation already exists, proceed with upload
-      console.log('[DocumentUploadAdapterSimplified] Using existing validation:', validationDetailId);
-      setSelectedFiles(files);
+      console.log('[DocumentUploadAdapterSimplified] ℹ️ Using existing validation:', validationDetailId);
+    } else if (isCreatingValidation) {
+      console.log('[DocumentUploadAdapterSimplified] ⏸️ Validation creation already in progress...');
     }
-  }, [validationDetailId, selectedRTO, selectedUnit]);
+  }, [selectedRTO, selectedUnit, validationType, validationDetailId, isCreatingValidation, selectedFiles, uploadedCount]);
 
   // Handle upload complete (instant - just storage upload)
   const handleUploadComplete = useCallback((documentId: number) => {
@@ -467,6 +463,7 @@ export function DocumentUploadAdapterSimplified({
               validationDetailId={validationDetailId}
               onUploadComplete={handleUploadComplete}
               onFilesSelected={handleFilesSelected}
+              clearFilesOnNewValidation={true}
             />
           ) : (
             <div className="text-center py-8 text-[#64748b]">
@@ -476,8 +473,8 @@ export function DocumentUploadAdapterSimplified({
           )}
         </Card>
 
-        {/* Validation Trigger (n8n) */}
-        {validationDetailId && selectedFiles.length > 0 && (
+        {/* Validation Trigger (n8n) - Only show when uploads start */}
+        {validationDetailId && uploadedCount > 0 && (
           <>
             {console.log('[DocumentUploadAdapterSimplified] 🔍 Rendering ValidationTriggerCard:', {
               validationDetailId,

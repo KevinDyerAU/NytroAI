@@ -5,6 +5,7 @@
 -- Description: Adds document_type column to track whether validation is for
 --              unit assessment or learner guide documents. This aligns with
 --              the new prompt system's 3-key lookup.
+--              unit of competency, learner guide, or both
 -- ============================================================================
 
 -- Add document_type column
@@ -41,3 +42,9 @@ BEGIN
         RAISE EXCEPTION 'FAILED: document_type column was not created';
     END IF;
 END $$;
+-- Create index for faster queries
+CREATE INDEX IF NOT EXISTS idx_validation_detail_document_type 
+  ON validation_detail(document_type) WHERE document_type IS NOT NULL;
+
+-- Add comment
+COMMENT ON COLUMN validation_detail.document_type IS 'Type of document being validated: unit, learner_guide, or both';

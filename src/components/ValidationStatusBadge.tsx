@@ -37,9 +37,9 @@ export function ValidationStatusBadge({ status, className = '' }: ValidationStat
       };
     }
 
-    // Stage 3: Under Review (validation in progress)
+    // Stage 3: Under Review (validation in progress OR extraction completed)
     if (
-      (extractStatus === 'completed' && validationStatus === 'in progress') ||
+      extractStatus === 'completed' ||
       validationStatus === 'in progress' ||
       extractStatus === 'processinginbackground'
     ) {

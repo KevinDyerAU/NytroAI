@@ -8,6 +8,7 @@ interface CreateValidationRecordRequest {
   unitLink?: string;
   qualificationCode?: string | null;
   validationType: string;
+  documentType?: string;
   pineconeNamespace: string;
 }
 
@@ -23,7 +24,8 @@ serve(async (req) => {
       unitCode, 
       unitLink,
       qualificationCode, 
-      validationType, 
+      validationType,
+      documentType, 
       pineconeNamespace 
     } = requestData;
 
@@ -89,32 +91,31 @@ serve(async (req) => {
       console.log('[create-validation-record] Successfully updated validation_summary with rtoCode');
     }
 
-    // Step 2: Get or create validation_type
-    console.log('[create-validation-record] 2. Looking up validation_type:', validationType);
+    // Step 2: Get validation_type based on documentType (unit or learner_guide)
+    // Map documentType to validation_type name for lookup
+    const validationTypeName = documentType === 'learner_guide' ? 'learner_guide' : 'unit';
+    console.log('[create-validation-record] 2. Looking up validation_type:', validationTypeName, '(from documentType:', documentType, ')');
     let validationTypeId: number;
 
     const { data: existingType, error: typeError } = await supabase
       .from('validation_type')
-      .select('id')
-      .eq('code', validationType)
+      .select('id, name')
+      .eq('name', validationTypeName)
       .single();
 
-    if (typeError && typeError.code !== 'PGRST116') { // PGRST116 = not found
+    if (typeError && typeError.code !== 'PGRST116') {
       console.error('[create-validation-record] Error looking up validation_type:', typeError);
-      throw new Error(`Failed to lookup validation_type: ${typeError.message}`);
+      throw new Error(`Failed to look up validation_type: ${typeError.message}`);
     }
 
     if (existingType) {
-      console.log('[create-validation-record] Using existing validation_type:', existingType.id);
+      console.log('[create-validation-record] Using existing validation_type:', existingType.id, '(', existingType.name, ')');
       validationTypeId = existingType.id;
     } else {
-      console.log('[create-validation-record] Creating new validation_type...');
+      console.log('[create-validation-record] Creating new validation_type:', validationTypeName);
       const { data: newType, error: createTypeError } = await supabase
         .from('validation_type')
-        .insert({
-          code: validationType,
-          description: validationType === 'UnitOfCompetency' ? 'Unit Validation' : 'Learner Guide Validation',
-        })
+        .insert({ name: validationTypeName })
         .select('id')
         .single();
 
@@ -129,21 +130,60 @@ serve(async (req) => {
 
     // Step 3: Create validation_detail
     console.log('[create-validation-record] 3. Creating validation_detail...');
+    
+    // Build insert object conditionally based on whether document_type is provided
+    const insertData: any = {
+      summary_id: summaryId,
+      validationType_id: validationTypeId,
+      namespace_code: pineconeNamespace,
+      docExtracted: false,
+      extractStatus: 'Uploading',
+      numOfReq: 0,
+    };
+    
+    // Only add document_type if provided (supports backward compatibility)
+    if (documentType) {
+      insertData.document_type = documentType;
+    }
+    
     const { data: validationDetail, error: detailError } = await supabase
       .from('validation_detail')
-      .insert({
-        summary_id: summaryId,
-        validationType_id: validationTypeId,
-        namespace_code: pineconeNamespace,
-        docExtracted: false,
-        extractStatus: 'Uploading',
-        numOfReq: 0,
-      })
+      .insert(insertData)
       .select('id')
       .single();
 
     if (detailError) {
       console.error('[create-validation-record] Error creating validation_detail:', detailError);
+      
+      // If error is about document_type column not existing, retry without it
+      if (detailError.message?.includes('document_type') || detailError.code === '42703') {
+        console.log('[create-validation-record] Retrying without document_type (column may not exist yet)...');
+        delete insertData.document_type;
+        
+        const { data: retryValidationDetail, error: retryError } = await supabase
+          .from('validation_detail')
+          .insert(insertData)
+          .select('id')
+          .single();
+        
+        if (retryError) {
+          console.error('[create-validation-record] Retry also failed:', retryError);
+          throw new Error(`Failed to create validation_detail: ${retryError.message}`);
+        }
+        
+        console.log('[create-validation-record] Created validation_detail (without document_type):', retryValidationDetail.id);
+        
+        const responseData = {
+          success: true,
+          summaryId: summaryId,
+          detailId: retryValidationDetail.id,
+          validationTypeId: validationTypeId,
+          namespace: pineconeNamespace,
+        };
+        
+        return createSuccessResponse(responseData);
+      }
+      
       throw new Error(`Failed to create validation_detail: ${detailError.message}`);
     }
 
