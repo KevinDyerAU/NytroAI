@@ -90,8 +90,8 @@ serve(async (req) => {
       { name: 'knowledge_evidence_requirements', type: 'knowledge_evidence' },
       { name: 'performance_evidence_requirements', type: 'performance_evidence' },
       { name: 'foundation_skills_requirements', type: 'foundation_skills' },
-      { name: 'elements_performance_criteria_requirements', type: 'elements_performance_criteria' },
-      { name: 'assessment_conditions_requirements', type: 'assessment_conditions' }
+      { name: 'elements_performance_criteria_requirements', type: 'elements_performance_criteria' }
+      // Note: assessment_conditions are hard-coded below (standard RTO requirements)
     ];
 
     // Fetch from each table
@@ -184,7 +184,54 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[Get Requirements] Total requirements found: ${allRequirements.length}`);
+    // Add hard-coded assessment conditions (standard RTO requirements)
+    const assessmentConditions: Requirement[] = [
+      {
+        id: 9000001, // High ID to avoid conflicts
+        number: 'AC1',
+        text: 'Assessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.',
+        type: 'assessment_conditions',
+        display_type: 'Assessment Conditions',
+        description: 'Assessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.'
+      },
+      {
+        id: 9000002,
+        number: 'AC2',
+        text: 'Assessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.',
+        type: 'assessment_conditions',
+        display_type: 'Assessment Conditions',
+        description: 'Assessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.'
+      },
+      {
+        id: 9000003,
+        number: 'AC3',
+        text: 'Assessment must occur in workplace operational situations where it is appropriate to do so; where this is not appropriate, assessment must occur in simulated workplace operational situations that replicate workplace conditions.',
+        type: 'assessment_conditions',
+        display_type: 'Assessment Conditions',
+        description: 'Assessment must occur in workplace operational situations where it is appropriate to do so; where this is not appropriate, assessment must occur in simulated workplace operational situations that replicate workplace conditions.'
+      },
+      {
+        id: 9000004,
+        number: 'AC4',
+        text: 'Assessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.',
+        type: 'assessment_conditions',
+        display_type: 'Assessment Conditions',
+        description: 'Assessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.'
+      },
+      {
+        id: 9000005,
+        number: 'AC5',
+        text: 'Resources for assessment must include access to: a range of relevant exercises, case studies and/or simulations; relevant and appropriate materials, tools, equipment and PPE currently used in industry; applicable documentation, including legislation, regulations, codes of practice, workplace procedures and operation manuals.',
+        type: 'assessment_conditions',
+        display_type: 'Assessment Conditions',
+        description: 'Resources for assessment must include access to: a range of relevant exercises, case studies and/or simulations; relevant and appropriate materials, tools, equipment and PPE currently used in industry; applicable documentation, including legislation, regulations, codes of practice, workplace procedures and operation manuals.'
+      }
+    ];
+
+    // Add assessment conditions to all requirements
+    allRequirements.push(...assessmentConditions);
+
+    console.log(`[Get Requirements] Total requirements found: ${allRequirements.length} (including ${assessmentConditions.length} standard assessment conditions)`);
 
     // Group by type for easier processing
     const groupedRequirements: Record<string, Requirement[]> = {};

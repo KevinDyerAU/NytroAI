@@ -23,7 +23,7 @@ This approach allows the backend to maintain consistent type identifiers while p
 | `performance_evidence` | **Performance Evidence** | Tasks learners must demonstrate |
 | `foundation_skills` | **Foundation Skills** | Core skills (reading, writing, numeracy, etc.) |
 | `elements_performance_criteria` | **Performance Criteria** | Specific performance criteria within elements |
-| `assessment_conditions` | **Assessment Conditions** | Conditions under which assessment occurs |
+| `assessment_conditions` | **Assessment Conditions** | Standard RTO compliance requirements (5 hard-coded) |
 
 ---
 
