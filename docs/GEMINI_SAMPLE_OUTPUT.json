@@ -1,0 +1,12 @@
+{
+  "status": "Partially Met",
+  "reasoning": "The Learner Guide covers the core concepts of risk assessment, including hazard identification in Section 2.1 and the hierarchy of controls in Section 2.3. However, it does not provide a detailed explanation of how to use a risk matrix to calculate a risk score, which is a key part of the requirement. The guide would benefit from adding a worked example of risk calculation.",
+  "mapped_content": "Section 2.1 (Page 14) covers hazard identification with practical examples and workplace scenarios. Section 2.3 (Page 18-20) explains the hierarchy of controls in detail with case studies. Appendix A (Page 45) includes a sample risk assessment form showing the structure and required fields.",
+  "citations": [
+    "BSBWHS332X Learner Guide v2.1, Page 14, Section 2.1: Identifying Hazards",
+    "BSBWHS332X Learner Guide v2.1, Page 18-20, Section 2.3: Hierarchy of Controls",
+    "BSBWHS332X Learner Guide v2.1, Page 45, Appendix A: Sample Risk Assessment Form"
+  ],
+  "smart_question": "What are the two factors used to calculate a risk score in a standard risk matrix?",
+  "benchmark_answer": "Likelihood (the chance of the hazard occurring) and Consequence (the severity of the outcome if it does occur)."
+}
