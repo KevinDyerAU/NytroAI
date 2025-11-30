@@ -207,6 +207,7 @@ for (const table of tables) {
 | `foundation_skills_requirements` | `fs_number` | `skill_description` | `skill_description` | `Foundation Skills` |
 | `elements_performance_criteria_requirements` | `epc_number` | `performance_criteria` | `element` + `performance_criteria` | `Performance Criteria` |
 | `assessment_conditions_requirements` | `ac_number` | `condition_text` | `condition_text` | `Assessment Conditions` |
+| N/A (hard-coded) | AI1-AI8 | Hard-coded text | Hard-coded description | `Assessment Instructions` |
 
 **Additional fields for Performance Criteria:**
 - `element`: Parent element name (e.g., "Prepare for driving")

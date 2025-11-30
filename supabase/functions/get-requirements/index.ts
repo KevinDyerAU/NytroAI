@@ -228,10 +228,79 @@ serve(async (req) => {
       }
     ];
 
-    // Add assessment conditions to all requirements
-    allRequirements.push(...assessmentConditions);
+    // Add hard-coded assessment instructions (compliance criteria)
+    const assessmentInstructions: Requirement[] = [
+      {
+        id: 8000001, // High ID to avoid conflicts
+        number: 'AI1',
+        text: 'Assessment methods include simulated customer interactions and require learners to assess customer interactions against established criteria and document compliance with requirements.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Assessment methods: Evaluate whether assessment methods are appropriate, varied, and aligned with unit requirements.'
+      },
+      {
+        id: 8000002,
+        number: 'AI2',
+        text: 'Evidence requirements are met through documenting feedback and recording insights from customer interactions, with clear documentation of complaints and non-compliant interactions.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Evidence requirements: Verify that evidence requirements are clearly documented and aligned with assessment methods.'
+      },
+      {
+        id: 8000003,
+        number: 'AI3',
+        text: 'Instructions are clear and use simple language throughout the assessment documents, with visual aids or flowcharts to simplify process where appropriate.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Clarity and language: Assess whether instructions are clear, unambiguous, and appropriate for the target audience.'
+      },
+      {
+        id: 8000004,
+        number: 'AI4',
+        text: 'Consistent language and instructions are maintained throughout the assessment tool, with all sections referencing the same documents for consistency and using consistent practices.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Consistency: Check for consistency in language, terminology, and instructions across all assessment documents.'
+      },
+      {
+        id: 8000005,
+        number: 'AI5',
+        text: 'Opportunities for feedback and review are embedded within the assessment structure, with clearly documented follow-up procedures post-feedback to ensure continuous improvement.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Assessment review process: Verify that feedback and review processes are clearly documented and embedded in the assessment.'
+      },
+      {
+        id: 8000006,
+        number: 'AI6',
+        text: 'Guidance for reasonable adjustments is limited in documentation provided, with recommendations to add detailed guidance for accommodating learners with special needs including alternative assessment methods.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Reasonable adjustments: Check whether guidance for reasonable adjustments is provided for learners with special needs.'
+      },
+      {
+        id: 8000007,
+        number: 'AI7',
+        text: 'Resubmission and reassessment pathways can be inferred but are not explicitly stated, with recommendations to clearly state the process for resubmission or reassessment.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Resubmission and reassessment policy: Verify that policies for resubmission and reassessment are clearly documented.'
+      },
+      {
+        id: 8000008,
+        number: 'AI8',
+        text: 'Overall compliance report indicates that assessment instructions meet RTO standards with identified areas for improvement in reasonable adjustments and reassessment policies.',
+        type: 'assessment_instructions',
+        display_type: 'Assessment Instructions',
+        description: 'Compliance report: Overall assessment of compliance with RTO standards and identification of improvement areas.'
+      }
+    ];
 
-    console.log(`[Get Requirements] Total requirements found: ${allRequirements.length} (including ${assessmentConditions.length} standard assessment conditions)`);
+    // Add assessment conditions and instructions to all requirements
+    allRequirements.push(...assessmentConditions);
+    allRequirements.push(...assessmentInstructions);
+
+    console.log(`[Get Requirements] Total requirements found: ${allRequirements.length} (including ${assessmentConditions.length} assessment conditions + ${assessmentInstructions.length} assessment instructions)`);
 
     // Group by type for easier processing
     const groupedRequirements: Record<string, Requirement[]> = {};
