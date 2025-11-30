@@ -1,0 +1,162 @@
+{
+  "success": true,
+  "unit_code": "TLIF0025",
+  "validation_detail_id": "741",
+  "total_requirements": 10,
+  "requirements": [
+    {
+      "id": 1581,
+      "number": "1",
+      "text": "Explain the principles of safe loading and unloading procedures for different types of cargo",
+      "type": "knowledge_evidence",
+      "display_type": "Knowledge Evidence",
+      "description": "Explain the principles of safe loading and unloading procedures for different types of cargo"
+    },
+    {
+      "id": 788,
+      "number": "1",
+      "text": "Demonstrate safe vehicle operation in various road and traffic conditions",
+      "type": "performance_evidence",
+      "display_type": "Performance Evidence",
+      "description": "Demonstrate safe vehicle operation in various road and traffic conditions"
+    },
+    {
+      "id": 251,
+      "number": "1",
+      "text": "Reading skills to interpret road signs, maps, and vehicle documentation",
+      "type": "foundation_skills",
+      "display_type": "Foundation Skills",
+      "description": "Reading skills to interpret road signs, maps, and vehicle documentation"
+    },
+    {
+      "id": 1207,
+      "number": "1.1",
+      "text": "Check vehicle documentation is current and complete",
+      "type": "elements_performance_criteria",
+      "display_type": "Performance Criteria",
+      "description": "Prepare for driving: Check vehicle documentation is current and complete",
+      "element": "Prepare for driving",
+      "element_number": "1"
+    },
+    {
+      "id": 1210,
+      "number": "2.1",
+      "text": "Start vehicle safely following manufacturer procedures",
+      "type": "elements_performance_criteria",
+      "display_type": "Performance Criteria",
+      "description": "Drive vehicle: Start vehicle safely following manufacturer procedures",
+      "element": "Drive vehicle",
+      "element_number": "2"
+    },
+    {
+      "id": 9000001,
+      "number": "AC1",
+      "text": "Assessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.",
+      "type": "assessment_conditions",
+      "display_type": "Assessment Conditions",
+      "description": "Assessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment."
+    },
+    {
+      "id": 9000002,
+      "number": "AC2",
+      "text": "Assessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.",
+      "type": "assessment_conditions",
+      "display_type": "Assessment Conditions",
+      "description": "Assessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment."
+    }
+  ],
+  "requirements_by_type": {
+    "knowledge_evidence": [
+      {
+        "id": 1581,
+        "number": "1",
+        "text": "Explain the principles of safe loading and unloading procedures for different types of cargo",
+        "type": "knowledge_evidence",
+        "display_type": "Knowledge Evidence",
+        "description": "Explain the principles of safe loading and unloading procedures for different types of cargo"
+      }
+    ],
+    "performance_evidence": [
+      {
+        "id": 788,
+        "number": "1",
+        "text": "Demonstrate safe vehicle operation in various road and traffic conditions",
+        "type": "performance_evidence",
+        "display_type": "Performance Evidence",
+        "description": "Demonstrate safe vehicle operation in various road and traffic conditions"
+      }
+    ],
+    "foundation_skills": [
+      {
+        "id": 251,
+        "number": "1",
+        "text": "Reading skills to interpret road signs, maps, and vehicle documentation",
+        "type": "foundation_skills",
+        "display_type": "Foundation Skills",
+        "description": "Reading skills to interpret road signs, maps, and vehicle documentation"
+      }
+    ],
+    "elements_performance_criteria": [
+      {
+        "id": 1207,
+        "number": "1.1",
+        "text": "Check vehicle documentation is current and complete",
+        "type": "elements_performance_criteria",
+        "display_type": "Performance Criteria",
+        "description": "Prepare for driving: Check vehicle documentation is current and complete",
+        "element": "Prepare for driving",
+        "element_number": "1"
+      },
+      {
+        "id": 1210,
+        "number": "2.1",
+        "text": "Start vehicle safely following manufacturer procedures",
+        "type": "elements_performance_criteria",
+        "display_type": "Performance Criteria",
+        "description": "Drive vehicle: Start vehicle safely following manufacturer procedures",
+        "element": "Drive vehicle",
+        "element_number": "2"
+      }
+    ],
+    "assessment_conditions": [
+      {
+        "id": 9000001,
+        "number": "AC1",
+        "text": "Assessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.",
+        "type": "assessment_conditions",
+        "display_type": "Assessment Conditions",
+        "description": "Assessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment."
+      },
+      {
+        "id": 9000002,
+        "number": "AC2",
+        "text": "Assessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.",
+        "type": "assessment_conditions",
+        "display_type": "Assessment Conditions",
+        "description": "Assessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment."
+      }
+    ]
+  },
+  "summary": [
+    {
+      "type": "knowledge_evidence",
+      "count": 1
+    },
+    {
+      "type": "performance_evidence",
+      "count": 1
+    },
+    {
+      "type": "foundation_skills",
+      "count": 1
+    },
+    {
+      "type": "elements_performance_criteria",
+      "count": 2
+    },
+    {
+      "type": "assessment_conditions",
+      "count": 5
+    }
+  ]
+}
