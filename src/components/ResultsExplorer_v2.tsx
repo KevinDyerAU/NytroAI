@@ -86,7 +86,6 @@ export function ResultsExplorer_v2({
   const [searchTerm, setSearchTerm] = useState(persistedState.searchTerm || '');
   const [statusFilter, setStatusFilter] = useState(persistedState.statusFilter || 'all');
   const [selectedResult, setSelectedResult] = useState<any>(null);
-  const [showChat, setShowChat] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -192,6 +191,7 @@ export function ResultsExplorer_v2({
           validationDate: record.created_at,
           status: record.req_extracted ? 'docExtracted' : 'pending',
           progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
+          sector: 'N/A',
         });
       } else {
         console.warn('[ResultsExplorer] Validation ID not found:', selectedValidationId);
@@ -346,8 +346,16 @@ export function ResultsExplorer_v2({
     if (!currentRTO?.code) return;
 
     try {
+      // Reset filters to show all results after refresh
+      setSearchTerm('');
+      setStatusFilter('all');
+      
       const records = await getActiveValidationsByRTO(currentRTO.code);
       setValidationRecords(records);
+      
+      // Force reload of evidence data
+      setLastLoadedValidationId(null);
+      
       toast.success('Status refreshed');
     } catch (error) {
       toast.error('Failed to refresh status');
@@ -368,8 +376,9 @@ export function ResultsExplorer_v2({
       validationType: (record.validation_type?.toLowerCase() as any) || 'unit',
       rtoId: selectedRTOId,
       validationDate: record.created_at,
-      status: record.req_extracted ? 'docExtracted' : 'pending',
+      status: (record.req_extracted ? 'docExtracted' : 'pending') as 'validated' | 'docExtracted' | 'reqExtracted' | 'pending',
       progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
+      sector: 'N/A',
     }));
 
   // Filter results based on search and status
@@ -378,7 +387,10 @@ export function ResultsExplorer_v2({
       result.requirement_text.toLowerCase().includes(searchTerm.toLowerCase()) ||
       result.requirement_number.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || result.status === statusFilter;
+    // Normalize status comparison to handle both hyphen and underscore formats
+    const normalizeStatus = (status: string) => status.toLowerCase().replace(/_/g, '-');
+    const matchesStatus = statusFilter === 'all' || 
+      normalizeStatus(result.status) === normalizeStatus(statusFilter);
     
     return matchesSearch && matchesStatus;
   });
@@ -458,10 +470,10 @@ export function ResultsExplorer_v2({
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px] bg-white">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="met">Met</SelectItem>
               <SelectItem value="not-met">Not Met</SelectItem>
@@ -632,6 +644,19 @@ export function ResultsExplorer_v2({
           <ValidationStatusMessage type="empty" />
         )}
       </div>
+
+      {/* AI Chat Dialog */}
+      {selectedResult && (
+        <AIChat
+          context={`Requirement ${selectedResult.requirement_number}: ${selectedResult.requirement_text}`}
+          onClose={() => setSelectedResult(null)}
+          selectedRTOId={selectedRTOId}
+          validationDetailId={selectedResult.validation_detail_id}
+          onCreditConsumed={(newBalance) => {
+            setAICredits(prev => ({ ...prev, current: newBalance }));
+          }}
+        />
+      )}
     </div>
   );
 }

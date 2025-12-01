@@ -141,7 +141,7 @@ export function RegenerateQuestionsDialog({
           Regenerate Questions
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-white">
         <DialogHeader>
           <DialogTitle>Regenerate Smart Questions</DialogTitle>
           <DialogDescription>

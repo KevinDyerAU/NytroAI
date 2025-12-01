@@ -188,6 +188,16 @@ export async function getValidationResults(
       };
     }
 
+    // Helper function to normalize status values
+    const normalizeStatus = (status: string | undefined | null): 'met' | 'not-met' | 'partial' => {
+      if (!status) return 'not-met';
+      const normalized = status.toLowerCase().replace(/_/g, '-');
+      if (normalized === 'met' || normalized === 'not-met' || normalized === 'partial') {
+        return normalized as 'met' | 'not-met' | 'partial';
+      }
+      return 'not-met';
+    };
+
     // Map database records to ValidationEvidenceRecord interface
     const mappedData: ValidationEvidenceRecord[] = data.map((record: any) => ({
       id: record.id?.toString() || '',
@@ -195,7 +205,7 @@ export async function getValidationResults(
       requirement_number: record.requirement_number || '',
       requirement_text: record.requirement_text || '',
       requirement_type: record.requirement_type || record.type || '',
-      status: record.status || 'not_met',
+      status: normalizeStatus(record.status),
       reasoning: record.reasoning || '',
       mapped_content: record.mapped_content || record.mapped_questions || '',
       doc_references: record.doc_references || record.document_references || '',

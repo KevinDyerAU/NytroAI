@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
@@ -49,6 +49,25 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
   ]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Handle Escape key to close modal and lock body scroll
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onClose) {
+        onClose();
+      }
+    };
+
+    // Lock body scroll
+    document.body.style.overflow = 'hidden';
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      // Restore body scroll
+      document.body.style.overflow = 'unset';
+    };
+  }, [onClose]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -156,27 +175,35 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
   };
 
   return (
-    <Card className="border border-[#dbeafe] bg-white shadow-medium flex flex-col h-[600px]">
-      {/* Header */}
-      <div className="border-b border-[#dbeafe] p-4 flex items-center justify-between bg-gradient-blue">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-white/20 border border-white/30 flex items-center justify-center">
-            <Bot className="w-5 h-5 text-white" />
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <Card 
+        className="border border-[#dbeafe] bg-white shadow-2xl flex flex-col h-[600px] w-full max-w-2xl animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="border-b border-[#dbeafe] p-4 flex items-center justify-between bg-gradient-blue">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-white/20 border border-white/30 flex items-center justify-center">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-poppins text-white">AI Assistant</h3>
+              <p className="text-xs text-white/80">Intelligent Analysis Co-Pilot</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-poppins text-white">AI Assistant</h3>
-            <p className="text-xs text-white/80">Intelligent Analysis Co-Pilot</p>
-          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors text-xl font-bold flex items-center justify-center w-8 h-8"
+              aria-label="Close chat"
+            >
+              ✕
+            </button>
+          )}
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/10 rounded p-1 transition-colors"
-          >
-            ✕
-          </button>
-        )}
-      </div>
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
@@ -273,5 +300,6 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
         </div>
       </div>
     </Card>
+    </div>
   );
 }

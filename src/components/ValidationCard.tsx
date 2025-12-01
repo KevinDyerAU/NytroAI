@@ -440,30 +440,6 @@ Return only a JSON object with this structure:
                     />
                   </div>
 
-                  {/* Citations from AI Generation */}
-                  {generatedCitations.length > 0 && (
-                    <div className="bg-[#f0f9ff] border border-[#3b82f6] rounded-lg p-3">
-                      <p className="text-xs font-medium text-[#1e40af] mb-2">Documents Consulted:</p>
-                      <div className="space-y-1">
-                        {generatedCitations.map((citation: any, idx: number) => (
-                          <div key={idx} className="flex items-start gap-2 text-xs">
-                            <FileText className="w-3 h-3 text-[#3b82f6] mt-0.5 flex-shrink-0" />
-                            {citation.type === 'file' && citation.displayName && (
-                              <div className="text-[#64748b]">
-                                <span className="font-medium text-[#1e293b]">{citation.displayName}</span>
-                                {citation.pageNumbers && citation.pageNumbers.length > 0 && (
-                                  <span className="text-[#3b82f6] ml-1">
-                                    (Pages: {citation.pageNumbers.join(', ')})
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Edit Action Buttons */}
                   <div className="flex gap-3 pt-3 border-t border-[#dbeafe]">
                     <GlowButton variant="primary" size="sm" onClick={handleSave}>
@@ -572,7 +548,7 @@ Return only a JSON object with this structure:
 
       {/* Revalidation Confirmation Dialog */}
       <AlertDialog open={showRevalidateDialog} onOpenChange={setShowRevalidateDialog}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent className="max-w-md bg-white">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-[#ef4444]">
               <AlertTriangle className="w-5 h-5" />
