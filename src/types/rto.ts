@@ -589,6 +589,8 @@ export interface ValidationRecord {
   summary_id: number;
   validation_type?: string;
   completed_count?: number;
+  validation_count?: number;
+  validation_progress?: number;
   error_message?: string | null;
 }
 
@@ -634,6 +636,8 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       num_of_req: record.req_total || 0,
       req_total: record.req_total || 0,
       completed_count: record.completed_count || 0,
+      validation_count: record.validation_count || 0,
+      validation_progress: record.validation_progress || 0,
       created_at: record.created_at,
       summary_id: record.summary_id || 0,
       validation_type: record.validation_type?.code || null,

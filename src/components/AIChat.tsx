@@ -3,10 +3,11 @@ import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
 import { GlowButton } from './GlowButton';
-import { Send, Bot, User, FileText } from 'lucide-react';
+import { Send, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { getRTOById, consumeAICredit } from '../types/rto';
 import { sendAIChatMessage } from '../lib/n8nApi';
+import wizardLogo from '../assets/wizard-logo.png';
 
 interface Citation {
   type: 'file' | 'web' | 'unknown';
@@ -184,15 +185,9 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="border-b border-[#dbeafe] p-4 flex items-center justify-between bg-gradient-blue">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-white/20 border border-white/30 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-poppins text-white">AI Assistant</h3>
-              <p className="text-xs text-white/80">Intelligent Analysis Co-Pilot</p>
-            </div>
+        <div className="border-b border-[#3b82f6] p-4 flex items-center justify-between bg-gradient-to-r from-[#3b82f6] to-[#2563eb]">
+          <div>
+            <h3 className="font-poppins text-white text-xl font-semibold">Chat with Nytro</h3>
           </div>
           {onClose && (
             <button
@@ -214,14 +209,14 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
               className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
             >
               <div className={`
-                w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                rounded-lg flex items-center justify-center flex-shrink-0
                 ${message.role === 'assistant' 
-                  ? 'bg-[#dbeafe] text-[#3b82f6]' 
-                  : 'bg-[#f1f5f9] text-[#64748b]'
+                  ? 'w-10 h-10 bg-white border border-[#dbeafe]' 
+                  : 'w-8 h-8 bg-[#f1f5f9] text-[#64748b]'
                 }
               `}>
                 {message.role === 'assistant' ? (
-                  <Bot className="w-4 h-4" />
+                  <span className="text-2xl">🧙‍♂️</span>
                 ) : (
                   <User className="w-4 h-4" />
                 )}
@@ -285,9 +280,15 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && input.trim() && !isProcessing && selectedRTOId) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder="Ask about this validation..."
             className="flex-1 bg-white border-[#dbeafe]"
+            disabled={isProcessing}
           />
           <GlowButton
             onClick={handleSend}

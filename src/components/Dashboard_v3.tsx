@@ -407,9 +407,8 @@ export function Dashboard_v3({
                 stage === 'documents' ? 'docExtracted' :
                 'validated';
 
-              const progress = validation.req_total
-                ? Math.round((validation.completed_count / validation.req_total) * 100)
-                : 0;
+              // Use validation_progress directly from database, cap at 100
+              const progress = Math.min(100, Math.round(validation.validation_progress || 0));
 
               return (
                 <div
@@ -478,20 +477,12 @@ export function Dashboard_v3({
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs text-[#64748b]">
-                      <span>
-                        {(validation.extract_status === 'In Progress' || 
-                          validation.extract_status === 'DocumentProcessing')
-                          ? 'AI Learning'
-                          : validation.validation_status === 'In Progress'
-                          ? 'Validation Progress'
-                          : 'Progress'
-                        }
-                      </span>
+                      <span>Validation Progress</span>
                       <span>
                         {(validation.extract_status === 'In Progress' || 
                           validation.extract_status === 'DocumentProcessing')
                           ? 'Processing...'
-                          : `${validation.completed_count || 0} / ${validation.req_total || 0}`
+                          : `${progress}%`
                         }
                       </span>
                     </div>

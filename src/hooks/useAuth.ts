@@ -104,6 +104,7 @@ export function useAuth() {
           email: email,
           full_name: fullName,
           rto_id: rtoId,
+          rto_code: rtoCode,
           role: 'editor',
           credits: 0,
         });
