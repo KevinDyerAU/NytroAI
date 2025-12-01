@@ -10,28 +10,11 @@ import {
 } from '../ui/select';
 import { SearchIcon, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { ValidationCard } from '../ValidationCard';
-
-interface ValidationResult {
-  id: string | number;
-  requirementNumber: string;
-  type: string;
-  requirementText: string;
-  status: 'met' | 'not-met' | 'partial';
-  reasoning: string;
-  evidence: {
-    mappedQuestions: string[];
-    unmappedReasoning: string;
-    documentReferences: (string | number)[];
-  };
-  aiEnhancement: {
-    smartQuestion: string;
-    benchmarkAnswer: string;
-    recommendations: string[];
-  };
-}
+import type { ValidationEvidenceRecord } from '../../lib/validationResults';
 
 interface ValidationResultsProps {
-  results: ValidationResult[];
+  // Accept raw database records from validation_results table
+  validationEvidence: ValidationEvidenceRecord[];
   validationContext?: {
     rtoId?: string;
     unitCode?: string;
@@ -44,36 +27,49 @@ interface ValidationResultsProps {
 }
 
 export function ValidationResults({
-  results,
+  validationEvidence,
   validationContext,
   isLoading = false,
   aiCreditsAvailable = true,
 }: ValidationResultsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'met' | 'not-met' | 'partial'>('all');
-  const [selectedResult, setSelectedResult] = useState<ValidationResult | null>(null);
+  const [selectedResult, setSelectedResult] = useState<ValidationEvidenceRecord | null>(null);
   const [showChat, setShowChat] = useState(false);
 
-  const filteredResults = results.filter((result) => {
+  // Normalize status values from database
+  const normalizeStatus = (status: string | null | undefined): 'met' | 'not-met' | 'partial' => {
+    if (!status) return 'partial';
+    const normalized = status.toLowerCase().trim().replace(/\s+/g, '-');
+    if (['met', 'not-met', 'partial'].includes(normalized)) {
+      return normalized as 'met' | 'not-met' | 'partial';
+    }
+    return 'partial';
+  };
+
+  // Filter validation evidence records directly (no transformation needed)
+  const filteredResults = validationEvidence.filter((evidence) => {
     const matchesSearch =
-      result.requirementText.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      result.requirementNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || result.status === statusFilter;
+      (evidence.requirement_text || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (evidence.requirement_number || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const normalizedStatus = normalizeStatus(evidence.status);
+    const matchesStatus = statusFilter === 'all' || normalizedStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
+  // Calculate status counts from raw evidence data
   const statusCounts = {
-    total: results.length,
-    met: results.filter((r) => r.status === 'met').length,
-    notMet: results.filter((r) => r.status === 'not-met').length,
-    partial: results.filter((r) => r.status === 'partial').length,
+    total: validationEvidence.length,
+    met: validationEvidence.filter((e) => normalizeStatus(e.status) === 'met').length,
+    notMet: validationEvidence.filter((e) => normalizeStatus(e.status) === 'not-met').length,
+    partial: validationEvidence.filter((e) => normalizeStatus(e.status) === 'partial').length,
   };
 
   const complianceScore =
     statusCounts.total > 0 ? Math.round((statusCounts.met / statusCounts.total) * 100) : 0;
 
-  const handleChatClick = (result: ValidationResult) => {
-    setSelectedResult(result);
+  const handleChatClick = (evidence: ValidationEvidenceRecord) => {
+    setSelectedResult(evidence);
     setShowChat(true);
   };
 
@@ -88,7 +84,7 @@ export function ValidationResults({
     );
   }
 
-  if (results.length === 0) {
+  if (validationEvidence.length === 0) {
     return (
       <Card className="border border-[#dbeafe] bg-white p-8 text-center shadow-soft">
         <AlertCircle className="w-12 h-12 mx-auto mb-4 text-[#cbd5e1]" />
@@ -218,11 +214,11 @@ export function ValidationResults({
         {/* Results List */}
         <div className="space-y-4">
           {filteredResults.length > 0 ? (
-            filteredResults.map((result) => (
+            filteredResults.map((evidence) => (
               <ValidationCard
-                key={result.id}
-                result={result}
-                onChatClick={handleChatClick}
+                key={evidence.id}
+                result={evidence as any}
+                onChatClick={handleChatClick as any}
                 aiCreditsAvailable={aiCreditsAvailable}
                 validationContext={validationContext}
               />

@@ -23,7 +23,7 @@ export function ValidationDashboard({
   selectedRTOId,
   aiCreditsAvailable = true,
 }: ValidationDashboardProps) {
-  const { validationProgress, validationResults, isLoading, error } =
+  const { validationProgress, validationEvidence, isLoading, error } =
     useValidationProgress(validationId);
 
   if (error) {
@@ -146,7 +146,7 @@ export function ValidationDashboard({
           {/* Right: Results Column */}
           <div className="lg:col-span-2">
             <ValidationResults
-              results={validationResults}
+              validationEvidence={validationEvidence}
               isLoading={isLoading}
               aiCreditsAvailable={aiCreditsAvailable}
               validationContext={{

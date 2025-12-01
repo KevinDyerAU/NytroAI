@@ -76,7 +76,8 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
       if (!result.citations) return [];
       const parsed = JSON.parse(result.citations);
       return Array.isArray(parsed) ? parsed : [];
-    } catch {
+    } catch (e) {
+      console.error('[ValidationCard] Error parsing citations:', e);
       return [];
     }
   };
@@ -320,8 +321,18 @@ Return only a JSON object with this structure:
               <FileText className="w-4 h-4 text-[#3b82f6]" />
               Status & Reasoning
             </h4>
-            <div className="bg-white border border-[#dbeafe] rounded-lg p-4">
-              <p className="text-sm leading-relaxed text-[#475569]">{result.reasoning}</p>
+            <div className="bg-white border border-[#dbeafe] rounded-lg p-4 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-[#64748b] mb-2">Reasoning:</p>
+                <p className="text-sm leading-relaxed text-[#475569]">{result.reasoning}</p>
+              </div>
+              
+              {result.mapped_content && (
+                <div className="pt-3 border-t border-[#dbeafe]">
+                  <p className="text-sm font-medium text-[#64748b] mb-2">Mapped Content:</p>
+                  <p className="text-sm leading-relaxed text-[#475569] whitespace-pre-wrap">{result.mapped_content}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -332,40 +343,37 @@ Return only a JSON object with this structure:
               Evidence
             </h4>
             <div className="bg-white border border-[#dbeafe] rounded-lg p-4 space-y-3">
-              {getMappedQuestions().length > 0 && (
-                <div>
-                  <p className="text-sm text-[#64748b] mb-2">Mapped Questions:</p>
-                  <ul className="space-y-1">
-                    {getMappedQuestions().map((q, i) => (
-                      <li key={i} className="text-sm pl-4 border-l-2 border-[#22c55e] text-[#475569]">
-                        {q}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {getDocReferences().length > 0 && (
+              {getCitations().length > 0 ? (
                 <div>
                   <p className="text-sm text-[#64748b] mb-2 flex items-center gap-2">
                     <FileText className="w-4 h-4" />
-                    Document References:
+                    Citations:
                   </p>
-                  <div className="space-y-1">
-                    {getDocReferences().map((ref, index) => (
-                      <div
-                        key={index}
-                        className="px-3 py-2 bg-[#dbeafe] border border-[#3b82f6] rounded text-xs text-[#1e40af]"
-                      >
-                        {typeof ref === 'string' ? (
-                          <span className="whitespace-pre-wrap">{ref}</span>
-                        ) : (
-                          <span>Page {ref}</span>
+                  <div className="space-y-2">
+                    {getCitations().map((citation: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm bg-[#dbeafe] border border-[#3b82f6] rounded-lg p-3">
+                        <FileText className="w-4 h-4 text-[#3b82f6] mt-0.5 flex-shrink-0" />
+                        {citation.type === 'file' && citation.displayName && (
+                          <div className="text-[#1e293b]">
+                            <span className="font-medium">{citation.displayName}</span>
+                            {citation.pageNumbers && citation.pageNumbers.length > 0 && (
+                              <span className="text-[#3b82f6] ml-2">
+                                (Pages: {citation.pageNumbers.join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {!citation.displayName && (
+                          <div className="text-[#64748b]">
+                            {JSON.stringify(citation)}
+                          </div>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
+              ) : (
+                <p className="text-sm text-[#94a3b8] italic">No citations available</p>
               )}
             </div>
           </div>
@@ -473,38 +481,17 @@ Return only a JSON object with this structure:
                   {/* Display Mode */}
                   <div>
                     <p className="text-sm text-[#3b82f6] mb-2">SMART Question:</p>
-                    <p className="text-sm bg-[#dbeafe] p-3 rounded border border-[#93c5fd] text-[#1e293b]">
-                      {result.smart_questions}
+                    <p className="text-sm bg-[#dbeafe] p-3 rounded border border-[#93c5fd] text-[#1e293b] whitespace-pre-wrap">
+                      {result.smart_questions?.trim() || <span className="text-[#94a3b8] italic">No SMART question available</span>}
                     </p>
                   </div>
                   
                   <div>
                     <p className="text-sm text-[#3b82f6] mb-2">Benchmark Answer:</p>
-                    <p className="text-sm text-[#64748b]">{result.benchmark_answer}</p>
+                    <p className="text-sm text-[#64748b] whitespace-pre-wrap">
+                      {result.benchmark_answer?.trim() || <span className="text-[#94a3b8] italic">No benchmark answer available</span>}
+                    </p>
                   </div>
-                  
-                  {getCitations().length > 0 && (
-                    <div>
-                      <p className="text-sm text-[#3b82f6] mb-2">Citations:</p>
-                      <div className="space-y-1">
-                        {getCitations().map((citation: any, idx: number) => (
-                          <div key={idx} className="flex items-start gap-2 text-xs">
-                            <FileText className="w-3 h-3 text-[#3b82f6] mt-0.5 flex-shrink-0" />
-                            {citation.type === 'file' && citation.displayName && (
-                              <div className="text-[#64748b]">
-                                <span className="font-medium text-[#1e293b]">{citation.displayName}</span>
-                                {citation.pageNumbers && citation.pageNumbers.length > 0 && (
-                                  <span className="text-[#3b82f6] ml-1">
-                                    (Pages: {citation.pageNumbers.join(', ')})
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </div>

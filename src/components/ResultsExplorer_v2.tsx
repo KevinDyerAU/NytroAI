@@ -489,41 +489,12 @@ export function ResultsExplorer_v2({
         {/* Results list */}
         {filteredResults.length > 0 ? (
           filteredResults.map((record) => {
-            // Transform ValidationEvidenceRecord to ValidationCard's expected format
-            // Normalize status to match expected values
-            const normalizeStatus = (status: string): 'met' | 'not-met' | 'partial' => {
-              const normalized = status?.toLowerCase().replace(/\s+/g, '-');
-              if (normalized === 'met') return 'met';
-              if (normalized === 'not-met' || normalized === 'notmet') return 'not-met';
-              if (normalized === 'partial') return 'partial';
-              return 'not-met'; // default fallback
-            };
-
-            const transformedResult = {
-              id: record.id,
-              requirementNumber: record.requirement_number,
-              type: record.type,
-              requirementText: record.requirement_text,
-              status: normalizeStatus(record.status),
-              reasoning: record.reasoning,
-              evidence: {
-                mappedQuestions: record.mapped_questions ? record.mapped_questions.split('\n').filter(q => q.trim()) : [],
-                unmappedReasoning: record.unmapped_reasoning || '',
-                documentReferences: record.document_references ?
-                  record.document_references.split('\n').filter(ref => ref.trim()) : [],
-              },
-              aiEnhancement: {
-                smartQuestion: record.smart_question || '',
-                benchmarkAnswer: record.benchmark_answer || '',
-                recommendations: record.recommendations ?
-                  record.recommendations.split('\n').filter(rec => rec.trim()) : [],
-              },
-            };
-
+            // Pass raw database record directly to ValidationCard
+            // ValidationCard has all the parsing logic built-in
             return (
               <ValidationCard
                 key={record.id}
-                result={transformedResult}
+                result={record as any}
                 onChatClick={() => setSelectedResult(record)}
                 isReportSigned={false}
                 aiCreditsAvailable={aiCredits.current > 0}

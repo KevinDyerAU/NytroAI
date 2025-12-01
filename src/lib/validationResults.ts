@@ -11,13 +11,14 @@ export interface ValidationEvidenceRecord {
   requirement_number: string;
   requirement_text: string;
   requirement_type: string;
-  status: string;
+  status: 'met' | 'not-met' | 'partial' | string;
   reasoning: string;
   mapped_content: string; // JSON string of mapped questions
   doc_references: string; // JSON string or text of document references
   smart_questions: string;
   benchmark_answer: string;
   citations: string; // JSON string of citations
+  document_type?: string;
   created_at?: string;
   updated_at?: string;
   
@@ -201,6 +202,7 @@ export async function getValidationResults(
       smart_questions: record.smart_questions || record.smart_question || '',
       benchmark_answer: record.benchmark_answer || '',
       citations: record.citations || '',
+      document_type: record.document_type || '',
       created_at: record.created_at,
       updated_at: record.updated_at,
       // Legacy fields for backward compatibility

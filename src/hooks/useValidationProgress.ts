@@ -5,11 +5,12 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { useValidationStore, type ValidationProgress, type ValidationResult } from '../store/validation.store';
+import { useValidationStore, type ValidationProgress } from '../store/validation.store';
+import type { ValidationEvidenceRecord } from '../lib/validationResults';
 
 interface UseValidationProgressReturn {
   validationProgress: ValidationProgress | null;
-  validationResults: ValidationResult[];
+  validationEvidence: ValidationEvidenceRecord[];
   isLoading: boolean;
   error: string | null;
 }
@@ -78,11 +79,10 @@ function parseDocReferences(docReferences: string | null): string[] {
 export function useValidationProgress(validationId: number): UseValidationProgressReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [validationEvidence, setValidationEvidence] = useState<ValidationEvidenceRecord[]>([]);
   const { 
     validationProgress, 
-    validationResults, 
     setValidationProgress, 
-    setValidationResults, 
     setIsLoading: setStoreLoading, 
     setError: setStoreError 
   } = useValidationStore();
@@ -137,7 +137,7 @@ export function useValidationProgress(validationId: number): UseValidationProgre
       }
     };
 
-    // Fetch validation results from consolidated table
+    // Fetch validation results from consolidated table (raw format)
     const fetchValidationResults = async () => {
       try {
         const { data, error: fetchError } = await supabase
@@ -151,40 +151,30 @@ export function useValidationProgress(validationId: number): UseValidationProgre
         }
 
         if (!data) {
-          setValidationResults([]);
+          setValidationEvidence([]);
           return;
         }
 
-        // Transform data to match ValidationResult interface
-        const evidenceData: ValidationResult[] = data.map((result: any) => {
-          const smartQ = parseSmartQuestions(result.smart_questions);
-          const docRefs = parseDocReferences(result.doc_references);
+        // Map to ValidationEvidenceRecord format (minimal transformation)
+        const evidenceData: ValidationEvidenceRecord[] = data.map((record: any) => ({
+          id: record.id?.toString() || '',
+          validation_detail_id: record.validation_detail_id,
+          requirement_number: record.requirement_number || '',
+          requirement_text: record.requirement_text || '',
+          requirement_type: record.requirement_type || '',
+          status: record.status || 'not_met',
+          reasoning: record.reasoning || '',
+          mapped_content: record.mapped_content || '',
+          doc_references: record.doc_references || '',
+          smart_questions: record.smart_questions || '',
+          benchmark_answer: record.benchmark_answer || '',
+          citations: record.citations || '',
+          document_type: record.document_type || '',
+          created_at: record.created_at,
+          updated_at: record.updated_at,
+        }));
 
-          return {
-            id: result.id,
-            requirementNumber: result.requirement_number || '',
-            type: getTypeName(result.requirement_type),
-            requirementText: result.requirement_text || '',
-            status: normalizeStatus(result.status),
-            reasoning: result.reasoning || result.unmapped_content || '',
-            evidence: {
-              mappedQuestions: result.mapped_content 
-                ? result.mapped_content.split('\n').filter((q: string) => q.trim())
-                : [],
-              unmappedReasoning: result.unmapped_content || '',
-              documentReferences: docRefs,
-            },
-            aiEnhancement: {
-              smartQuestion: smartQ.question,
-              benchmarkAnswer: smartQ.answer,
-              recommendations: result.recommendations 
-                ? result.recommendations.split('\n').filter((r: string) => r.trim())
-                : [],
-            },
-          };
-        });
-
-        setValidationResults(evidenceData);
+        setValidationEvidence(evidenceData);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to fetch validation results';
         console.error('Error fetching validation results:', errorMsg);
@@ -252,11 +242,11 @@ export function useValidationProgress(validationId: number): UseValidationProgre
       validationSubscription.unsubscribe();
       resultsSubscription.unsubscribe();
     };
-  }, [validationId, setValidationProgress, setValidationResults, setStoreLoading, setStoreError]);
+  }, [validationId, setValidationProgress, setStoreLoading, setStoreError]);
 
   return {
     validationProgress,
-    validationResults,
+    validationEvidence,
     isLoading,
     error,
   };
