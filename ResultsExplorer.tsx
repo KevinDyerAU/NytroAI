@@ -8,7 +8,8 @@ import { StatusBadge } from './StatusBadge';
 import { ValidationStatusIndicator } from './ValidationStatusIndicator';
 import { Progress } from './ui/progress';
 import { ValidationReport } from './reports';
-import { 
+import { ReportDownloadPopup } from './ReportDownloadPopup';
+import {
   Search, 
   Download,
   X,
@@ -16,7 +17,8 @@ import {
   AlertCircle,
   Calendar,
   FileText,
-  FileCheck
+  FileCheck,
+  FileSpreadsheet
 } from 'lucide-react';
 import {
   Select,
@@ -52,6 +54,7 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [selectedValidationDetailId, setSelectedValidationDetailId] = useState<number | null>(null);
+  const [showReportDownloadPopup, setShowReportDownloadPopup] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });
   const [isConsumingCredit, setIsConsumingCredit] = useState(false);
@@ -400,6 +403,15 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                 </div>
               </div>
               <div className="flex gap-3">
+                <GlowButton 
+                  variant="default" 
+                  onClick={() => setShowReportDownloadPopup(true)}
+                  disabled={validationEvidenceData.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Generate Report
+                </GlowButton>
                 {selectedValidation.reportSigned ? (
                   <GlowButton variant="primary" onClick={handleDownloadReport}>
                     <Download className="w-5 h-5 mr-2" />
@@ -758,6 +770,20 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedValidation && (
+        <ReportDownloadPopup
+          isOpen={showReportDownloadPopup}
+          onOpenChange={setShowReportDownloadPopup}
+          validationDetailId={selectedValidationDetailId || 0}
+          unitCode={selectedValidation.unitCode}
+          unitTitle={selectedValidation.unitTitle}
+          rtoName={getRTOById(selectedRTOId)?.name || 'Unknown RTO'}
+          rtoCode={getRTOById(selectedRTOId)?.code || 'UNKNOWN'}
+          validationType={selectedValidation.validationType as 'learner-guide' | 'assessment' | 'unit'}
+          validationResults={validationEvidenceData}
+        />
+      )}
     </div>
   );
 }
