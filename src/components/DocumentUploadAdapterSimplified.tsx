@@ -337,19 +337,6 @@ export function DocumentUploadAdapterSimplified({
           </div>
         </div>
 
-        {/* RTO Info */}
-        {selectedRTO && (
-          <Card className="p-4 bg-white border-[#e2e8f0]">
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[#3b82f6]" />
-              <div>
-                <p className="text-sm text-[#64748b]">Selected RTO</p>
-                <p className="font-semibold text-[#1e293b]">{selectedRTO.name} ({selectedRTO.code})</p>
-              </div>
-            </div>
-          </Card>
-        )}
-
         {/* Validation Type Selection - Side by Side Tiles */}
         <RadioGroup value={validationType} onValueChange={(value: 'unit' | 'learner_guide') => setValidationType(value)}>
           <div className="flex gap-4">

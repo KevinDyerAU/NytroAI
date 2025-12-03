@@ -538,7 +538,7 @@ Return only a JSON object with this structure:
                   title={isReportSigned ? "Report is signed off - no updates allowed" : !aiCreditsAvailable ? "No AI credits available" : ""}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isRevalidating ? 'animate-spin' : ''}`} />
-                  Update Status
+                  Revalidate
                 </GlowButton>
               </div>
             </div>

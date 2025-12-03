@@ -23,6 +23,8 @@ import {
   AlertCircle,
   RefreshCw,
   FileText,
+  CheckCircle,
+  Info,
 } from 'lucide-react';
 import {
   Select,
@@ -81,8 +83,6 @@ export function ResultsExplorer_v2({
   const [selectedValidation, setSelectedValidation] = useState<Validation | null>(
     persistedState.selectedValidation || null
   );
-  const [searchValidationTerm, setSearchValidationTerm] = useState(persistedState.searchValidationTerm || '');
-  const [validationSearchOpen, setValidationSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(persistedState.searchTerm || '');
   const [statusFilter, setStatusFilter] = useState(persistedState.statusFilter || 'all');
   const [selectedResult, setSelectedResult] = useState<any>(null);
@@ -94,7 +94,6 @@ export function ResultsExplorer_v2({
   useEffect(() => {
     const stateToSave = {
       selectedValidation,
-      searchValidationTerm,
       searchTerm,
       statusFilter,
     };
@@ -103,7 +102,7 @@ export function ResultsExplorer_v2({
     } catch (error) {
       console.warn('Failed to save Results Explorer state:', error);
     }
-  }, [selectedValidation, searchValidationTerm, searchTerm, statusFilter]);
+  }, [selectedValidation, searchTerm, statusFilter]);
   
   // Credits state
   const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });
@@ -120,6 +119,13 @@ export function ResultsExplorer_v2({
   const [evidenceError, setEvidenceError] = useState<ValidationResultsError | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastLoadedValidationId, setLastLoadedValidationId] = useState<string | null>(null);
+  
+  // Unit autocomplete state
+  const [unitSearchTerm, setUnitSearchTerm] = useState('');
+  const [allUnits, setAllUnits] = useState<any[]>([]);
+  const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+  const [isLoadingUnits, setIsLoadingUnits] = useState(false);
 
   // Load AI credits
   useEffect(() => {
@@ -170,6 +176,115 @@ export function ResultsExplorer_v2({
 
     loadValidations();
   }, [selectedRTOId]);
+
+  // Load all units on mount
+  useEffect(() => {
+    const loadUnits = async () => {
+      setIsLoadingUnits(true);
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        const response = await fetch(`${supabaseUrl}/functions/v1/fetch-units-of-competency`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({}),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result?.error || 'Failed to fetch units');
+        }
+
+        console.log('[ResultsExplorer] Loaded units:', result.data?.length || 0);
+        setAllUnits(result.data || []);
+      } catch (error) {
+        console.error('[ResultsExplorer] Error loading units:', error);
+        toast.error('Failed to load units of competency');
+      } finally {
+        setIsLoadingUnits(false);
+      }
+    };
+
+    loadUnits();
+  }, []);
+
+  // Filter units based on search term
+  useEffect(() => {
+    if (!unitSearchTerm) {
+      setFilteredUnits([]);
+      setShowUnitDropdown(false);
+      return;
+    }
+
+    const searchLower = unitSearchTerm.toLowerCase();
+    const filtered = allUnits.filter(unit => 
+      unit.unitCode?.toLowerCase().includes(searchLower) ||
+      unit.Title?.toLowerCase().includes(searchLower)
+    ).slice(0, 10); // Limit to 10 results
+
+    setFilteredUnits(filtered);
+    setShowUnitDropdown(filtered.length > 0);
+  }, [unitSearchTerm, allUnits]);
+
+  // Handle unit selection from dropdown
+  const handleUnitSelect = (unit: any) => {
+    console.log('[ResultsExplorer] Unit selected:', unit.unitCode);
+    
+    // Find validation for this unit
+    const validation = validationRecords.find(r => r.unit_code === unit.unitCode);
+    
+    if (validation) {
+      const validationObj: Validation = {
+        id: validation.id.toString(),
+        unitCode: validation.unit_code || 'N/A',
+        unitTitle: validation.qualification_code || 'Unit',
+        validationType: (validation.validation_type?.toLowerCase() as 'learner-guide' | 'assessment' | 'unit') || 'unit',
+        rtoId: selectedRTOId,
+        validationDate: validation.created_at,
+        status: validation.req_extracted ? 'docExtracted' : 'pending',
+        progress: validation.req_total ? Math.round((validation.completed_count || 0) / validation.req_total * 100) : 0,
+        requirementsChecked: validation.completed_count || 0,
+        totalRequirements: validation.req_total || 0,
+        sector: 'General',
+        documentsValidated: validation.doc_extracted ? 1 : 0,
+        reportSigned: false
+      };
+      setSelectedValidation(validationObj);
+      toast.success(`Validation loaded for ${unit.unitCode}`);
+    } else {
+      toast.error(`No validation found for ${unit.unitCode}`);
+    }
+    
+    setUnitSearchTerm(unit.unitCode);
+    setShowUnitDropdown(false);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (value: string) => {
+    setUnitSearchTerm(value);
+  };
+
+  // Handle Enter key to auto-select exact match
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && unitSearchTerm && filteredUnits.length > 0) {
+      // Check for exact match first
+      const exactMatch = filteredUnits.find(
+        unit => unit.unitCode?.toUpperCase() === unitSearchTerm.toUpperCase()
+      );
+      
+      if (exactMatch) {
+        handleUnitSelect(exactMatch);
+      } else {
+        // Select first result if no exact match
+        handleUnitSelect(filteredUnits[0]);
+      }
+    }
+  };
 
   // Auto-select validation if ID provided
   useEffect(() => {
@@ -362,25 +477,6 @@ export function ResultsExplorer_v2({
     }
   }, [selectedRTOId]);
 
-  // Filter validations
-  const filteredValidations = validationRecords
-    .filter(validation =>
-      (validation.unit_code?.toLowerCase() || '').includes(searchValidationTerm.toLowerCase()) ||
-      (validation.qualification_code?.toLowerCase() || '').includes(searchValidationTerm.toLowerCase()) ||
-      (validation.validation_type?.toLowerCase() || '').includes(searchValidationTerm.toLowerCase())
-    )
-    .map(record => ({
-      id: record.id.toString(),
-      unitCode: record.unit_code || 'N/A',
-      unitTitle: record.qualification_code || 'Unit',
-      validationType: (record.validation_type?.toLowerCase() as any) || 'unit',
-      rtoId: selectedRTOId,
-      validationDate: record.created_at,
-      status: (record.req_extracted ? 'docExtracted' : 'pending') as 'validated' | 'docExtracted' | 'reqExtracted' | 'pending',
-      progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
-      sector: 'N/A',
-    }));
-
   // Filter results based on search and status
   const filteredResults = validationEvidenceData.filter(result => {
     const matchesSearch = !searchTerm || 
@@ -535,7 +631,7 @@ export function ResultsExplorer_v2({
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="font-poppins text-[#1e293b] mb-2">
+          <h1 className="text-3xl font-bold text-[#1e293b] mb-2">
             Results Explorer
           </h1>
           <p className="text-[#64748b]">
@@ -543,93 +639,82 @@ export function ResultsExplorer_v2({
           </p>
         </div>
 
-        {/* Validation selector */}
-        <Card className="p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Select Validation
-            </h2>
-            {selectedValidation && (
-              <Button 
-                onClick={() => setSelectedValidation(null)} 
-                variant="ghost" 
-                size="sm"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Clear Selection
-              </Button>
-            )}
-          </div>
-
-          {validationLoadError && (
-            <InlineErrorMessage 
-              error={{
-                code: 'DATABASE_ERROR',
-                message: validationLoadError,
-                retryable: true,
-              }}
-              onRetry={handleRefreshStatus}
-            />
-          )}
-
-          {/* Validation list or selected validation display */}
-          {selectedValidation ? (
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-blue-900">
-                    {selectedValidation.unitCode} - {selectedValidation.unitTitle}
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    {getValidationTypeLabel(selectedValidation.validationType)} • 
-                    {formatValidationDate(selectedValidation.validationDate)}
-                  </p>
-                </div>
-                {/* Validation Status Badge */}
-                {currentRecord && (
-                  <ValidationStatusBadge
-                    status={{
-                      extractStatus: currentRecord.extract_status || 'Pending',
-                      validationStatus: currentRecord.extract_status || 'Pending',
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Input
-                placeholder="Search validations..."
-                value={searchValidationTerm}
-                onChange={(e) => setSearchValidationTerm(e.target.value)}
-                className="mb-2"
+        {/* Unit Selection */}
+        <Card className="p-6 bg-white mb-6">
+          <h2 className="text-xl font-semibold text-[#1e293b] mb-4">1. Select Unit of Competency</h2>
+          <div className="space-y-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-[#64748b] mb-2">
+                Unit Code
+              </label>
+              <input
+                type="text"
+                placeholder={isLoadingUnits ? "Loading units..." : "Search by code or title (e.g., BSBWHS521). Press Enter to select."}
+                value={unitSearchTerm}
+                onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                onFocus={() => {
+                  // Show dropdown if user is searching
+                  if (unitSearchTerm && (!selectedValidation || unitSearchTerm !== selectedValidation.unitCode)) {
+                    setShowUnitDropdown(true);
+                  }
+                }}
+                onBlur={() => {
+                  // Close dropdown when clicking outside (with small delay to allow click on dropdown items)
+                  setTimeout(() => setShowUnitDropdown(false), 200);
+                }}
+                disabled={isLoadingUnits}
+                className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3b82f6] disabled:bg-gray-100"
               />
-              {isLoadingValidations ? (
-                <p className="text-sm text-gray-500 text-center py-4">Loading validations...</p>
-              ) : filteredValidations.length > 0 ? (
-                <div className="max-h-64 overflow-y-auto space-y-2">
-                  {filteredValidations.slice(0, 10).map((validation) => (
+              
+              {/* Autocomplete Dropdown */}
+              {showUnitDropdown && filteredUnits.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredUnits.map((unit) => (
                     <button
-                      key={validation.id}
-                      onClick={() => setSelectedValidation(validation)}
-                      className="w-full text-left p-3 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
+                      key={unit.id}
+                      type="button"
+                      onClick={() => handleUnitSelect(unit)}
+                      className="w-full text-left px-4 py-3 hover:bg-[#f8f9fb] border-b border-[#e2e8f0] last:border-b-0 transition-colors"
                     >
-                      <p className="text-sm font-medium text-gray-900">
-                        {validation.unitCode}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {formatValidationDate(validation.validationDate)}
-                      </p>
+                      <p className="font-semibold text-[#1e293b]">{unit.unitCode}</p>
+                      <p className="text-sm text-[#64748b] truncate">{unit.Title}</p>
                     </button>
                   ))}
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No validations found
-                </p>
+              )}
+              
+              {unitSearchTerm && filteredUnits.length === 0 && !isLoadingUnits && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg p-4 text-center text-[#64748b]">
+                  <Info className="w-5 h-5 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No units found matching "{unitSearchTerm}"</p>
+                </div>
               )}
             </div>
-          )}
+            
+            {selectedValidation && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div>
+                    <p className="font-semibold text-green-900">{selectedValidation.unitCode}</p>
+                    <p className="text-sm text-green-700">{selectedValidation.unitTitle}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {validationLoadError && (
+              <InlineErrorMessage 
+                error={{
+                  code: 'DATABASE_ERROR',
+                  message: validationLoadError,
+                  retryable: true,
+                }}
+                onRetry={handleRefreshStatus}
+              />
+            )}
+          </div>
         </Card>
 
         {/* Validation evidence section */}

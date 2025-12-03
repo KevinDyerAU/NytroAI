@@ -45,8 +45,6 @@ interface ResultsExplorerProps {
 
 export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = true, selectedRTOId }: ResultsExplorerProps) {
   const [selectedValidation, setSelectedValidation] = useState<Validation | null>(null);
-  const [searchValidationTerm, setSearchValidationTerm] = useState('');
-  const [validationSearchOpen, setValidationSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedResult, setSelectedResult] = useState<any>(null);
@@ -244,11 +242,6 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
   }, [selectedValidation, validationRecords]);
 
   const filteredValidations = validationRecords
-    .filter(validation =>
-      (validation.unit_code?.toLowerCase() || '').includes(searchValidationTerm.toLowerCase()) ||
-      (validation.qualification_code?.toLowerCase() || '').includes(searchValidationTerm.toLowerCase()) ||
-      (validation.validation_type?.toLowerCase() || '').includes(searchValidationTerm.toLowerCase())
-    )
     .map(record => ({
       id: record.id.toString(),
       unitCode: record.unit_code || 'N/A',
@@ -264,8 +257,6 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
 
   const handleValidationSelect = (validation: Validation) => {
     setSelectedValidation(validation);
-    setSearchValidationTerm('');
-    setValidationSearchOpen(false);
     setShowChat(false);
     setSearchTerm('');
     setStatusFilter('all');
@@ -352,10 +343,10 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-poppins text-[#1e293b] mb-2">
-              Validation Results
+            <h1 className="font-poppins text-[#1e293b] text-3xl font-bold mb-2">
+              Results Explorer
             </h1>
-            <p className="text-[#64748b]">Review and analyze validation outcomes</p>
+            <p className="text-[#64748b]">View and analyze validation results</p>
           </div>
         </div>
       </div>
@@ -378,7 +369,7 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
           </div>
         </div>
 
-        {/* Search or Selected Validation Display */}
+        {/* Validation Selection */}
         {selectedValidation ? (
           <div className="p-4 bg-[#dcfce7] border border-[#22c55e] rounded-lg">
             <div className="flex items-center justify-between">
@@ -446,77 +437,48 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
           </div>
         ) : (
           <div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#64748b] z-10" />
-              <Input
-                placeholder="Search by unit code, validation type, or title..."
-                className="pl-12 h-12 bg-white border-2 border-[#dbeafe] focus:border-[#3b82f6]"
-                value={searchValidationTerm}
-                onChange={(e) => {
-                  setSearchValidationTerm(e.target.value);
-                  setValidationSearchOpen(true);
-                }}
-                onFocus={() => setValidationSearchOpen(true)}
-              />
-            </div>
-
-            {/* Search Results Dropdown */}
-            {validationSearchOpen && searchValidationTerm && filteredValidations.length > 0 && (
-              <div className="mt-2 border border-[#dbeafe] rounded-lg bg-white shadow-lg max-h-96 overflow-y-auto">
-                <div className="p-2">
-                  <p className="text-xs uppercase text-[#94a3b8] px-3 py-2">
-                    Validation Results ({filteredValidations.length})
-                  </p>
-                  {filteredValidations.map((validation) => (
-                    <div
-                      key={validation.id}
-                      className="p-3 hover:bg-[#f8f9fb] rounded-lg cursor-pointer transition-colors"
-                      onClick={() => handleValidationSelect(validation)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded bg-[#dbeafe] border border-[#3b82f6] flex items-center justify-center flex-shrink-0">
-                          <FileText className="w-5 h-5 text-[#3b82f6]" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="font-poppins text-[#1e293b]">{validation.unitCode}</div>
-                            <span className="text-xs text-[#94a3b8]">•</span>
-                            <span className="text-xs text-[#3b82f6]">
-                              {getValidationTypeLabel(validation.validationType)}
-                            </span>
-                            <div className="flex justify-center flex-1">
-                              <ValidationStatusIndicator 
-                                status={validation.status} 
-                                progress={validation.progress}
-                                size="sm"
-                                compact={true}
-                              />
-                            </div>
-                          </div>
-                          <p className="text-sm text-[#64748b]">{validation.unitTitle}</p>
-                          <div className="flex gap-3 text-xs text-[#94a3b8] mt-1">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {formatValidationDate(validation.validationDate)}
-                            </span>
-                            <span>•</span>
-                            <span>{validation.sector}</span>
-                            <span>•</span>
-                            <span>Progress: {validation.progress}%</span>
-                          </div>
-                        </div>
+            <Select
+              value={selectedValidation?.id || ''}
+              onValueChange={(value) => {
+                const validation = filteredValidations.find(v => v.id === value);
+                if (validation) {
+                  handleValidationSelect(validation);
+                }
+              }}
+            >
+              <SelectTrigger className="w-full h-12 bg-white border-2 border-[#dbeafe] focus:border-[#3b82f6]">
+                <SelectValue placeholder="Select a validation to view results..." />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-[#dbeafe]">
+                {isLoadingValidations ? (
+                  <SelectItem value="loading" disabled>Loading validations...</SelectItem>
+                ) : filteredValidations.length === 0 ? (
+                  <SelectItem value="none" disabled>No validations found</SelectItem>
+                ) : (
+                  filteredValidations.map((validation) => (
+                    <SelectItem key={validation.id} value={validation.id}>
+                      <div className="flex items-center gap-2 py-1">
+                        <span className="font-poppins text-[#1e293b]">{validation.unitCode}</span>
+                        <span className="text-xs text-[#94a3b8]">•</span>
+                        <span className="text-xs text-[#3b82f6]">
+                          {getValidationTypeLabel(validation.validationType)}
+                        </span>
+                        <span className="text-xs text-[#94a3b8]">•</span>
+                        <span className="text-xs text-[#64748b]">
+                          {formatValidationDate(validation.validationDate)}
+                        </span>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
 
             <div className="mt-4 p-4 bg-[#dbeafe] border border-[#3b82f6] rounded-lg flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-0.5" />
               <div className="text-sm text-[#1e40af]">
-                <p className="font-medium mb-1">Search for a validation to view results</p>
-                <p className="text-xs">Type a unit code (e.g., BSBWHS521), validation type (Learner Guide, Assessment), or title to find and select a validation to review.</p>
+                <p className="font-medium mb-1">Select a validation to view results</p>
+                <p className="text-xs">Choose a validation from the dropdown above to review its detailed results and compliance analysis.</p>
               </div>
             </div>
           </div>
