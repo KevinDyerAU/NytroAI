@@ -580,10 +580,15 @@ export function ResultsExplorer_v2({
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          {/* n8n Report Generation */}
-          {currentRecord && (
+          {/* Report Generation with Popup */}
+          {currentRecord && selectedValidation && (
             <ResultsExplorerActions
               validationDetailId={currentRecord.id}
+              unitCode={selectedValidation.unitCode || currentRecord.unit_code || 'Unknown'}
+              unitTitle={selectedValidation.unitTitle || currentRecord.qualification_code || 'Unknown'}
+              rtoName={getRTOById(selectedRTOId)?.name || 'Unknown RTO'}
+              validationType={(currentRecord.validation_type?.toLowerCase().includes('learner') || currentRecord.validation_type?.toLowerCase().includes('guide')) ? 'learner-guide' : 'assessment'}
+              validationResults={validationEvidenceData as any}
               onRefresh={handleRefreshStatus}
             />
           )}

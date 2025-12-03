@@ -1,17 +1,16 @@
 /**
  * useResultsActions Hook
  * 
- * Hook for Results Explorer actions via n8n webhooks:
- * - Generate report
- * - Revalidate requirement
- * - Regenerate smart questions
+ * Hook for Results Explorer actions:
+ * - Generate Excel report (direct database query)
+ * - Revalidate requirement (via n8n webhook)
+ * - Regenerate smart questions (via n8n webhook)
  */
 
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   generateReport,
-  downloadReport,
   revalidateRequirement,
   regenerateQuestions,
 } from '../lib/n8nApi';
@@ -37,18 +36,17 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
     setError(null);
 
     try {
-      console.log('[useResultsActions] Generating report:', validationDetailId);
+      console.log('[useResultsActions] Generating Excel report:', validationDetailId);
       
-      toast.loading('Generating validation report...', { id: 'generate-report' });
+      toast.loading('Generating Excel validation report...', { id: 'generate-report' });
 
       const result = await generateReport(validationDetailId);
 
-      if (result.success && result.report) {
-        downloadReport(result.report, result.filename || 'validation_report.md');
-        
-        toast.success('Report generated and downloaded!', {
+      if (result.success) {
+        // Excel file is downloaded directly by the generateReport function
+        toast.success('Excel report generated and downloaded!', {
           id: 'generate-report',
-          description: 'Check your downloads folder.',
+          description: 'Check your downloads folder for the .xlsx file.',
         });
       } else {
         throw new Error(result.error || 'Failed to generate report');

@@ -64,29 +64,66 @@ function parseRequirementNumber(requirementNumber: string): { type: string; numb
 }
 
 /**
- * Generate Assessment Report
+ * Parse JSONB array from validation_results (smart_questions or citations)
+ */
+function parseJSONBArray(jsonbField: any): any[] {
+  if (!jsonbField) return [];
+  if (Array.isArray(jsonbField)) return jsonbField;
+  if (typeof jsonbField === 'string') {
+    // Handle empty strings
+    if (jsonbField.trim() === '') return [];
+    try {
+      const parsed = JSON.parse(jsonbField);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      // If it's not valid JSON, treat it as a single item
+      return [jsonbField];
+    }
+  }
+  // If it's an object (already parsed JSONB from Postgres), wrap it or return empty
+  if (typeof jsonbField === 'object' && jsonbField !== null) {
+    return [jsonbField];
+  }
+  return [];
+}
+
+/**
+ * Generate Assessment Report (All Tabs)
  */
 export async function generateAssessmentReport(
   params: AssessmentReportParams
 ): Promise<Blob> {
   const workbook = new ExcelJS.Workbook();
   
-  // Separate knowledge and performance evidence
+  // Separate by requirement type (from validation_results table)
   const knowledgeEvidence = params.validationResults.filter(r => 
-    r.requirement_type?.toLowerCase() === 'knowledge' || 
-    r.requirement_number?.startsWith('KE')
+    r.requirement_type === 'knowledge_evidence'
   );
   
   const performanceEvidence = params.validationResults.filter(r => 
-    r.requirement_type?.toLowerCase() === 'performance' || 
-    r.requirement_number?.startsWith('PE')
+    r.requirement_type === 'performance_evidence'
   );
   
-  // Create sheets
+  const foundationSkills = params.validationResults.filter(r => 
+    r.requirement_type === 'foundation_skills'
+  );
+  
+  const elementsPerfCriteria = params.validationResults.filter(r => 
+    r.requirement_type === 'elements_performance_criteria'
+  );
+  
+  const assessmentConditions = params.validationResults.filter(r => 
+    r.requirement_type === 'assessment_conditions'
+  );
+  
+  // Create sheets (all tabs for assessment)
   createCoverSheet(workbook, params);
   createAssessmentSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence);
+  createElementsPerformanceCriteriaSheet(workbook, elementsPerfCriteria);
   createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'assessment');
   createPerformanceEvidenceSheet(workbook, performanceEvidence, 'assessment');
+  createFoundationSkillsSheet(workbook, foundationSkills);
+  createAssessmentConditionsSheet(workbook, assessmentConditions);
   
   // Generate buffer and return as Blob
   const buffer = await workbook.xlsx.writeBuffer();
@@ -96,29 +133,32 @@ export async function generateAssessmentReport(
 }
 
 /**
- * Generate Learner Guide Report
+ * Generate Learner Guide Report (Elements & PC, Knowledge Evidence, Performance Evidence)
  */
 export async function generateLearnerGuideReport(
   params: AssessmentReportParams
 ): Promise<Blob> {
   const workbook = new ExcelJS.Workbook();
   
-  // Separate knowledge and performance evidence
+  // Separate by requirement type (from validation_results table)
   const knowledgeEvidence = params.validationResults.filter(r => 
-    r.requirement_type?.toLowerCase() === 'knowledge' || 
-    r.requirement_number?.startsWith('KE')
+    r.requirement_type === 'knowledge_evidence'
   );
   
   const performanceEvidence = params.validationResults.filter(r => 
-    r.requirement_type?.toLowerCase() === 'performance' || 
-    r.requirement_number?.startsWith('PE')
+    r.requirement_type === 'performance_evidence'
   );
   
-  // Create sheets
+  const elementsPerfCriteria = params.validationResults.filter(r => 
+    r.requirement_type === 'elements_performance_criteria'
+  );
+  
+  // Create sheets (Elements & PC, KE, PE)
   createCoverSheet(workbook, params);
   createLearnerGuideSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence);
-  createPerformanceEvidenceSheet(workbook, performanceEvidence, 'learner-guide');
+  createElementsPerformanceCriteriaSheet(workbook, elementsPerfCriteria);
   createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'learner-guide');
+  createPerformanceEvidenceSheet(workbook, performanceEvidence, 'learner-guide');
   
   // Generate buffer and return as Blob
   const buffer = await workbook.xlsx.writeBuffer();
@@ -197,10 +237,10 @@ function createAssessmentSummarySheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:D${row}`);
+  sheet.mergeCells(`B${row}:E${row}`);
+  row += 2;
   
   // Unit Information
-  row += 2;
   sheet.getCell(`B${row}`).value = 'Unit Code:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitCode;
@@ -209,31 +249,42 @@ function createAssessmentSummarySheet(
   sheet.getCell(`B${row}`).value = 'Unit Title:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitTitle;
+  sheet.mergeCells(`C${row}:E${row}`);
   row++;
   
   sheet.getCell(`B${row}`).value = 'RTO:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.rtoName;
-  row++;
+  row += 3;
   
-  // Validation Summary
-  row += 2;
-  sheet.getCell(`B${row}`).value = 'Validation Summary';
+  // Statistics by Tab
+  sheet.getCell(`B${row}`).value = 'Validation Results by Tab';
   sheet.getCell(`B${row}`).font = { bold: true, size: 12 };
   row++;
   
-  const keMetCount = knowledgeEvidence.filter(r => r.status === 'met').length;
-  const keTotalCount = knowledgeEvidence.length;
-  const peMetCount = performanceEvidence.filter(r => r.status === 'met').length;
-  const peTotalCount = performanceEvidence.length;
+  // Get all results by type
+  const elementsPerfCriteria = params.validationResults.filter(r => r.requirement_type === 'elements_performance_criteria');
+  const foundationSkills = params.validationResults.filter(r => r.requirement_type === 'foundation_skills');
+  const assessmentConditions = params.validationResults.filter(r => r.requirement_type === 'assessment_conditions');
+  
+  // Calculate stats
+  const calculateStats = (items: ValidationEvidenceRecord[]) => {
+    const total = items.length;
+    const met = items.filter(r => r.status === 'met').length;
+    const percentage = total > 0 ? Math.round((met / total) * 100) : 0;
+    return { met, total, percentage };
+  };
   
   const summaryData = [
-    ['Knowledge Evidence', `${keMetCount}/${keTotalCount}`, `${keTotalCount > 0 ? Math.round((keMetCount / keTotalCount) * 100) : 0}%`],
-    ['Performance Evidence', `${peMetCount}/${peTotalCount}`, `${peTotalCount > 0 ? Math.round((peMetCount / peTotalCount) * 100) : 0}%`],
+    ['Elements & Performance Criteria', ...Object.values(calculateStats(elementsPerfCriteria))],
+    ['Knowledge Evidence', ...Object.values(calculateStats(knowledgeEvidence))],
+    ['Performance Evidence', ...Object.values(calculateStats(performanceEvidence))],
+    ['Foundation Skills', ...Object.values(calculateStats(foundationSkills))],
+    ['Assessment Conditions', ...Object.values(calculateStats(assessmentConditions))],
   ];
   
   // Headers
-  ['Category', 'Met/Total', 'Percentage'].forEach((header, idx) => {
+  ['Tab', 'Met', 'Total', 'Percentage'].forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
     cell.value = header;
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -242,20 +293,24 @@ function createAssessmentSummarySheet(
       pattern: 'solid',
       fgColor: { argb: `FF${COLORS.HEADER}` },
     };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
   });
   row++;
   
-  summaryData.forEach(([category, metTotal, percentage]) => {
-    sheet.getCell(row, 2).value = category;
-    sheet.getCell(row, 3).value = metTotal;
-    sheet.getCell(row, 4).value = percentage;
+  // Data rows
+  summaryData.forEach(([tab, met, total, percentage]) => {
+    sheet.getCell(row, 2).value = tab;
+    sheet.getCell(row, 3).value = met;
+    sheet.getCell(row, 4).value = total;
+    sheet.getCell(row, 5).value = `${percentage}%`;
     row++;
   });
   
   // Set column widths
-  sheet.getColumn('B').width = 25;
-  sheet.getColumn('C').width = 15;
-  sheet.getColumn('D').width = 15;
+  sheet.getColumn('B').width = 35;
+  sheet.getColumn('C').width = 12;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 15;
 }
 
 /**
@@ -279,10 +334,10 @@ function createLearnerGuideSummarySheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:D${row}`);
+  sheet.mergeCells(`B${row}:E${row}`);
+  row += 2;
   
   // Unit Information
-  row += 2;
   sheet.getCell(`B${row}`).value = 'Unit Code:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitCode;
@@ -291,31 +346,38 @@ function createLearnerGuideSummarySheet(
   sheet.getCell(`B${row}`).value = 'Unit Title:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitTitle;
+  sheet.mergeCells(`C${row}:E${row}`);
   row++;
   
   sheet.getCell(`B${row}`).value = 'RTO:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.rtoName;
-  row++;
+  row += 3;
   
-  // Validation Summary
-  row += 2;
-  sheet.getCell(`B${row}`).value = 'Validation Summary';
+  // Statistics by Tab
+  sheet.getCell(`B${row}`).value = 'Validation Results by Tab';
   sheet.getCell(`B${row}`).font = { bold: true, size: 12 };
   row++;
   
-  const peMetCount = performanceEvidence.filter(r => r.status === 'met').length;
-  const peTotalCount = performanceEvidence.length;
-  const keMetCount = knowledgeEvidence.filter(r => r.status === 'met').length;
-  const keTotalCount = knowledgeEvidence.length;
+  // Get all results by type
+  const elementsPerfCriteria = params.validationResults.filter(r => r.requirement_type === 'elements_performance_criteria');
+  
+  // Calculate stats
+  const calculateStats = (items: ValidationEvidenceRecord[]) => {
+    const total = items.length;
+    const met = items.filter(r => r.status === 'met').length;
+    const percentage = total > 0 ? Math.round((met / total) * 100) : 0;
+    return { met, total, percentage };
+  };
   
   const summaryData = [
-    ['Performance Evidence', `${peMetCount}/${peTotalCount}`, `${peTotalCount > 0 ? Math.round((peMetCount / peTotalCount) * 100) : 0}%`],
-    ['Knowledge Evidence', `${keMetCount}/${keTotalCount}`, `${keTotalCount > 0 ? Math.round((keMetCount / keTotalCount) * 100) : 0}%`],
+    ['Elements & Performance Criteria', ...Object.values(calculateStats(elementsPerfCriteria))],
+    ['Knowledge Evidence', ...Object.values(calculateStats(knowledgeEvidence))],
+    ['Performance Evidence', ...Object.values(calculateStats(performanceEvidence))],
   ];
   
   // Headers
-  ['Category', 'Met/Total', 'Percentage'].forEach((header, idx) => {
+  ['Tab', 'Met', 'Total', 'Percentage'].forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
     cell.value = header;
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -324,20 +386,24 @@ function createLearnerGuideSummarySheet(
       pattern: 'solid',
       fgColor: { argb: `FF${COLORS.HEADER}` },
     };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
   });
   row++;
   
-  summaryData.forEach(([category, metTotal, percentage]) => {
-    sheet.getCell(row, 2).value = category;
-    sheet.getCell(row, 3).value = metTotal;
-    sheet.getCell(row, 4).value = percentage;
+  // Data rows
+  summaryData.forEach(([tab, met, total, percentage]) => {
+    sheet.getCell(row, 2).value = tab;
+    sheet.getCell(row, 3).value = met;
+    sheet.getCell(row, 4).value = total;
+    sheet.getCell(row, 5).value = `${percentage}%`;
     row++;
   });
   
   // Set column widths
-  sheet.getColumn('B').width = 25;
-  sheet.getColumn('C').width = 15;
-  sheet.getColumn('D').width = 15;
+  sheet.getColumn('B').width = 35;
+  sheet.getColumn('C').width = 12;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 15;
 }
 
 /**
@@ -360,18 +426,18 @@ function createKnowledgeEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  sheet.mergeCells(`B${row}:H${row}`);
   row += 2;
   
-  // Headers
+  // Headers (matching Results Explorer columns exactly)
   const headers = [
     'Number',
     'Requirement',
     'Mapping Status',
-    'Mapped Content',
-    'Unmapped Content Reasoning',
-    'Recommendations',
-    'Document Reference',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
   ];
   
   headers.forEach((header, idx) => {
@@ -387,18 +453,28 @@ function createKnowledgeEvidenceSheet(
   });
   row++;
   
-  // Data rows
+  // Data rows (using validation_results fields)
   data.forEach((item) => {
-    const parsed = parseRequirementNumber(item.requirement_number);
-    
     sheet.getCell(row, 2).value = item.requirement_number;
     sheet.getCell(row, 3).value = item.requirement_text;
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
-    sheet.getCell(row, 5).value = item.mapped_content || '';
-    sheet.getCell(row, 6).value = item.reasoning || '';
-    sheet.getCell(row, 7).value = item.benchmark_answer || '';
-    sheet.getCell(row, 8).value = item.doc_references || '';
+    sheet.getCell(row, 5).value = item.reasoning || '';
+    
+    // Citations (JSONB array)
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+    
+    // Smart questions (JSONB array)
+    const smartQuestions = parseJSONBArray(item.smart_questions);
+    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
+      typeof q === 'string' ? q : q.question || q.text || ''
+    ).join('\n') || '';
+    
+    // Benchmark Answer
+    sheet.getCell(row, 8).value = item.benchmark_answer || '';
     
     // Apply text wrapping
     for (let col = 2; col <= 8; col++) {
@@ -410,12 +486,12 @@ function createKnowledgeEvidenceSheet(
   
   // Set column widths
   sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 30;
-  sheet.getColumn('D').width = 15;
-  sheet.getColumn('E').width = 25;
-  sheet.getColumn('F').width = 25;
-  sheet.getColumn('G').width = 25;
-  sheet.getColumn('H').width = 20;
+  sheet.getColumn('C').width = 35;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 30;
+  sheet.getColumn('F').width = 30;
+  sheet.getColumn('G').width = 35;
+  sheet.getColumn('H').width = 30;
 }
 
 /**
@@ -438,7 +514,94 @@ function createPerformanceEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  sheet.mergeCells(`B${row}:H${row}`);
+  row += 2;
+  
+  // Headers (matching Results Explorer columns exactly)
+  const headers = [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
+  ];
+  
+  headers.forEach((header, idx) => {
+    const cell = sheet.getCell(row, idx + 2);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: `FF${COLORS.HEADER}` },
+    };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  });
+  row++;
+  
+  // Data rows (using validation_results fields)
+  data.forEach((item) => {
+    sheet.getCell(row, 2).value = item.requirement_number;
+    sheet.getCell(row, 3).value = item.requirement_text;
+    sheet.getCell(row, 4).value = item.status;
+    applyStatusFill(sheet.getCell(row, 4), item.status);
+    sheet.getCell(row, 5).value = item.reasoning || '';
+    
+    // Citations (JSONB array)
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+    
+    // Smart questions (JSONB array)
+    const smartQuestions = parseJSONBArray(item.smart_questions);
+    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
+      typeof q === 'string' ? q : q.question || q.text || ''
+    ).join('\n') || '';
+    
+    // Benchmark Answer
+    sheet.getCell(row, 8).value = item.benchmark_answer || '';
+    
+    // Apply text wrapping
+    for (let col = 2; col <= 8; col++) {
+      sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
+    }
+    
+    row++;
+  });
+  
+  // Set column widths
+  sheet.getColumn('B').width = 12;
+  sheet.getColumn('C').width = 35;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 30;
+  sheet.getColumn('F').width = 30;
+  sheet.getColumn('G').width = 35;
+  sheet.getColumn('H').width = 30;
+}
+
+/**
+ * Create Elements & Performance Criteria Sheet
+ */
+function createElementsPerformanceCriteriaSheet(
+  workbook: ExcelJS.Workbook,
+  data: ValidationEvidenceRecord[]
+) {
+  const sheet = workbook.addWorksheet('Elements & Performance Criteria');
+  
+  // Title
+  let row = 2;
+  const titleCell = sheet.getCell(`B${row}`);
+  titleCell.value = 'Elements & Performance Criteria';
+  titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  titleCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: `FF${COLORS.TITLE}` },
+  };
+  sheet.mergeCells(`B${row}:H${row}`);
   row += 2;
   
   // Headers
@@ -446,10 +609,10 @@ function createPerformanceEvidenceSheet(
     'Number',
     'Requirement',
     'Mapping Status',
-    'Mapped Content',
-    'Unmapped Content Reasoning',
-    'Recommendations',
-    'Document Reference',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
   ];
   
   headers.forEach((header, idx) => {
@@ -467,18 +630,24 @@ function createPerformanceEvidenceSheet(
   
   // Data rows
   data.forEach((item) => {
-    const parsed = parseRequirementNumber(item.requirement_number);
-    
     sheet.getCell(row, 2).value = item.requirement_number;
     sheet.getCell(row, 3).value = item.requirement_text;
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
-    sheet.getCell(row, 5).value = item.mapped_content || '';
-    sheet.getCell(row, 6).value = item.reasoning || '';
-    sheet.getCell(row, 7).value = item.benchmark_answer || '';
-    sheet.getCell(row, 8).value = item.doc_references || '';
+    sheet.getCell(row, 5).value = item.reasoning || '';
     
-    // Apply text wrapping
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+    
+    const smartQuestions = parseJSONBArray(item.smart_questions);
+    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
+      typeof q === 'string' ? q : q.question || q.text || ''
+    ).join('\n') || '';
+    
+    sheet.getCell(row, 8).value = item.benchmark_answer || '';
+    
     for (let col = 2; col <= 8; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
@@ -488,12 +657,178 @@ function createPerformanceEvidenceSheet(
   
   // Set column widths
   sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 30;
-  sheet.getColumn('D').width = 15;
-  sheet.getColumn('E').width = 25;
-  sheet.getColumn('F').width = 25;
-  sheet.getColumn('G').width = 25;
-  sheet.getColumn('H').width = 20;
+  sheet.getColumn('C').width = 35;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 30;
+  sheet.getColumn('F').width = 30;
+  sheet.getColumn('G').width = 35;
+  sheet.getColumn('H').width = 30;
+}
+
+/**
+ * Create Foundation Skills Sheet
+ */
+function createFoundationSkillsSheet(
+  workbook: ExcelJS.Workbook,
+  data: ValidationEvidenceRecord[]
+) {
+  const sheet = workbook.addWorksheet('Foundation Skills');
+  
+  // Title
+  let row = 2;
+  const titleCell = sheet.getCell(`B${row}`);
+  titleCell.value = 'Foundation Skills';
+  titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  titleCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: `FF${COLORS.TITLE}` },
+  };
+  sheet.mergeCells(`B${row}:H${row}`);
+  row += 2;
+  
+  // Headers
+  const headers = [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
+  ];
+  
+  headers.forEach((header, idx) => {
+    const cell = sheet.getCell(row, idx + 2);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: `FF${COLORS.HEADER}` },
+    };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  });
+  row++;
+  
+  // Data rows
+  data.forEach((item) => {
+    sheet.getCell(row, 2).value = item.requirement_number;
+    sheet.getCell(row, 3).value = item.requirement_text;
+    sheet.getCell(row, 4).value = item.status;
+    applyStatusFill(sheet.getCell(row, 4), item.status);
+    sheet.getCell(row, 5).value = item.reasoning || '';
+    
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+    
+    const smartQuestions = parseJSONBArray(item.smart_questions);
+    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
+      typeof q === 'string' ? q : q.question || q.text || ''
+    ).join('\n') || '';
+    
+    sheet.getCell(row, 8).value = item.benchmark_answer || '';
+    
+    for (let col = 2; col <= 8; col++) {
+      sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
+    }
+    
+    row++;
+  });
+  
+  // Set column widths
+  sheet.getColumn('B').width = 12;
+  sheet.getColumn('C').width = 35;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 30;
+  sheet.getColumn('F').width = 30;
+  sheet.getColumn('G').width = 35;
+  sheet.getColumn('H').width = 30;
+}
+
+/**
+ * Create Assessment Conditions Sheet
+ */
+function createAssessmentConditionsSheet(
+  workbook: ExcelJS.Workbook,
+  data: ValidationEvidenceRecord[]
+) {
+  const sheet = workbook.addWorksheet('Assessment Conditions');
+  
+  // Title
+  let row = 2;
+  const titleCell = sheet.getCell(`B${row}`);
+  titleCell.value = 'Assessment Conditions';
+  titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  titleCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: `FF${COLORS.TITLE}` },
+  };
+  sheet.mergeCells(`B${row}:H${row}`);
+  row += 2;
+  
+  // Headers
+  const headers = [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
+  ];
+  
+  headers.forEach((header, idx) => {
+    const cell = sheet.getCell(row, idx + 2);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: `FF${COLORS.HEADER}` },
+    };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  });
+  row++;
+  
+  // Data rows
+  data.forEach((item) => {
+    sheet.getCell(row, 2).value = item.requirement_number;
+    sheet.getCell(row, 3).value = item.requirement_text;
+    sheet.getCell(row, 4).value = item.status;
+    applyStatusFill(sheet.getCell(row, 4), item.status);
+    sheet.getCell(row, 5).value = item.reasoning || '';
+    
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+    
+    const smartQuestions = parseJSONBArray(item.smart_questions);
+    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
+      typeof q === 'string' ? q : q.question || q.text || ''
+    ).join('\n') || '';
+    
+    sheet.getCell(row, 8).value = item.benchmark_answer || '';
+    
+    for (let col = 2; col <= 8; col++) {
+      sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
+    }
+    
+    row++;
+  });
+  
+  // Set column widths
+  sheet.getColumn('B').width = 12;
+  sheet.getColumn('C').width = 35;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 30;
+  sheet.getColumn('F').width = 30;
+  sheet.getColumn('G').width = 35;
+  sheet.getColumn('H').width = 30;
 }
 
 /**

@@ -42,23 +42,25 @@ const REPORT_OPTIONS: ReportOption[] = [
   {
     id: 'assessment',
     title: 'Assessment Report',
-    description: 'Comprehensive validation report with all evidence types',
+    description: 'Complete validation report with all requirement types',
     includes: [
-      'Summary with overall status and scores',
-      'Knowledge Evidence analysis',
-      'Performance Evidence validation',
-      'Detailed mapping and recommendations',
+      'Elements & Performance Criteria',
+      'Knowledge Evidence',
+      'Performance Evidence',
+      'Foundation Skills',
+      'Assessment Conditions',
+      'All columns: Requirement, Status, Reasoning, Citations, Smart Questions, Benchmark Answers',
     ],
   },
   {
     id: 'learner-guide',
     title: 'Learner Guide Report',
-    description: 'Learner-focused validation report with practical guidance',
+    description: 'Learner Guide validation with focused requirement types',
     includes: [
-      'Summary with focus on learner outcomes',
-      'Performance Evidence with practical examples',
-      'Knowledge Evidence with learning objectives',
-      'Actionable recommendations for improvement',
+      'Elements & Performance Criteria',
+      'Knowledge Evidence',
+      'Performance Evidence',
+      'All columns: Requirement, Status, Reasoning, Citations, Smart Questions, Benchmark Answers',
     ],
   },
 ];
@@ -73,7 +75,8 @@ export function ReportGenerationPopup({
   validationType,
   validationResults,
 }: ReportGenerationPopupProps) {
-  const [selectedReportType, setSelectedReportType] = useState<'assessment' | 'learner-guide'>('assessment');
+  // Auto-select report type based on validation type (no user selection)
+  const reportType = validationType;
   const { generateReport, isGenerating } = useReportGeneration();
 
   const handleGenerateReport = async () => {
@@ -83,7 +86,7 @@ export function ReportGenerationPopup({
         unitCode,
         unitTitle,
         rtoName,
-        validationType: selectedReportType,
+        validationType: reportType,
         createdDate: new Date().toISOString().split('T')[0],
       },
       validationResults
@@ -97,7 +100,7 @@ export function ReportGenerationPopup({
     }
   };
 
-  const selectedOption = REPORT_OPTIONS.find(opt => opt.id === selectedReportType);
+  const selectedOption = REPORT_OPTIONS.find(opt => opt.id === reportType);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -108,7 +111,7 @@ export function ReportGenerationPopup({
             Generate Validation Report
           </DialogTitle>
           <DialogDescription>
-            Select a report type to generate for {unitCode}
+            Generate {selectedOption?.title || 'validation report'} for {unitCode}
           </DialogDescription>
         </DialogHeader>
 
@@ -135,64 +138,34 @@ export function ReportGenerationPopup({
             </div>
           </div>
 
-          {/* Report Type Selection */}
-          <div className="space-y-3">
-            <label className="text-sm font-semibold text-gray-700">Select Report Type</label>
-            <div className="grid grid-cols-1 gap-3">
-              {REPORT_OPTIONS.map((option) => (
-                <Card
-                  key={option.id}
-                  className={`cursor-pointer transition-all ${
-                    selectedReportType === option.id
-                      ? 'border-2 border-blue-500 bg-blue-50'
-                      : 'border border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => setSelectedReportType(option.id)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">{option.title}</CardTitle>
-                        <CardDescription className="text-sm">{option.description}</CardDescription>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <input
-                          type="radio"
-                          name="report-type"
-                          value={option.id}
-                          checked={selectedReportType === option.id}
-                          onChange={() => setSelectedReportType(option.id)}
-                          className="h-4 w-4 text-blue-600"
-                        />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-1">
-                      {option.includes.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          {/* Report Details */}
+          {/* Auto-Selected Report Type Display */}
           {selectedOption && (
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-2">{selectedOption.title}</h4>
-              <p className="text-sm text-gray-600 mb-3">{selectedOption.description}</p>
-              <div className="text-xs text-gray-500">
-                <p>• Format: Excel (.xlsx)</p>
-                <p>• File will be automatically downloaded to your computer</p>
-                <p>• Contains formatted data with color-coded status indicators</p>
-              </div>
-            </div>
+            <Card className="border-2 border-blue-500 bg-blue-50">
+              <CardHeader className="pb-3">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <CardTitle className="text-base">{selectedOption.title}</CardTitle>
+                    <CardDescription className="text-sm">{selectedOption.description}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1 mb-3">
+                  {selectedOption.includes.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
+                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="text-xs text-gray-500 bg-white rounded p-2 border border-blue-200">
+                  <p>• Format: Excel (.xlsx)</p>
+                  <p>• File will be automatically downloaded</p>
+                  <p>• Contains formatted data with color-coded status indicators</p>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
 

@@ -1,13 +1,13 @@
 /**
  * n8n API Integration Utilities
  * 
- * Provides functions to call n8n webhooks for various operations:
- * - Document processing
- * - Validation processing
- * - Report generation
- * - Requirement revalidation
- * - Question regeneration
- * - AI chat
+ * Provides functions for various validation operations:
+ * - Document processing (via n8n webhook)
+ * - Validation processing (via n8n webhook)
+ * - Report generation (direct database query → Excel templates)
+ * - Requirement revalidation (via n8n webhook)
+ * - Question regeneration (via n8n webhook)
+ * - AI chat (via n8n webhook)
  */
 
 interface N8nResponse<T = any> {
@@ -92,7 +92,8 @@ export async function triggerValidation(validationDetailId: number): Promise<N8n
 }
 
 /**
- * Generate validation report by querying database directly
+ * Generate validation report via n8n webhook (deprecated - use ReportGenerationPopup instead)
+ * Kept for backward compatibility
  */
 export async function generateReport(validationDetailId: number): Promise<{
   success: boolean;
@@ -100,149 +101,11 @@ export async function generateReport(validationDetailId: number): Promise<{
   filename?: string;
   error?: string;
 }> {
-  console.log('[n8nApi] Generating report for validation:', validationDetailId);
-
-  try {
-    // Import supabase dynamically to avoid circular dependencies
-    const { supabase } = await import('./supabase');
-    
-    // Fetch validation detail with relationships
-    const { data: validationDetail, error: validationError } = await supabase
-      .from('validation_detail')
-      .select(`
-        *,
-        validation_summary:summary_id(unitCode, qualificationCode),
-        validation_type:validationType_id(code)
-      `)
-      .eq('id', validationDetailId)
-      .single();
-
-    if (validationError) {
-      throw new Error(`Failed to fetch validation details: ${validationError.message}`);
-    }
-
-    // Fetch all validation results
-    const { data: results, error: resultsError } = await supabase
-      .from('validation_results')
-      .select('*')
-      .eq('validation_detail_id', validationDetailId)
-      .order('requirement_number');
-
-    if (resultsError) {
-      throw new Error(`Failed to fetch validation results: ${resultsError.message}`);
-    }
-
-    if (!results || results.length === 0) {
-      throw new Error('No validation results found');
-    }
-
-    // Generate report content
-    const report = formatValidationReport(validationDetail, results);
-    
-    // Generate filename
-    const unitCode = validationDetail.validation_summary?.unitCode || 'unknown';
-    const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `${unitCode}_validation_report_${timestamp}.md`;
-
-    console.log('[n8nApi] Report generated successfully:', { resultCount: results.length, filename });
-
-    return {
-      success: true,
-      report,
-      filename,
-    };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[n8nApi] Report generation error:', errorMsg);
-    return {
-      success: false,
-      error: errorMsg,
-    };
-  }
-}
-
-/**
- * Format validation results into markdown report
- */
-function formatValidationReport(validationDetail: any, results: any[]): string {
-  const unitCode = validationDetail.validation_summary?.unitCode || 'N/A';
-  const unitTitle = validationDetail.validation_summary?.qualificationCode || 'N/A';
-  const validationType = validationDetail.validation_type?.code || 'N/A';
-  const createdAt = new Date(validationDetail.created_at).toLocaleDateString();
-  
-  // Calculate statistics
-  const total = results.length;
-  const met = results.filter(r => r.status?.toLowerCase() === 'met').length;
-  const notMet = results.filter(r => r.status?.toLowerCase().includes('not')).length;
-  const partial = results.filter(r => r.status?.toLowerCase() === 'partial').length;
-  const complianceScore = total > 0 ? Math.round((met / total) * 100) : 0;
-
-  let report = `# Validation Report\n\n`;
-  report += `**Unit Code:** ${unitCode}\n`;
-  report += `**Unit Title:** ${unitTitle}\n`;
-  report += `**Validation Type:** ${validationType}\n`;
-  report += `**Date Generated:** ${createdAt}\n\n`;
-  
-  report += `---\n\n`;
-  
-  report += `## Summary\n\n`;
-  report += `- **Total Requirements:** ${total}\n`;
-  report += `- **Met:** ${met} (${total > 0 ? Math.round((met / total) * 100) : 0}%)\n`;
-  report += `- **Not Met:** ${notMet} (${total > 0 ? Math.round((notMet / total) * 100) : 0}%)\n`;
-  report += `- **Partial:** ${partial} (${total > 0 ? Math.round((partial / total) * 100) : 0}%)\n`;
-  report += `- **Compliance Score:** ${complianceScore}%\n\n`;
-  
-  report += `---\n\n`;
-  
-  report += `## Detailed Results\n\n`;
-  
-  results.forEach((result, index) => {
-    report += `### ${result.requirement_number || `Requirement ${index + 1}`}\n\n`;
-    report += `**Type:** ${result.requirement_type || 'N/A'}\n\n`;
-    report += `**Requirement:** ${result.requirement_text || 'N/A'}\n\n`;
-    report += `**Status:** ${result.status || 'N/A'}\n\n`;
-    
-    if (result.reasoning) {
-      report += `**Reasoning:**\n${result.reasoning}\n\n`;
-    }
-    
-    // Smart questions (JSONB array)
-    if (result.smart_questions && Array.isArray(result.smart_questions) && result.smart_questions.length > 0) {
-      report += `**Smart Questions:**\n`;
-      result.smart_questions.forEach((q: any) => {
-        const questionText = typeof q === 'string' ? q : q.question || q.text || JSON.stringify(q);
-        report += `- ${questionText}\n`;
-      });
-      report += `\n`;
-    }
-    
-    // Benchmark answer
-    if (result.benchmark_answer) {
-      report += `**Benchmark Answer:**\n${result.benchmark_answer}\n\n`;
-    }
-    
-    // Document references (from citations JSONB array)
-    if (result.citations && Array.isArray(result.citations) && result.citations.length > 0) {
-      report += `**Document References:**\n`;
-      result.citations.forEach((citation: any, idx: number) => {
-        if (typeof citation === 'string') {
-          report += `${idx + 1}. ${citation}\n`;
-        } else {
-          report += `${idx + 1}. ${citation.text || citation.reference || JSON.stringify(citation)}\n`;
-        }
-      });
-      report += `\n`;
-    }
-    
-    // Document namespace (for multi-document validations)
-    if (result.document_namespace) {
-      report += `**Document:** ${result.document_namespace}\n\n`;
-    }
-    
-    report += `---\n\n`;
-  });
-  
-  return report;
+  console.warn('[n8nApi] generateReport is deprecated. Use ReportGenerationPopup component instead.');
+  return {
+    success: false,
+    error: 'This function is deprecated. Please use the Report Generation popup.',
+  };
 }
 
 /**
