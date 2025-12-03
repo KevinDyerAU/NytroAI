@@ -1,8 +1,8 @@
 /**
  * ResultsExplorerActions Component
  * 
- * Action buttons for Results Explorer using n8n webhooks:
- * - Generate Report
+ * Action buttons for Results Explorer:
+ * - Generate Report (with popup for report type selection)
  * - Revalidate Requirement
  * - Regenerate Smart Questions
  */
@@ -11,6 +11,8 @@ import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { FileDown, RefreshCw, Sparkles, Loader2 } from 'lucide-react';
 import { useResultsActions } from '../hooks/useResultsActions';
+import { ReportGenerationPopup } from './ReportGenerationPopup';
+import { ValidationEvidenceRecord } from '../types/rto';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import {
@@ -24,36 +26,52 @@ import {
 
 interface ResultsExplorerActionsProps {
   validationDetailId: number;
+  unitCode: string;
+  unitTitle: string;
+  rtoName: string;
+  validationType: 'assessment' | 'learner-guide';
+  validationResults: ValidationEvidenceRecord[];
   onRefresh?: () => void;
 }
 
 export function ResultsExplorerActions({
   validationDetailId,
+  unitCode,
+  unitTitle,
+  rtoName,
+  validationType,
+  validationResults,
   onRefresh,
 }: ResultsExplorerActionsProps) {
-  const {
-    generateAndDownloadReport,
-    isGeneratingReport,
-  } = useResultsActions(onRefresh);
+  const [showReportPopup, setShowReportPopup] = useState(false);
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Generate Report Button */}
-      <Button
-        onClick={() => generateAndDownloadReport(validationDetailId)}
-        disabled={isGeneratingReport}
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-2"
-      >
-        {isGeneratingReport ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
+    <>
+      <div className="flex items-center gap-2">
+        {/* Generate Report Button */}
+        <Button
+          onClick={() => setShowReportPopup(true)}
+          disabled={validationResults.length === 0}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
           <FileDown className="w-4 h-4" />
-        )}
-        {isGeneratingReport ? 'Generating...' : 'Download Report'}
-      </Button>
-    </div>
+          Download Report
+        </Button>
+      </div>
+
+      <ReportGenerationPopup
+        isOpen={showReportPopup}
+        onOpenChange={setShowReportPopup}
+        validationDetailId={validationDetailId}
+        unitCode={unitCode}
+        unitTitle={unitTitle}
+        rtoName={rtoName}
+        validationType={validationType}
+        validationResults={validationResults}
+      />
+    </>
   );
 }
 

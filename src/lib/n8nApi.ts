@@ -1,13 +1,13 @@
 /**
  * n8n API Integration Utilities
  * 
- * Provides functions to call n8n webhooks for various operations:
- * - Document processing
- * - Validation processing
- * - Report generation
- * - Requirement revalidation
- * - Question regeneration
- * - AI chat
+ * Provides functions for various validation operations:
+ * - Document processing (via n8n webhook)
+ * - Validation processing (via n8n webhook)
+ * - Report generation (direct database query → Excel templates)
+ * - Requirement revalidation (via n8n webhook)
+ * - Question regeneration (via n8n webhook)
+ * - AI chat (via n8n webhook)
  */
 
 interface N8nResponse<T = any> {
@@ -92,7 +92,8 @@ export async function triggerValidation(validationDetailId: number): Promise<N8n
 }
 
 /**
- * Generate validation report via n8n
+ * Generate validation report via n8n webhook (deprecated - use ReportGenerationPopup instead)
+ * Kept for backward compatibility
  */
 export async function generateReport(validationDetailId: number): Promise<{
   success: boolean;
@@ -100,28 +101,11 @@ export async function generateReport(validationDetailId: number): Promise<{
   filename?: string;
   error?: string;
 }> {
-  const n8nUrl = import.meta.env.VITE_N8N_REPORT_URL;
-  
-  if (!n8nUrl) {
-    throw new Error('N8N report URL not configured. Please set VITE_N8N_REPORT_URL in environment variables.');
-  }
-
-  const response = await fetch(n8nUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      validation_detail_id: validationDetailId,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(`Report generation failed (${response.status}): ${errorText}`);
-  }
-
-  return await response.json();
+  console.warn('[n8nApi] generateReport is deprecated. Use ReportGenerationPopup component instead.');
+  return {
+    success: false,
+    error: 'This function is deprecated. Please use the Report Generation popup.',
+  };
 }
 
 /**
