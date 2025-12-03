@@ -8,7 +8,8 @@ import { StatusBadge } from './StatusBadge';
 import { ValidationStatusIndicator } from './ValidationStatusIndicator';
 import { Progress } from './ui/progress';
 import { ValidationReport } from './reports';
-import { 
+import { ReportDownloadPopup } from './ReportDownloadPopup';
+import {
   Search, 
   Download,
   X,
@@ -37,8 +38,6 @@ import {
 import { mockValidations, getValidationTypeLabel, formatValidationDate, Validation } from '../types/validation';
 import { toast } from 'sonner';
 import { getRTOById, getAICredits, consumeAICredit, getActiveValidationsByRTO, getValidationResults, type ValidationRecord, type ValidationEvidenceRecord } from '../types/rto';
-import { ReportGenerationPopupWithStorage } from './ReportGenerationPopupWithStorage';
-import { Button } from './ui/button';
 
 interface ResultsExplorerProps {
   selectedValidationId?: string | null;
@@ -54,8 +53,8 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
   const [showChat, setShowChat] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
-  const [showReportPopup, setShowReportPopup] = useState(false);
   const [selectedValidationDetailId, setSelectedValidationDetailId] = useState<number | null>(null);
+  const [showReportDownloadPopup, setShowReportDownloadPopup] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });
   const [isConsumingCredit, setIsConsumingCredit] = useState(false);
@@ -404,15 +403,15 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button
-                  onClick={() => setShowReportPopup(true)}
+                <GlowButton 
+                  variant="default" 
+                  onClick={() => setShowReportDownloadPopup(true)}
                   disabled={validationEvidenceData.length === 0}
                   className="flex items-center gap-2"
-                  variant="default"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   Generate Report
-                </Button>
+                </GlowButton>
                 {selectedValidation.reportSigned ? (
                   <GlowButton variant="primary" onClick={handleDownloadReport}>
                     <Download className="w-5 h-5 mr-2" />
@@ -773,15 +772,15 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
       </Dialog>
 
       {selectedValidation && (
-        <ReportGenerationPopupWithStorage
-          isOpen={showReportPopup}
-          onOpenChange={setShowReportPopup}
+        <ReportDownloadPopup
+          isOpen={showReportDownloadPopup}
+          onOpenChange={setShowReportDownloadPopup}
           validationDetailId={selectedValidationDetailId || 0}
           unitCode={selectedValidation.unitCode}
           unitTitle={selectedValidation.unitTitle}
           rtoName={getRTOById(selectedRTOId)?.name || 'Unknown RTO'}
           rtoCode={getRTOById(selectedRTOId)?.code || 'UNKNOWN'}
-          validationType={selectedValidation.validationType || 'assessment'}
+          validationType={selectedValidation.validationType as 'learner-guide' | 'assessment' | 'unit'}
           validationResults={validationEvidenceData}
         />
       )}
