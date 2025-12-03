@@ -721,41 +721,15 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
 
             {/* Report Options */}
             <div className="space-y-3">
-              {selectedValidation?.reportSigned ? (
-                <GlowButton
-                  variant="primary"
-                  className="w-full justify-center"
-                  onClick={handleDownloadReport}
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Download Report
-                </GlowButton>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <label htmlFor="confirm-text" className="text-sm text-[#64748b]">
-                      Type <span className="font-medium text-[#0f172a]">report</span> to confirm:
-                    </label>
-                    <Input
-                      id="confirm-text"
-                      type="text"
-                      value={confirmText}
-                      onChange={(e) => setConfirmText(e.target.value)}
-                      placeholder="Type report here"
-                      className="w-full"
-                    />
-                  </div>
-                  <GlowButton
-                    variant="primary"
-                    className="w-full justify-center"
-                    onClick={handleGenerateReport}
-                    disabled={confirmText.toLowerCase() !== 'report' || aiCredits.current <= 0 || isConsumingCredit}
-                  >
-                    <FileCheck className="w-5 h-5 mr-2" />
-                    {isConsumingCredit ? 'Processing...' : aiCredits.current <= 0 ? 'Insufficient AI Credits' : 'Generate & Sign Report'}
-                  </GlowButton>
-                </>
-              )}
+              <GlowButton
+                variant="primary"
+                className="w-full justify-center"
+                onClick={() => setShowReportDownloadPopup(true)}
+                disabled={validationEvidenceData.length === 0}
+              >
+                <FileSpreadsheet className="w-5 h-5 mr-2" />
+                Generate Excel Report
+              </GlowButton>
             </div>
           </div>
 
