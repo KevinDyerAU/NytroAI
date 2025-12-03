@@ -16,7 +16,8 @@ import {
   AlertCircle,
   Calendar,
   FileText,
-  FileCheck
+  FileCheck,
+  FileSpreadsheet
 } from 'lucide-react';
 import {
   Select,
@@ -36,6 +37,8 @@ import {
 import { mockValidations, getValidationTypeLabel, formatValidationDate, Validation } from '../types/validation';
 import { toast } from 'sonner';
 import { getRTOById, getAICredits, consumeAICredit, getActiveValidationsByRTO, getValidationResults, type ValidationRecord, type ValidationEvidenceRecord } from '../types/rto';
+import { ReportGenerationPopupWithStorage } from './ReportGenerationPopupWithStorage';
+import { Button } from './ui/button';
 
 interface ResultsExplorerProps {
   selectedValidationId?: string | null;
@@ -51,6 +54,7 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
   const [showChat, setShowChat] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
+  const [showReportPopup, setShowReportPopup] = useState(false);
   const [selectedValidationDetailId, setSelectedValidationDetailId] = useState<number | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });
@@ -400,6 +404,15 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                 </div>
               </div>
               <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowReportPopup(true)}
+                  disabled={validationEvidenceData.length === 0}
+                  className="flex items-center gap-2"
+                  variant="default"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Generate Report
+                </Button>
                 {selectedValidation.reportSigned ? (
                   <GlowButton variant="primary" onClick={handleDownloadReport}>
                     <Download className="w-5 h-5 mr-2" />
@@ -758,6 +771,20 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedValidation && (
+        <ReportGenerationPopupWithStorage
+          isOpen={showReportPopup}
+          onOpenChange={setShowReportPopup}
+          validationDetailId={selectedValidationDetailId || 0}
+          unitCode={selectedValidation.unitCode}
+          unitTitle={selectedValidation.unitTitle}
+          rtoName={getRTOById(selectedRTOId)?.name || 'Unknown RTO'}
+          rtoCode={getRTOById(selectedRTOId)?.code || 'UNKNOWN'}
+          validationType={selectedValidation.validationType || 'assessment'}
+          validationResults={validationEvidenceData}
+        />
+      )}
     </div>
   );
 }
