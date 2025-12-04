@@ -49,6 +49,7 @@ const REPORT_OPTIONS: ReportOption[] = [
       'Performance Evidence',
       'Foundation Skills',
       'Assessment Conditions',
+      'Assessment Instructions',
       'All columns: Requirement, Status, Reasoning, Citations, Smart Questions, Benchmark Answers',
     ],
   },

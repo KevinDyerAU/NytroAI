@@ -4,6 +4,7 @@ import {
   Home,
   Upload,
   BarChart3,
+  Target,
   Settings,
   Lock,
   LogOut
@@ -77,6 +78,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'acquisition', label: 'Unit Acquisition', icon: Target },
     { id: 'upload', label: 'Validate', icon: Upload },
     { id: 'results', label: 'Results Explorer', icon: BarChart3 },
   ];

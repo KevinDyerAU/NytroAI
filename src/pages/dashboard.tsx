@@ -185,6 +185,8 @@ export function DashboardPage() {
             creditsRefreshTrigger={creditsRefreshTrigger}
           />
         );
+      case 'acquisition':
+        return <UnitAcquisition selectedRTOId={selectedRTOId} />;
       case 'upload':
         if (!rtosLoaded) {
           return (

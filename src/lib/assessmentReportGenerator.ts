@@ -9,6 +9,7 @@
 
 import ExcelJS from 'exceljs';
 import { ValidationEvidenceRecord } from '../types/rto';
+import wizardLogo from '../assets/wizard-logo.png';
 
 // Color scheme
 const COLORS = {
@@ -116,14 +117,19 @@ export async function generateAssessmentReport(
     r.requirement_type === 'assessment_conditions'
   );
   
+  const assessmentInstructions = params.validationResults.filter(r => 
+    r.requirement_type === 'assessment_instructions'
+  );
+  
   // Create sheets (all tabs for assessment)
-  createCoverSheet(workbook, params);
-  createAssessmentSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence);
+  await createCoverSheet(workbook, params);
+  createAssessmentSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence, elementsPerfCriteria, foundationSkills, assessmentConditions, assessmentInstructions);
   createElementsPerformanceCriteriaSheet(workbook, elementsPerfCriteria);
   createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'assessment');
   createPerformanceEvidenceSheet(workbook, performanceEvidence, 'assessment');
   createFoundationSkillsSheet(workbook, foundationSkills);
   createAssessmentConditionsSheet(workbook, assessmentConditions);
+  createAssessmentInstructionsSheet(workbook, assessmentInstructions);
   
   // Generate buffer and return as Blob
   const buffer = await workbook.xlsx.writeBuffer();
@@ -154,7 +160,7 @@ export async function generateLearnerGuideReport(
   );
   
   // Create sheets (Elements & PC, KE, PE)
-  createCoverSheet(workbook, params);
+  await createCoverSheet(workbook, params);
   createLearnerGuideSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence);
   createElementsPerformanceCriteriaSheet(workbook, elementsPerfCriteria);
   createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'learner-guide');
@@ -170,7 +176,7 @@ export async function generateLearnerGuideReport(
 /**
  * Create Cover Sheet
  */
-function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentReportParams) {
+async function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentReportParams) {
   const sheet = workbook.addWorksheet('Cover');
   
   // Set background
@@ -179,8 +185,29 @@ function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentReportPa
     orientation: 'portrait',
   };
   
-  // Title area
-  let row = 5;
+  // Add Nytro wizard logo at the top (rows 1-7)
+  try {
+    const response = await fetch(wizardLogo);
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    const imageId = workbook.addImage({
+      buffer: uint8Array as any,
+      extension: 'png',
+    });
+    
+    // Position logo at top center spanning rows 1-7
+    sheet.addImage(imageId, {
+      tl: { col: 1.5, row: 0.5 }, // Top-left position 
+      ext: { width: 242, height: 140 }, // Logo size (10% wider)
+    });
+  } catch (error) {
+    console.error('Failed to add logo to cover sheet:', error);
+  }
+  
+  // Title area (starts at row 9 after logo)
+  let row = 9;
   const titleCell = sheet.getCell(`B${row}`);
   titleCell.value = `${params.validationType === 'learner-guide' ? 'Learner Guide' : 'Assessment'} Validation Report`;
   titleCell.font = { bold: true, size: 24, color: { argb: 'FFFFFFFF' } };
@@ -223,7 +250,11 @@ function createAssessmentSummarySheet(
   workbook: ExcelJS.Workbook,
   params: AssessmentReportParams,
   knowledgeEvidence: ValidationEvidenceRecord[],
-  performanceEvidence: ValidationEvidenceRecord[]
+  performanceEvidence: ValidationEvidenceRecord[],
+  elementsPerfCriteria: ValidationEvidenceRecord[],
+  foundationSkills: ValidationEvidenceRecord[],
+  assessmentConditions: ValidationEvidenceRecord[],
+  assessmentInstructions: ValidationEvidenceRecord[]
 ) {
   const sheet = workbook.addWorksheet('Summary');
   
@@ -262,11 +293,6 @@ function createAssessmentSummarySheet(
   sheet.getCell(`B${row}`).font = { bold: true, size: 12 };
   row++;
   
-  // Get all results by type
-  const elementsPerfCriteria = params.validationResults.filter(r => r.requirement_type === 'elements_performance_criteria');
-  const foundationSkills = params.validationResults.filter(r => r.requirement_type === 'foundation_skills');
-  const assessmentConditions = params.validationResults.filter(r => r.requirement_type === 'assessment_conditions');
-  
   // Calculate stats
   const calculateStats = (items: ValidationEvidenceRecord[]) => {
     const total = items.length;
@@ -281,6 +307,7 @@ function createAssessmentSummarySheet(
     ['Performance Evidence', ...Object.values(calculateStats(performanceEvidence))],
     ['Foundation Skills', ...Object.values(calculateStats(foundationSkills))],
     ['Assessment Conditions', ...Object.values(calculateStats(assessmentConditions))],
+    ['Assessment Instructions', ...Object.values(calculateStats(assessmentInstructions))],
   ];
   
   // Headers
@@ -761,6 +788,89 @@ function createAssessmentConditionsSheet(
   let row = 2;
   const titleCell = sheet.getCell(`B${row}`);
   titleCell.value = 'Assessment Conditions';
+  titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  titleCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: `FF${COLORS.TITLE}` },
+  };
+  sheet.mergeCells(`B${row}:H${row}`);
+  row += 2;
+  
+  // Headers
+  const headers = [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
+  ];
+  
+  headers.forEach((header, idx) => {
+    const cell = sheet.getCell(row, idx + 2);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: `FF${COLORS.HEADER}` },
+    };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  });
+  row++;
+  
+  // Data rows
+  data.forEach((item) => {
+    sheet.getCell(row, 2).value = item.requirement_number;
+    sheet.getCell(row, 3).value = item.requirement_text;
+    sheet.getCell(row, 4).value = item.status;
+    applyStatusFill(sheet.getCell(row, 4), item.status);
+    sheet.getCell(row, 5).value = item.reasoning || '';
+    
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+    
+    const smartQuestions = parseJSONBArray(item.smart_questions);
+    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
+      typeof q === 'string' ? q : q.question || q.text || ''
+    ).join('\n') || '';
+    
+    sheet.getCell(row, 8).value = item.benchmark_answer || '';
+    
+    for (let col = 2; col <= 8; col++) {
+      sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
+    }
+    
+    row++;
+  });
+  
+  // Set column widths
+  sheet.getColumn('B').width = 12;
+  sheet.getColumn('C').width = 35;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 30;
+  sheet.getColumn('F').width = 30;
+  sheet.getColumn('G').width = 35;
+  sheet.getColumn('H').width = 30;
+}
+
+/**
+ * Create Assessment Instructions Sheet
+ */
+function createAssessmentInstructionsSheet(
+  workbook: ExcelJS.Workbook,
+  data: ValidationEvidenceRecord[]
+) {
+  const sheet = workbook.addWorksheet('Assessment Instructions');
+  
+  // Title
+  let row = 2;
+  const titleCell = sheet.getCell(`B${row}`);
+  titleCell.value = 'Assessment Instructions';
   titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
   titleCell.fill = {
     type: 'pattern',

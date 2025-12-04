@@ -164,26 +164,12 @@ export function DocumentUploadAdapterSimplified({
     }
   };
 
-  // Handle file selection (memoized to prevent infinite loop)
-  const handleFilesSelected = useCallback(async (files: File[]) => {
-    console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
+  // Handle upload start - create validation record when Upload button is clicked
+  const handleUploadStart = useCallback(async () => {
+    console.log('[DocumentUploadAdapterSimplified] Upload started, creating validation record...');
     
-    // Only reset counts if we don't have a validation or if files are different
-    const filesChanged = selectedFiles.length !== files.length || 
-                         selectedFiles.some((f, i) => f?.name !== files[i]?.name);
-    
-    if (!validationDetailId || filesChanged) {
-      console.log('[DocumentUploadAdapterSimplified] 🆕 File selection, resetting counts');
-      setUploadedCount(0);
-      setIsComplete(false);
-    } else {
-      console.log('[DocumentUploadAdapterSimplified] ℹ️ Same files, keeping upload count:', uploadedCount);
-    }
-    
-    setSelectedFiles(files);
-
-    // Create NEW validation record ONLY if we don't have one or if not currently creating
-    if (files.length > 0 && selectedRTO && selectedUnit && !validationDetailId && !isCreatingValidation) {
+    // Create validation record if we don't have one
+    if (!validationDetailId && selectedRTO && selectedUnit && !isCreatingValidation) {
       setIsCreatingValidation(true);
       try {
         console.log('[DocumentUploadAdapterSimplified] Creating validation record...');
@@ -253,7 +239,24 @@ export function DocumentUploadAdapterSimplified({
     } else if (isCreatingValidation) {
       console.log('[DocumentUploadAdapterSimplified] ⏸️ Validation creation already in progress...');
     }
-  }, [selectedRTO, selectedUnit, validationType, validationDetailId, isCreatingValidation, selectedFiles, uploadedCount]);
+  }, [selectedRTO, selectedUnit, validationType, validationDetailId, isCreatingValidation]);
+
+  // Handle file selection (just update state, don't create validation)
+  const handleFilesSelected = useCallback((files: File[]) => {
+    console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
+    
+    // Only reset counts if files are different
+    const filesChanged = selectedFiles.length !== files.length || 
+                         selectedFiles.some((f, i) => f?.name !== files[i]?.name);
+    
+    if (filesChanged) {
+      console.log('[DocumentUploadAdapterSimplified] 🆕 File selection, resetting counts');
+      setUploadedCount(0);
+      setIsComplete(false);
+    }
+    
+    setSelectedFiles(files);
+  }, [selectedFiles]);
 
   // Handle upload complete (storage + DB record created)
   const handleUploadComplete = useCallback((documentId: number, fileName: string, storagePath: string) => {
@@ -473,6 +476,7 @@ export function DocumentUploadAdapterSimplified({
               validationDetailId={validationDetailId}
               onUploadComplete={handleUploadComplete}
               onFilesSelected={handleFilesSelected}
+              onUploadStart={handleUploadStart}
               clearFilesOnNewValidation={true}
             />
           ) : (

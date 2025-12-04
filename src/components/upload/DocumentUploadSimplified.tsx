@@ -11,6 +11,7 @@ interface DocumentUploadProps {
   validationDetailId?: number;
   onUploadComplete: (documentId: number, fileName: string, storagePath: string) => void;
   onFilesSelected?: (files: File[]) => void;
+  onUploadStart?: () => Promise<void>; // New callback fired when Upload button is clicked
   triggerUpload?: boolean;
   clearFilesOnNewValidation?: boolean;
 }
@@ -37,7 +38,8 @@ export function DocumentUploadSimplified({
   unitCode, 
   validationDetailId, 
   onUploadComplete, 
-  onFilesSelected, 
+  onFilesSelected,
+  onUploadStart,
   triggerUpload = false,
   clearFilesOnNewValidation = false
 }: DocumentUploadProps) {
@@ -115,13 +117,9 @@ export function DocumentUploadSimplified({
       },
     }));
 
-    // Replace files instead of appending if clearFilesOnNewValidation is true
-    if (clearFilesOnNewValidation) {
-      setFiles(newFiles);
-      hasNotifiedFilesRef.current = false;
-    } else {
-      setFiles(prev => [...prev, ...newFiles]);
-    }
+    // Always append files when user is actively selecting them
+    // The clearFilesOnNewValidation logic only applies when validationDetailId changes
+    setFiles(prev => [...prev, ...newFiles]);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -156,6 +154,19 @@ export function DocumentUploadSimplified({
       unitCode,
       fileCount: files.length,
     });
+
+    // Call onUploadStart callback to create validation record BEFORE uploading
+    if (onUploadStart) {
+      console.log('[DocumentUploadSimplified] Calling onUploadStart to create validation...');
+      try {
+        await onUploadStart();
+        console.log('[DocumentUploadSimplified] Validation record created, proceeding with upload');
+      } catch (error) {
+        console.error('[DocumentUploadSimplified] Failed to create validation:', error);
+        toast.error('Failed to create validation record');
+        return;
+      }
+    }
 
     setIsUploading(true);
 
