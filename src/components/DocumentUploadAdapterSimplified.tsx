@@ -245,18 +245,21 @@ export function DocumentUploadAdapterSimplified({
   const handleFilesSelected = useCallback((files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
     
-    // Only reset counts if files are different
+    // Only reset counts if files are different AND we haven't completed upload
     const filesChanged = selectedFiles.length !== files.length || 
                          selectedFiles.some((f, i) => f?.name !== files[i]?.name);
     
-    if (filesChanged) {
+    // Don't reset if upload is complete (this prevents resetting after successful upload)
+    if (filesChanged && !isComplete) {
       console.log('[DocumentUploadAdapterSimplified] 🆕 File selection, resetting counts');
       setUploadedCount(0);
       setIsComplete(false);
+    } else if (filesChanged && isComplete) {
+      console.log('[DocumentUploadAdapterSimplified] ⚠️ Files changed but upload already complete, not resetting');
     }
     
     setSelectedFiles(files);
-  }, [selectedFiles]);
+  }, [selectedFiles, isComplete]);
 
   // Handle upload complete (storage + DB record created)
   const handleUploadComplete = useCallback((documentId: number, fileName: string, storagePath: string) => {
