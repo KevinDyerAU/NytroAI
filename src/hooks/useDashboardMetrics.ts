@@ -73,6 +73,7 @@ export function useDashboardMetrics(rtoId: string | null, rtoCode: string | null
         }
 
         console.log('[useDashboardMetrics] Response:', { data });
+        console.log('[useDashboardMetrics] Success Rate:', data?.successRate);
         
         // Validate response has metrics
         if (!data || typeof data !== 'object') {

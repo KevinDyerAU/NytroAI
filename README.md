@@ -28,7 +28,129 @@ This new, simplified architecture significantly reduces complexity and operation
 
 ---
 
-## 2. High-Level System Architecture
+## 2. Dashboard Metrics
+
+The dashboard provides real-time insights into your validation operations through four key performance indicators (KPIs). Each metric updates automatically every 30 seconds.
+
+### 📊 Total Validations
+
+**Main Value:** Total number of completed validations (all time)
+
+**Subtitle:** Monthly change indicator
+
+**Calculation:**
+- Counts all records in the `validation_summary` table for your RTO
+- Compares current month's count vs. last month's count
+- Shows the difference (e.g., "+5 this month" or "-8 this month")
+
+**Example:**
+```
+26 validations total
+-8 this month
+```
+This means you have 26 total validations, and you completed 8 fewer validations this month compared to last month.
+
+---
+
+### ✅ Success Rate
+
+**Main Value:** Percentage of requirements that achieved "met" status (all time)
+
+**Subtitle:** Change from last month's success rate
+
+**Calculation:**
+- Queries all records in the `validation_results` table
+- Formula: `(requirements with status='met' / total requirements) × 100`
+- Compares current all-time rate vs. last month's rate
+- Shows the percentage point difference (e.g., "↑ 2.5% from last month")
+
+**Status Values:**
+- ✅ `met` - Counts as SUCCESS
+- ❌ `partially_met` - NOT success
+- ❌ `not_met` - NOT success
+- ❌ `error` - NOT success
+
+**Example:**
+```
+96%
+↑ 0.5% from last month
+```
+This means 96% of all requirements have been validated as "met", which is 0.5 percentage points higher than last month's overall rate.
+
+---
+
+### 🔄 Active Units
+
+**Main Value:** Number of units currently being processed
+
+**Subtitle:** Status message
+
+**Calculation:**
+- Counts `validation_detail` records that are NOT in "report stage"
+- A validation is in "report stage" when: `numOfReq === reqTotal AND reqTotal > 0`
+- Active units are still uploading documents or running validations
+
+**States:**
+- **Active (in progress):** `numOfReq < reqTotal` - Still validating requirements
+- **Report stage (complete):** `numOfReq === reqTotal` - All requirements validated
+- **Not started:** `reqTotal === 0` - No requirements loaded yet
+
+**Example:**
+```
+3
+Currently processing
+```
+This means 3 units are actively being validated (documents are being processed or requirements are being validated).
+
+---
+
+### ⚡ AI Queries
+
+**Main Value:** AI operations count (this month / all time)
+
+**Subtitle:** Description of what's counted
+
+**Calculation:**
+- Counts records in the `gemini_operations` table
+- Includes both indexing operations (file uploads to Gemini) and validation operations
+- Shows two numbers: "X this month / Y all time"
+
+**Operations Counted:**
+- 📤 File uploads to Gemini API (indexing)
+- 🤖 Validation requests to Gemini API
+- 🔄 Revalidation requests
+
+**Example:**
+```
+156 this month / 523 all time
+AI operations (indexing + validation)
+```
+This means you've made 156 AI API calls this month, and 523 total across all time.
+
+---
+
+### 📈 Month-Over-Month Calculations
+
+All month-over-month comparisons use calendar months:
+
+- **This Month:** From the 1st of the current month to now
+- **Last Month:** From the 1st to the last day of the previous calendar month
+
+**Date Ranges Example (December 2024):**
+```javascript
+This Month:  Dec 1, 2024 00:00:00 → Dec 5, 2024 03:36:00 (now)
+Last Month:  Nov 1, 2024 00:00:00 → Nov 30, 2024 23:59:59
+```
+
+**Change Indicators:**
+- `↑ X%` - Improvement (increase in success rate or count)
+- `↓ X%` - Decline (decrease in success rate or count)
+- `+X` - Growth in absolute count
+- `-X` - Reduction in absolute count
+
+---
+
+## 3. High-Level System Architecture
 
 The modernized NytroAI architecture is composed of four primary layers, working in concert to provide a seamless validation experience. The system is built on a foundation of Supabase for data and file storage, n8n for workflow automation, and Google Gemini for AI-powered analysis.
 
@@ -48,7 +170,7 @@ The new architecture represents a fundamental simplification of the system's des
 
 ---
 
-## 3. End-to-End Validation Workflow
+## 4. End-to-End Validation Workflow
 
 The validation process is designed for accuracy and transparency, with each step orchestrated by the n8n workflow. The system validates one requirement at a time to ensure the highest degree of focus and accuracy from the AI model.
 
@@ -69,7 +191,7 @@ The validation process is designed for accuracy and transparency, with each step
 
 ---
 
-## 4. Cost Analysis
+## 5. Cost Analysis
 
 The architectural simplification has led to a dramatic reduction in monthly operational costs, from over **$200/month** to an estimated **$35-$85/month**.
 
@@ -88,7 +210,7 @@ This represents a **~65% reduction** in estimated monthly costs, with the potent
 
 ---
 
-## 5. Accuracy & Validation Strategy
+## 6. Accuracy & Validation Strategy
 
 The cornerstone of the new architecture is the **Individual Requirement Validation** strategy. This approach was chosen to maximize accuracy by preventing AI model confusion and context dilution.
 
@@ -103,7 +225,7 @@ By adopting the individual validation strategy, NytroAI prioritizes **correctnes
 
 ---
 
-## 6. File Storage & Per-Requirement Strategy
+## 7. File Storage & Per-Requirement Strategy
 
 The system's file handling and session management are designed for simplicity and robustness.
 
@@ -129,7 +251,7 @@ This ensures that each validation is an **isolated, stateless operation**, preve
 
 ---
 
-## 7. Quick Start
+## 8. Quick Start
 
 ### Prerequisites
 
@@ -198,7 +320,7 @@ npm run dev
 
 ---
 
-## 8. Database Schema
+## 9. Database Schema
 
 ### Key Tables
 
@@ -212,7 +334,7 @@ npm run dev
 
 ---
 
-## 9. References
+## 10. References
 
 [1] Google AI. "Gemini 2.0 Flash API Documentation." [https://ai.google.dev/docs](https://ai.google.dev/docs)
 

@@ -119,16 +119,15 @@ serve(async (req) => {
 
     // 2. SUCCESS RATE
     console.log('║ Step 2: Calculating success rate...');
-    // Calculate percentage of "met" requirements across all validation results
-    // Query all validation result tables to get met vs total requirements
+    // Calculate percentage of "met" requirements from validation_results table
     
-    // Get validation IDs for this RTO if needed
+    // Get validation IDs for this RTO by joining with validation_summary
     let validationIdsForSuccess: number[] = [];
     if (rtoCode) {
       const { data: validationIds, error: validationIdsError } = await supabaseClient
         .from('validation_detail')
-        .select('id')
-        .eq('namespace_code', rtoCode);
+        .select('id, validation_summary!inner(rtoCode)')
+        .eq('validation_summary.rtoCode', rtoCode);
 
       if (validationIdsError) {
         console.error('Error fetching validation IDs for success rate:', validationIdsError);
@@ -136,75 +135,72 @@ serve(async (req) => {
       }
 
       validationIdsForSuccess = (validationIds || []).map((v: any) => v.id);
+      console.log(`║ Found ${validationIdsForSuccess.length} validation_detail IDs for RTO ${rtoCode}`);
     }
 
-    // Count total requirements and met requirements from all validation tables
-    const validationTables = [
-      'knowledge_evidence_validations',
-      'performance_evidence_validations',
-      'foundation_skills_validations'
-    ];
+    // Count total requirements and met requirements from validation_results table (ALL TIME)
+    let allResultsQuery = supabaseClient
+      .from('validation_results')
+      .select('status');
 
-    let totalRequirements = 0;
-    let metRequirements = 0;
-
-    for (const table of validationTables) {
-      let query = supabaseClient
-        .from(table)
-        .select('status');
-
-      if (rtoCode && validationIdsForSuccess.length > 0) {
-        query = query.in('valDetail_id', validationIdsForSuccess);
-      } else if (rtoCode && validationIdsForSuccess.length === 0) {
-        continue; // No validations for this RTO
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error(`Error fetching ${table}:`, error);
-        continue; // Skip this table on error
-      }
-
-      if (data && data.length > 0) {
-        totalRequirements += data.length;
-        metRequirements += data.filter((r: any) => r.status === 'met').length;
-      }
+    if (rtoCode && validationIdsForSuccess.length > 0) {
+      allResultsQuery = allResultsQuery.in('validation_detail_id', validationIdsForSuccess);
+    } else if (rtoCode && validationIdsForSuccess.length === 0) {
+      // No validations for this RTO
+      allResultsQuery = allResultsQuery.eq('id', -1);
     }
+
+    const { data: allResults, error: allResultsError } = await allResultsQuery;
+
+    if (allResultsError) {
+      console.error('Error fetching all validation results:', allResultsError);
+      throw allResultsError;
+    }
+
+    console.log(`║ Query returned ${allResults?.length || 0} validation_results records`);
+    if (allResults && allResults.length > 0) {
+      const statusCounts = allResults.reduce((acc: any, r: any) => {
+        acc[r.status] = (acc[r.status] || 0) + 1;
+        return acc;
+      }, {});
+      console.log('║ Status breakdown:', statusCounts);
+    }
+
+    const totalRequirements = allResults ? allResults.length : 0;
+    const metRequirements = allResults ? allResults.filter((r: any) => 
+      r.status && r.status.toLowerCase() === 'met'
+    ).length : 0;
 
     const successRate = totalRequirements > 0
       ? (metRequirements / totalRequirements) * 100
       : 0;
 
+    console.log(`║ Success Rate Calculation (All Time): ${metRequirements} met / ${totalRequirements} total = ${successRate.toFixed(1)}%`);
+
     // Calculate last month's success rate
-    let totalRequirementsLastMonth = 0;
-    let metRequirementsLastMonth = 0;
+    let lastMonthSuccessQuery = supabaseClient
+      .from('validation_results')
+      .select('status, created_at')
+      .gte('created_at', startOfLastMonth.toISOString())
+      .lte('created_at', endOfLastMonth.toISOString());
 
-    for (const table of validationTables) {
-      let query = supabaseClient
-        .from(table)
-        .select('status, created_at')
-        .gte('created_at', startOfLastMonth.toISOString())
-        .lte('created_at', endOfLastMonth.toISOString());
-
-      if (rtoCode && validationIdsForSuccess.length > 0) {
-        query = query.in('valDetail_id', validationIdsForSuccess);
-      } else if (rtoCode && validationIdsForSuccess.length === 0) {
-        continue;
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error(`Error fetching last month ${table}:`, error);
-        continue;
-      }
-
-      if (data && data.length > 0) {
-        totalRequirementsLastMonth += data.length;
-        metRequirementsLastMonth += data.filter((r: any) => r.status === 'met').length;
-      }
+    if (rtoCode && validationIdsForSuccess.length > 0) {
+      lastMonthSuccessQuery = lastMonthSuccessQuery.in('validation_detail_id', validationIdsForSuccess);
+    } else if (rtoCode && validationIdsForSuccess.length === 0) {
+      lastMonthSuccessQuery = lastMonthSuccessQuery.eq('id', -1);
     }
+
+    const { data: lastMonthResults, error: lastMonthSuccessError } = await lastMonthSuccessQuery;
+
+    if (lastMonthSuccessError) {
+      console.error('Error fetching last month validation results:', lastMonthSuccessError);
+      throw lastMonthSuccessError;
+    }
+
+    const totalRequirementsLastMonth = lastMonthResults ? lastMonthResults.length : 0;
+    const metRequirementsLastMonth = lastMonthResults ? lastMonthResults.filter((r: any) => 
+      r.status && r.status.toLowerCase() === 'met'
+    ).length : 0;
 
     const lastMonthSuccessRate = totalRequirementsLastMonth > 0
       ? (metRequirementsLastMonth / totalRequirementsLastMonth) * 100
@@ -250,13 +246,13 @@ serve(async (req) => {
     console.log('║ Step 4: Counting AI queries...');
     // Count total AI queries (all time) and this month from gemini_operations
     
-    // Get validation IDs for this RTO if needed
+    // Get validation IDs for this RTO by joining with validation_summary
     let validationIdsForAI: number[] = [];
     if (rtoCode) {
       const { data: validationIds, error: validationIdsError } = await supabaseClient
         .from('validation_detail')
-        .select('id')
-        .eq('namespace_code', rtoCode);
+        .select('id, validation_summary!inner(rtoCode)')
+        .eq('validation_summary.rtoCode', rtoCode);
 
       if (validationIdsError) {
         console.error('Error fetching validation IDs for AI queries:', validationIdsError);
