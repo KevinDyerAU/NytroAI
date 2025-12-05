@@ -1,0 +1,278 @@
+{
+  "name": "AI Smart Question Generator - Validation Context",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "smart-questions",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-smart-questions",
+      "name": "Webhook - Smart Questions Input",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1472,
+        128
+      ],
+      "webhookId": "smart-questions-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_detail_id }}' ORDER BY created_at DESC",
+        "options": {}
+      },
+      "id": "fetch-documents-smart",
+      "name": "Fetch Validation Documents",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -1024,
+        16
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM prompts WHERE prompt_type = 'smart_question_generator' AND is_active = true AND is_default = true LIMIT 1",
+        "options": {}
+      },
+      "id": "fetch-smart-question-prompt",
+      "name": "Fetch Smart Question Prompt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -1024,
+        224
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Prepare context for smart question generation\nconst validationDetailId = $json.body.validation_detail_id;\nconst documents = $('Fetch Validation Documents').first().json;\nconst promptTemplate = $('Fetch Smart Question Prompt').first().json;\n\n// Build document context\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string\nconst contextString = `\n**VALIDATION CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${validationDetailId}\nDocument Count: ${Array.isArray(documents) ? documents.length : 0}\n────────────────────────────────────────────────────────────────────\n`;\n\n// Build full prompt with context\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are an expert assessment specialist. Generate intelligent questions about the documents.';\n\nconst fullPrompt = `${systemPrompt}\n\n${contextString}\n\n${documentContext}\n\nBased on these documents and validation context, generate 5-10 intelligent questions that help users discover and understand critical information. Focus on assessment criteria, evidence requirements, and validation-relevant content.\n\nReturn the questions in the specified JSON format with question, question_type, difficulty_level, focus_area, expected_document_sections, and rationale for each question.`;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents || [],\n    prompt_template: promptTemplate\n  }\n};\n"
+      },
+      "id": "prepare-smart-question-context",
+      "name": "Prepare Smart Question Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Build Gemini request for smart question generation\nconst context = $input.item.json;\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\n// Build file parts from documents\nconst fileParts = documents\n  .filter(doc => doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build user prompt\nconst userPrompt = `Based on the attached documents, generate 5-10 intelligent, contextually relevant questions that help users discover and understand critical information within the validation context.\n\nEach question should:\n- Be answerable from the provided documents\n- Be relevant to validation assessment and evidence\n- Have a clear question type (factual, analytical, comparative, inferential, or application)\n- Include a difficulty level (basic, intermediate, or advanced)\n- Specify the focus area (assessment_criteria, evidence, compliance, structure, or findings)\n- List expected document sections where answers can be found\n- Include a rationale explaining why the question is important\n\nReturn the response as a JSON object with a 'questions' array containing the generated questions.`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: context.system_prompt\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,\n        {\n          text: userPrompt\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: context.prompt_template?.generation_config?.temperature || 0.8,\n    maxOutputTokens: context.prompt_template?.generation_config?.maxOutputTokens || 4096,\n    topP: context.prompt_template?.generation_config?.topP || 0.95,\n    topK: context.prompt_template?.generation_config?.topK || 40,\n    responseMimeType: \"application/json\",\n    responseSchema: context.prompt_template?.output_schema || {\n      type: \"object\",\n      properties: {\n        questions: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              question: { type: \"string\" },\n              question_type: { type: \"string\" },\n              difficulty_level: { type: \"string\" },\n              focus_area: { type: \"string\" },\n              expected_document_sections: { type: \"array\", items: { type: \"string\" } },\n              rationale: { type: \"string\" }\n            }\n          }\n        },\n        summary: { type: \"string\" }\n      }\n    }\n  }\n};\n\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest\n  }\n};"
+      },
+      "id": "build-smart-question-request",
+      "name": "Build Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gemini_request }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "call-gemini-smart-questions",
+      "name": "Call Gemini Smart Questions API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        96
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Extract response from Gemini\nconst geminiResponse = $json.candidates?.[0]?.content?.parts?.[0]?.text;\n\nif (!geminiResponse) {\n  throw new Error('No response received from Gemini API');\n}\n\n// Parse JSON response\nlet parsedResponse;\ntry {\n  parsedResponse = typeof geminiResponse === 'string' ? JSON.parse(geminiResponse) : geminiResponse;\n} catch (e) {\n  parsedResponse = { questions: [], raw_response: geminiResponse };\n}\n\nreturn {\n  json: {\n    validation_detail_id: $('Webhook - Smart Questions Input').item.json.body.validation_detail_id,\n    questions: parsedResponse.questions || [],\n    summary: parsedResponse.summary || '',\n    response_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "extract-smart-questions",
+      "name": "Extract Smart Questions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-smart-questions",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        96
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -576,
+        96
+      ],
+      "id": "merge-smart-questions",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Smart Questions Input": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Documents",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Smart Question Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Documents": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Smart Question Prompt": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prepare Smart Question Context": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini Smart Questions API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini Smart Questions API": {
+      "main": [
+        [
+          {
+            "node": "Extract Smart Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Smart Questions": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare Smart Question Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

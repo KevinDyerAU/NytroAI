@@ -1,0 +1,278 @@
+{
+  "name": "AI Requirement Regenerator - Evidence-Based Refinement",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "regenerate-requirement",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-regenerate-requirement",
+      "name": "Webhook - Regenerate Requirement Input",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1472,
+        128
+      ],
+      "webhookId": "regenerate-requirement-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_detail_id }}' ORDER BY created_at DESC",
+        "options": {}
+      },
+      "id": "fetch-documents-regen",
+      "name": "Fetch Validation Documents",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -1024,
+        16
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM prompts WHERE prompt_type = 'requirement_regenerator' AND is_active = true AND is_default = true LIMIT 1",
+        "options": {}
+      },
+      "id": "fetch-regenerator-prompt",
+      "name": "Fetch Requirement Regenerator Prompt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -1024,
+        224
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Prepare context for requirement regeneration\nconst validationDetailId = $json.body.validation_detail_id;\nconst requirementId = $json.body.requirement_id;\nconst originalRequirement = $json.body.requirement_text;\nconst requirementType = $json.body.requirement_type || 'general';\nconst documents = $('Fetch Validation Documents').first().json;\nconst promptTemplate = $('Fetch Regenerator Prompt').first().json;\n\n// Build document context\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string\nconst contextString = `\n**VALIDATION CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${validationDetailId}\nRequirement ID: ${requirementId}\nRequirement Type: ${requirementType}\nDocument Count: ${Array.isArray(documents) ? documents.length : 0}\n────────────────────────────────────────────────────────────────────\n\n**ORIGINAL REQUIREMENT**:\n${originalRequirement}\n`;\n\n// Build full prompt with context\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are an expert RTO assessment specialist. Regenerate requirements with improved clarity and evidence alignment.';\n\nconst fullPrompt = `${systemPrompt}\n\n${contextString}\n\n${documentContext}\n\nBased on the original requirement, available documents, and validation context, regenerate the requirement with improved clarity, specificity, and evidence alignment. Maintain the original intent while enhancing quality and measurability.\n\nProvide evidence references from the documents, alignment notes, and justification for changes.\n\nReturn the response in the specified JSON format with requirement_id, original_requirement, regenerated_requirement, improvement_summary, evidence_references, alignment_notes, confidence_level, and change_justification.`;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    requirement_id: requirementId,\n    original_requirement: originalRequirement,\n    requirement_type: requirementType,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents || [],\n    prompt_template: promptTemplate\n  }\n};\n"
+      },
+      "id": "prepare-regenerator-context",
+      "name": "Prepare Regenerator Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Build Gemini request for requirement regeneration\nconst context = $input.item.json;\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\n// Build file parts from documents\nconst fileParts = documents\n  .filter(doc => doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build user prompt\nconst userPrompt = `Analyze the original requirement and the attached documents. Regenerate the requirement with improved clarity, specificity, and evidence alignment.\n\nThe regenerated requirement should:\n- Be clearer and more specific than the original\n- Be directly supported by evidence in the documents\n- Include specific evidence references with document names and page numbers\n- Maintain the original intent and scope\n- Use professional, formal language\n- Be measurable and verifiable\n- Include appropriate qualifications and context\n\nProvide:\n1. The regenerated requirement text\n2. A summary of key improvements made\n3. Evidence references from the documents (with document name, page, section, and evidence snippet)\n4. Alignment notes explaining how this aligns with validation context and standards\n5. Confidence level (0-1) in the regeneration\n6. Justification for the changes made\n\nReturn the response as a JSON object with the specified structure.`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: context.system_prompt\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,\n        {\n          text: userPrompt\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: context.prompt_template?.generation_config?.temperature || 0.6,\n    maxOutputTokens: context.prompt_template?.generation_config?.maxOutputTokens || 4096,\n    topP: context.prompt_template?.generation_config?.topP || 0.95,\n    topK: context.prompt_template?.generation_config?.topK || 40,\n    responseMimeType: \"application/json\",\n    responseSchema: context.prompt_template?.output_schema || {\n      type: \"object\",\n      properties: {\n        requirement_id: { type: \"string\" },\n        original_requirement: { type: \"string\" },\n        regenerated_requirement: { type: \"string\" },\n        improvement_summary: { type: \"string\" },\n        evidence_references: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              document: { type: \"string\" },\n              page: { type: [\"string\", \"integer\"] },\n              section: { type: \"string\" },\n              evidence_snippet: { type: \"string\" }\n            }\n          }\n        },\n        alignment_notes: { type: \"string\" },\n        confidence_level: { type: \"number\", minimum: 0, maximum: 1 },\n        change_justification: { type: \"string\" }\n      }\n    }\n  }\n};\n\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    requirement_id: context.requirement_id,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest\n  }\n};"
+      },
+      "id": "build-regenerator-request",
+      "name": "Build Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gemini_request }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "call-gemini-regenerator",
+      "name": "Call Gemini Regenerator API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        96
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Extract response from Gemini\nconst geminiResponse = $json.candidates?.[0]?.content?.parts?.[0]?.text;\n\nif (!geminiResponse) {\n  throw new Error('No response received from Gemini API');\n}\n\n// Parse JSON response\nlet parsedResponse;\ntry {\n  parsedResponse = typeof geminiResponse === 'string' ? JSON.parse(geminiResponse) : geminiResponse;\n} catch (e) {\n  parsedResponse = { \n    requirement_id: $('Webhook - Regenerate Requirement Input').item.json.body.requirement_id,\n    original_requirement: $('Webhook - Regenerate Requirement Input').item.json.body.requirement_text,\n    regenerated_requirement: geminiResponse,\n    raw_response: geminiResponse \n  };\n}\n\nreturn {\n  json: {\n    validation_detail_id: $('Webhook - Regenerate Requirement Input').item.json.body.validation_detail_id,\n    requirement_id: parsedResponse.requirement_id || $('Webhook - Regenerate Requirement Input').item.json.body.requirement_id,\n    original_requirement: parsedResponse.original_requirement || $('Webhook - Regenerate Requirement Input').item.json.body.requirement_text,\n    regenerated_requirement: parsedResponse.regenerated_requirement,\n    improvement_summary: parsedResponse.improvement_summary || '',\n    evidence_references: parsedResponse.evidence_references || [],\n    alignment_notes: parsedResponse.alignment_notes || '',\n    confidence_level: parsedResponse.confidence_level || 0,\n    change_justification: parsedResponse.change_justification || '',\n    response_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "extract-regenerated-requirement",
+      "name": "Extract Regenerated Requirement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-regenerator",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        96
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -576,
+        96
+      ],
+      "id": "merge-regenerator",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Regenerate Requirement Input": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Documents",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Requirement Regenerator Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Documents": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Requirement Regenerator Prompt": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Prepare Regenerator Context": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini Regenerator API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini Regenerator API": {
+      "main": [
+        [
+          {
+            "node": "Extract Regenerated Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Regenerated Requirement": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare Regenerator Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
