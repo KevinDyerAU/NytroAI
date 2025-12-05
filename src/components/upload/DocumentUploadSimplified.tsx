@@ -9,7 +9,7 @@ import { documentUploadService, UploadProgress } from '../../services/DocumentUp
 interface DocumentUploadProps {
   unitCode: string;
   validationDetailId?: number;
-  onUploadComplete: (documentId: number, fileName: string, storagePath: string) => void;
+  onUploadComplete: (fileName: string, storagePath: string) => void;
   onFilesSelected?: (files: File[]) => void;
   onUploadStart?: () => Promise<void>; // New callback fired when Upload button is clicked
   triggerUpload?: boolean;
@@ -27,12 +27,12 @@ interface FileState {
  * 
  * Upload Flow:
  * 1. User selects files
- * 2. User clicks "Upload Files" → Files upload to storage + DB records created
+ * 2. User clicks "Upload Files" → Files upload to Supabase Storage ONLY
  * 3. User types "validate" → Parent triggers n8n with validation_detail_id + storage_paths
- * 4. n8n uploads files to Gemini and validates
+ * 4. n8n workflow creates document records, uploads to Gemini, and validates
  * 5. Dashboard shows real-time status updates
  * 
- * Key: Document records exist in DB BEFORE n8n call
+ * Key: n8n creates document records from storage paths
  */
 export function DocumentUploadSimplified({ 
   unitCode, 
@@ -213,7 +213,7 @@ export function DocumentUploadSimplified({
             }
           );
 
-          // Upload complete! Save storage path and documentId
+          // Upload complete! Save storage path
           setFiles(prev => {
             const updated = [...prev];
             updated[i] = { 
@@ -228,8 +228,8 @@ export function DocumentUploadSimplified({
             return updated;
           });
 
-          // Notify parent with document details
-          onUploadComplete(result.documentId, result.fileName, result.storagePath);
+          // Notify parent with storage path (n8n will create document record)
+          onUploadComplete(result.fileName, result.storagePath);
 
           toast.success(`${fileState.file.name} uploaded successfully`);
 

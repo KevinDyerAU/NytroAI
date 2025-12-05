@@ -33,7 +33,7 @@ export function DocumentUploadAdapterSimplified({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [geminiUploadCount, setGeminiUploadCount] = useState(0);
-  const [uploadedDocuments, setUploadedDocuments] = useState<Array<{ documentId: number; fileName: string; storagePath: string }>>([]);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Array<{ fileName: string; storagePath: string }>>([]);
   const [isComplete, setIsComplete] = React.useState(false);
   const [showValidationDialog, setShowValidationDialog] = React.useState(false);
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
@@ -262,10 +262,9 @@ export function DocumentUploadAdapterSimplified({
     setSelectedFiles(files);
   }, [selectedFiles, isComplete]);
 
-  // Handle upload complete (storage + DB record created)
-  const handleUploadComplete = useCallback((documentId: number, fileName: string, storagePath: string) => {
+  // Handle upload complete (storage only, n8n creates DB records)
+  const handleUploadComplete = useCallback((fileName: string, storagePath: string) => {
     console.log('[DocumentUploadAdapterSimplified] ✅ Upload complete callback fired!', {
-      documentId,
       fileName,
       storagePath,
       currentUploadedCount: uploadedCount,
@@ -273,7 +272,7 @@ export function DocumentUploadAdapterSimplified({
     });
     
     // Add to uploaded documents list
-    setUploadedDocuments(prev => [...prev, { documentId, fileName, storagePath }]);
+    setUploadedDocuments(prev => [...prev, { fileName, storagePath }]);
     
     // Update count and check if all files are done
     setUploadedCount(prev => {

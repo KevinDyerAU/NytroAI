@@ -9,7 +9,6 @@ export interface UploadProgress {
 }
 
 export interface UploadResult {
-  documentId: number;
   fileName: string;
   storagePath: string;
 }
@@ -18,11 +17,10 @@ export interface UploadResult {
  * Simplified Document Upload Service
  * 
  * Correct Flow:
- * 1. Upload file to Supabase Storage
- * 2. Create document record in database (status: 'pending')
- * 3. After ALL files uploaded, parent triggers n8n with validation_detail_id + storage_paths
- * 4. n8n calls upload-document edge function which:
- *    - Reads existing document records from DB
+ * 1. Upload file to Supabase Storage ONLY
+ * 2. After ALL files uploaded, parent triggers n8n with validation_detail_id + storage_paths
+ * 3. n8n workflow:
+ *    - Creates document records in DB
  *    - Uploads files to Gemini
  *    - Updates document status to 'processing'/'completed'
  *    - Triggers validation when all done
@@ -33,7 +31,7 @@ export class DocumentUploadServiceSimplified {
   
   /**
    * Upload a file to storage - returns storage path
-   * Document creation happens later via n8n
+   * Document record creation and Gemini upload happens in n8n
    */
   async uploadDocument(
     file: File,
@@ -67,23 +65,7 @@ export class DocumentUploadServiceSimplified {
         clearInterval(progressInterval);
         console.log('[Upload] ✅ File uploaded to storage:', storagePath);
 
-        // Create document record in database
-        onProgress?.({
-          stage: 'uploading',
-          progress: 95,
-          message: 'Creating document record...',
-        });
-
-        const documentId = await this.createDocumentRecord(
-          file.name,
-          storagePath,
-          rtoCode,
-          unitCode,
-          documentType,
-          validationDetailId
-        );
-
-        // Done! Document created and ready for n8n
+        // Done! File in storage, n8n will create document record
         onProgress?.({
           stage: 'completed',
           progress: 100,
@@ -91,7 +73,6 @@ export class DocumentUploadServiceSimplified {
         });
 
         return {
-          documentId,
           fileName: file.name,
           storagePath,
         };
@@ -116,55 +97,6 @@ export class DocumentUploadServiceSimplified {
     }
   }
 
-  /**
-   * Create document record in database
-   */
-  private async createDocumentRecord(
-    fileName: string,
-    storagePath: string,
-    rtoCode: string,
-    unitCode: string,
-    documentType: string,
-    validationDetailId?: number
-  ): Promise<number> {
-    console.log('[Upload] Creating document record in database...');
-
-    // Get RTO ID
-    const { data: rto, error: rtoError } = await supabase
-      .from('RTO')
-      .select('id')
-      .eq('code', rtoCode)
-      .single();
-
-    if (rtoError || !rto) {
-      throw new Error(`Failed to find RTO: ${rtoCode}`);
-    }
-
-    // Create document record
-    const { data: document, error: docError } = await supabase
-      .from('documents')
-      .insert({
-        rto_id: rto.id,
-        unit_code: unitCode,
-        document_type: documentType,
-        file_name: fileName,
-        display_name: fileName,
-        storage_path: storagePath,
-        embedding_status: 'pending',
-        validation_detail_id: validationDetailId || null,
-        uploaded_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (docError || !document) {
-      console.error('[Upload] Failed to create document record:', docError);
-      throw new Error(`Failed to create document record: ${docError?.message}`);
-    }
-
-    console.log('[Upload] ✅ Document record created with ID:', document.id);
-    return document.id;
-  }
 
   /**
    * Upload file to Supabase Storage
