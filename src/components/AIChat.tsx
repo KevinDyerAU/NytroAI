@@ -43,8 +43,8 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
       id: '1',
       role: 'assistant',
       content: context
-        ? `I'm your AI assistant. I'm ready to help you analyze ${context}.`
-        : "I'm your AI assistant. How can I help you with the validation analysis?",
+        ? `Hi, I'm Nytro your AI Assistant! I'm ready to help you analyze ${context}.`
+        : "Hi, I'm Nytro your AI Assistant! How can I help you with the validation analysis?",
       timestamp: new Date()
     }
   ]);
@@ -201,11 +201,11 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
       onClick={onClose}
     >
       <Card 
-        className="border border-[#dbeafe] bg-white shadow-2xl flex flex-col h-[600px] w-full max-w-2xl animate-in zoom-in-95 duration-200"
+        className="border border-[#dbeafe] bg-white shadow-2xl flex flex-col h-[80vh] max-h-[600px] w-full max-w-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="border-b border-[#3b82f6] p-4 flex items-center justify-between bg-gradient-to-r from-[#3b82f6] to-[#2563eb]">
+        <div className="border-b border-[#3b82f6] p-4 flex items-center justify-between bg-gradient-to-r from-[#3b82f6] to-[#2563eb] flex-shrink-0">
           <div>
             <h3 className="font-poppins text-white text-xl font-semibold">Chat with Nytro</h3>
           </div>
@@ -221,7 +221,7 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
         </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <div className="flex-1 overflow-y-auto p-4 min-h-0">
         <div className="space-y-4">
           {messages.map((message) => (
             <div
@@ -312,10 +312,10 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
-      <div className="border-t border-[#dbeafe] p-4 bg-[#f8f9fb]">
+      <div className="border-t border-[#dbeafe] p-4 bg-[#f8f9fb] flex-shrink-0">
         <div className="flex gap-2">
           <Input
             value={input}

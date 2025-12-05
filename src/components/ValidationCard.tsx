@@ -326,8 +326,8 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
                       variant="primary"
                       size="sm"
                       onClick={handleGenerateWithAI}
-                      disabled={!aiContext.trim() || isGenerating || !aiCreditsAvailable}
-                      title={!aiCreditsAvailable ? "No AI credits available" : ""}
+                      disabled={isGenerating || !aiCreditsAvailable}
+                      title={!aiCreditsAvailable ? "No AI credits available" : "Provide context to help AI generate better questions"}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
                       {isGenerating ? 'Generating...' : 'Generate with AI'}

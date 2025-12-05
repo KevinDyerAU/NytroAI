@@ -103,6 +103,31 @@ export function ResultsExplorer_v2({
       console.warn('Failed to save Results Explorer state:', error);
     }
   }, [selectedValidation, searchTerm, statusFilter]);
+
+  // Cleanup: Reset all fields and filters when component unmounts (navigating away)
+  useEffect(() => {
+    return () => {
+      console.log('[ResultsExplorer] Cleaning up - resetting all filters and state');
+      
+      // Clear persisted state from sessionStorage
+      try {
+        sessionStorage.removeItem('resultsExplorerState');
+      } catch (error) {
+        console.warn('Failed to clear Results Explorer state:', error);
+      }
+      
+      // Reset all UI state
+      setSearchTerm('');
+      setStatusFilter('all');
+      setSelectedValidation(null);
+      setSelectedResult(null);
+      setShowReportDialog(false);
+      setShowDetailedReport(false);
+      setConfirmText('');
+      setUnitSearchTerm('');
+      setShowUnitDropdown(false);
+    };
+  }, []);
   
   // Credits state
   const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });

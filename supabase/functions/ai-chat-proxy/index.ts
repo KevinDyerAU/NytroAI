@@ -61,13 +61,31 @@ serve(async (req) => {
         // Check if geminiResponse is a JSON string that needs parsing
         let responseText = geminiResponse;
         try {
+          // First attempt: Parse as JSON
           const parsed = JSON.parse(geminiResponse);
+          
+          // Extract response field if it exists
           if (parsed.response && typeof parsed.response === 'string') {
             responseText = parsed.response;
-            console.log('[ai-chat-proxy] Parsed nested JSON response');
+            console.log('[ai-chat-proxy] Parsed nested JSON response with response field');
+          } else if (typeof parsed === 'object') {
+            // If it's an object without a response field, stringify it nicely
+            responseText = JSON.stringify(parsed, null, 2);
+            console.log('[ai-chat-proxy] Stringified JSON object');
           }
         } catch {
-          // Not a JSON string, use as-is
+          // Not valid JSON, check if it starts with JSON-like structure
+          const jsonMatch = geminiResponse.match(/^\s*\{[\s\S]*\}\s*$/);
+          if (jsonMatch) {
+            // Looks like malformed JSON, try to extract just the text content
+            console.log('[ai-chat-proxy] Detected malformed JSON, attempting cleanup');
+            // Remove leading/trailing { } and extract text
+            responseText = geminiResponse.replace(/^\s*\{\s*"response"\s*:\s*"/, '')
+                                        .replace(/"\s*,?\s*\}\s*$/, '')
+                                        .replace(/\\"/g, '"')  // Unescape quotes
+                                        .replace(/\\n/g, '\n'); // Unescape newlines
+          }
+          // Otherwise use as-is
         }
         
         // Transform to expected format
