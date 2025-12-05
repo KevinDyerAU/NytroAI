@@ -71,7 +71,7 @@ Generate questions in JSON format with: question, question_type, difficulty_leve
     NOW()
 ) ON CONFLICT DO NOTHING;
 
--- Insert Requirement Regenerator Prompt
+-- Insert Individual Requirement Revalidation Prompt
 INSERT INTO prompts (
     prompt_type,
     requirement_type,
@@ -85,30 +85,36 @@ INSERT INTO prompts (
     is_default,
     created_at
 ) VALUES (
-    'requirement_regenerator',
+    'requirement_revalidation',
     'general',
     'all',
-    'Requirement Regenerator - Evidence-Based Refinement',
-    'You are an expert RTO (Registered Training Organization) assessment specialist and compliance analyst with deep knowledge of training standards, competency frameworks, and assessment requirements. Your role is to intelligently regenerate and refine individual requirements based on document evidence and validation context.
+    'Individual Requirement Revalidation - Evidence-Based Assessment',
+    'You are an expert RTO (Registered Training Organization) assessment validator and compliance analyst with deep knowledge of training standards, competency frameworks, and assessment requirements. Your role is to validate individual requirements against document evidence and provide comprehensive validation results.
 
 CORE OBJECTIVES:
-1. Requirement Refinement: Regenerate requirements with improved clarity, specificity, and alignment with assessment evidence
-2. Evidence-Based Updates: Ensure regenerated requirements are grounded in the documents and validation evidence
-3. Compliance Alignment: Maintain alignment with training standards and regulatory requirements
-4. Clarity Enhancement: Improve requirement language for clarity and measurability
-5. Context Preservation: Maintain the original intent and scope while enhancing quality
+1. Evidence-Based Validation: Assess whether the requirement is met based on evidence in the documents
+2. Comprehensive Analysis: Provide detailed analysis of how the requirement is addressed
+3. Compliance Assessment: Evaluate alignment with training standards and regulatory requirements
+4. Gap Identification: Identify any gaps or missing evidence
+5. Actionable Recommendations: Provide specific recommendations for improvement
 
-REGENERATION PRINCIPLES:
-- Evidence Alignment: Regenerated requirements must be directly supported by evidence in the documents
-- Clarity and Specificity: Use clear, unambiguous language with specific, measurable criteria
-- Completeness: Address all relevant assessment dimensions
-- Professional Quality: Maintain formal, professional tone with consistent terminology
+VALIDATION PRINCIPLES:
+- Evidence-Driven Assessment: Validation must be based solely on evidence present in the documents
+- Thorough Analysis: Examine all relevant documents and identify supporting evidence
+- Clear Outcomes: Provide clear validation status (Met, Partially Met, Not Met, Not Applicable)
+- Professional Standards: Maintain objective, unbiased assessment with formal language
+
+VALIDATION STATUS DEFINITIONS:
+- Met: The requirement is fully satisfied by the evidence
+- Partially Met: The requirement is addressed but with gaps or limitations
+- Not Met: The requirement is not satisfied by the evidence
+- Not Applicable: The requirement does not apply to this validation context
 
 OUTPUT FORMAT:
-Regenerate requirements in JSON format with: requirement_id, original_requirement, regenerated_requirement, improvement_summary, evidence_references, alignment_notes, confidence_level, and change_justification.',
-    'Based on the provided requirement, documents, and validation context, regenerate the requirement with improved clarity, specificity, and evidence alignment. Maintain the original intent while enhancing quality and measurability.',
+Provide validation results in JSON format with: requirement_id, requirement_text, validation_status, confidence_level, summary, evidence_found, gaps_identified, compliance_notes, recommendations, and validation_notes.',
+    'Based on the provided requirement and documents, validate whether the requirement is met. Provide a comprehensive validation result with evidence references, gap analysis, and actionable recommendations.',
     '{
-      "temperature": 0.6,
+      "temperature": 0.5,
       "maxOutputTokens": 4096,
       "topP": 0.95,
       "topK": 40
@@ -117,10 +123,11 @@ Regenerate requirements in JSON format with: requirement_id, original_requiremen
       "type": "object",
       "properties": {
         "requirement_id": {"type": "string"},
-        "original_requirement": {"type": "string"},
-        "regenerated_requirement": {"type": "string"},
-        "improvement_summary": {"type": "string"},
-        "evidence_references": {
+        "requirement_text": {"type": "string"},
+        "validation_status": {"type": "string", "enum": ["Met", "Partially Met", "Not Met", "Not Applicable"]},
+        "confidence_level": {"type": "number", "minimum": 0, "maximum": 1},
+        "summary": {"type": "string"},
+        "evidence_found": {
           "type": "array",
           "items": {
             "type": "object",
@@ -128,15 +135,37 @@ Regenerate requirements in JSON format with: requirement_id, original_requiremen
               "document": {"type": "string"},
               "page": {"type": ["string", "integer"]},
               "section": {"type": "string"},
-              "evidence_snippet": {"type": "string"}
+              "evidence_snippet": {"type": "string"},
+              "relevance": {"type": "string"}
             }
           }
         },
-        "alignment_notes": {"type": "string"},
-        "confidence_level": {"type": "number", "minimum": 0, "maximum": 1},
-        "change_justification": {"type": "string"}
+        "gaps_identified": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "gap_description": {"type": "string"},
+              "severity": {"type": "string", "enum": ["Critical", "Major", "Minor"]},
+              "impact": {"type": "string"}
+            }
+          }
+        },
+        "compliance_notes": {"type": "string"},
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "recommendation": {"type": "string"},
+              "priority": {"type": "string", "enum": ["High", "Medium", "Low"]},
+              "rationale": {"type": "string"}
+            }
+          }
+        },
+        "validation_notes": {"type": "string"}
       },
-      "required": ["requirement_id", "original_requirement", "regenerated_requirement"]
+      "required": ["requirement_id", "requirement_text", "validation_status", "confidence_level", "summary"]
     }',
     true,
     true,
