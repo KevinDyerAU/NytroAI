@@ -168,7 +168,9 @@ export async function revalidateRequirement(validationResultId: number): Promise
  */
 export async function regenerateQuestions(
   validationResultId: number,
-  userGuidance: string
+  userGuidance: string,
+  requirementText?: string,
+  existingSmartQuestion?: string
 ): Promise<{
   success: boolean;
   questions?: Array<{
@@ -186,7 +188,24 @@ export async function regenerateQuestions(
     url: edgeFunctionUrl,
     validationResultId,
     userGuidanceLength: userGuidance?.length,
+    hasRequirementText: !!requirementText,
+    hasExistingQuestion: !!existingSmartQuestion,
   });
+
+  const payload: any = {
+    validation_result_id: validationResultId,
+    user_guidance: userGuidance,
+  };
+
+  // Include requirement context if provided
+  if (requirementText) {
+    payload.requirement_text = requirementText;
+  }
+  
+  // Include existing SMART question if provided
+  if (existingSmartQuestion) {
+    payload.existing_smart_question = existingSmartQuestion;
+  }
 
   const response = await fetch(edgeFunctionUrl, {
     method: 'POST',
@@ -194,10 +213,7 @@ export async function regenerateQuestions(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
     },
-    body: JSON.stringify({
-      validation_result_id: validationResultId,
-      user_guidance: userGuidance,
-    }),
+    body: JSON.stringify(payload),
   });
 
   console.log('[n8nApi] Regenerate Questions response status:', response.status);

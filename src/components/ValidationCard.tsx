@@ -104,9 +104,18 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
       // Import regenerateQuestions from n8nApi
       const { regenerateQuestions } = await import('../lib/n8nApi');
       
-      // Call n8n via edge function proxy (convert string id to number)
+      // Gather all context for n8n
+      const requirementText = getRequirementText();
+      const existingSmartQuestion = result.smart_questions;
+      
+      // Call n8n via edge function proxy with full context
       const resultId: number = parseInt(result.id, 10);
-      const response = await regenerateQuestions(resultId, aiContext);
+      const response = await regenerateQuestions(
+        resultId,
+        aiContext,
+        requirementText,
+        existingSmartQuestion
+      );
       
       if (response.success && response.questions && response.questions.length > 0) {
         // Extract the first generated question (n8n returns array)
