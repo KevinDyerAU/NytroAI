@@ -5,7 +5,7 @@
 This document describes two new AI-powered workflows that extend the NytroAI validation platform:
 
 1. **Smart Question Generator**: Generates intelligent, contextually relevant questions about validation documents
-2. **Individual Requirement Revalidation**: Validates individual requirements against document evidence and provides comprehensive validation results
+2. **Individual Requirement Revalidation**: Validates individual requirements against document evidence using the same prompts as the full validation flow
 
 Both workflows follow the same architectural pattern as the existing AI Chat Agent workflow, leveraging the existing `documents` table and `prompts` table infrastructure.
 
@@ -94,6 +94,8 @@ The workflow uses the `smart_question_generator` prompt type from the `prompts` 
 
 The Individual Requirement Revalidation workflow validates a single requirement against the validation documents, providing a comprehensive assessment of whether the requirement is met, along with evidence references, gap analysis, and actionable recommendations.
 
+**Important**: This workflow **reuses the existing validation prompts** from the `prompts` table based on `requirement_type` and `document_type`, ensuring consistency with the full validation flow.
+
 ### Workflow File
 
 `AIRequirementRevalidation-Workflow.json`
@@ -111,9 +113,17 @@ POST /webhook/revalidate-requirement
   "validation_detail_id": "validation-uuid",
   "requirement_id": "requirement-identifier",
   "requirement_text": "The learner must demonstrate competency in performing the assessment task under workplace conditions",
-  "requirement_type": "performance_evidence"
+  "requirement_type": "performance_evidence",
+  "document_type": "unit"
 }
 ```
+
+**Required Fields**:
+- `validation_detail_id`: UUID of the validation
+- `requirement_id`: Identifier for the requirement
+- `requirement_text`: The requirement statement to validate
+- `requirement_type`: Type of requirement (e.g., `performance_evidence`, `knowledge_evidence`, `assessment_conditions`)
+- `document_type`: Type of document (e.g., `unit`, `learner_guide`) - defaults to `unit` if not provided
 
 ### Response
 
@@ -122,6 +132,8 @@ POST /webhook/revalidate-requirement
   "validation_detail_id": "validation-uuid",
   "requirement_id": "requirement-identifier",
   "requirement_text": "The learner must demonstrate competency in performing the assessment task under workplace conditions",
+  "requirement_type": "performance_evidence",
+  "document_type": "unit",
   "validation_status": "Met",
   "confidence_level": 0.85,
   "summary": "The requirement is fully met with strong evidence of workplace-based assessment",
@@ -154,30 +166,32 @@ POST /webhook/revalidate-requirement
 }
 ```
 
+### Prompt Reuse Pattern
+
+The revalidation workflow **does not use a separate prompt**. Instead, it queries the existing `prompts` table using the same pattern as the full validation flow:
+
+```sql
+SELECT * FROM prompts 
+WHERE prompt_type = 'validation'
+  AND requirement_type = '<requirement_type>'
+  AND document_type = '<document_type>'
+  AND is_active = true
+  AND is_default = true
+LIMIT 1
+```
+
+**Benefits of this approach**:
+1. **Consistency**: Individual revalidation uses the exact same prompts as full validation
+2. **Maintainability**: Only one set of prompts to maintain per requirement type
+3. **Quality**: Ensures validation quality is consistent across the platform
+4. **Flexibility**: Prompt improvements automatically apply to both workflows
+
 ### Validation Status Values
 
 - **Met**: The requirement is fully satisfied by the evidence in the documents
-  - All criteria are addressed
-  - Evidence is sufficient and appropriate
-  - Quality meets or exceeds standards
-  - No significant gaps identified
-
 - **Partially Met**: The requirement is addressed but with gaps or limitations
-  - Some criteria are addressed
-  - Evidence is present but may be insufficient
-  - Quality is adequate but could be improved
-  - Minor gaps identified
-
 - **Not Met**: The requirement is not satisfied by the evidence
-  - Criteria are not addressed or inadequately addressed
-  - Evidence is missing or insufficient
-  - Quality does not meet standards
-  - Significant gaps identified
-
 - **Not Applicable**: The requirement does not apply to this validation context
-  - Requirement is not relevant to the documents
-  - Context does not require this assessment
-  - Outside the scope of validation
 
 ### Evidence Structure
 
@@ -201,15 +215,6 @@ Each recommendation includes:
 - **recommendation**: Specific actionable recommendation
 - **priority**: High, Medium, or Low
 - **rationale**: Why this recommendation is important
-
-### Prompt Configuration
-
-The workflow uses the `requirement_revalidation` prompt type from the `prompts` table. The prompt is configured with:
-
-- **Temperature**: 0.5 (lower temperature for consistent, objective validation)
-- **Max Output Tokens**: 4096
-- **System Instruction**: Expert RTO assessment validator persona
-- **Output Schema**: Structured JSON with validation results
 
 ---
 
@@ -239,16 +244,27 @@ Extract Response (JavaScript Code Node)
 Respond to Webhook
 ```
 
-### Key Components
+### Key Difference: Prompt Fetching
 
-1. **Webhook Trigger**: Receives requests with validation_detail_id
-2. **Document Fetcher**: Queries `documents` table for validation documents
-3. **Prompt Fetcher**: Queries `prompts` table for the appropriate prompt template
-4. **Context Preparation**: Merges documents and context into a comprehensive prompt
-5. **Gemini Request Builder**: Constructs API request with documents and structured output schema
-6. **Gemini API Call**: Calls Google Gemini 2.0 Flash with documents
-7. **Response Extraction**: Parses JSON response and formats for return
-8. **Webhook Response**: Returns structured JSON to the caller
+**Smart Question Generator**:
+```sql
+SELECT * FROM prompts 
+WHERE prompt_type = 'smart_question_generator'
+  AND is_active = true 
+  AND is_default = true 
+LIMIT 1
+```
+
+**Individual Requirement Revalidation**:
+```sql
+SELECT * FROM prompts 
+WHERE prompt_type = 'validation'
+  AND requirement_type = '<requirement_type>'
+  AND document_type = '<document_type>'
+  AND is_active = true
+  AND is_default = true
+LIMIT 1
+```
 
 ### Shared Infrastructure
 
@@ -256,7 +272,7 @@ Respond to Webhook
 |-----------|-------------|
 | Database | Supabase PostgreSQL |
 | Documents Table | `documents` (validation_detail_id, gemini_file_uri, storage_path) |
-| Prompts Table | `prompts` (prompt_type, system_instruction, output_schema) |
+| Prompts Table | `prompts` (prompt_type, requirement_type, document_type, system_instruction, output_schema) |
 | AI Model | Google Gemini 2.0 Flash Experimental |
 | Storage | Supabase Storage (for document files) |
 | Credentials | Google PaLM API credentials |
@@ -265,12 +281,32 @@ Respond to Webhook
 
 ## Database Schema
 
-### Prompts Table Extension
+### Prompts Table
 
-Both workflows require entries in the `prompts` table:
+The revalidation workflow reuses existing validation prompts. The `prompts` table structure:
 
 ```sql
--- Smart Question Generator Prompt
+CREATE TABLE prompts (
+  id SERIAL PRIMARY KEY,
+  prompt_type VARCHAR(50) NOT NULL,           -- 'validation' or 'smart_question_generator'
+  requirement_type VARCHAR(100),              -- e.g., 'performance_evidence', 'knowledge_evidence'
+  document_type VARCHAR(100),                 -- e.g., 'unit', 'learner_guide'
+  prompt_name VARCHAR(255) NOT NULL,
+  system_instruction TEXT NOT NULL,
+  prompt_text TEXT NOT NULL,
+  generation_config JSONB,
+  output_schema JSONB,
+  is_active BOOLEAN DEFAULT true,
+  is_default BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### New Prompt Added
+
+Only the Smart Question Generator prompt needs to be added:
+
+```sql
 INSERT INTO prompts (
     prompt_type,
     requirement_type,
@@ -294,35 +330,10 @@ INSERT INTO prompts (
     true,
     true
 );
-
--- Individual Requirement Revalidation Prompt
-INSERT INTO prompts (
-    prompt_type,
-    requirement_type,
-    document_type,
-    prompt_name,
-    system_instruction,
-    prompt_text,
-    generation_config,
-    output_schema,
-    is_active,
-    is_default
-) VALUES (
-    'requirement_revalidation',
-    'general',
-    'all',
-    'Individual Requirement Revalidation - Evidence-Based Assessment',
-    '[System instruction...]',
-    '[Prompt text...]',
-    '{"temperature": 0.5, "maxOutputTokens": 4096}',
-    '[Output schema...]',
-    true,
-    true
-);
 ```
 
 The SQL migration file is located at:
-`supabase/migrations/20251206_add_smart_question_and_requirement_revalidation_prompts.sql`
+`supabase/migrations/20251206_add_smart_question_generator_prompt.sql`
 
 ---
 
@@ -331,16 +342,17 @@ The SQL migration file is located at:
 ### Prerequisites
 
 1. Supabase PostgreSQL database with `documents` and `prompts` tables
-2. n8n instance with Google Gemini API credentials configured
-3. Documents uploaded to Supabase Storage with Gemini File URIs
+2. Existing validation prompts in the `prompts` table (for revalidation workflow)
+3. n8n instance with Google Gemini API credentials configured
+4. Documents uploaded to Supabase Storage with Gemini File URIs
 
 ### Deployment Steps
 
 #### 1. Run Database Migration
 
 ```bash
-# Apply the SQL migration
-psql -h your-db-host -U postgres -d postgres -f supabase/migrations/20251206_add_smart_question_and_requirement_revalidation_prompts.sql
+# Apply the SQL migration (only adds Smart Question Generator prompt)
+psql -h your-db-host -U postgres -d postgres -f supabase/migrations/20251206_add_smart_question_generator_prompt.sql
 ```
 
 Or use Supabase CLI:
@@ -379,7 +391,8 @@ curl -X POST http://n8n-instance/webhook/revalidate-requirement \
     "validation_detail_id": "your-validation-id",
     "requirement_id": "req-123",
     "requirement_text": "Demonstrate competency in the unit",
-    "requirement_type": "performance_evidence"
+    "requirement_type": "performance_evidence",
+    "document_type": "unit"
   }'
 ```
 
@@ -409,7 +422,8 @@ async function revalidateRequirement(
   validationDetailId: string,
   requirementId: string,
   requirementText: string,
-  requirementType: string
+  requirementType: string,
+  documentType: string = 'unit'
 ) {
   const response = await fetch('http://n8n-instance/webhook/revalidate-requirement', {
     method: 'POST',
@@ -418,7 +432,8 @@ async function revalidateRequirement(
       validation_detail_id: validationDetailId,
       requirement_id: requirementId,
       requirement_text: requirementText,
-      requirement_type: requirementType
+      requirement_type: requirementType,
+      document_type: documentType
     })
   });
   
@@ -473,9 +488,9 @@ function displayValidationResult(result: any) {
 |-------|-------|----------|
 | No documents found | Invalid validation_detail_id | Verify the validation_detail_id exists in documents table |
 | Gemini API errors | Invalid file URIs | Check gemini_file_uri format in documents table |
-| Poor question quality | Prompt needs refinement | Update prompt in prompts table |
-| Inconsistent validation | Temperature too high | Adjust temperature in generation_config |
-| Missing evidence | Insufficient documents | Ensure all relevant documents are uploaded |
+| Poor question quality | Prompt needs refinement | Update smart_question_generator prompt in prompts table |
+| No prompt found for revalidation | Missing validation prompt | Ensure validation prompts exist for the requirement_type and document_type |
+| Inconsistent validation | Wrong prompt retrieved | Verify requirement_type and document_type are correct |
 
 ---
 
@@ -496,6 +511,7 @@ function displayValidationResult(result: any) {
 3. **Continuous Improvement**: Identify gaps and recommendations for specific requirements
 4. **Compliance Audits**: Validate individual compliance requirements
 5. **Requirement Updates**: Re-validate requirements after document updates
+6. **Quality Assurance**: Verify specific requirements meet standards
 
 ---
 
