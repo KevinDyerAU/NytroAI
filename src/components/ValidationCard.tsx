@@ -101,124 +101,25 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
     setIsGenerating(true);
     
     try {
-      // Build comprehensive context including current validation state
-      const mappedQuestions = getMappedQuestions();
-      const requirementNumber = getRequirementNumber();
-      const requirementText = getRequirementText();
+      // Import regenerateQuestions from n8nApi
+      const { regenerateQuestions } = await import('../lib/n8nApi');
       
-      const comprehensiveContext = `
-=== CONTEXT SCOPE: SINGLE VALIDATION RESULT ONLY ===
-Validation Result ID: ${result.id}
-Unit: ${validationContext?.unitCode || 'N/A'} - ${validationContext?.unitTitle || 'N/A'}
-Validation Type: ${validationContext?.validationType || 'N/A'}
-
-IMPORTANT: Only consider the information below for THIS SPECIFIC requirement. 
-Do NOT reference or incorporate information from other validation results.
-
-## Current Requirement
-${requirementNumber}: ${requirementText}
-
-## Current Validation Status
-- Status: ${result.status}
-- Reasoning: ${result.reasoning}
-
-## Evidence
-${mappedQuestions.length > 0 ? `- Mapped Questions:\n${mappedQuestions.map(q => `  * ${q}`).join('\n')}` : ''}
-
-## Current SMART Question
-${result.smart_questions}
-
-## Current Benchmark Answer
-${result.benchmark_answer}
-
-## User Feedback/Additional Context
-${aiContext}
-
-## Task
-Based ONLY on the above context for ${requirementNumber}, generate an improved SMART question and benchmark answer that:
-1. Incorporates the user's feedback and context
-2. Addresses the current validation status and evidence shown above
-3. Maintains alignment with ${requirementNumber} ONLY
-4. Provides clear, measurable assessment criteria
-5. Does NOT mix in information from other requirements or validation results
-
-Return only a JSON object with this structure:
-{
-  "question": "The improved SMART question",
-  "benchmark_answer": "The improved benchmark answer"
-}
-=== END CONTEXT ===
-`;
-
-      // Call the query-document Edge Function with comprehensive context
-      // IMPORTANT: Only the current validation result (result.id) is included in context
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/query-document`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            query: comprehensiveContext,
-            context: `requirement_regeneration_single_${result.id}_${result.requirementNumber}`,
-            rtoCode: validationContext?.rtoId || 'unknown',
-            metadata: {
-              validationResultId: result.id,
-              requirementNumber: getRequirementNumber(),
-              requirementType: getRequirementType(),
-              currentStatus: result.status,
-              validationType: validationContext?.validationType,
-              unitCode: validationContext?.unitCode,
-              validationId: validationContext?.validationId,
-              scope: 'single_requirement_only',
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      // Call n8n via edge function proxy (convert string id to number)
+      const resultId: number = parseInt(result.id, 10);
+      const response = await regenerateQuestions(resultId, aiContext);
       
-      // Try to parse JSON response from the AI
-      let improvedContent;
-      try {
-        // Extract JSON from the response
-        const jsonMatch = data.answer?.match(/```json\n([\s\S]*?)\n```/) || 
-                         data.answer?.match(/```\n([\s\S]*?)\n```/) ||
-                         data.answer?.match(/\{[\s\S]*\}/);
+      if (response.success && response.questions && response.questions.length > 0) {
+        // Extract the first generated question (n8n returns array)
+        const generated = response.questions[0];
         
-        if (jsonMatch) {
-          const jsonText = jsonMatch[1] || jsonMatch[0];
-          improvedContent = JSON.parse(jsonText);
-        } else {
-          // Fallback: use the response as-is with basic formatting
-          improvedContent = {
-            question: data.answer || data.response || `Enhanced question for ${getRequirementNumber()} based on your feedback`,
-            benchmark_answer: `Please refer to the AI response for details.`
-          };
-        }
-      } catch (parseError) {
-        console.warn('Could not parse JSON from AI response, using fallback');
-        improvedContent = {
-          question: `${result.smart_questions}\n\n[AI Enhancement]: ${data.answer?.substring(0, 200) || 'Generated with your context'}`,
-          benchmark_answer: data.answer || data.response || result.benchmark_answer
-        };
+        // Update the edited fields with the AI-generated content
+        setEditedQuestion(generated.question_text || result.smart_questions);
+        setEditedAnswer(generated.context || result.benchmark_answer);
+        
+        toast.success('Question generated with AI based on your feedback');
+      } else {
+        throw new Error(response.error || 'No questions generated');
       }
-
-      setEditedQuestion(improvedContent.question);
-      setEditedAnswer(improvedContent.benchmark_answer);
-      
-      // Store citations if available
-      if (data.citations && data.citations.length > 0) {
-        setGeneratedCitations(data.citations);
-      }
-      
-      toast.success('Question generated with AI based on your feedback');
     } catch (error) {
       console.error('Error generating with AI:', error);
       toast.error('Failed to generate with AI. Please try again.');
@@ -251,7 +152,7 @@ Return only a JSON object with this structure:
     setIsEditing(true);
   };
 
-  const handleRevalidate = () => {
+  const handleRevalidate = async () => {
     if (confirmText.toLowerCase() !== 'confirm') {
       toast.error('Please type "confirm" to proceed');
       return;
@@ -261,15 +162,27 @@ Return only a JSON object with this structure:
     setShowRevalidateDialog(false);
     setConfirmText('');
 
-    // Mock revalidation - simulating API call
     toast.loading(`Revalidating ${getRequirementNumber()}...`, { id: 'revalidate' });
     
-    setTimeout(() => {
-      toast.success(`${getRequirementNumber()} has been queued for revalidation`, { id: 'revalidate' });
+    try {
+      // Import revalidateRequirement from n8nApi
+      const { revalidateRequirement } = await import('../lib/n8nApi');
+      
+      // Call n8n via edge function proxy (convert string id to number)
+      const resultId: number = parseInt(result.id, 10);
+      const response = await revalidateRequirement(resultId);
+      
+      if (response.success) {
+        toast.success(`${getRequirementNumber()} has been queued for revalidation`, { id: 'revalidate' });
+      } else {
+        throw new Error(response.error || 'Revalidation failed');
+      }
+    } catch (error) {
+      console.error('Error revalidating:', error);
+      toast.error('Failed to revalidate. Please try again.', { id: 'revalidate' });
+    } finally {
       setIsRevalidating(false);
-      // In a real app, this would trigger a backend revalidation process
-      // and eventually refresh the data
-    }, 2000);
+    }
   };
 
   return (
@@ -413,7 +326,8 @@ Return only a JSON object with this structure:
                       variant="primary"
                       size="sm"
                       onClick={handleGenerateWithAI}
-                      disabled={!aiContext.trim() || isGenerating}
+                      disabled={!aiContext.trim() || isGenerating || !aiCreditsAvailable}
+                      title={!aiCreditsAvailable ? "No AI credits available" : ""}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
                       {isGenerating ? 'Generating...' : 'Generate with AI'}

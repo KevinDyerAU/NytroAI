@@ -124,35 +124,47 @@ export function downloadReport(reportContent: string, filename: string): void {
 }
 
 /**
- * Revalidate a single requirement via n8n
+ * Revalidate a single requirement via Supabase Edge Function proxy
+ * Uses edge function to avoid CORS issues with n8n
  */
 export async function revalidateRequirement(validationResultId: number): Promise<N8nResponse> {
-  const n8nUrl = import.meta.env.VITE_N8N_REVALIDATE_URL;
+  // Use Supabase Edge Function proxy to avoid CORS
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const edgeFunctionUrl = `${supabaseUrl}/functions/v1/revalidate-proxy`;
   
-  if (!n8nUrl) {
-    throw new Error('N8N revalidate URL not configured. Please set VITE_N8N_REVALIDATE_URL in environment variables.');
-  }
+  console.log('[n8nApi] Revalidate via Edge Function:', {
+    url: edgeFunctionUrl,
+    validationResultId,
+  });
 
-  const response = await fetch(n8nUrl, {
+  const response = await fetch(edgeFunctionUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify({
       validation_result_id: validationResultId,
     }),
   });
 
+  console.log('[n8nApi] Revalidate response status:', response.status);
+
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error');
+    console.error('[n8nApi] Revalidate error response:', errorText);
     throw new Error(`Revalidation failed (${response.status}): ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log('[n8nApi] Revalidate response:', result);
+
+  return result;
 }
 
 /**
- * Regenerate smart questions for a requirement via n8n
+ * Regenerate smart questions for a requirement via Supabase Edge Function proxy
+ * Uses edge function to avoid CORS issues with n8n
  */
 export async function regenerateQuestions(
   validationResultId: number,
@@ -166,16 +178,21 @@ export async function regenerateQuestions(
   }>;
   error?: string;
 }> {
-  const n8nUrl = import.meta.env.VITE_N8N_REGENERATE_QUESTIONS_URL;
+  // Use Supabase Edge Function proxy to avoid CORS
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const edgeFunctionUrl = `${supabaseUrl}/functions/v1/regenerate-questions-proxy`;
   
-  if (!n8nUrl) {
-    throw new Error('N8N regenerate questions URL not configured. Please set VITE_N8N_REGENERATE_QUESTIONS_URL in environment variables.');
-  }
+  console.log('[n8nApi] Regenerate Questions via Edge Function:', {
+    url: edgeFunctionUrl,
+    validationResultId,
+    userGuidanceLength: userGuidance?.length,
+  });
 
-  const response = await fetch(n8nUrl, {
+  const response = await fetch(edgeFunctionUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify({
       validation_result_id: validationResultId,
@@ -183,12 +200,18 @@ export async function regenerateQuestions(
     }),
   });
 
+  console.log('[n8nApi] Regenerate Questions response status:', response.status);
+
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error');
+    console.error('[n8nApi] Regenerate Questions error response:', errorText);
     throw new Error(`Question regeneration failed (${response.status}): ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log('[n8nApi] Regenerate Questions response:', result);
+
+  return result;
 }
 
 /**
