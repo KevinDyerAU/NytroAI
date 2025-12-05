@@ -275,83 +275,151 @@ export function DocumentUploadSimplified({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Drop Zone */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
-          isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+          'relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300',
+          isDragging 
+            ? 'border-[#3b82f6] bg-[#dbeafe] scale-[1.02]' 
+            : 'border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-[#f8fafc]'
         )}
       >
-        <Upload className="mx-auto h-12 w-12 text-gray-400" />
-        <p className="mt-2 text-sm text-gray-600">
-          Drag and drop files here, or click to select
+        <div className={cn(
+          "mx-auto h-16 w-16 rounded-full flex items-center justify-center mb-4 transition-all duration-300",
+          isDragging ? 'bg-[#3b82f6] scale-110' : 'bg-[#f1f5f9]'
+        )}>
+          <Upload className={cn(
+            "h-8 w-8 transition-all duration-300",
+            isDragging ? 'text-white' : 'text-[#64748b]'
+          )} />
+        </div>
+        <p className="text-base font-medium text-[#1e293b] mb-2">
+          {isDragging ? 'Drop files here' : 'Drag and drop files here'}
+        </p>
+        <p className="text-sm text-[#64748b] mb-4">
+          or click to browse your files
         </p>
         <input
           type="file"
           multiple
-          accept=".pdf,.doc,.docx"
+          accept=".pdf,.txt"
           onChange={(e) => handleFileSelect(e.target.files)}
           className="hidden"
           id="file-upload"
         />
         <label htmlFor="file-upload">
-          <Button variant="outline" className="mt-4" asChild>
+          <Button 
+            variant="outline" 
+            className="border-[#cbd5e1] hover:border-[#3b82f6] hover:bg-[#f8fafc] transition-all" 
+            asChild
+          >
             <span>Select Files</span>
           </Button>
         </label>
+        <p className="text-xs text-[#94a3b8] mt-3">
+          Supported formats: PDF, TXT
+        </p>
       </div>
 
       {/* File List */}
       {files.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-medium">Selected Files ({files.length})</h3>
-            <Button variant="ghost" size="sm" onClick={clearAll} disabled={isUploading}>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-sm font-semibold text-[#1e293b]">
+              Selected Files <span className="text-[#64748b] font-normal">({files.length})</span>
+            </h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearAll} 
+              disabled={isUploading}
+              className="text-[#64748b] hover:text-[#ef4444] hover:bg-[#fef2f2]"
+            >
               Clear All
             </Button>
           </div>
 
-          {files.filter(f => f?.file).map((fileState, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-3 p-3 border rounded-lg"
-            >
-              <FileText className="h-5 w-5 text-gray-400" />
-              
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{fileState.file?.name || 'Unknown file'}</p>
-                <p className="text-xs text-gray-500">{fileState.progress?.message || 'Pending'}</p>
-                
-                {fileState.progress.stage === 'uploading' && (
-                  <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
-                    <div
-                      className="bg-blue-600 h-1.5 rounded-full transition-all"
-                      style={{ width: `${fileState.progress.progress}%` }}
-                    />
-                  </div>
+          <div className="space-y-2">
+            {files.filter(f => f?.file).map((fileState, index) => (
+              <div
+                key={index}
+                className={cn(
+                  "flex items-center gap-4 p-4 rounded-xl border transition-all duration-200",
+                  fileState.progress.stage === 'completed' 
+                    ? 'border-[#22c55e] bg-[#f0fdf4]' 
+                    : fileState.progress.stage === 'failed'
+                    ? 'border-[#ef4444] bg-[#fef2f2]'
+                    : fileState.progress.stage === 'uploading'
+                    ? 'border-[#3b82f6] bg-[#f8fafc]'
+                    : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1] hover:shadow-sm'
                 )}
+              >
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                  fileState.progress.stage === 'completed' 
+                    ? 'bg-[#dcfce7]' 
+                    : fileState.progress.stage === 'failed'
+                    ? 'bg-[#fee2e2]'
+                    : 'bg-[#f1f5f9]'
+                )}>
+                  <FileText className={cn(
+                    "h-5 w-5",
+                    fileState.progress.stage === 'completed' 
+                      ? 'text-[#22c55e]' 
+                      : fileState.progress.stage === 'failed'
+                      ? 'text-[#ef4444]'
+                      : 'text-[#64748b]'
+                  )} />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[#1e293b] truncate">
+                    {fileState.file?.name || 'Unknown file'}
+                  </p>
+                  <p className={cn(
+                    "text-xs mt-0.5",
+                    fileState.progress.stage === 'completed' 
+                      ? 'text-[#22c55e]'
+                      : fileState.progress.stage === 'failed'
+                      ? 'text-[#ef4444]'
+                      : 'text-[#64748b]'
+                  )}>
+                    {fileState.progress?.message || 'Pending'}
+                  </p>
+                  
+                  {fileState.progress.stage === 'uploading' && (
+                    <div className="mt-2 w-full bg-[#e2e8f0] rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-[#3b82f6] h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${fileState.progress.progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-shrink-0">
+                  {fileState.progress.stage === 'pending' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="text-[#64748b] hover:text-[#ef4444] hover:bg-[#fef2f2]"
+                      disabled={isUploading}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                  {fileState.progress.stage === 'uploading' && <Loader2 className="h-5 w-5 animate-spin text-[#3b82f6]" />}
+                  {fileState.progress.stage === 'completed' && <CheckCircle className="h-5 w-5 text-[#22c55e]" />}
+                  {fileState.progress.stage === 'failed' && <XCircle className="h-5 w-5 text-[#ef4444]" />}
+                </div>
               </div>
-
-              {fileState.progress.stage === 'pending' && <FileText className="h-5 w-5 text-gray-400" />}
-              {fileState.progress.stage === 'uploading' && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
-              {fileState.progress.stage === 'completed' && <CheckCircle className="h-5 w-5 text-green-500" />}
-              {fileState.progress.stage === 'failed' && <XCircle className="h-5 w-5 text-red-500" />}
-
-              {!isUploading && fileState.progress.stage === 'pending' && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFile(index)}
-                >
-                  Remove
-                </Button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -360,16 +428,17 @@ export function DocumentUploadSimplified({
         <Button
           onClick={handleUpload}
           disabled={isUploading}
-          className="w-full"
+          size="lg"
+          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold h-14 text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center"
         >
           {isUploading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Uploading...
+              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+              Uploading {files.length} {files.length === 1 ? 'File' : 'Files'}...
             </>
           ) : (
             <>
-              <Upload className="mr-2 h-4 w-4" />
+              <Upload className="mr-3 h-5 w-5" />
               Upload {files.length} {files.length === 1 ? 'File' : 'Files'}
             </>
           )}

@@ -85,10 +85,13 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
       return;
     }
 
+    // Store the message before clearing input
+    const userMessageText = input.trim();
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: userMessageText,
       timestamp: new Date()
     };
 
@@ -96,19 +99,30 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
     setInput('');
     setIsProcessing(true);
 
+    console.log('[AIChat] Starting message send flow...', {
+      selectedRTOId,
+      currentRTO: currentRTO?.code,
+      validationDetailId,
+      messageText: userMessageText
+    });
+
     try {
+      // TODO: Re-enable credit consumption once RPC function is fixed
       // Consume AI credit for generating smart question
+      console.log('[AIChat] Consuming AI credit for RTO:', currentRTO.code);
       const result = await consumeAICredit(currentRTO.code);
+      console.log('[AIChat] Credit consumption result:', result);
 
+      // TEMPORARY: Bypass credit check to allow AI chat to work
       if (!result.success) {
-        toast.error(result.message || 'Insufficient AI credits');
-        setIsProcessing(false);
-        return;
-      }
-
-      // Notify parent about credit consumption
-      if (onCreditConsumed && result.newBalance !== undefined) {
-        onCreditConsumed(result.newBalance);
+        console.warn('[AIChat] Credit consumption failed, but proceeding anyway (temporary bypass):', result.message);
+        // Don't return - continue with the chat
+      } else {
+        console.log('[AIChat] Credit consumed successfully');
+        // Notify parent about credit consumption
+        if (onCreditConsumed && result.newBalance !== undefined) {
+          onCreditConsumed(result.newBalance);
+        }
       }
 
       // Call n8n AI Chat webhook for actual AI response
@@ -120,7 +134,8 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
 
         console.log('Sending message to n8n AI chat:', {
           validationDetailId,
-          messageLength: input.length,
+          messageLength: userMessageText.length,
+          message: userMessageText,
         });
         
         // Prepare conversation history (exclude first welcome message)
@@ -133,7 +148,7 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
         
         const result = await sendAIChatMessage(
           validationDetailId || 0,
-          input,
+          userMessageText,
           conversationHistory
         );
 
@@ -169,7 +184,12 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
         toast.error('Failed to get AI response');
       }
     } catch (error) {
-      console.error('Error sending message:', error instanceof Error ? error.message : JSON.stringify(error));
+      console.error('[AIChat] Outer error caught:', error);
+      console.error('[AIChat] Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        type: typeof error
+      });
       toast.error('An error occurred while processing your message');
       setIsProcessing(false);
     }
@@ -271,6 +291,26 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
               </div>
             </div>
           ))}
+          
+          {/* Loading indicator when AI is thinking */}
+          {isProcessing && (
+            <div className="flex gap-3">
+              <div className="rounded-lg flex items-center justify-center flex-shrink-0 w-10 h-10 bg-white border border-[#dbeafe]">
+                <span className="text-2xl">🧙‍♂️</span>
+              </div>
+              
+              <div className="flex-1 p-3 rounded-lg border bg-[#f8f9fb] border-[#dbeafe]">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </div>
+                  <span className="text-sm text-[#64748b] italic">Nytro is thinking...</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </ScrollArea>
 

@@ -192,7 +192,8 @@ export async function regenerateQuestions(
 }
 
 /**
- * Send message to AI chat via n8n
+ * Send message to AI chat via Supabase Edge Function proxy
+ * Uses edge function to avoid CORS issues with n8n
  */
 export async function sendAIChatMessage(
   validationDetailId: number,
@@ -203,30 +204,46 @@ export async function sendAIChatMessage(
   response?: string;
   error?: string;
 }> {
-  const n8nUrl = import.meta.env.VITE_N8N_AI_CHAT_URL;
+  // Use Supabase Edge Function proxy to avoid CORS
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const edgeFunctionUrl = `${supabaseUrl}/functions/v1/ai-chat-proxy`;
   
-  if (!n8nUrl) {
-    throw new Error('N8N AI chat URL not configured. Please set VITE_N8N_AI_CHAT_URL in environment variables.');
-  }
+  console.log('[n8nApi] AI Chat via Edge Function:', {
+    url: edgeFunctionUrl,
+    validationDetailId,
+    messageLength: message?.length,
+    historyLength: conversationHistory?.length,
+  });
 
-  const response = await fetch(n8nUrl, {
+  const payload = {
+    validation_detail_id: validationDetailId,
+    message: message,
+    conversation_history: conversationHistory,
+  };
+
+  console.log('[n8nApi] Sending AI chat request:', payload);
+
+  const response = await fetch(edgeFunctionUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
     },
-    body: JSON.stringify({
-      validation_detail_id: validationDetailId,
-      message: message,
-      conversation_history: conversationHistory,
-    }),
+    body: JSON.stringify(payload),
   });
+
+  console.log('[n8nApi] AI chat response status:', response.status);
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error');
+    console.error('[n8nApi] AI chat error response:', errorText);
     throw new Error(`AI Chat failed (${response.status}): ${errorText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log('[n8nApi] AI chat response:', result);
+
+  return result;
 }
 
 /**

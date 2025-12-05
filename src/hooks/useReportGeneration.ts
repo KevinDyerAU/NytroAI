@@ -14,6 +14,7 @@ import {
   type AssessmentReportParams,
 } from '../lib/assessmentReportGenerator';
 import { ValidationEvidenceRecord } from '../types/rto';
+import { supabase } from '../lib/supabase';
 
 export interface UseReportGenerationReturn {
   generateReport: (params: Omit<AssessmentReportParams, 'validationResults'>, validationResults: ValidationEvidenceRecord[]) => Promise<void>;
@@ -59,6 +60,20 @@ export function useReportGeneration(): UseReportGenerationReturn {
 
       // Download file
       downloadExcelFile(blob, filename);
+
+      // Update validation_detail status to 'Finalised'
+      console.log('[useReportGeneration] Updating validation status to Finalised for ID:', params.validationDetailId);
+      const { error: updateError } = await supabase
+        .from('validation_detail')
+        .update({ validation_status: 'Finalised' })
+        .eq('id', params.validationDetailId);
+
+      if (updateError) {
+        console.error('[useReportGeneration] Failed to update validation status:', updateError);
+        // Don't fail the whole operation - report was still generated
+      } else {
+        console.log('[useReportGeneration] Validation status updated to Finalised');
+      }
 
       toast.success('Report generated and downloaded!', {
         id: 'generate-report',

@@ -519,7 +519,7 @@ export function PromptMaintenanceNew() {
                 value={formData.system_instruction || ''}
                 onChange={(e) => setFormData({ ...formData, system_instruction: e.target.value })}
                 placeholder="You are an expert RTO assessor..."
-                rows={3}
+                rows={5}
               />
             </div>
 
@@ -529,7 +529,7 @@ export function PromptMaintenanceNew() {
                 value={formData.prompt_text}
                 onChange={(e) => setFormData({ ...formData, prompt_text: e.target.value })}
                 placeholder="Validate the following requirement: {{requirement_text}}..."
-                rows={8}
+                rows={12}
               />
             </div>
 

@@ -34,7 +34,8 @@ export function DocumentUploadAdapterSimplified({
   const [uploadedCount, setUploadedCount] = useState(0);
   const [geminiUploadCount, setGeminiUploadCount] = useState(0);
   const [uploadedDocuments, setUploadedDocuments] = useState<Array<{ documentId: number; fileName: string; storagePath: string }>>([]);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isComplete, setIsComplete] = React.useState(false);
+  const [showValidationDialog, setShowValidationDialog] = React.useState(false);
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [allUnits, setAllUnits] = useState<any[]>([]);
   const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
@@ -490,36 +491,53 @@ export function DocumentUploadAdapterSimplified({
           )}
         </Card>
 
-        {/* Validation Trigger (n8n) - Only show when uploads start */}
-        {validationDetailId && uploadedCount > 0 && (
-          <>
-            {console.log('[DocumentUploadAdapterSimplified] 🔍 Rendering ValidationTriggerCard:', {
-              validationDetailId,
-              uploadedCount,
-              totalCount: selectedFiles.length,
-              selectedFilesCount: selectedFiles.length
-            })}
-            <ValidationTriggerCard
-              validationDetailId={validationDetailId}
-              uploadedCount={uploadedCount}
-              totalCount={selectedFiles.length}
-              storagePaths={uploadedDocuments.map(doc => doc.storagePath)}
-              onSuccess={() => {
-                // Navigate to dashboard after validation starts
-                if (onValidationSubmit) {
-                  onValidationSubmit({
-                    validationId: validationDetailId,
-                    documentName: selectedFiles[0]?.name || 'document',
-                    unitCode: selectedUnit?.code || 'unknown'
-                  });
-                }
-              }}
-            />
-          </>
+        {/* Next Button - Always visible when files selected, enabled only after upload complete */}
+        {selectedFiles.length > 0 && selectedUnit && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#e2e8f0] p-4 shadow-lg">
+            <div className="max-w-7xl mx-auto flex justify-end">
+              <Button
+                onClick={() => setShowValidationDialog(true)}
+                disabled={!validationDetailId || !isComplete || uploadedCount !== selectedFiles.length}
+                size="lg"
+                className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next: Start Validation
+              </Button>
+            </div>
+          </div>
         )}
 
-        {/* Success Message - Hidden since ValidationTriggerCard shows the same info */}
-        {/* The ValidationTriggerCard above handles the "upload complete" messaging */}
+        {/* Validation Confirmation Dialog */}
+        {showValidationDialog && validationDetailId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 space-y-4">
+              <ValidationTriggerCard
+                validationDetailId={validationDetailId}
+                uploadedCount={uploadedCount}
+                totalCount={selectedFiles.length}
+                storagePaths={uploadedDocuments.map(doc => doc.storagePath)}
+                onSuccess={() => {
+                  setShowValidationDialog(false);
+                  // Navigate to dashboard after validation starts
+                  if (onValidationSubmit) {
+                    onValidationSubmit({
+                      validationId: validationDetailId,
+                      documentName: selectedFiles[0]?.name || 'document',
+                      unitCode: selectedUnit?.code || 'unknown'
+                    });
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => setShowValidationDialog(false)}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
