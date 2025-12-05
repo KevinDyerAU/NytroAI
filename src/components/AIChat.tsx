@@ -249,7 +249,7 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
                   : 'bg-[#dbeafe] border-[#93c5fd]'
                 }
               `}>
-                <p className="text-sm leading-relaxed text-[#1e293b]">{message.content}</p>
+                <p className="text-sm leading-relaxed text-[#1e293b] whitespace-pre-wrap">{message.content}</p>
                 
                 {/* Citations */}
                 {message.citations && message.citations.length > 0 && (

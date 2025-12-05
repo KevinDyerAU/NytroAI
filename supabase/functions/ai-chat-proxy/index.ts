@@ -58,10 +58,22 @@ serve(async (req) => {
       if (geminiResponse) {
         console.log('[ai-chat-proxy] Extracted Gemini response:', geminiResponse.substring(0, 100) + '...');
         
+        // Check if geminiResponse is a JSON string that needs parsing
+        let responseText = geminiResponse;
+        try {
+          const parsed = JSON.parse(geminiResponse);
+          if (parsed.response && typeof parsed.response === 'string') {
+            responseText = parsed.response;
+            console.log('[ai-chat-proxy] Parsed nested JSON response');
+          }
+        } catch {
+          // Not a JSON string, use as-is
+        }
+        
         // Transform to expected format
         const transformedData = {
           success: true,
-          response: geminiResponse,
+          response: responseText,
           metadata: {
             usageMetadata: data.usageMetadata,
             modelVersion: data.modelVersion,

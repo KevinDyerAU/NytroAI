@@ -143,7 +143,7 @@ export function ValidationTriggerCard({
             <div className="space-y-3">
               <p className="text-sm text-blue-800">
                 {allUploaded
-                  ? `All ${totalCount} document${totalCount !== 1 ? 's' : ''} uploaded to Supabase. Type "validate" below to confirm.`
+                  ? `All ${totalCount} document${totalCount !== 1 ? 's' : ''} uploaded successfully. Type "validate" below to confirm.`
                   : `Upload in progress: ${uploadedCount}/${totalCount} documents`}
               </p>
               

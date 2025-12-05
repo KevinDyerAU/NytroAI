@@ -50,11 +50,33 @@ export function DocumentUploadSimplified({
   const hasNotifiedFilesRef = useRef(false);
   const previousValidationIdRef = useRef<number | undefined>(undefined);
 
-  // Notify parent ONCE when files are initially selected (not on progress updates)
+  // Notify parent ONCE when files are initially selected (not on progress updates or after upload)
   useEffect(() => {
-    if (files.length > 0 && onFilesSelected && !hasNotifiedFilesRef.current) {
+    // Check if any files have started uploading (have progress beyond 'pending')
+    const anyFileUploading = files.some(f => 
+      f.progress.stage === 'uploading' || f.progress.stage === 'completed' || f.progress.stage === 'failed'
+    );
+    
+    // Debug: Log notification check
+    if (files.length > 0) {
+      console.log('[DocumentUploadSimplified] 🔔 Notification check:', {
+        filesCount: files.length,
+        hasCallback: !!onFilesSelected,
+        alreadyNotified: hasNotifiedFilesRef.current,
+        anyFileUploading,
+        fileStages: files.map(f => f.progress.stage)
+      });
+    }
+    
+    // Only notify if:
+    // 1. We have files
+    // 2. Parent wants notifications
+    // 3. We haven't notified yet
+    // 4. No files are uploading/uploaded (all are still 'pending')
+    if (files.length > 0 && onFilesSelected && !hasNotifiedFilesRef.current && !anyFileUploading) {
       const validFiles = files.filter(f => f?.file).map(f => f.file);
       if (validFiles.length > 0) {
+        console.log('[DocumentUploadSimplified] 📢 Notifying parent of file selection');
         onFilesSelected(validFiles);
         hasNotifiedFilesRef.current = true;
       }
@@ -266,7 +288,14 @@ export function DocumentUploadSimplified({
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      // Reset notification flag when all files are removed
+      if (updated.length === 0) {
+        hasNotifiedFilesRef.current = false;
+      }
+      return updated;
+    });
   };
 
   const clearAll = () => {
@@ -425,24 +454,26 @@ export function DocumentUploadSimplified({
 
       {/* Upload Button */}
       {files.length > 0 && !triggerUpload && (
-        <Button
-          onClick={handleUpload}
-          disabled={isUploading}
-          size="lg"
-          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold h-14 text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center"
-        >
-          {isUploading ? (
-            <>
-              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-              Uploading {files.length} {files.length === 1 ? 'File' : 'Files'}...
-            </>
-          ) : (
-            <>
-              <Upload className="mr-3 h-5 w-5" />
-              Upload {files.length} {files.length === 1 ? 'File' : 'Files'}
-            </>
-          )}
-        </Button>
+        <div className="flex justify-center">
+          <Button
+            onClick={handleUpload}
+            disabled={isUploading}
+            size="lg"
+            className="max-w-md w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold h-14 text-base shadow-md hover:shadow-lg transition-all"
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                Uploading {files.length} {files.length === 1 ? 'File' : 'Files'}...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-3 h-5 w-5" />
+                Upload {files.length} {files.length === 1 ? 'File' : 'Files'}
+              </>
+            )}
+          </Button>
+        </div>
       )}
 
     </div>

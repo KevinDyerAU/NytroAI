@@ -148,6 +148,24 @@ export function DocumentUploadAdapterSimplified({
     }
   };
 
+  // Debug: Log Next button state whenever it changes
+  useEffect(() => {
+    const buttonDisabled = !validationDetailId || !isComplete || uploadedCount !== selectedFiles.length;
+    console.log('[Next Button State]', {
+      validationDetailId,
+      isComplete,
+      uploadedCount,
+      selectedFilesLength: selectedFiles.length,
+      uploadedDocumentsLength: uploadedDocuments.length,
+      buttonDisabled,
+      reasons: {
+        noValidationId: !validationDetailId,
+        notComplete: !isComplete,
+        countMismatch: uploadedCount !== selectedFiles.length
+      }
+    });
+  }, [validationDetailId, isComplete, uploadedCount, selectedFiles.length, uploadedDocuments.length]);
+
   // Handle Enter key to auto-select exact match
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && unitSearchTerm && filteredUnits.length > 0) {
@@ -246,20 +264,25 @@ export function DocumentUploadAdapterSimplified({
   const handleFilesSelected = useCallback((files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
     
-    // Only reset counts if files are different AND we haven't completed upload
+    // Check if files actually changed
     const filesChanged = selectedFiles.length !== files.length || 
                          selectedFiles.some((f, i) => f?.name !== files[i]?.name);
     
-    // Don't reset if upload is complete (this prevents resetting after successful upload)
-    if (filesChanged && !isComplete) {
-      console.log('[DocumentUploadAdapterSimplified] 🆕 File selection, resetting counts');
-      setUploadedCount(0);
-      setIsComplete(false);
-    } else if (filesChanged && isComplete) {
-      console.log('[DocumentUploadAdapterSimplified] ⚠️ Files changed but upload already complete, not resetting');
+    if (!filesChanged) {
+      console.log('[DocumentUploadAdapterSimplified] 🔄 Same files, no action needed');
+      return; // Exit early if files haven't changed
     }
     
-    setSelectedFiles(files);
+    // Only reset counts if we haven't completed upload
+    if (!isComplete) {
+      console.log('[DocumentUploadAdapterSimplified] 🆕 New file selection, resetting counts and uploaded documents');
+      setUploadedCount(0);
+      setUploadedDocuments([]); // Clear uploaded documents array
+      setIsComplete(false);
+      setSelectedFiles(files);
+    } else {
+      console.log('[DocumentUploadAdapterSimplified] ⚠️ Files changed but upload already complete, ignoring change');
+    }
   }, [selectedFiles, isComplete]);
 
   // Handle upload complete (storage only, n8n creates DB records)
@@ -267,36 +290,35 @@ export function DocumentUploadAdapterSimplified({
     console.log('[DocumentUploadAdapterSimplified] ✅ Upload complete callback fired!', {
       fileName,
       storagePath,
-      currentUploadedCount: uploadedCount,
-      totalFiles: selectedFiles.length
     });
     
     // Add to uploaded documents list
-    setUploadedDocuments(prev => [...prev, { fileName, storagePath }]);
+    setUploadedDocuments(prev => {
+      const updated = [...prev, { fileName, storagePath }];
+      console.log(`[DocumentUploadAdapterSimplified] 📊 Uploaded documents: ${updated.length}`);
+      return updated;
+    });
     
-    // Update count and check if all files are done
+    // Increment upload count
     setUploadedCount(prev => {
       const newCount = prev + 1;
-      console.log(`[DocumentUploadAdapterSimplified] 📊 Upload progress: ${newCount}/${selectedFiles.length}`);
-      
-      // Check if all files uploaded using the NEW count
-      if (newCount >= selectedFiles.length) {
-        console.log('[DocumentUploadAdapterSimplified] 🎉 All files uploaded!');
-        setIsComplete(true);
-        
-        // Show success message - user must type "validate" and click button
-        toast.success('Upload complete!', {
-          description: 'Type "validate" below and click the button to start AI processing.',
-          duration: 5000,
-        });
-
-        // NO AUTO-NAVIGATION - User must click "Start Validation" button
-        // Navigation happens in ValidationTriggerCard onSuccess callback
-      }
-      
+      console.log(`[DocumentUploadAdapterSimplified] 📊 Upload count: ${newCount}`);
       return newCount;
     });
-  }, [selectedFiles.length, uploadedCount]);
+  }, []);
+
+  // Check if all uploads are complete (runs whenever uploadedCount changes)
+  useEffect(() => {
+    if (uploadedCount > 0 && uploadedCount === selectedFiles.length && !isComplete) {
+      console.log('[DocumentUploadAdapterSimplified] 🎉 All files uploaded! Setting isComplete=true');
+      setIsComplete(true);
+      
+      toast.success('Upload complete!', {
+        description: 'Click "Next: Start Validation" to continue.',
+        duration: 5000,
+      });
+    }
+  }, [uploadedCount, selectedFiles.length, isComplete]);
 
   // Reset form to start a new validation
   const handleStartNew = () => {
@@ -495,7 +517,16 @@ export function DocumentUploadAdapterSimplified({
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#e2e8f0] p-4 shadow-lg">
             <div className="max-w-7xl mx-auto flex justify-end">
               <Button
-                onClick={() => setShowValidationDialog(true)}
+                onClick={() => {
+                  console.log('[Next Button] Clicked, current state:', {
+                    validationDetailId,
+                    isComplete,
+                    uploadedCount,
+                    selectedFilesLength: selectedFiles.length,
+                    uploadedDocumentsLength: uploadedDocuments.length
+                  });
+                  setShowValidationDialog(true);
+                }}
                 disabled={!validationDetailId || !isComplete || uploadedCount !== selectedFiles.length}
                 size="lg"
                 className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
