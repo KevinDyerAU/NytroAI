@@ -11,6 +11,7 @@ import { getRTOById, consumeAICredit } from '../types/rto';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { ValidationStatusBadge as StatusBadge } from './ValidationStatusBadge';
 import { toast } from 'sonner';
+import wizardLogo from '../assets/wizard-logo.png';
 
 interface ValidationResult {
   id: string;
@@ -186,20 +187,24 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
       // Import supabase client
       const { supabase } = await import('../lib/supabase');
       
-      // Update the validation_result in database
+      console.log('[ValidationCard] Updating validation_results, id:', result.id);
+      
+      // Simple UPDATE - record should already exist
       const { error } = await supabase
-        .from('validation_result')
+        .from('validation_results')
         .update({
           smart_questions: editedQuestion,
           benchmark_answer: editedAnswer,
-          citations: generatedCitations.length > 0 ? JSON.stringify(generatedCitations) : result.citations,
-          updated_at: new Date().toISOString()
+          citations: generatedCitations.length > 0 ? JSON.stringify(generatedCitations) : result.citations
         })
         .eq('id', result.id);
       
       if (error) {
+        console.error('[ValidationCard] Save error:', error);
         throw error;
       }
+      
+      console.log('[ValidationCard] Saved successfully');
       
       // Update local state
       result.smart_questions = editedQuestion;
@@ -626,9 +631,13 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
       <AlertDialog open={showGeneratingModal} onOpenChange={setShowGeneratingModal}>
         <AlertDialogContent className="max-w-md bg-white">
           <div className="flex flex-col items-center justify-center py-8 px-4">
-            {/* Wizard icon like AI chat */}
-            <div className="rounded-lg flex items-center justify-center w-20 h-20 bg-white border-2 border-[#dbeafe] mb-6">
-              <span className="text-5xl">🧙‍♂️</span>
+            {/* Wizard logo from nav pane */}
+            <div className="mb-6 w-32">
+              <img
+                src={wizardLogo}
+                alt="Nytro Wizard"
+                className="w-full h-auto object-contain"
+              />
             </div>
             
             <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
