@@ -21,7 +21,7 @@ serve(async (req) => {
   try {
     // Get n8n URL from Supabase env secret or use fallback
     // Set N8N_REGENERATE_QUESTIONS_URL in Supabase Edge Function secrets to override
-    const n8nUrl = Deno.env.get('N8N_REGENERATE_QUESTIONS_URL') || 'https://n8n-gtoa.onrender.com/webhook/regenerate-questions';
+    const n8nUrl = Deno.env.get('N8N_REGENERATE_QUESTIONS_URL') || 'https://n8n-gtoa.onrender.com/webhook/smart-questions';
     
     console.log('[regenerate-questions-proxy] Proxying request to n8n:', n8nUrl);
 

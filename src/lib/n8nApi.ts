@@ -179,6 +179,7 @@ export async function revalidateRequirement(validationResult: any): Promise<N8nR
  * Uses edge function to avoid CORS issues with n8n
  */
 export async function regenerateQuestions(
+  validationDetailId: number,
   validationResultId: number,
   userGuidance: string,
   requirementText?: string,
@@ -198,6 +199,7 @@ export async function regenerateQuestions(
   
   console.log('[n8nApi] Regenerate Questions via Edge Function:', {
     url: edgeFunctionUrl,
+    validationDetailId,
     validationResultId,
     userGuidanceLength: userGuidance?.length,
     hasRequirementText: !!requirementText,
@@ -205,6 +207,7 @@ export async function regenerateQuestions(
   });
 
   const payload: any = {
+    validation_detail_id: validationDetailId,
     validation_result_id: validationResultId,
     user_guidance: userGuidance,
   };

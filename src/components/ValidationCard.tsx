@@ -114,9 +114,16 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
       const existingSmartQuestion = result.smart_questions;
       
       // Call n8n via edge function proxy with full context
-      const resultId: number = parseInt(result.id, 10);
+      const validationDetailId: number = result.validation_detail_id || 0;
+      const validationResultId: number = parseInt(result.id, 10);
+      
+      if (!validationDetailId) {
+        throw new Error('validation_detail_id not found');
+      }
+      
       const response = await regenerateQuestions(
-        resultId,
+        validationDetailId,
+        validationResultId,
         aiContext,
         requirementText,
         existingSmartQuestion
@@ -154,15 +161,43 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
     }
   };
 
-  const handleSave = () => {
-    // In a real app, this would update the backend
-    result.smart_questions = editedQuestion;
-    result.benchmark_answer = editedAnswer;
-    if (generatedCitations.length > 0) {
-      result.citations = JSON.stringify(generatedCitations);
+  const handleSave = async () => {
+    try {
+      toast.loading('Saving changes...', { id: 'save-question' });
+      
+      // Import supabase client
+      const { supabase } = await import('../lib/supabase');
+      
+      // Update the validation_result in database
+      const { error } = await supabase
+        .from('validation_result')
+        .update({
+          smart_questions: editedQuestion,
+          benchmark_answer: editedAnswer,
+          citations: generatedCitations.length > 0 ? JSON.stringify(generatedCitations) : result.citations,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', result.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state
+      result.smart_questions = editedQuestion;
+      result.benchmark_answer = editedAnswer;
+      if (generatedCitations.length > 0) {
+        result.citations = JSON.stringify(generatedCitations);
+      }
+      
+      setIsEditing(false);
+      setAiContext('');
+      
+      toast.success('Changes saved successfully', { id: 'save-question' });
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      toast.error('Failed to save changes. Please try again.', { id: 'save-question' });
     }
-    setIsEditing(false);
-    setAiContext('');
   };
 
   const handleCancel = () => {
@@ -188,7 +223,7 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
     setShowRevalidateDialog(false);
     setConfirmText('');
 
-    toast.loading(`Revalidating ${getRequirementNumber()}...`, { id: 'revalidate' });
+    toast.loading('🤔 Nytro is thinking... Revalidating requirement', { id: 'revalidate' });
     
     try {
       // Import revalidateRequirement from n8nApi
@@ -210,7 +245,10 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
           }
         }
         
-        toast.success(`${getRequirementNumber()} has been queued for revalidation`, { id: 'revalidate' });
+        toast.success(`✅ Revalidation started! Updated results will appear in the table once complete.`, { 
+          id: 'revalidate',
+          duration: 5000
+        });
       } else {
         throw new Error(response.error || 'Revalidation failed');
       }
