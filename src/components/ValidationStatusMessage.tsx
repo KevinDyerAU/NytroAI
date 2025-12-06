@@ -3,7 +3,7 @@
  * Displays appropriate messages for different validation states
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Loader2, 
   XCircle, 
@@ -17,6 +17,7 @@ import {
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import type { ValidationResultsError } from '../lib/validationResults';
+import wizardLogo from '../assets/wizard-logo.png';
 
 interface ValidationStatusMessageProps {
   type: 'loading' | 'processing' | 'error' | 'empty' | 'no-results';
@@ -163,63 +164,76 @@ export function ValidationStatusMessage({
 
   // No results state (validation complete but no data)
   if (type === 'no-results') {
-    const hasProgress = validationProgress && validationProgress.total > 0;
-    const isStillProcessing = validationProgress && 
-      (validationProgress.status === 'ProcessingInBackground' || 
-       validationProgress.status === 'DocumentProcessing');
+    // Auto-refresh every 15 seconds when still processing
+    useEffect(() => {
+      if (onRefresh) {
+        const intervalId = setInterval(() => {
+          console.log('[ValidationStatusMessage] Auto-refreshing validation status...');
+          onRefresh();
+        }, 15000); // 15 seconds
 
+        return () => clearInterval(intervalId);
+      }
+    }, [onRefresh]);
+
+    const hasProgress = validationProgress && validationProgress.total > 0;
+    
     return (
-      <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-lg border border-gray-200 p-8">
-        {isStillProcessing ? (
-          <Clock className="w-12 h-12 text-blue-500 mb-4" />
-        ) : (
-          <FileText className="w-12 h-12 text-gray-400 mb-4" />
-        )}
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          {isStillProcessing ? '⏳ Validation In Progress' : 'No Results Available'}
+      <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border border-[#dbeafe] p-8">
+        {/* Wizard logo like smart question modal */}
+        <div className="mb-6 w-32">
+          <img
+            src={wizardLogo}
+            alt="Nytro Wizard"
+            className="w-full h-auto object-contain"
+          />
+        </div>
+        
+        <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+          Nytro is still processing...
         </h3>
         
-        {hasProgress ? (
-          <>
-            <p className="text-sm text-gray-600 text-center mb-3">
-              {isStillProcessing 
-                ? 'Your validation is being processed. Results will appear here as they become available.'
-                : error?.message || 'This validation has no results yet.'}
-            </p>
-            
-            <div className="bg-white rounded-lg p-4 border border-gray-200 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-700">
-                  Progress:
-                </span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {validationProgress.completed} / {validationProgress.total} requirements
-                </span>
-              </div>
-              <Progress 
-                value={(validationProgress.completed / validationProgress.total) * 100} 
-                className="h-2 mb-2" 
-              />
-              <p className="text-xs text-gray-500 text-center">
-                Status: <span className="font-medium">{validationProgress.status}</span>
-              </p>
+        {/* Bouncing dots like AI chat */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex gap-1">
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+          </div>
+        </div>
+        
+        <p className="text-sm text-[#64748b] text-center mb-4">
+          Your validation is being processed. Results will appear here as they become available.
+        </p>
+        
+        {hasProgress && (
+          <div className="bg-[#f8f9fb] rounded-lg p-4 border border-[#dbeafe] mb-4 w-full max-w-md">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-[#1e293b]">
+                Progress:
+              </span>
+              <span className="text-sm font-semibold text-[#1e293b]">
+                {validationProgress.completed} / {validationProgress.total} requirements
+              </span>
             </div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-gray-600 text-center mb-1">
-              {error?.message || 'This validation has no results yet.'}
+            <Progress 
+              value={(validationProgress.completed / validationProgress.total) * 100} 
+              className="h-2 mb-2" 
+            />
+            <p className="text-xs text-[#64748b] text-center">
+              Status: <span className="font-medium">{validationProgress.status}</span>
             </p>
-            <p className="text-xs text-gray-500 text-center mb-4">
-              The validation may still be processing, or there may have been an issue during validation.
-            </p>
-          </>
+          </div>
         )}
+        
+        <p className="text-xs text-[#94a3b8] text-center mb-4">
+          Auto-refreshing every 15 seconds...
+        </p>
         
         {onRefresh && (
           <Button onClick={onRefresh} variant="outline" size="sm">
             <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh Status
+            Refresh Now
           </Button>
         )}
       </div>
