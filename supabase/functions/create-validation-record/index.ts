@@ -45,7 +45,7 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabase = createSupabaseClient(req);
 
-    // Step 1: Find existing validation_summary using unitLink (MUST exist - contains requirements)
+    // Step 1: Find or create validation_summary using unitLink
     console.log('[create-validation-record] 1. Looking for existing validation_summary with unitLink:', unitLink);
     
     const { data: existingSummary, error: findError } = await supabase
@@ -54,28 +54,64 @@ serve(async (req) => {
       .eq('unitLink', unitLink)
       .single();
 
+    let summaryId: number;
+
     if (findError) {
-      if (findError.code === 'PGRST116') { // Not found
-        console.error('[create-validation-record] No validation_summary found for unitLink:', unitLink);
-        return createErrorResponse(
-          `No requirements found for unit: ${unitCode}. Please extract requirements first using Unit Acquisition.`,
-          404
-        );
+      if (findError.code === 'PGRST116') { // Not found - create it
+        console.log('[create-validation-record] No validation_summary found, creating from unit_of_competency...');
+        
+        // Get unit details from unit_of_competency table
+        const { data: unitData, error: unitError } = await supabase
+          .from('unit_of_competency')
+          .select('unitCode, Title, Link, rto_code')
+          .eq('Link', unitLink)
+          .single();
+
+        if (unitError || !unitData) {
+          console.error('[create-validation-record] Unit not found in unit_of_competency:', unitError);
+          return createErrorResponse(
+            `Unit not found: ${unitCode}. Please ensure the unit exists in the database.`,
+            404
+          );
+        }
+
+        console.log('[create-validation-record] Found unit in unit_of_competency:', unitData.unitCode);
+
+        // Create new validation_summary
+        const { data: newSummary, error: createSummaryError } = await supabase
+          .from('validation_summary')
+          .insert({
+            unitCode: unitData.unitCode,
+            unitLink: unitData.Link,
+            unitTitle: unitData.Title,
+            rtoCode: unitData.rto_code || rtoCode,
+            reqExtracted: false, // Requirements not yet extracted
+            extractStatus: 'Pending',
+          })
+          .select('id')
+          .single();
+
+        if (createSummaryError) {
+          console.error('[create-validation-record] Error creating validation_summary:', createSummaryError);
+          throw new Error(`Failed to create validation_summary: ${createSummaryError.message}`);
+        }
+
+        console.log('[create-validation-record] Created new validation_summary:', newSummary.id);
+        summaryId = newSummary.id;
+      } else {
+        console.error('[create-validation-record] Error finding validation_summary:', findError);
+        throw new Error(`Failed to find validation_summary: ${findError.message}`);
       }
-      console.error('[create-validation-record] Error finding validation_summary:', findError);
-      throw new Error(`Failed to find validation_summary: ${findError.message}`);
-    }
+    } else {
+      // Found existing summary
+      console.log('[create-validation-record] Found existing validation_summary:', existingSummary.id);
+      summaryId = existingSummary.id;
 
-    if (!existingSummary.reqExtracted) {
-      console.error('[create-validation-record] Requirements not extracted for unitLink:', unitLink);
-      return createErrorResponse(
-        `Requirements not yet extracted for unit: ${unitCode}. Please wait for extraction to complete.`,
-        400
-      );
+      // Warn if requirements not extracted (but don't block - allow validation to proceed)
+      if (!existingSummary.reqExtracted) {
+        console.warn('[create-validation-record] ⚠️ Requirements not yet extracted for this unit. Validation will proceed but may have limited functionality.');
+      }
     }
-
-    console.log('[create-validation-record] Found existing validation_summary with requirements:', existingSummary.id);
-    const summaryId = existingSummary.id;
 
     // Update validation_summary with rtoCode (may be missing from initial creation)
     console.log('[create-validation-record] 1.5. Updating validation_summary with rtoCode:', rtoCode);
