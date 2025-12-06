@@ -243,33 +243,36 @@ serve(async (req) => {
     }).length;
 
     // 4. AI QUERIES
-    console.log('║ Step 4: Counting AI queries...');
-    // Count total AI queries (all time) and this month from gemini_operations
+    console.log('║ Step 4: Counting AI queries from credit transactions...');
+    // Count AI credit consumptions (chat, smart questions, revalidations, validations)
+    // from ai_credit_transactions table where amount < 0 (negative = consumption)
     
-    // Get validation IDs for this RTO by joining with validation_summary
-    let validationIdsForAI: number[] = [];
+    // Get RTO ID from code
+    let aiQueriesRtoId: number | null = null;
     if (rtoCode) {
-      const { data: validationIds, error: validationIdsError } = await supabaseClient
-        .from('validation_detail')
-        .select('id, validation_summary!inner(rtoCode)')
-        .eq('validation_summary.rtoCode', rtoCode);
+      const { data: rtoData, error: rtoError } = await supabaseClient
+        .from('RTO')
+        .select('id')
+        .eq('code', rtoCode)
+        .single();
 
-      if (validationIdsError) {
-        console.error('Error fetching validation IDs for AI queries:', validationIdsError);
-        throw validationIdsError;
+      if (rtoError) {
+        console.error('Error fetching RTO ID for AI queries:', rtoError);
+        throw rtoError;
       }
 
-      validationIdsForAI = (validationIds || []).map((v: any) => v.id);
+      aiQueriesRtoId = rtoData?.id || null;
     }
 
-    // Count all-time AI queries
+    // Count all-time AI queries (credit consumptions)
     let allTimeQuery = supabaseClient
-      .from('gemini_operations')
-      .select('id', { count: 'exact' });
+      .from('ai_credit_transactions')
+      .select('id', { count: 'exact' })
+      .lt('amount', 0); // Only count consumptions (negative amounts)
     
-    if (rtoCode && validationIdsForAI.length > 0) {
-      allTimeQuery = allTimeQuery.in('validation_detail_id', validationIdsForAI);
-    } else if (rtoCode && validationIdsForAI.length === 0) {
+    if (rtoCode && aiQueriesRtoId) {
+      allTimeQuery = allTimeQuery.eq('rto_id', aiQueriesRtoId);
+    } else if (rtoCode && !aiQueriesRtoId) {
       allTimeQuery = allTimeQuery.eq('id', -1); // No queries for this RTO
     }
 
@@ -280,15 +283,18 @@ serve(async (req) => {
       throw allTimeError;
     }
 
+    console.log(`║ Found ${totalQueriesAllTime || 0} total AI credit consumptions (all time)`);
+
     // Count this month's AI queries
     let thisMonthAIQuery = supabaseClient
-      .from('gemini_operations')
+      .from('ai_credit_transactions')
       .select('id', { count: 'exact' })
+      .lt('amount', 0) // Only count consumptions
       .gte('created_at', startOfMonth.toISOString());
     
-    if (rtoCode && validationIdsForAI.length > 0) {
-      thisMonthAIQuery = thisMonthAIQuery.in('validation_detail_id', validationIdsForAI);
-    } else if (rtoCode && validationIdsForAI.length === 0) {
+    if (rtoCode && aiQueriesRtoId) {
+      thisMonthAIQuery = thisMonthAIQuery.eq('rto_id', aiQueriesRtoId);
+    } else if (rtoCode && !aiQueriesRtoId) {
       thisMonthAIQuery = thisMonthAIQuery.eq('id', -1); // No queries for this RTO
     }
 
@@ -298,6 +304,8 @@ serve(async (req) => {
       console.error('Error fetching this month AI queries:', thisMonthAIError);
       throw thisMonthAIError;
     }
+
+    console.log(`║ Found ${totalQueriesThisMonth || 0} AI credit consumptions this month`);
 
     console.log('║ Step 5: Building metrics response...');
     const metrics: DashboardMetrics = {
