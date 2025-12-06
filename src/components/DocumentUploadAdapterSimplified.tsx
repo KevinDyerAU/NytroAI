@@ -146,12 +146,13 @@ export function DocumentUploadAdapterSimplified({
   // Debug: Log Next button state whenever it changes
   useEffect(() => {
     const buttonDisabled = !isComplete || uploadedCount !== selectedFiles.length;
-    console.log('[Next Button State]', {
+    console.log('[Next Button State] 🔘', {
       isComplete,
       uploadedCount,
       selectedFilesLength: selectedFiles.length,
       uploadedDocumentsLength: uploadedDocuments.length,
       buttonDisabled,
+      buttonShouldBeEnabled: isComplete && uploadedCount === selectedFiles.length,
       reasons: {
         notComplete: !isComplete,
         countMismatch: uploadedCount !== selectedFiles.length
@@ -184,28 +185,17 @@ export function DocumentUploadAdapterSimplified({
 
   // Handle file selection (just update state, don't create validation)
   const handleFilesSelected = useCallback((files: File[]) => {
-    console.log('[DocumentUploadAdapterSimplified] Files selected:', files.length);
+    console.log('[DocumentUploadAdapterSimplified] 📁 Files selected:', files.length);
     
-    // Check if files actually changed
-    const filesChanged = selectedFiles.length !== files.length || 
-                         selectedFiles.some((f, i) => f?.name !== files[i]?.name);
+    // Always update selectedFiles to ensure sync
+    setSelectedFiles(files);
     
-    if (!filesChanged) {
-      console.log('[DocumentUploadAdapterSimplified] 🔄 Same files, no action needed');
-      return; // Exit early if files haven't changed
-    }
-    
-    // Only reset counts if we haven't completed upload
-    if (!isComplete) {
-      console.log('[DocumentUploadAdapterSimplified] 🆕 New file selection, resetting counts and uploaded documents');
-      setUploadedCount(0);
-      setUploadedDocuments([]); // Clear uploaded documents array
-      setIsComplete(false);
-      setSelectedFiles(files);
-    } else {
-      console.log('[DocumentUploadAdapterSimplified] ⚠️ Files changed but upload already complete, ignoring change');
-    }
-  }, [selectedFiles, isComplete]);
+    // Reset upload state for new selection
+    console.log('[DocumentUploadAdapterSimplified] 🔄 Resetting upload state for new file selection');
+    setUploadedCount(0);
+    setUploadedDocuments([]);
+    setIsComplete(false);
+  }, []);
 
   // Handle upload complete (storage only, n8n creates DB records)
   const handleUploadComplete = useCallback((fileName: string, storagePath: string) => {
@@ -218,19 +208,43 @@ export function DocumentUploadAdapterSimplified({
     setUploadedDocuments(prev => {
       const updated = [...prev, { fileName, storagePath }];
       console.log(`[DocumentUploadAdapterSimplified] 📊 Uploaded documents: ${updated.length}`);
+      
+      // Check completion immediately after state update
+      setUploadedCount(currentCount => {
+        const newCount = currentCount + 1;
+        console.log(`[DocumentUploadAdapterSimplified] 📊 Upload count: ${newCount}/${selectedFiles.length}`);
+        
+        // Check if all uploads are complete RIGHT NOW
+        if (newCount === selectedFiles.length && selectedFiles.length > 0) {
+          console.log('[DocumentUploadAdapterSimplified] 🎉 COMPLETION DETECTED! All files uploaded!');
+          // Use setTimeout to ensure state update completes
+          setTimeout(() => {
+            setIsComplete(true);
+            toast.success('Upload complete!', {
+              description: 'Click "Next: Start Validation" to continue.',
+              duration: 5000,
+            });
+          }, 100);
+        } else {
+          console.log(`[DocumentUploadAdapterSimplified] ⏳ Still uploading: ${newCount}/${selectedFiles.length}`);
+        }
+        
+        return newCount;
+      });
+      
       return updated;
     });
-    
-    // Increment upload count
-    setUploadedCount(prev => {
-      const newCount = prev + 1;
-      console.log(`[DocumentUploadAdapterSimplified] 📊 Upload count: ${newCount}`);
-      return newCount;
-    });
-  }, []);
+  }, [selectedFiles.length]);
 
   // Check if all uploads are complete (runs whenever uploadedCount changes)
   useEffect(() => {
+    console.log('[DocumentUploadAdapterSimplified] 🔍 Checking completion...', {
+      uploadedCount,
+      selectedFilesLength: selectedFiles.length,
+      isComplete,
+      shouldComplete: uploadedCount > 0 && uploadedCount === selectedFiles.length && !isComplete
+    });
+    
     if (uploadedCount > 0 && uploadedCount === selectedFiles.length && !isComplete) {
       console.log('[DocumentUploadAdapterSimplified] 🎉 All files uploaded! Setting isComplete=true');
       setIsComplete(true);
