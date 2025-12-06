@@ -67,67 +67,14 @@ export function ResultsExplorer_v2({
   aiCreditsAvailable = true, 
   selectedRTOId 
 }: ResultsExplorerProps) {
-  // Load persisted state from sessionStorage
-  const loadPersistedState = () => {
-    try {
-      const saved = sessionStorage.getItem('resultsExplorerState');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const persistedState = loadPersistedState();
-
-  // State management with persistence
-  const [selectedValidation, setSelectedValidation] = useState<Validation | null>(
-    persistedState.selectedValidation || null
-  );
-  const [searchTerm, setSearchTerm] = useState(persistedState.searchTerm || '');
-  const [statusFilter, setStatusFilter] = useState(persistedState.statusFilter || 'all');
+  // State management - always start fresh (no persistence across navigation)
+  const [selectedValidation, setSelectedValidation] = useState<Validation | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedResult, setSelectedResult] = useState<any>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [confirmText, setConfirmText] = useState('');
-
-  // Save state to sessionStorage when it changes
-  useEffect(() => {
-    const stateToSave = {
-      selectedValidation,
-      searchTerm,
-      statusFilter,
-    };
-    try {
-      sessionStorage.setItem('resultsExplorerState', JSON.stringify(stateToSave));
-    } catch (error) {
-      console.warn('Failed to save Results Explorer state:', error);
-    }
-  }, [selectedValidation, searchTerm, statusFilter]);
-
-  // Cleanup: Reset all fields and filters when component unmounts (navigating away)
-  useEffect(() => {
-    return () => {
-      console.log('[ResultsExplorer] Cleaning up - resetting all filters and state');
-      
-      // Clear persisted state from sessionStorage
-      try {
-        sessionStorage.removeItem('resultsExplorerState');
-      } catch (error) {
-        console.warn('Failed to clear Results Explorer state:', error);
-      }
-      
-      // Reset all UI state
-      setSearchTerm('');
-      setStatusFilter('all');
-      setSelectedValidation(null);
-      setSelectedResult(null);
-      setShowReportDialog(false);
-      setShowDetailedReport(false);
-      setConfirmText('');
-      setUnitSearchTerm('');
-      setShowUnitDropdown(false);
-    };
-  }, []);
   
   // Credits state
   const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });
@@ -311,7 +258,20 @@ export function ResultsExplorer_v2({
     }
   };
 
-  // Auto-select validation if ID provided
+  // Reset filters and state when navigating directly to Results Explorer (no validation ID)
+  useEffect(() => {
+    if (!selectedValidationId) {
+      console.log('[ResultsExplorer] No validation ID provided - resetting all filters and state');
+      setSearchTerm('');
+      setStatusFilter('all');
+      setSelectedValidation(null);
+      setSelectedResult(null);
+      setUnitSearchTerm('');
+      setShowUnitDropdown(false);
+    }
+  }, [selectedValidationId]);
+
+  // Auto-select validation if ID provided (from dashboard double-click)
   useEffect(() => {
     if (selectedValidationId && validationRecords.length > 0) {
       console.log('[ResultsExplorer] Looking for validation ID:', selectedValidationId);
@@ -333,6 +293,8 @@ export function ResultsExplorer_v2({
           progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
           sector: 'N/A',
         });
+        // When coming from dashboard, also set the search term to the unit code
+        setUnitSearchTerm(record.unit_code || '');
       } else {
         console.warn('[ResultsExplorer] Validation ID not found:', selectedValidationId);
       }

@@ -31,6 +31,15 @@ export function DashboardPage() {
   // Use user's RTO ID from auth instead of state
   const selectedRTOId = user?.rto_id ? String(user.rto_id) : '';
 
+  // Custom navigation handler that clears validation ID when leaving results view
+  const handleNavigate = (view: string) => {
+    // Clear validation ID when navigating away from results (unless navigating TO results)
+    if (currentView === 'results' && view !== 'results') {
+      setSelectedValidationId(null);
+    }
+    setCurrentView(view);
+  };
+
   // Load RTOs cache on mount
   useEffect(() => {
     const loadRTOs = async () => {
@@ -53,14 +62,14 @@ export function DashboardPage() {
   const handleValidationDoubleClick = (validation: ValidationRecord) => {
     // Always navigate to Results Explorer when double-clicking a validation
     setSelectedValidationId(validation.id.toString());
-    setCurrentView('results');
+    handleNavigate('results');
   };
 
   const handleValidationSubmit = (validationData?: { validationId: number; documentName: string; unitCode: string }) => {
     // Navigate to dashboard after validation starts
     console.log('[DashboardPage] handleValidationSubmit called with:', validationData);
     console.log('[DashboardPage] Navigating to dashboard view...');
-    setCurrentView('dashboard');
+    handleNavigate('dashboard');
   };
 
   const handleCreditsAdded = () => {
@@ -154,7 +163,7 @@ export function DashboardPage() {
             <TriggerValidation 
               onViewResults={(detailId) => {
                 setSelectedValidationId(detailId.toString());
-                setCurrentView('results');
+                handleNavigate('results');
               }}
             />
           </div>
@@ -216,7 +225,7 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fb]">
-      <Navigation currentView={currentView} onNavigate={setCurrentView} />
+      <Navigation currentView={currentView} onNavigate={handleNavigate} />
       <div className="pl-72">
         {renderView()}
       </div>
