@@ -1,0 +1,627 @@
+{
+  "name": "AI Validation Flow - Enhanced (Individual + Session Context)",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Merge prompt data with requirement data\nconst requirement = $('Split into Individual Requirements').item.json;\nconst promptData = $('Fetch Prompt Template').first().json;\n\n// Return merged object\nreturn {\n    json: {\n        ...requirement,\n        prompt_data: promptData\n    }\n};"
+      },
+      "id": "b23abf15-78b9-461c-913c-9f2527064cbb",
+      "name": "Merge Prompt with Requirement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_status = 'completed', validation_progress = 100 WHERE id = {{ $('Webhook - Start Validation').item.json.body.validation_detail_id }}",
+        "options": {}
+      },
+      "id": "b7297007-6918-472b-9287-6dff7a7bbb76",
+      "name": "Update Status: Completed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        2912,
+        336
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "all_results",
+        "options": {}
+      },
+      "id": "d847f8d0-7f20-44e8-89e9-7ea976e36be5",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2432,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_count = validation_count + 1, validation_progress = ROUND((validation_count + 1)::numeric / validation_total * 100, 2) WHERE id = {{ $json.validation_detail_id }}",
+        "options": {}
+      },
+      "id": "c255b115-5307-49b0-9f5d-592034e4ba14",
+      "name": "Update Progress",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        2320,
+        688
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gemini_request }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "d44b14bb-957a-4889-bbf7-38ee0f485ad6",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1296,
+        448
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Prepare Gemini request with FULL session context\n// All data is now embedded in the requirement item\nconst requirement = $input.item.json;\nconst promptData = requirement.prompt_data;\nconst documents = requirement.document_metadata || [];\n\n// Safety checks\nif (!promptData) {\n  throw new Error('No prompt data found in requirement');\n}\nif (!documents || documents.length === 0) {\n  throw new Error('No document metadata found. Ensure documents are uploaded and Gemini URIs are populated.');\n}\n\n// Build session context (from original workflow)\nconst sessionContext = `\n**VALIDATION SESSION CONTEXT**\n────────────────────────────────────────────────────────────────────\nSession ID: ${requirement.session_id}\nSession Created: ${new Date(requirement.session_created_at).toLocaleString()}\nUnit Code: ${requirement.unit_code}\nRTO Code: ${requirement.rto_code}\nRequirement Type: ${requirement.requirement_type}\nRequirement ${requirement.current_index} of ${requirement.total_requirements}\n────────────────────────────────────────────────────────────────────\n\n**DOCUMENTS FOR THIS SESSION** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Assessment Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n\n**IMPORTANT INSTRUCTIONS**:\n1. This is an ISOLATED validation session\n2. Only consider documents uploaded for THIS session (${new Date(requirement.session_created_at).toLocaleString()})\n3. All citations must reference documents from THIS session only\n4. Include document names and page numbers in all evidence citations\n5. Understand images, charts, and diagrams in the documents\n6. This is requirement ${requirement.current_index} of ${requirement.total_requirements}\n\n────────────────────────────────────────────────────────────────────\n`;\n\n// Replace variables in prompt template\nlet promptText = promptData.prompt_text || 'Validate the following requirement against the provided documents.';\npromptText = promptText\n  .replace(/{{requirement_number}}/g, requirement.requirement_number || '')\n  .replace(/{{requirement_text}}/g, requirement.requirement_text || '')\n  .replace(/{{requirement_type}}/g, requirement.requirement_type || '')\n  .replace(/{{unit_code}}/g, requirement.unit_code || '')\n  .replace(/{{document_type}}/g, requirement.document_type || 'unit');\n\n// Build file parts\nconst fileParts = documents.map(doc => ({\n  fileData: {\n    mimeType: \"application/pdf\",\n    fileUri: doc.gemini_file_uri\n  }\n}));\n\n// Build complete prompt with session context\nconst fullPrompt = `${sessionContext}\\n\\n${promptText}`;\n\n// Build Gemini request with correct structure\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{text: promptData.system_instruction || 'You are an expert RTO validator.'}]\n  },\n  contents: [\n    {\n      role: \"user\",\n      parts: [\n        ...fileParts,\n        {text: fullPrompt}\n      ]\n    }\n  ],\n  generationConfig: {\n    ...(promptData.generation_config || {}),\n    temperature: 0.1,\n    maxOutputTokens: 8192,\n    responseMimeType: \"application/json\",\n    responseSchema: promptData.output_schema || {}\n  }\n};\n\nreturn {\n  json: {\n    ...requirement,\n    gemini_request: geminiRequest,\n    prompt_used: fullPrompt,\n    session_context: sessionContext\n  }\n};\n"
+      },
+      "id": "402c349f-73cb-4cdb-ab85-0a1dfa43d94c",
+      "name": "Prepare Request with Session Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM prompts \nWHERE prompt_type = 'validation'\n  AND requirement_type = '{{ $json.requirement_type }}'\n  AND document_type = '{{ $json.document_type || \"unit\" }}'\n  AND is_active = true\n  AND is_default = true\nLIMIT 1",
+        "options": {}
+      },
+      "id": "b024f708-78f7-4981-a868-2ce8671f11c5",
+      "name": "Fetch Prompt Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        80,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_total = (SELECT COUNT(*) FROM validation_results WHERE validation_detail_id = {{ $('Webhook - Start Validation').item.json.body.validation_detail_id }}) WHERE id = {{ $('Webhook - Start Validation').item.json.body.validation_detail_id }}",
+        "options": {}
+      },
+      "id": "11eb303e-d63d-4194-b8e2-c7c3afb4b255",
+      "name": "Update Total Requirements",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        2640,
+        336
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split requirements into individual items for individual validation\nconst response = $('Fetch Requirements (Edge Function)').first().json;\nconst validationContext = $('Fetch Validation Context').first().json;\n\n// Get gemini_file_uris from webhook body\nconst webhookData = $('Webhook - Start Validation').first().json.body;\nconst geminiFiles = webhookData.gemini_file_uris || [];\n\n// Transform to document_metadata format\nconst documents = geminiFiles.map(file => ({\n  file_name: file.file_name,\n  document_type: validationContext.document_type || 'unit',\n  created_at: new Date().toISOString(),\n  gemini_file_uri: file.gemini_file_uri,\n  storage_path: file.storage_path\n}));\n\nif (!response.success || !response.requirements_by_type) {\n  throw new Error('Failed to fetch requirements from edge function');\n}\n\nconst requirementsByType = response.requirements_by_type;\nconst allRequirements = [];\n\n// Flatten all requirement types into single array\nfor (const [requirementType, requirements] of Object.entries(requirementsByType)) {\n  if (Array.isArray(requirements)) {\n    requirements.forEach((req, index) => {\n      allRequirements.push({\n        requirement_number: req.number || `${requirementType}_${index + 1}`,\n        requirement_text: req.text || req.requirement || '',\n        requirement_type: requirementType,\n        requirement_index: index,\n        validation_detail_id: validationContext.id,\n        unit_code: validationContext.unit_code,\n        rto_code: validationContext.rto_code,\n        document_type: validationContext.document_type || 'unit',\n        session_id: validationContext.id,\n        session_created_at: validationContext.created_at,\n        document_metadata: documents,\n        document_count: documents.length,\n        total_requirements: 0,  // Will be updated after counting\n        current_index: 0  // Will be set below\n      });\n    });\n  }\n}\n\n// Set total and current index\nconst total = allRequirements.length;\nallRequirements.forEach((req, idx) => {\n  req.total_requirements = total;\n  req.current_index = idx + 1;\n});\n\nreturn allRequirements.map(req => ({ json: req }));\n"
+      },
+      "id": "d9e878c7-07a9-4e38-a28a-2a8b617d8024",
+      "name": "Split into Individual Requirements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://dfqxmjmggokneiuljkta.supabase.co/functions/v1/get-requirements",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"unit_code\": $('Fetch Validation Context').item.json.unit_code, \"validation_detail_id\": $('Fetch Validation Context').item.json.id} }}",
+        "options": {}
+      },
+      "id": "b376d426-9aee-403e-8846-27097d1d1c64",
+      "name": "Fetch Requirements (Edge Function)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        384
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "g7Y4HgWkwgkDqjLL",
+          "name": "Header Auth Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT vd.*, vs.id as summary_id, vs.\"unitCode\", vs.\"unitLink\", vs.\"rtoCode\", vs.created_at as summary_created_at FROM validation_detail vd JOIN validation_summary vs ON vd.summary_id = vs.id WHERE vd.id = {{ $('Webhook - Start Validation').item.json.body.validation_detail_id }}",
+        "options": {}
+      },
+      "id": "51313b69-9521-4187-9276-b8be22f57665",
+      "name": "Fetch Validation Context",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -784,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE validation_detail SET validation_status = 'processing' WHERE id = {{ $json.body.validation_detail_id }}",
+        "options": {}
+      },
+      "id": "91d76f7e-4264-4ff6-b193-9259448d07d1",
+      "name": "Update Status: Processing",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -960,
+        384
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-validation-enhanced",
+        "options": {}
+      },
+      "id": "f259c23f-9737-4045-91b6-a7ac265bea12",
+      "name": "Webhook - Start Validation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        384
+      ],
+      "webhookId": "ai-validation-enhanced-webhook"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        880,
+        352
+      ],
+      "id": "c54b60d3-28fb-4c38-b110-f69ee6f17c31",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        656
+      ],
+      "id": "35a8d98a-e274-453c-b326-b56d86e8a26c",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.candidates[0].content.parts[0].text }}",
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n  \"status\": \"Partially Met\",\n  \"reasoning\": \"The Learner Guide covers hazard identification and controls, but does not explain risk matrix calculations.\",\n  \"mapped_content\": \"Section 2.1 (Page 14) covers hazard identification with practical examples. Section 2.3 (Page 18-20) explains the hierarchy of controls in detail with case studies. Appendix A (Page 45) includes a sample risk assessment form.\",\n  \"citations\": [\n    \"BSBWHS332X Learner Guide v2.1, Page 14, Section 2.1: Identifying Hazards\",\n    \"BSBWHS332X Learner Guide v2.1, Page 18-20, Section 2.3: Hierarchy of Controls\",\n    \"BSBWHS332X Learner Guide v2.1, Page 45, Appendix A: Sample Risk Assessment Form\"\n  ],\n  \"smart_question\": \"What are the two factors used to calculate a risk score?\",\n  \"benchmark_answer\": \"Likelihood and Consequence.\"\n}\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        1568,
+        448
+      ],
+      "id": "5de67aba-6360-486e-b346-c304dc96c8ce",
+      "name": "Information Extractor"
+    },
+    {
+      "parameters": {
+        "tableId": "validation_results",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.output.status }}"
+            },
+            {
+              "fieldId": "reasoning",
+              "fieldValue": "={{ $json.output.reasoning }}"
+            },
+            {
+              "fieldId": "mapped_content",
+              "fieldValue": "={{ $json.output.mapped_content }}"
+            },
+            {
+              "fieldId": "citations",
+              "fieldValue": "={{ $json.output.citations.toJsonString() }}"
+            },
+            {
+              "fieldId": "smart_questions",
+              "fieldValue": "={{ $json.output.smart_question }}"
+            },
+            {
+              "fieldId": "benchmark_answer",
+              "fieldValue": "={{ $json.output.benchmark_answer }}"
+            },
+            {
+              "fieldId": "validation_detail_id",
+              "fieldValue": "={{ $('Loop Over Items').item.json.validation_detail_id }}"
+            },
+            {
+              "fieldId": "requirement_number",
+              "fieldValue": "={{ $('Loop Over Items').item.json.requirement_number }}"
+            },
+            {
+              "fieldId": "requirement_text",
+              "fieldValue": "={{ $('Loop Over Items').item.json.requirement_text }}"
+            },
+            {
+              "fieldId": "requirement_type",
+              "fieldValue": "={{ $('Loop Over Items').item.json.requirement_type }}"
+            },
+            {
+              "fieldId": "document_type",
+              "fieldValue": "={{ $('Loop Over Items').item.json.prompt_data.document_type }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        448
+      ],
+      "id": "26c0b383-e516-4555-8740-5cc4bbc1d607",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook - Start Validation": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n-gtoa.onrender.com",
+            "user-agent": "axios/1.12.0",
+            "content-length": "622",
+            "accept": "application/json,text/*;q=0.99",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "74.220.52.1",
+            "cf-ipcountry": "SG",
+            "cf-ray": "9a8a35b36bdb89d3-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "render-proxy-ttl": "4",
+            "rndr-id": "93f9dd4e-0793-417a",
+            "true-client-ip": "74.220.52.1",
+            "x-forwarded-for": "74.220.52.1, 162.158.163.253",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1764839836742049"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "validation_detail_id": 752,
+            "gemini_file_uris": [
+              {
+                "storage_path": "7148/TLIF0025/1764839813064_TLIF0025_AT2.pdf",
+                "gemini_file_uri": "https://generativelanguage.googleapis.com/v1beta/files/d39six8m6qkm",
+                "file_name": "1764839813064_TLIF0025_AT2.pdf"
+              },
+              {
+                "storage_path": "7148/TLIF0025/1764839815528_AT3.pdf",
+                "gemini_file_uri": "https://generativelanguage.googleapis.com/v1beta/files/rp2dletcrpkg",
+                "file_name": "1764839815528_AT3.pdf"
+              },
+              {
+                "storage_path": "7148/TLIF0025/1764839817889_TLIF0025_AT1.pdf",
+                "gemini_file_uri": "https://generativelanguage.googleapis.com/v1beta/files/rkqazgqk17kh",
+                "file_name": "1764839817889_TLIF0025_AT1.pdf"
+              }
+            ]
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/ai-validation-enhanced",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Merge Prompt with Requirement": {
+      "main": [
+        [
+          {
+            "node": "Prepare Request with Session Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Update Total Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Progress": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Request with Session Context": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Prompt Template": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompt with Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Total Requirements": {
+      "main": [
+        [
+          {
+            "node": "Update Status: Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split into Individual Requirements": {
+      "main": [
+        [
+          {
+            "node": "Fetch Prompt Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Requirements (Edge Function)": {
+      "main": [
+        [
+          {
+            "node": "Split into Individual Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch Requirements (Edge Function)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Processing": {
+      "main": [
+        [
+          {
+            "node": "Fetch Validation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status: Completed": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook - Start Validation": {
+      "main": [
+        [
+          {
+            "node": "Update Status: Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Update Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b307d1ea-2e9c-404c-8223-90e1847ded19",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "95d6963b6972a46c66ec607d883cc8d928cf66d74dca93fd344bc76103b3281b"
+  },
+  "id": "U4upP5UIP836xMp1",
+  "tags": []
+}
