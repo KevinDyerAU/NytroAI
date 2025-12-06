@@ -3,14 +3,94 @@
 @tailwind utilities;
 
 @layer base {
+  /* Design System Color Tokens */
+  :root {
+    /* Primary Colors */
+    --color-primary: #3b82f6;
+    --color-primary-hover: #2563eb;
+    --color-primary-light: #dbeafe;
+
+    /* Brand Colors */
+    --color-nytro-mint: #2DD4BF;
+    --color-nytro-blue: #2563EB;
+
+    /* Text Colors */
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --text-disabled: #cbd5e1;
+
+    /* Background Colors */
+    --bg-primary: #f8f9fb;
+    --bg-secondary: #f1f5f9;
+    --bg-card: #ffffff;
+
+    /* Border Colors */
+    --border-primary: #dbeafe;
+    --border-secondary: #e2e8f0;
+    --border-focus: #3b82f6;
+
+    /* Status Colors */
+    --color-success: #22c55e;
+    --color-success-bg: #f0fdf4;
+    --color-success-border: #bbf7d0;
+    --color-error: #ef4444;
+    --color-error-bg: #fef2f2;
+    --color-error-border: #fecaca;
+    --color-warning: #f59e0b;
+    --color-warning-bg: #fffbeb;
+    --color-warning-border: #fde68a;
+    --color-info: #3b82f6;
+    --color-info-bg: #eff6ff;
+    --color-info-border: #bfdbfe;
+  }
+
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 100px;
   }
-  
+
   body {
-    background-color: #F8FAFC;
-    color: #0F172A;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  /* Focus Visible Styles for Accessibility */
+  *:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus outline when using focus-visible */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+@layer components {
+  /* Reusable status badge styles */
+  .status-success {
+    background-color: var(--color-success-bg);
+    border-color: var(--color-success-border);
+    color: var(--color-success);
+  }
+
+  .status-error {
+    background-color: var(--color-error-bg);
+    border-color: var(--color-error-border);
+    color: var(--color-error);
+  }
+
+  .status-warning {
+    background-color: var(--color-warning-bg);
+    border-color: var(--color-warning-border);
+    color: var(--color-warning);
+  }
+
+  .status-info {
+    background-color: var(--color-info-bg);
+    border-color: var(--color-info-border);
+    color: var(--color-info);
   }
 }
 
@@ -22,8 +102,13 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   .bg-gradient-brand {
+    background: linear-gradient(135deg, #2DD4BF 0%, #2563EB 100%);
+  }
+
+  /* Auth gradient (matches AuthLayout) */
+  .bg-gradient-auth {
     background: linear-gradient(135deg, #2DD4BF 0%, #2563EB 100%);
   }
 }

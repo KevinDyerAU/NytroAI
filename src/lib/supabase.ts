@@ -3,6 +3,54 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+/**
+ * Wraps a promise with a timeout
+ * @param promise The promise to wrap
+ * @param ms Timeout in milliseconds (default: 30000)
+ * @param message Error message for timeout
+ * @returns The promise result or throws a timeout error
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number = 30000,
+  message = 'Request timed out'
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${message} (after ${ms / 1000}s)`));
+    }, ms);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
+
+/**
+ * Creates an AbortController with automatic timeout cleanup
+ * @param ms Timeout in milliseconds
+ * @returns Object with signal and cleanup function
+ */
+export function createTimeoutController(ms: number = 30000): {
+  signal: AbortSignal;
+  cleanup: () => void;
+} {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ms);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId),
+  };
+}
+
 console.log('[Supabase] Initializing with URL:', supabaseUrl ? `${supabaseUrl.split('/')[2]}` : 'MISSING');
 console.log('[Supabase] Anonymous key configured:', supabaseAnonKey ? 'YES' : 'NO');
 

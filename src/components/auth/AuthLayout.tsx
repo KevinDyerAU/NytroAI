@@ -45,8 +45,8 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         </div>
       </div>
 
-      {/* Right side - Form with blue gradient background */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-[#0f4a8a] via-[#1e5fa8] to-[#3b82f6]">
+      {/* Right side - Form with brand gradient background */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-gradient-brand">
         <div className="w-full max-w-md">
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-white">{title}</h2>

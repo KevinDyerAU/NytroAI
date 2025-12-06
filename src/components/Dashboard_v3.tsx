@@ -17,6 +17,8 @@ import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rt
 import { getValidationStage } from '../types/validation';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
 import { ValidationStatusBadge } from './ValidationStatusBadge';
+import { SkeletonDashboard } from './LoadingState';
+import { EmptyState } from './EmptyState';
 import {
   Activity,
   FileText,
@@ -234,16 +236,9 @@ export function Dashboard_v3({
     });
   };
 
-  // Only show loading screen on initial load
+  // Only show loading screen on initial load - use skeleton loader for better UX
   if (isLoading && isInitialLoad) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3b82f6] mx-auto mb-4"></div>
-          <p className="text-[#64748b]">Loading validations...</p>
-        </div>
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
 
   return (
@@ -500,9 +495,11 @@ export function Dashboard_v3({
               );
             })
           ) : (
-            <div className="text-center py-8 text-[#64748b]">
-              No active validations for this RTO
-            </div>
+            <EmptyState
+              variant="no-validations"
+              title="No validations yet"
+              description="Get started by selecting a unit and uploading your assessment documents for validation."
+            />
           )}
         </div>
 
