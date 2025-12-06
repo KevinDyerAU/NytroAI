@@ -10,6 +10,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Play, Loader2, CheckCircle } from 'lucide-react';
 import { useValidationTrigger } from '../hooks/useValidationTrigger';
+import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 interface ValidationTriggerButtonProps {
   validationDetailId: number;
@@ -61,42 +63,110 @@ export function ValidationTriggerButton({
 }
 
 interface ValidationTriggerCardProps {
-  validationDetailId: number;
+  validationDetailId?: number; // Optional - will be created if not provided
   uploadedCount: number;
   totalCount: number;
   storagePaths: string[];
   onSuccess?: () => void;
+  // Required if validationDetailId not provided
+  rtoCode?: string;
+  unitCode?: string;
+  unitLink?: string;
+  validationType?: 'unit' | 'learner_guide';
 }
 
 export function ValidationTriggerCard({
-  validationDetailId,
+  validationDetailId: initialValidationDetailId,
   uploadedCount,
   totalCount,
   storagePaths,
   onSuccess,
+  rtoCode,
+  unitCode,
+  unitLink,
+  validationType = 'unit',
 }: ValidationTriggerCardProps) {
   const { trigger, isTriggering } = useValidationTrigger();
   const [isTriggered, setIsTriggered] = React.useState(false);
   const [confirmText, setConfirmText] = React.useState('');
+  const [validationDetailId, setValidationDetailId] = React.useState<number | undefined>(initialValidationDetailId);
+  const [isCreatingValidation, setIsCreatingValidation] = React.useState(false);
 
   // Debug props
   React.useEffect(() => {
     console.log('[ValidationTriggerCard] 🎯 Props updated:', {
       validationDetailId,
+      initialValidationDetailId,
       uploadedCount,
       totalCount,
       storagePathsCount: storagePaths.length,
       allUploaded: uploadedCount >= totalCount && totalCount > 0,
       isConfirmed: confirmText.toLowerCase().trim() === 'validate',
+      needsValidationRecord: !validationDetailId,
+      hasRequiredData: !!rtoCode && !!unitCode && !!unitLink,
     });
-  }, [validationDetailId, uploadedCount, totalCount, storagePaths, confirmText]);
+  }, [validationDetailId, initialValidationDetailId, uploadedCount, totalCount, storagePaths, confirmText, rtoCode, unitCode, unitLink]);
 
   const handleTrigger = async () => {
     try {
-      await trigger(validationDetailId, storagePaths);
+      let finalValidationDetailId = validationDetailId;
+
+      // Create validation record if not provided
+      if (!finalValidationDetailId) {
+        if (!rtoCode || !unitCode || !unitLink) {
+          toast.error('Missing required validation data. Please refresh and try again.');
+          return;
+        }
+
+        setIsCreatingValidation(true);
+        console.log('[ValidationTriggerCard] Creating validation record...');
+
+        // Create session-specific namespace
+        const sessionNamespace = `${rtoCode}-${unitCode}-${Date.now()}`;
+
+        const { data, error } = await supabase.functions.invoke('create-validation-record', {
+          body: {
+            rtoCode,
+            unitCode,
+            unitLink,
+            validationType: 'assessment',
+            documentType: validationType,
+            pineconeNamespace: sessionNamespace,
+          },
+        });
+
+        setIsCreatingValidation(false);
+
+        if (error || !data?.detailId) {
+          const errorMsg = error?.message || 'Unknown error';
+          console.error('[ValidationTriggerCard] Failed to create validation:', errorMsg);
+
+          if (errorMsg.includes('No requirements found')) {
+            toast.error(
+              'Requirements not found for this unit. Please use Unit Acquisition to extract requirements first.',
+              { duration: 6000 }
+            );
+          } else if (errorMsg.includes('Requirements not yet extracted')) {
+            toast.error(
+              'Requirements are still being extracted for this unit. Please wait and try again.',
+              { duration: 6000 }
+            );
+          } else {
+            toast.error(`Failed to create validation: ${errorMsg}`);
+          }
+          return;
+        }
+
+        finalValidationDetailId = data.detailId;
+        setValidationDetailId(finalValidationDetailId);
+        console.log('[ValidationTriggerCard] ✅ Validation created:', finalValidationDetailId);
+      }
+
+      // Now trigger the validation
+      await trigger(finalValidationDetailId!, storagePaths);
       setIsTriggered(true);
       setConfirmText(''); // Clear input after success
-      
+
       // Wait a moment to show success message, then navigate
       setTimeout(() => {
         if (onSuccess) {
@@ -105,6 +175,7 @@ export function ValidationTriggerCard({
       }, 1500);
     } catch (error) {
       console.error('[ValidationTriggerCard] Error:', error);
+      setIsCreatingValidation(false);
       // Don't navigate on error
     }
   };
@@ -170,13 +241,13 @@ export function ValidationTriggerCard({
               
               <Button
                 onClick={handleTrigger}
-                disabled={!canValidate || isTriggering}
+                disabled={!canValidate || isTriggering || isCreatingValidation}
                 className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isTriggering ? (
+                {isTriggering || isCreatingValidation ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Starting...
+                    {isCreatingValidation ? 'Preparing...' : 'Starting...'}
                   </>
                 ) : (
                   <>

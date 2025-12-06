@@ -287,10 +287,10 @@ export function Dashboard_v3({
         <KPIWidget
           title="AI Queries"
           value={metrics?.aiQueries?.period || '0 this month / 0 all time'}
-          subtitle="AI operations (indexing + validation)"
+          subtitle="Validations, smart questions, revalidations & AI chat"
           icon={Zap}
           variant="blue"
-          tooltip="Total AI operations (document indexing + validation queries) this month vs all time"
+          tooltip="Document validations, smart question regeneration, requirement revalidation, and AI chat queries"
         />
       </div>
 

@@ -17,7 +17,7 @@ import {
 
 interface UseResultsActionsReturn {
   generateAndDownloadReport: (validationDetailId: number) => Promise<void>;
-  revalidate: (validationResultId: number) => Promise<void>;
+  revalidate: (validationResult: any) => Promise<void>;
   regenerateSmartQuestions: (validationResultId: number, userGuidance: string) => Promise<any>;
   isGeneratingReport: boolean;
   isRevalidating: boolean;
@@ -65,16 +65,19 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
     }
   };
 
-  const revalidate = async (validationResultId: number) => {
+  const revalidate = async (validationResult: any) => {
     setIsRevalidating(true);
     setError(null);
 
     try {
-      console.log('[useResultsActions] Revalidating requirement:', validationResultId);
+      console.log('[useResultsActions] Revalidating requirement:', {
+        id: validationResult.id,
+        validationDetailId: validationResult.validation_detail_id,
+      });
       
       toast.loading('Revalidating requirement...', { id: 'revalidate' });
 
-      const result = await revalidateRequirement(validationResultId);
+      const result = await revalidateRequirement(validationResult);
 
       if (result.success) {
         toast.success('Requirement revalidated!', {

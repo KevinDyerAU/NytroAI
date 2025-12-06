@@ -643,6 +643,9 @@ export function ResultsExplorer_v2({
                   validationType: selectedValidation?.validationType,
                   validationId: selectedValidation?.id,
                 }}
+                onCreditConsumed={(newBalance) => {
+                  setAICredits(prev => ({ ...prev, current: newBalance }));
+                }}
               />
             );
           })

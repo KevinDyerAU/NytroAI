@@ -126,16 +126,25 @@ export function downloadReport(reportContent: string, filename: string): void {
 /**
  * Revalidate a single requirement via Supabase Edge Function proxy
  * Uses edge function to avoid CORS issues with n8n
+ * Sends the complete validation result object
  */
-export async function revalidateRequirement(validationResultId: number): Promise<N8nResponse> {
+export async function revalidateRequirement(validationResult: any): Promise<N8nResponse> {
   // Use Supabase Edge Function proxy to avoid CORS
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const edgeFunctionUrl = `${supabaseUrl}/functions/v1/revalidate-proxy`;
   
   console.log('[n8nApi] Revalidate via Edge Function:', {
     url: edgeFunctionUrl,
-    validationResultId,
+    validationResultId: validationResult.id,
+    validationDetailId: validationResult.validation_detail_id,
   });
+
+  // Send the complete validation_result object
+  const payload = {
+    validation_result: validationResult,
+  };
+
+  console.log('[n8nApi] Revalidate payload:', payload);
 
   const response = await fetch(edgeFunctionUrl, {
     method: 'POST',
@@ -143,9 +152,7 @@ export async function revalidateRequirement(validationResultId: number): Promise
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
     },
-    body: JSON.stringify({
-      validation_result_id: validationResultId,
-    }),
+    body: JSON.stringify(payload),
   });
 
   console.log('[n8nApi] Revalidate response status:', response.status);

@@ -132,7 +132,7 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
                   <p>
                     <span className="font-semibold text-[#1e293b]">What are they?</span>
                     <br />
-                    AI credits are used for AI operations like generating smart questions and redoing validations.
+                    AI credits are consumed for: running document validations, regenerating smart questions, revalidating requirements, and AI chat queries. Each operation uses 1 credit.
                   </p>
                   <p>
                     <span className="font-semibold text-[#1e293b]">Default Allocation:</span>
@@ -142,7 +142,7 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
                   <p>
                     <span className="font-semibold text-[#1e293b]">Usage:</span>
                     <br />
-                    Automatically consumed when you generate smart questions or redo validations on the Results page.
+                    Consumed when: validating documents (1 per validation), regenerating smart questions (1 per requirement), revalidating requirements (1 per requirement), or using AI chat (1 per message).
                   </p>
                 </div>
               </div>

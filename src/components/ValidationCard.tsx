@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { Card } from './ui/card';
-import { StatusBadge } from './StatusBadge';
-import { GlowButton } from './GlowButton';
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
+import { GlowButton } from './GlowButton';
+import { 
+  Sparkles, Edit, Save, X, RotateCcw, MessageCircle, FileText, AlertCircle,
+  ChevronDown, ChevronUp, MessageSquare, Lightbulb, RefreshCw, AlertTriangle, FileCheck
+} from 'lucide-react';
+import { getRTOById, consumeAICredit } from '../types/rto';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
-import { ChevronDown, ChevronUp, MessageSquare, FileText, Lightbulb, Sparkles, Save, X, RefreshCw, AlertTriangle, FileCheck } from 'lucide-react';
+import { ValidationStatusBadge as StatusBadge } from './ValidationStatusBadge';
 import { toast } from 'sonner';
 
 interface ValidationResult {
@@ -42,9 +46,10 @@ interface ValidationCardProps {
     validationType?: string;
     validationId?: string;
   };
+  onCreditConsumed?: (newBalance: number) => void;
 }
 
-export function ValidationCard({ result, onChatClick, isReportSigned = false, aiCreditsAvailable = true, validationContext }: ValidationCardProps) {
+export function ValidationCard({ result, onChatClick, isReportSigned = false, aiCreditsAvailable = true, validationContext, onCreditConsumed }: ValidationCardProps) {
   // Helper functions to parse JSON fields and provide backward compatibility
   const getRequirementNumber = () => result.requirement_number || result.requirementNumber || '';
   const getRequirementType = () => result.requirement_type || result.type || '';
@@ -125,6 +130,18 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
         setEditedQuestion(generated.question_text || result.smart_questions);
         setEditedAnswer(generated.context || result.benchmark_answer);
         
+        // Consume AI credit
+        if (validationContext?.rtoId) {
+          const currentRTO = getRTOById(validationContext.rtoId);
+          if (currentRTO?.code) {
+            console.log('[ValidationCard] Consuming AI credit for smart question generation');
+            const creditResult = await consumeAICredit(currentRTO.code);
+            if (creditResult.success && onCreditConsumed && creditResult.newBalance !== undefined) {
+              onCreditConsumed(creditResult.newBalance);
+            }
+          }
+        }
+        
         toast.success('Question generated with AI based on your feedback');
       } else {
         throw new Error(response.error || 'No questions generated');
@@ -177,11 +194,22 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
       // Import revalidateRequirement from n8nApi
       const { revalidateRequirement } = await import('../lib/n8nApi');
       
-      // Call n8n via edge function proxy (convert string id to number)
-      const resultId: number = parseInt(result.id, 10);
-      const response = await revalidateRequirement(resultId);
+      // Send the complete validation result object to n8n
+      const response = await revalidateRequirement(result);
       
       if (response.success) {
+        // Consume AI credit
+        if (validationContext?.rtoId) {
+          const currentRTO = getRTOById(validationContext.rtoId);
+          if (currentRTO?.code) {
+            console.log('[ValidationCard] Consuming AI credit for revalidation');
+            const creditResult = await consumeAICredit(currentRTO.code);
+            if (creditResult.success && onCreditConsumed && creditResult.newBalance !== undefined) {
+              onCreditConsumed(creditResult.newBalance);
+            }
+          }
+        }
+        
         toast.success(`${getRequirementNumber()} has been queued for revalidation`, { id: 'revalidate' });
       } else {
         throw new Error(response.error || 'Revalidation failed');

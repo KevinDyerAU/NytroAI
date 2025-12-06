@@ -41,15 +41,10 @@ export function DocumentUploadAdapterSimplified({
   const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
-  const [validationDetailId, setValidationDetailId] = useState<number | undefined>(undefined);
-  const validationDetailIdRef = useRef<number | undefined>(undefined);
-  const [isCreatingValidation, setIsCreatingValidation] = useState(false);
+  // Removed validationDetailId state - will be created by ValidationTriggerCard when user types "validate"
   const [validationType, setValidationType] = useState<'unit' | 'learner_guide'>('unit');
 
-  // Sync ref with state
-  useEffect(() => {
-    validationDetailIdRef.current = validationDetailId;
-  }, [validationDetailId]);
+  // validationDetailId will be created by ValidationTriggerCard when user confirms
 
   // Load RTO data
   useEffect(() => {
@@ -150,21 +145,19 @@ export function DocumentUploadAdapterSimplified({
 
   // Debug: Log Next button state whenever it changes
   useEffect(() => {
-    const buttonDisabled = !validationDetailId || !isComplete || uploadedCount !== selectedFiles.length;
+    const buttonDisabled = !isComplete || uploadedCount !== selectedFiles.length;
     console.log('[Next Button State]', {
-      validationDetailId,
       isComplete,
       uploadedCount,
       selectedFilesLength: selectedFiles.length,
       uploadedDocumentsLength: uploadedDocuments.length,
       buttonDisabled,
       reasons: {
-        noValidationId: !validationDetailId,
         notComplete: !isComplete,
         countMismatch: uploadedCount !== selectedFiles.length
       }
     });
-  }, [validationDetailId, isComplete, uploadedCount, selectedFiles.length, uploadedDocuments.length]);
+  }, [isComplete, uploadedCount, selectedFiles.length, uploadedDocuments.length]);
 
   // Handle Enter key to auto-select exact match
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -183,82 +176,11 @@ export function DocumentUploadAdapterSimplified({
     }
   };
 
-  // Handle upload start - create validation record when Upload button is clicked
+  // Handle upload start - no longer creates validation (moved to ValidationTriggerCard)
   const handleUploadStart = useCallback(async () => {
-    console.log('[DocumentUploadAdapterSimplified] Upload started, creating validation record...');
-    
-    // Create validation record if we don't have one
-    if (!validationDetailId && selectedRTO && selectedUnit && !isCreatingValidation) {
-      setIsCreatingValidation(true);
-      try {
-        console.log('[DocumentUploadAdapterSimplified] Creating validation record...');
-        console.log('[DocumentUploadAdapterSimplified] Unit details:', {
-          code: selectedUnit.code,
-          Link: selectedUnit.Link,
-          hasLink: !!selectedUnit.Link
-        });
-        
-        // Verify unitLink exists
-        if (!selectedUnit.Link) {
-          console.error('[DocumentUploadAdapterSimplified] Unit Link is missing!');
-          toast.error('Selected unit is missing Link. Please select a different unit.');
-          return;
-        }
-        
-        // Create session-specific namespace with timestamp for document isolation
-        const sessionNamespace = `${selectedRTO.code}-${selectedUnit.code}-${Date.now()}`;
-        
-        const { data, error } = await supabase.functions.invoke('create-validation-record', {
-          body: {
-            rtoCode: selectedRTO.code,
-            unitCode: selectedUnit.code,
-            unitLink: selectedUnit.Link, // Pass unit URL for requirements linking (REQUIRED)
-            validationType: 'assessment',
-            documentType: validationType, // Pass document type (unit or learner_guide)
-            pineconeNamespace: sessionNamespace // Session-specific namespace for document filtering
-          }
-        });
-
-        if (error) {
-          console.error('[DocumentUploadAdapterSimplified] Failed to create validation:', error);
-          
-          // Check for specific error messages
-          const errorMsg = error.message || '';
-          if (errorMsg.includes('No requirements found')) {
-            toast.error(
-              'Requirements not found for this unit. Please use Unit Acquisition to extract requirements first.',
-              { duration: 6000 }
-            );
-          } else if (errorMsg.includes('Requirements not yet extracted')) {
-            toast.error(
-              'Requirements are still being extracted for this unit. Please wait and try again.',
-              { duration: 6000 }
-            );
-          } else {
-            toast.error(`Failed to create validation: ${errorMsg}`);
-          }
-          return;
-        }
-
-        console.log('[DocumentUploadAdapterSimplified] ✅ Validation created:', data.detailId);
-        
-        // Set validation ID - user will manually click Upload button
-        setValidationDetailId(data.detailId);
-        console.log('[DocumentUploadAdapterSimplified] ✅ Validation created, ready for manual upload:', data.detailId);
-        
-      } catch (error) {
-        console.error('[DocumentUploadAdapterSimplified] Exception creating validation:', error);
-        toast.error('Failed to create validation record');
-        return;
-      } finally {
-        setIsCreatingValidation(false);
-      }
-    } else if (validationDetailId) {
-      console.log('[DocumentUploadAdapterSimplified] ℹ️ Using existing validation:', validationDetailId);
-    } else if (isCreatingValidation) {
-      console.log('[DocumentUploadAdapterSimplified] ⏸️ Validation creation already in progress...');
-    }
-  }, [selectedRTO, selectedUnit, validationType, validationDetailId, isCreatingValidation]);
+    console.log('[DocumentUploadAdapterSimplified] Upload started');
+    // Validation record will be created when user types "validate" in the dialog
+  }, []);
 
   // Handle file selection (just update state, don't create validation)
   const handleFilesSelected = useCallback((files: File[]) => {
@@ -328,7 +250,6 @@ export function DocumentUploadAdapterSimplified({
     setIsComplete(false);
     setSelectedUnit(null);
     setUnitSearchTerm('');
-    setValidationDetailId(undefined);
     toast.info('Form reset. Ready for new validation.');
   };
 
@@ -492,25 +413,20 @@ export function DocumentUploadAdapterSimplified({
           </div>
         </Card>
 
-        {/* File Upload */}
-        <Card className="p-6 bg-white">
-          <h2 className="text-xl font-semibold text-[#1e293b] mb-4">2. Upload Assessment Documents</h2>
-          {selectedUnit ? (
+        {/* Document Upload Section */}
+        {selectedUnit && (
+          <Card className="p-6 bg-white">
+            <h2 className="text-xl font-semibold text-[#1e293b] mb-4">2. Upload Documents</h2>
             <DocumentUploadSimplified
               unitCode={selectedUnit.code}
-              validationDetailId={validationDetailId}
+              validationDetailId={undefined}
               onUploadComplete={handleUploadComplete}
               onFilesSelected={handleFilesSelected}
               onUploadStart={handleUploadStart}
               clearFilesOnNewValidation={true}
             />
-          ) : (
-            <div className="text-center py-8 text-[#64748b]">
-              <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>Please select a unit of competency first</p>
-            </div>
-          )}
-        </Card>
+          </Card>
+        )}
 
         {/* Next Button - Always visible when files selected, enabled only after upload complete */}
         {selectedFiles.length > 0 && selectedUnit && (
@@ -519,7 +435,6 @@ export function DocumentUploadAdapterSimplified({
               <Button
                 onClick={() => {
                   console.log('[Next Button] Clicked, current state:', {
-                    validationDetailId,
                     isComplete,
                     uploadedCount,
                     selectedFilesLength: selectedFiles.length,
@@ -527,7 +442,7 @@ export function DocumentUploadAdapterSimplified({
                   });
                   setShowValidationDialog(true);
                 }}
-                disabled={!validationDetailId || !isComplete || uploadedCount !== selectedFiles.length}
+                disabled={!isComplete || uploadedCount !== selectedFiles.length}
                 size="lg"
                 className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -538,20 +453,23 @@ export function DocumentUploadAdapterSimplified({
         )}
 
         {/* Validation Confirmation Dialog */}
-        {showValidationDialog && validationDetailId && (
+        {showValidationDialog && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-md w-full p-6 space-y-4">
               <ValidationTriggerCard
-                validationDetailId={validationDetailId}
                 uploadedCount={uploadedCount}
                 totalCount={selectedFiles.length}
                 storagePaths={uploadedDocuments.map(doc => doc.storagePath)}
+                rtoCode={selectedRTO?.code}
+                unitCode={selectedUnit?.code}
+                unitLink={selectedUnit?.Link}
+                validationType={validationType}
                 onSuccess={() => {
                   setShowValidationDialog(false);
                   // Navigate to dashboard after validation starts
                   if (onValidationSubmit) {
                     onValidationSubmit({
-                      validationId: validationDetailId,
+                      validationId: 0, // Will be created by ValidationTriggerCard
                       documentName: selectedFiles[0]?.name || 'document',
                       unitCode: selectedUnit?.code || 'unknown'
                     });
