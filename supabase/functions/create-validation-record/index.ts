@@ -60,22 +60,22 @@ serve(async (req) => {
       if (findError.code === 'PGRST116') { // Not found - create it
         console.log('[create-validation-record] No validation_summary found, creating from unit_of_competency...');
         
-        // Get unit details from unit_of_competency table
+        // Get unit details from UnitOfCompetency table
         const { data: unitData, error: unitError } = await supabase
-          .from('unit_of_competency')
-          .select('unitCode, Title, Link, rto_code')
+          .from('UnitOfCompetency')
+          .select('unitCode, Title, Link')
           .eq('Link', unitLink)
           .single();
 
         if (unitError || !unitData) {
-          console.error('[create-validation-record] Unit not found in unit_of_competency:', unitError);
+          console.error('[create-validation-record] Unit not found in UnitOfCompetency:', unitError);
           return createErrorResponse(
             `Unit not found: ${unitCode}. Please ensure the unit exists in the database.`,
             404
           );
         }
 
-        console.log('[create-validation-record] Found unit in unit_of_competency:', unitData.unitCode);
+        console.log('[create-validation-record] Found unit in UnitOfCompetency:', unitData.unitCode);
 
         // Create new validation_summary
         const { data: newSummary, error: createSummaryError } = await supabase
@@ -83,10 +83,8 @@ serve(async (req) => {
           .insert({
             unitCode: unitData.unitCode,
             unitLink: unitData.Link,
-            unitTitle: unitData.Title,
-            rtoCode: unitData.rto_code || rtoCode,
+            rtoCode: rtoCode, // Use rtoCode from request (UnitOfCompetency doesn't have rto_code)
             reqExtracted: false, // Requirements not yet extracted
-            extractStatus: 'Pending',
           })
           .select('id')
           .single();
@@ -128,15 +126,15 @@ serve(async (req) => {
     }
 
     // Step 2: Get validation_type based on documentType (unit or learner_guide)
-    // Map documentType to validation_type name for lookup
-    const validationTypeName = documentType === 'learner_guide' ? 'learner_guide' : 'unit';
-    console.log('[create-validation-record] 2. Looking up validation_type:', validationTypeName, '(from documentType:', documentType, ')');
+    // Map documentType to validation_type code for lookup
+    const validationTypeCode = documentType === 'learner_guide' ? 'learner_guide' : 'unit';
+    console.log('[create-validation-record] 2. Looking up validation_type:', validationTypeCode, '(from documentType:', documentType, ')');
     let validationTypeId: number;
 
     const { data: existingType, error: typeError } = await supabase
       .from('validation_type')
-      .select('id, name')
-      .eq('name', validationTypeName)
+      .select('id, code')
+      .eq('code', validationTypeCode)
       .single();
 
     if (typeError && typeError.code !== 'PGRST116') {
@@ -145,13 +143,13 @@ serve(async (req) => {
     }
 
     if (existingType) {
-      console.log('[create-validation-record] Using existing validation_type:', existingType.id, '(', existingType.name, ')');
+      console.log('[create-validation-record] Using existing validation_type:', existingType.id, '(', existingType.code, ')');
       validationTypeId = existingType.id;
     } else {
-      console.log('[create-validation-record] Creating new validation_type:', validationTypeName);
+      console.log('[create-validation-record] Creating new validation_type:', validationTypeCode);
       const { data: newType, error: createTypeError } = await supabase
         .from('validation_type')
-        .insert({ name: validationTypeName })
+        .insert({ code: validationTypeCode })
         .select('id')
         .single();
 

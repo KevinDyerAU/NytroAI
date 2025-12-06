@@ -59,7 +59,12 @@ export async function triggerDocumentProcessing(validationDetailId: number, stor
   
   console.log('[n8nApi] ✅ n8n response:', result);
 
-  return result;
+  // Wrap n8n response to match N8nResponse interface
+  // n8n returns {message: 'Workflow was started'} on success
+  return {
+    success: true,
+    data: result,
+  };
 }
 
 /**
