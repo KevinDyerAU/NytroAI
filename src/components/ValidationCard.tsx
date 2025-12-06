@@ -97,6 +97,7 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
   const [showRevalidateDialog, setShowRevalidateDialog] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [isRevalidating, setIsRevalidating] = useState(false);
+  const [showGeneratingModal, setShowGeneratingModal] = useState(false);
 
   /**
    * Generate improved SMART questions using AI with comprehensive context
@@ -104,6 +105,7 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
    */
   const handleGenerateWithAI = async () => {
     setIsGenerating(true);
+    setShowGeneratingModal(true);
     
     try {
       // Import regenerateQuestions from n8nApi
@@ -129,32 +131,48 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
         existingSmartQuestion
       );
       
-      if (response.success && response.questions && response.questions.length > 0) {
-        // Extract the first generated question (n8n returns array)
-        const generated = response.questions[0];
-        
-        // Update the edited fields with the AI-generated content
-        setEditedQuestion(generated.question_text || result.smart_questions);
-        setEditedAnswer(generated.context || result.benchmark_answer);
-        
-        // Consume AI credit
-        if (validationContext?.rtoId) {
-          const currentRTO = getRTOById(validationContext.rtoId);
-          if (currentRTO?.code) {
-            console.log('[ValidationCard] Consuming AI credit for smart question generation');
-            const creditResult = await consumeAICredit(currentRTO.code);
-            if (creditResult.success && onCreditConsumed && creditResult.newBalance !== undefined) {
-              onCreditConsumed(creditResult.newBalance);
-            }
+      console.log('[ValidationCard] Full regenerate response:', JSON.stringify(response, null, 2));
+      console.log('[ValidationCard] Questions array:', response.questions);
+      console.log('[ValidationCard] Questions length:', response.questions?.length);
+      
+      // New response structure: { validation_detail_id, questions: [...], summary, response_timestamp }
+      if (!response.questions || !Array.isArray(response.questions) || response.questions.length === 0) {
+        console.error('[ValidationCard] No questions in response:', response);
+        throw new Error('No questions generated. Check n8n workflow output.');
+      }
+      
+      // Extract the first generated question (n8n returns array)
+      const generated = response.questions[0];
+      console.log('[ValidationCard] First question:', generated);
+      
+      if (!generated.question) {
+        console.error('[ValidationCard] Question object missing "question" field:', generated);
+        throw new Error('Invalid question format received from n8n');
+      }
+      
+      // Update the edited fields with the AI-generated content
+      setEditedQuestion(generated.question);
+      setEditedAnswer(generated.rationale || 'No rationale provided');
+      
+      // Consume AI credit
+      if (validationContext?.rtoId) {
+        const currentRTO = getRTOById(validationContext.rtoId);
+        if (currentRTO?.code) {
+          console.log('[ValidationCard] Consuming AI credit for smart question generation');
+          const creditResult = await consumeAICredit(currentRTO.code);
+          if (creditResult.success && onCreditConsumed && creditResult.newBalance !== undefined) {
+            onCreditConsumed(creditResult.newBalance);
           }
         }
-        
-        toast.success('Question generated with AI based on your feedback');
-      } else {
-        throw new Error(response.error || 'No questions generated');
       }
+      
+      setShowGeneratingModal(false);
+      toast.success('✨ Smart question generated! Review and click Save to keep it.', { 
+        duration: 4000
+      });
     } catch (error) {
       console.error('Error generating with AI:', error);
+      setShowGeneratingModal(false);
       toast.error('Failed to generate with AI. Please try again.');
     } finally {
       setIsGenerating(false);
@@ -601,6 +619,35 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
               Revalidate
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AI Generation Loading Modal */}
+      <AlertDialog open={showGeneratingModal} onOpenChange={setShowGeneratingModal}>
+        <AlertDialogContent className="max-w-md bg-white">
+          <div className="flex flex-col items-center justify-center py-8 px-4">
+            {/* Wizard icon like AI chat */}
+            <div className="rounded-lg flex items-center justify-center w-20 h-20 bg-white border-2 border-[#dbeafe] mb-6">
+              <span className="text-5xl">🧙‍♂️</span>
+            </div>
+            
+            <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+              Nytro is thinking...
+            </h3>
+            
+            {/* Bouncing dots like AI chat */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+            </div>
+            
+            <p className="text-sm text-[#64748b] text-center">
+              Generating a smart question for this requirement
+            </p>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </Card>

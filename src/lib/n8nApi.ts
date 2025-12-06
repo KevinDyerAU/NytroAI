@@ -185,13 +185,17 @@ export async function regenerateQuestions(
   requirementText?: string,
   existingSmartQuestion?: string
 ): Promise<{
-  success: boolean;
-  questions?: Array<{
-    id: number;
-    question_text: string;
-    context: string;
+  validation_detail_id: number;
+  questions: Array<{
+    question: string;
+    question_type: string;
+    difficulty_level: string;
+    focus_area: string;
+    expected_document_sections?: string[];
+    rationale?: string;
   }>;
-  error?: string;
+  summary?: string;
+  response_timestamp: string;
 }> {
   // Use Supabase Edge Function proxy to avoid CORS
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
