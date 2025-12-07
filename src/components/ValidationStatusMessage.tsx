@@ -137,45 +137,35 @@ export function ValidationStatusMessage({
     );
   }
 
-  // Error state
+  // Error state - show wizard loading instead of error (validation may still be processing)
   if (type === 'error' && error) {
-    const isNetworkError = error.code === 'NETWORK_ERROR';
-    const isDatabaseError = error.code === 'DATABASE_ERROR';
-    
     return (
-      <div className="flex flex-col items-center justify-center h-96 bg-red-50 rounded-lg border border-red-200 p-8">
-        <XCircle className="w-12 h-12 text-red-600 mb-4" />
-        <h3 className="text-lg font-semibold text-red-900 mb-2">
-          {isNetworkError ? 'Connection Error' : 
-           isDatabaseError ? 'Database Error' : 
-           'Error Loading Results'}
-        </h3>
-        <p className="text-sm text-red-700 text-center mb-1">
-          {error.message}
-        </p>
-        {error.retryable && (
-          <p className="text-xs text-red-600 text-center mb-4">
-            This error may be temporary. Please try again.
-          </p>
-        )}
-        <div className="flex gap-2 mt-4">
-          {error.retryable && onRetry && (
-            <Button onClick={onRetry} variant="default" size="sm">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
-            </Button>
-          )}
-          {onBack && (
-            <Button onClick={onBack} variant="outline" size="sm">
-              Back to Dashboard
-            </Button>
-          )}
+      <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border border-[#dbeafe] p-8">
+        {/* Wizard logo */}
+        <div className="mb-6 w-32">
+          <img
+            src={wizardLogo}
+            alt="Nytro Wizard"
+            className="w-full h-auto object-contain"
+          />
         </div>
-        {!error.retryable && (
-          <p className="text-xs text-gray-500 text-center mt-4">
-            If this problem persists, please contact support.
-          </p>
-        )}
+        
+        <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+          Nytro is still processing...
+        </h3>
+        
+        {/* Bouncing dots */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex gap-1">
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+          </div>
+        </div>
+        
+        <p className="text-sm text-[#64748b] text-center">
+          Your validation is being processed. Results will appear here as they become available.
+        </p>
       </div>
     );
   }
@@ -232,12 +222,6 @@ export function ValidationStatusMessage({
           </div>
         )}
         
-        {onRefresh && (
-          <Button onClick={onRefresh} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh Now
-          </Button>
-        )}
       </div>
     );
   }
