@@ -1,13 +1,12 @@
 /**
  * Error Display Component - Phase 3
- * Displays errors with categorization, retry options, and copy functionality
+ * Displays errors with categorization and retry options
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Button } from './ui/button';
-import { AlertCircle, RefreshCw, WifiOff, Database, Clock, Copy, Check } from 'lucide-react';
-import { toast } from 'sonner';
+import { AlertCircle, RefreshCw, WifiOff, Database, Clock } from 'lucide-react';
 
 export type ErrorType = 'network' | 'database' | 'timeout' | 'validation' | 'unknown';
 
@@ -17,7 +16,6 @@ interface ErrorDisplayProps {
   onRetry?: () => void;
   retryLabel?: string;
   showDetails?: boolean;
-  showCopyButton?: boolean;
 }
 
 function getErrorIcon(type: ErrorType) {
@@ -66,88 +64,26 @@ function getErrorMessage(error: Error | string | null, type: ErrorType): string 
   }
 }
 
-/**
- * Format error details for copying to clipboard
- */
-function formatErrorForClipboard(error: Error | string, type: ErrorType): string {
-  const timestamp = new Date().toISOString();
-  const errorMessage = error instanceof Error ? error.message : error;
-  const stack = error instanceof Error ? error.stack : undefined;
-  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A';
-
-  let text = `--- Error Report ---
-Timestamp: ${timestamp}
-Error Type: ${type}
-Message: ${errorMessage}
-User Agent: ${userAgent}
-URL: ${typeof window !== 'undefined' ? window.location.href : 'N/A'}`;
-
-  if (stack) {
-    text += `\n\nStack Trace:\n${stack}`;
-  }
-
-  text += '\n--- End Report ---';
-  return text;
-}
-
-export function ErrorDisplay({
-  error,
-  type = 'unknown',
-  onRetry,
+export function ErrorDisplay({ 
+  error, 
+  type = 'unknown', 
+  onRetry, 
   retryLabel = 'Try Again',
-  showDetails = false,
-  showCopyButton = true
+  showDetails = false 
 }: ErrorDisplayProps) {
-  const [copied, setCopied] = useState(false);
-
   if (!error) return null;
 
   const errorMessage = getErrorMessage(error, type);
   const errorTitle = getErrorTitle(type);
   const icon = getErrorIcon(type);
 
-  const handleCopyError = async () => {
-    try {
-      const errorText = formatErrorForClipboard(error, type);
-      await navigator.clipboard.writeText(errorText);
-      setCopied(true);
-      toast.success('Error details copied to clipboard');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      toast.error('Failed to copy error details');
-    }
-  };
-
   return (
     <Alert variant="destructive" className="my-4">
       {icon}
-      <AlertTitle className="flex items-center justify-between">
-        <span>{errorTitle}</span>
-        {showCopyButton && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCopyError}
-            className="h-6 px-2 text-xs hover:bg-red-100"
-            title="Copy error details for support"
-          >
-            {copied ? (
-              <>
-                <Check className="h-3 w-3 mr-1" />
-                Copied
-              </>
-            ) : (
-              <>
-                <Copy className="h-3 w-3 mr-1" />
-                Copy Error
-              </>
-            )}
-          </Button>
-        )}
-      </AlertTitle>
+      <AlertTitle>{errorTitle}</AlertTitle>
       <AlertDescription>
         <p className="mb-2">{errorMessage}</p>
-
+        
         {showDetails && error instanceof Error && error.stack && (
           <details className="mt-2 p-2 bg-gray-100 rounded text-sm">
             <summary className="cursor-pointer text-xs">Technical Details</summary>
@@ -158,10 +94,10 @@ export function ErrorDisplay({
         )}
 
         {onRetry && (
-          <Button
-            onClick={onRetry}
-            variant="outline"
-            size="sm"
+          <Button 
+            onClick={onRetry} 
+            variant="outline" 
+            size="sm" 
             className="mt-2"
           >
             <RefreshCw className="mr-2 h-3 w-3" />
