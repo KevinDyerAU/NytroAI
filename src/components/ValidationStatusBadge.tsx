@@ -4,8 +4,12 @@
  * Shows 4 simple stages:
  * 1. Document Upload (Pending)
  * 2. AI Learning (In Progress - Extract)
- * 3. Under Review (In Progress - Validation)
- * 4. Finalised (Completed)
+ * 3. Under Review (Validation complete, awaiting report generation)
+ * 4. Finalised (Report has been generated)
+ * 
+ * Note: Status only changes to "Finalised" when user generates a report.
+ * The database trigger sets validation_status to 'completed' when all requirements
+ * are validated, but we show "Under Review" until the report is generated.
  */
 
 import React from 'react';
@@ -26,8 +30,8 @@ export function ValidationStatusBadge({ status, className = '' }: ValidationStat
     const extractStatus = (status.extractStatus || 'Pending').toLowerCase();
     const validationStatus = (status.validationStatus || 'Pending').toLowerCase();
 
-    // Stage 4: Finalised (highest priority)
-    if (validationStatus === 'finalised' || validationStatus === 'completed') {
+    // Stage 4: Finalised - ONLY when explicitly set to 'finalised' (after report generated)
+    if (validationStatus === 'finalised') {
       return { 
         label: 'Finalised', 
         color: 'green',
@@ -37,8 +41,9 @@ export function ValidationStatusBadge({ status, className = '' }: ValidationStat
       };
     }
 
-    // Stage 3: Under Review (validation in progress OR extraction completed)
+    // Stage 3: Under Review (validation complete but report not yet generated, OR validation in progress)
     if (
+      validationStatus === 'completed' ||
       extractStatus === 'completed' ||
       validationStatus === 'in progress' ||
       extractStatus === 'processinginbackground'
