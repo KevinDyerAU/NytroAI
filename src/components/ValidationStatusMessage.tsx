@@ -3,7 +3,7 @@
  * Displays appropriate messages for different validation states
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { 
   Loader2, 
   XCircle, 
@@ -41,15 +41,33 @@ export function ValidationStatusMessage({
   validationProgress,
 }: ValidationStatusMessageProps) {
   
-  // Loading state
+  // Loading state - show wizard with bouncing dots
   if (type === 'loading') {
     return (
-      <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border border-gray-200 p-8">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+      <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg border border-[#dbeafe] p-8">
+        {/* Wizard logo */}
+        <div className="mb-6 w-32">
+          <img
+            src={wizardLogo}
+            alt="Nytro Wizard"
+            className="w-full h-auto object-contain"
+          />
+        </div>
+        
+        <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
           Loading Validation Results
         </h3>
-        <p className="text-sm text-gray-600 text-center">
+        
+        {/* Bouncing dots */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex gap-1">
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+            <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+          </div>
+        </div>
+        
+        <p className="text-sm text-[#64748b] text-center">
           Please wait while we fetch your validation data...
         </p>
       </div>
@@ -164,18 +182,6 @@ export function ValidationStatusMessage({
 
   // No results state (validation complete but no data)
   if (type === 'no-results') {
-    // Auto-refresh every 15 seconds when still processing
-    useEffect(() => {
-      if (onRefresh) {
-        const intervalId = setInterval(() => {
-          console.log('[ValidationStatusMessage] Auto-refreshing validation status...');
-          onRefresh();
-        }, 15000); // 15 seconds
-
-        return () => clearInterval(intervalId);
-      }
-    }, [onRefresh]);
-
     const hasProgress = validationProgress && validationProgress.total > 0;
     
     return (
@@ -225,10 +231,6 @@ export function ValidationStatusMessage({
             </p>
           </div>
         )}
-        
-        <p className="text-xs text-[#94a3b8] text-center mb-4">
-          Auto-refreshing every 15 seconds...
-        </p>
         
         {onRefresh && (
           <Button onClick={onRefresh} variant="outline" size="sm">

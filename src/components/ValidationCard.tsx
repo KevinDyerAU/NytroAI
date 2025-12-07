@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { getRTOById, consumeAICredit } from '../types/rto';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
-import { ValidationStatusBadge as StatusBadge } from './ValidationStatusBadge';
+import { ResultStatusBadge as StatusBadge } from './ResultStatusBadge';
 import { toast } from 'sonner';
 import wizardLogo from '../assets/wizard-logo.png';
 
