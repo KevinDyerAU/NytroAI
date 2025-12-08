@@ -441,7 +441,7 @@ export async function addAICredits(rtoCode: string, amount: number, reason?: str
 export async function consumeAICredit(rtoCode: string): Promise<{ success: boolean; message: string; newBalance?: number }> {
   try {
     const { data, error } = await supabase.rpc('consume_ai_credit', {
-      rto_code: rtoCode,
+      p_rto_code: rtoCode,
     });
 
     if (error) {

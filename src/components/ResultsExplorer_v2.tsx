@@ -699,7 +699,7 @@ export function ResultsExplorer_v2({
                 </div>
               )}
               
-              {unitSearchTerm && filteredUnits.length === 0 && !isLoadingUnits && (
+              {unitSearchTerm && filteredUnits.length === 0 && !isLoadingUnits && !selectedValidation && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg p-4 text-center text-[#64748b]">
                   <Info className="w-5 h-5 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No units found matching "{unitSearchTerm}"</p>
