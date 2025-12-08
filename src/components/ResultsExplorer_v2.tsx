@@ -193,6 +193,14 @@ export function ResultsExplorer_v2({
       return;
     }
 
+    // Don't show dropdown if we already have a selected validation matching the search term
+    // This prevents the dropdown from opening when navigating with a pre-selected unit
+    if (selectedValidation && selectedValidation.unitCode === unitSearchTerm) {
+      setFilteredUnits([]);
+      setShowUnitDropdown(false);
+      return;
+    }
+
     const searchLower = unitSearchTerm.toLowerCase();
     const filtered = allUnits.filter(unit => 
       unit.unitCode?.toLowerCase().includes(searchLower) ||
@@ -201,7 +209,7 @@ export function ResultsExplorer_v2({
 
     setFilteredUnits(filtered);
     setShowUnitDropdown(filtered.length > 0);
-  }, [unitSearchTerm, allUnits]);
+  }, [unitSearchTerm, allUnits, selectedValidation]);
 
   // Handle unit selection from dropdown
   const handleUnitSelect = (unit: any) => {

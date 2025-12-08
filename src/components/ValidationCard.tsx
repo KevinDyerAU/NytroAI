@@ -301,7 +301,7 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
           <div className="flex items-center gap-2">
             {getRequirementType() && (
               <div className="font-poppins font-semibold text-[#3b82f6]">
-                {getRequirementType()}
+                {getRequirementType().split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
               </div>
             )}
             <div className="font-poppins text-[#3b82f6]">
