@@ -191,10 +191,11 @@ export async function getValidationResults(
     // Helper function to normalize status values
     const normalizeStatus = (status: string | undefined | null): 'met' | 'not-met' | 'partial' => {
       if (!status) return 'not-met';
-      const normalized = status.toLowerCase().replace(/_/g, '-');
-      if (normalized === 'met' || normalized === 'not-met' || normalized === 'partial') {
-        return normalized as 'met' | 'not-met' | 'partial';
-      }
+      const normalized = status.toLowerCase().replace(/[\s_]/g, '-');
+      // Handle various formats: "Partially Met" -> "partially-met" -> "partial"
+      if (normalized === 'met') return 'met';
+      if (normalized === 'not-met') return 'not-met';
+      if (normalized === 'partial' || normalized === 'partially-met') return 'partial';
       return 'not-met';
     };
 

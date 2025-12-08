@@ -239,6 +239,11 @@ export function ResultsExplorer_v2({
   // Handle search input change
   const handleSearchChange = (value: string) => {
     setUnitSearchTerm(value);
+    // Clear selected validation when user starts typing a new search
+    if (selectedValidation && value !== selectedValidation.unitCode) {
+      setSelectedValidation(null);
+      setValidationEvidenceData([]);
+    }
   };
 
   // Handle Enter key to auto-select exact match
@@ -470,8 +475,15 @@ export function ResultsExplorer_v2({
       result.requirement_text.toLowerCase().includes(searchTerm.toLowerCase()) ||
       result.requirement_number.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Normalize status comparison to handle both hyphen and underscore formats
-    const normalizeStatus = (status: string) => status.toLowerCase().replace(/_/g, '-');
+    // Normalize status comparison to handle various formats:
+    // Database: "Partially Met", "Met", "Not Met"
+    // Filter values: "partial", "met", "not-met"
+    const normalizeStatus = (status: string) => {
+      const lower = status.toLowerCase().replace(/[\s_]/g, '-');
+      // Map "partially-met" to "partial" for filter matching
+      if (lower === 'partially-met') return 'partial';
+      return lower;
+    };
     const matchesStatus = statusFilter === 'all' || 
       normalizeStatus(result.status) === normalizeStatus(statusFilter);
     
@@ -689,11 +701,31 @@ export function ResultsExplorer_v2({
             
             {selectedValidation && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <div>
-                    <p className="font-semibold text-green-900">{selectedValidation.unitCode}</p>
-                    <p className="text-sm text-green-700">{selectedValidation.unitTitle}</p>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-green-900">{selectedValidation.unitCode}</p>
+                      <p className="text-sm text-green-700">{selectedValidation.unitTitle}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
+                        <span>Type: <span className="font-medium capitalize">{selectedValidation.validationType || 'Unit'}</span></span>
+                        <span>Created: <span className="font-medium">{selectedValidation.validationDate ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</span></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <ValidationStatusBadge
+                      status={{
+                        extractStatus: currentRecord?.extract_status || 'Pending',
+                        validationStatus: currentRecord?.validation_status || 'Pending',
+                      }}
+                      className="text-xs"
+                    />
+                    {currentRecord && currentRecord.req_total > 0 && (
+                      <span className="text-xs text-green-600">
+                        {currentRecord.completed_count || 0} / {currentRecord.req_total} validated
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

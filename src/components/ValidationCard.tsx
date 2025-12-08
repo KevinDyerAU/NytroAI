@@ -21,6 +21,7 @@ interface ValidationResult {
   requirement_text: string;
   status: 'met' | 'not-met' | 'partial';
   reasoning: string;
+  recommendations?: string; // AI-generated recommendations for addressing gaps
   mapped_content: string; // JSON string of mapped questions
   doc_references: string; // JSON string or text of document references
   smart_questions: string;
@@ -75,6 +76,15 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
       // If not JSON, split by newlines or commas
       return result.doc_references ? result.doc_references.split(/[\n,]/).filter(Boolean) : [];
     }
+  };
+  
+  // Check if this requirement type should show smart questions/benchmark answers
+  const shouldShowSmartQuestions = () => {
+    const reqType = getRequirementType().toLowerCase();
+    return !reqType.includes('assessment_conditions') && 
+           !reqType.includes('assessment conditions') &&
+           !reqType.includes('assessment_instructions') &&
+           !reqType.includes('assessment instructions');
   };
   
   const getCitations = (): any[] => {
@@ -338,6 +348,18 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
                 <p className="text-sm leading-relaxed text-[#475569]">{result.reasoning}</p>
               </div>
               
+              {result.recommendations && (
+                <div className="pt-3 border-t border-[#dbeafe]">
+                  <p className="text-sm font-medium text-[#64748b] mb-2 flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-[#f59e0b]" />
+                    Recommendations:
+                  </p>
+                  <div className="bg-[#fffbeb] border border-[#fcd34d] rounded-lg p-3">
+                    <p className="text-sm leading-relaxed text-[#92400e] whitespace-pre-wrap">{result.recommendations}</p>
+                  </div>
+                </div>
+              )}
+              
               {result.mapped_content && (
                 <div className="pt-3 border-t border-[#dbeafe]">
                   <p className="text-sm font-medium text-[#64748b] mb-2">Mapped Content:</p>
@@ -389,101 +411,103 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
             </div>
           </div>
 
-          {/* AI Enhancement Section */}
-          <div>
-            <h4 className="font-poppins text-[#3b82f6] mb-2 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4" />
-              AI Enhancement
-              {isEditing && (
-                <span className="text-xs text-[#3b82f6] bg-[#dbeafe] px-2 py-1 rounded">
-                  Editing Mode
-                </span>
-              )}
-            </h4>
-            <div className="bg-white border border-[#93c5fd] rounded-lg p-4 space-y-4">
-              {isEditing ? (
-                <>
-                  {/* AI Context Input */}
-                  <div className="bg-[#f0f9ff] border-2 border-dashed border-[#3b82f6] rounded-lg p-4">
-                    <div className="flex items-start gap-3 mb-3">
-                      <Sparkles className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-1" />
-                      <div className="flex-1">
-                        <p className="text-sm text-[#3b82f6] mb-1">AI Context (Optional)</p>
-                        <p className="text-xs text-[#64748b] mb-3">
-                          Provide additional context to generate better questions and answers using AI
-                        </p>
-                        <Textarea
-                          value={aiContext}
-                          onChange={(e) => setAiContext(e.target.value)}
-                          placeholder="e.g., 'This is for a construction workplace with specific safety requirements...' or 'Focus on practical assessment tasks for hospitality...'"
-                          className="min-h-[80px] bg-white border-[#3b82f6] focus:border-[#3b82f6]"
-                        />
+          {/* AI Enhancement Section - Only show for non-assessment conditions/instructions */}
+          {shouldShowSmartQuestions() && (
+            <div>
+              <h4 className="font-poppins text-[#3b82f6] mb-2 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4" />
+                AI Enhancement
+                {isEditing && (
+                  <span className="text-xs text-[#3b82f6] bg-[#dbeafe] px-2 py-1 rounded">
+                    Editing Mode
+                  </span>
+                )}
+              </h4>
+              <div className="bg-white border border-[#93c5fd] rounded-lg p-4 space-y-4">
+                {isEditing ? (
+                  <>
+                    {/* AI Context Input */}
+                    <div className="bg-[#f0f9ff] border-2 border-dashed border-[#3b82f6] rounded-lg p-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <Sparkles className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-1" />
+                        <div className="flex-1">
+                          <p className="text-sm text-[#3b82f6] mb-1">AI Context (Optional)</p>
+                          <p className="text-xs text-[#64748b] mb-3">
+                            Provide additional context to generate better questions and answers using AI
+                          </p>
+                          <Textarea
+                            value={aiContext}
+                            onChange={(e) => setAiContext(e.target.value)}
+                            placeholder="e.g., 'This is for a construction workplace with specific safety requirements...' or 'Focus on practical assessment tasks for hospitality...'"
+                            className="min-h-[80px] bg-white border-[#3b82f6] focus:border-[#3b82f6]"
+                          />
+                        </div>
                       </div>
+                      <GlowButton
+                        variant="primary"
+                        size="sm"
+                        onClick={handleGenerateWithAI}
+                        disabled={isGenerating || !aiCreditsAvailable}
+                        title={!aiCreditsAvailable ? "No AI credits available" : "Provide context to help AI generate better questions"}
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {isGenerating ? 'Generating...' : 'Generate with AI'}
+                      </GlowButton>
                     </div>
-                    <GlowButton
-                      variant="primary"
-                      size="sm"
-                      onClick={handleGenerateWithAI}
-                      disabled={isGenerating || !aiCreditsAvailable}
-                      title={!aiCreditsAvailable ? "No AI credits available" : "Provide context to help AI generate better questions"}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      {isGenerating ? 'Generating...' : 'Generate with AI'}
-                    </GlowButton>
-                  </div>
 
-                  {/* Editable Question */}
-                  <div>
-                    <p className="text-sm text-[#3b82f6] mb-2">SMART Question:</p>
-                    <Textarea
-                      value={editedQuestion}
-                      onChange={(e) => setEditedQuestion(e.target.value)}
-                      className="min-h-[100px] bg-[#dbeafe] border-[#93c5fd] focus:border-[#3b82f6]"
-                    />
-                  </div>
+                    {/* Editable Question */}
+                    <div>
+                      <p className="text-sm text-[#3b82f6] mb-2">SMART Question:</p>
+                      <Textarea
+                        value={editedQuestion}
+                        onChange={(e) => setEditedQuestion(e.target.value)}
+                        className="min-h-[100px] bg-[#dbeafe] border-[#93c5fd] focus:border-[#3b82f6]"
+                      />
+                    </div>
 
-                  {/* Editable Answer */}
-                  <div>
-                    <p className="text-sm text-[#3b82f6] mb-2">Benchmark Answer:</p>
-                    <Textarea
-                      value={editedAnswer}
-                      onChange={(e) => setEditedAnswer(e.target.value)}
-                      className="min-h-[120px] bg-white border-[#dbeafe] focus:border-[#3b82f6]"
-                    />
-                  </div>
+                    {/* Editable Answer */}
+                    <div>
+                      <p className="text-sm text-[#3b82f6] mb-2">Benchmark Answer:</p>
+                      <Textarea
+                        value={editedAnswer}
+                        onChange={(e) => setEditedAnswer(e.target.value)}
+                        className="min-h-[120px] bg-white border-[#dbeafe] focus:border-[#3b82f6]"
+                      />
+                    </div>
 
-                  {/* Edit Action Buttons */}
-                  <div className="flex gap-3 pt-3 border-t border-[#dbeafe]">
-                    <GlowButton variant="primary" size="sm" onClick={handleSave}>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Changes
-                    </GlowButton>
-                    <GlowButton variant="secondary" size="sm" onClick={handleCancel}>
-                      <X className="w-4 h-4 mr-2" />
-                      Cancel
-                    </GlowButton>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Display Mode */}
-                  <div>
-                    <p className="text-sm text-[#3b82f6] mb-2">SMART Question:</p>
-                    <p className="text-sm bg-[#dbeafe] p-3 rounded border border-[#93c5fd] text-[#1e293b] whitespace-pre-wrap">
-                      {result.smart_questions?.trim() || <span className="text-[#94a3b8] italic">No SMART question available</span>}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-[#3b82f6] mb-2">Benchmark Answer:</p>
-                    <p className="text-sm text-[#64748b] whitespace-pre-wrap">
-                      {result.benchmark_answer?.trim() || <span className="text-[#94a3b8] italic">No benchmark answer available</span>}
-                    </p>
-                  </div>
-                </>
-              )}
+                    {/* Edit Action Buttons */}
+                    <div className="flex gap-3 pt-3 border-t border-[#dbeafe]">
+                      <GlowButton variant="primary" size="sm" onClick={handleSave}>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </GlowButton>
+                      <GlowButton variant="secondary" size="sm" onClick={handleCancel}>
+                        <X className="w-4 h-4 mr-2" />
+                        Cancel
+                      </GlowButton>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Display Mode */}
+                    <div>
+                      <p className="text-sm text-[#3b82f6] mb-2">SMART Question:</p>
+                      <p className="text-sm bg-[#dbeafe] p-3 rounded border border-[#93c5fd] text-[#1e293b] whitespace-pre-wrap">
+                        {result.smart_questions?.trim() || <span className="text-[#94a3b8] italic">No SMART question available</span>}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-[#3b82f6] mb-2">Benchmark Answer:</p>
+                      <p className="text-sm text-[#64748b] whitespace-pre-wrap">
+                        {result.benchmark_answer?.trim() || <span className="text-[#94a3b8] italic">No benchmark answer available</span>}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action Bar - Only show if not in editing mode */}
           {!isEditing && (
