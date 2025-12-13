@@ -727,6 +727,7 @@ export function ResultsExplorer_v2({
                         extractStatus: currentRecord?.extract_status || 'Pending',
                         validationStatus: currentRecord?.validation_status || 'Pending',
                       }}
+                      progress={currentRecord?.req_total ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.req_total) * 100) : 0}
                       className="text-xs"
                     />
                     {currentRecord && currentRecord.req_total > 0 && (

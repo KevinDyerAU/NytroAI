@@ -625,24 +625,34 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
 
     // Map database columns to ValidationRecord interface
     // Handle both camelCase and snake_case column names
-    const records: ValidationRecord[] = (data || []).map((record: any) => ({
-      id: record.id,
-      unit_code: record.validation_summary?.unitCode || record.namespace_code || record.rtoCode || null,
-      qualification_code: null,
-      extract_status: record.extractStatus || record.extract_status || 'Pending',
-      validation_status: record.validation_status || 'Pending',
-      doc_extracted: record.docExtracted !== undefined ? record.docExtracted : (record.doc_extracted || false),
-      req_extracted: false,
-      num_of_req: record.req_total || 0,
-      req_total: record.req_total || 0,
-      completed_count: record.completed_count || 0,
-      validation_count: record.validation_count || 0,
-      validation_progress: record.validation_progress || 0,
-      created_at: record.created_at,
-      summary_id: record.summary_id || 0,
-      validation_type: record.validation_type?.code || null,
-      error_message: null,
-    }));
+    const records: ValidationRecord[] = (data || []).map((record: any) => {
+      // Calculate progress: prefer validation_progress from trigger, fallback to manual calculation
+      const validationTotal = record.validation_total || record.req_total || 0;
+      const validationCount = record.validation_count || record.completed_count || 0;
+      const calculatedProgress = validationTotal > 0 
+        ? Math.round((validationCount / validationTotal) * 100) 
+        : 0;
+      const progress = record.validation_progress || calculatedProgress;
+      
+      return {
+        id: record.id,
+        unit_code: record.validation_summary?.unitCode || record.namespace_code || record.rtoCode || null,
+        qualification_code: null,
+        extract_status: record.extractStatus || record.extract_status || 'Pending',
+        validation_status: record.validation_status || 'Pending',
+        doc_extracted: record.docExtracted !== undefined ? record.docExtracted : (record.doc_extracted || false),
+        req_extracted: false,
+        num_of_req: record.req_total || 0,
+        req_total: validationTotal,
+        completed_count: validationCount,
+        validation_count: validationCount,
+        validation_progress: progress,
+        created_at: record.created_at,
+        summary_id: record.summary_id || 0,
+        validation_type: record.validation_type?.code || null,
+        error_message: null,
+      };
+    });
 
     console.log(`[getActiveValidationsByRTO] Found ${records.length} validations`);
     return records;

@@ -407,7 +407,7 @@ export function Dashboard_v3({
                 stage === 'documents' ? 'docExtracted' :
                 'validated';
 
-              // Use validation_progress directly from database, cap at 100
+              // Progress is already calculated in the data mapping (rto.ts)
               const progress = Math.min(100, Math.round(validation.validation_progress || 0));
 
               return (
@@ -431,6 +431,7 @@ export function Dashboard_v3({
                             extractStatus: validation.extract_status || 'Pending',
                             validationStatus: validation.validation_status || 'Pending',
                           }}
+                          progress={progress}
                           className="text-xs"
                         />
                       </p>
