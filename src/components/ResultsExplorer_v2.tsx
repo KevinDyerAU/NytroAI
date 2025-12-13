@@ -26,6 +26,7 @@ import {
   FileText,
   CheckCircle,
   Info,
+  MessageSquare,
 } from 'lucide-react';
 import {
   Select,
@@ -127,7 +128,7 @@ export function ResultsExplorer_v2({
   
   // State management for non-filter state
   const [selectedValidation, setSelectedValidation] = useState<Validation | null>(null);
-  const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [showAIChat, setShowAIChat] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -376,7 +377,7 @@ export function ResultsExplorer_v2({
       setSearchTerm('');
       setStatusFilter('all');
       setSelectedValidation(null);
-      setSelectedResult(null);
+      setShowAIChat(false);
       setUnitSearchTerm('');
       setShowUnitDropdown(false);
     }
@@ -717,6 +718,19 @@ export function ResultsExplorer_v2({
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
+          {/* Chat with Documents Button */}
+          {currentRecord && selectedValidation && (
+            <Button 
+              onClick={() => setShowAIChat(true)} 
+              variant="outline" 
+              size="sm"
+              disabled={aiCredits.current <= 0}
+              title={aiCredits.current <= 0 ? "No AI credits available" : "Chat with AI about the uploaded documents"}
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Chat with Documents
+            </Button>
+          )}
           {/* Report Generation with Popup */}
           {currentRecord && selectedValidation && (
             <ResultsExplorerActions
@@ -745,7 +759,6 @@ export function ResultsExplorer_v2({
               <ValidationCard
                 key={record.id}
                 result={record as any}
-                onChatClick={() => setSelectedResult(record)}
                 isReportSigned={false}
                 aiCreditsAvailable={aiCredits.current > 0}
                 validationContext={{
@@ -896,13 +909,13 @@ export function ResultsExplorer_v2({
         )}
       </div>
 
-      {/* AI Chat Dialog */}
-      {selectedResult && (
+      {/* AI Chat Dialog - Chat with Documents */}
+      {showAIChat && selectedValidation && (
         <AIChat
-          context={`Requirement ${selectedResult.requirement_number}: ${selectedResult.requirement_text}`}
-          onClose={() => setSelectedResult(null)}
+          context={`Unit ${selectedValidation.unitCode}: ${selectedValidation.unitTitle}`}
+          onClose={() => setShowAIChat(false)}
           selectedRTOId={selectedRTOId}
-          validationDetailId={selectedResult.validation_detail_id}
+          validationDetailId={currentRecord?.id}
           onCreditConsumed={(newBalance) => {
             setAICredits(prev => ({ ...prev, current: newBalance }));
           }}

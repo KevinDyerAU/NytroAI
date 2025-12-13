@@ -4,8 +4,8 @@ import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
 import { GlowButton } from './GlowButton';
 import { 
-  Sparkles, Edit, Save, X, RotateCcw, MessageCircle, FileText, AlertCircle,
-  ChevronDown, ChevronUp, MessageSquare, Lightbulb, RefreshCw, AlertTriangle, FileCheck
+  Sparkles, Edit, Save, X, RotateCcw, FileText, AlertCircle,
+  ChevronDown, ChevronUp, Lightbulb, RefreshCw, AlertTriangle, FileCheck
 } from 'lucide-react';
 import { getRTOById, consumeAICredit } from '../types/rto';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
@@ -38,7 +38,6 @@ interface ValidationResult {
 
 interface ValidationCardProps {
   result: ValidationResult;
-  onChatClick: (result: ValidationResult) => void;
   isReportSigned?: boolean;
   aiCreditsAvailable?: boolean;
   validationContext?: {
@@ -51,7 +50,7 @@ interface ValidationCardProps {
   onCreditConsumed?: (newBalance: number) => void;
 }
 
-export function ValidationCard({ result, onChatClick, isReportSigned = false, aiCreditsAvailable = true, validationContext, onCreditConsumed }: ValidationCardProps) {
+export function ValidationCard({ result, isReportSigned = false, aiCreditsAvailable = true, validationContext, onCreditConsumed }: ValidationCardProps) {
   // Helper functions to parse JSON fields and provide backward compatibility
   const getRequirementNumber = () => result.requirement_number || result.requirementNumber || '';
   const getRequirementType = () => result.requirement_type || result.type || '';
@@ -320,14 +319,6 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => onChatClick(result)}
-              disabled={isReportSigned || !aiCreditsAvailable}
-              className="p-2 hover:bg-[#f1f5f9] rounded-lg transition-colors text-[#64748b] hover:text-[#3b82f6] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#64748b]"
-              title={isReportSigned ? "Report is signed off - no updates allowed" : !aiCreditsAvailable ? "No AI credits available" : "Chat with AI about this requirement"}
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
-            <button
               onClick={() => setExpanded(!expanded)}
               className="p-2 hover:bg-[#f1f5f9] rounded-lg transition-colors text-[#64748b] hover:text-[#3b82f6]"
             >
@@ -555,25 +546,19 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
               )}
               
               <div className="flex gap-3">
-                <GlowButton 
-                  variant="primary" 
-                  size="sm" 
-                  onClick={() => onChatClick(result)} 
-                  disabled={isReportSigned || !aiCreditsAvailable}
-                  title={isReportSigned ? "Report is signed off - no updates allowed" : !aiCreditsAvailable ? "No AI credits available" : ""}
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Chat with AI
-                </GlowButton>
-                <GlowButton 
-                  variant="secondary" 
-                  size="sm" 
-                  onClick={handleEditClick} 
-                  disabled={isReportSigned || !aiCreditsAvailable}
-                  title={isReportSigned ? "Report is signed off - no updates allowed" : !aiCreditsAvailable ? "No AI credits available" : ""}
-                >
-                  Edit Question
-                </GlowButton>
+                {/* Edit Question button - hidden for learner_guide validation type */}
+                {shouldShowSmartQuestions() && (
+                  <GlowButton 
+                    variant="secondary" 
+                    size="sm" 
+                    onClick={handleEditClick} 
+                    disabled={isReportSigned || !aiCreditsAvailable}
+                    title={isReportSigned ? "Report is signed off - no updates allowed" : !aiCreditsAvailable ? "No AI credits available" : ""}
+                  >
+                    Edit Question
+                  </GlowButton>
+                )}
+                {/* Revalidate button - always visible */}
                 <GlowButton 
                   variant="secondary" 
                   size="sm" 
