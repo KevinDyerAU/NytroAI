@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from './ui/card';
 import { ValidationCard } from './ValidationCard';
 import { AIChat } from './AIChat';
@@ -67,10 +68,65 @@ export function ResultsExplorer_v2({
   aiCreditsAvailable = true, 
   selectedRTOId 
 }: ResultsExplorerProps) {
-  // State management - always start fresh (no persistence across navigation)
+  // Log the prop on every render to debug
+  console.log('[ResultsExplorer RENDER] Props:', { selectedValidationId, selectedRTOId });
+  
+  // URL-based state for filters (persists across refresh)
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Log current URL params
+  console.log('[ResultsExplorer RENDER] URL params:', {
+    view: searchParams.get('view'),
+    validationId: searchParams.get('validationId'),
+    unit: searchParams.get('unit'),
+    search: searchParams.get('search'),
+    status: searchParams.get('status'),
+  });
+  
+  // Read filter state from URL
+  const urlSearchTerm = searchParams.get('search') || '';
+  const urlStatusFilter = searchParams.get('status') || 'all';
+  
+  // Update URL params helper
+  const updateFilterParams = useCallback((updates: { search?: string; status?: string }) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      
+      if (updates.search !== undefined) {
+        if (updates.search === '') {
+          newParams.delete('search');
+        } else {
+          newParams.set('search', updates.search);
+        }
+      }
+      
+      if (updates.status !== undefined) {
+        if (updates.status === 'all') {
+          newParams.delete('status');
+        } else {
+          newParams.set('status', updates.status);
+        }
+      }
+      
+      return newParams;
+    }, { replace: true }); // Use replace to avoid cluttering history with filter changes
+  }, [setSearchParams]);
+  
+  // Use URL values for filters
+  const searchTerm = urlSearchTerm;
+  const statusFilter = urlStatusFilter;
+  
+  // Setters that update URL
+  const setSearchTerm = useCallback((value: string) => {
+    updateFilterParams({ search: value });
+  }, [updateFilterParams]);
+  
+  const setStatusFilter = useCallback((value: string) => {
+    updateFilterParams({ status: value });
+  }, [updateFilterParams]);
+  
+  // State management for non-filter state
   const [selectedValidation, setSelectedValidation] = useState<Validation | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedResult, setSelectedResult] = useState<any>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
@@ -92,12 +148,28 @@ export function ResultsExplorer_v2({
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastLoadedValidationId, setLastLoadedValidationId] = useState<string | null>(null);
   
-  // Unit autocomplete state
-  const [unitSearchTerm, setUnitSearchTerm] = useState('');
+  // Unit autocomplete state - use URL for unitSearchTerm too
+  const urlUnitSearch = searchParams.get('unit') || '';
   const [allUnits, setAllUnits] = useState<any[]>([]);
   const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
+  
+  // Use URL value for unit search
+  const unitSearchTerm = urlUnitSearch;
+  
+  // Setter that updates URL
+  const setUnitSearchTerm = useCallback((value: string) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (value === '') {
+        newParams.delete('unit');
+      } else {
+        newParams.set('unit', value);
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // Load AI credits
   useEffect(() => {
@@ -116,16 +188,42 @@ export function ResultsExplorer_v2({
     loadAICredits();
   }, [selectedRTOId]);
 
-  // Load validation records
+  // Load validation records - fetch RTO first if cache is empty
   useEffect(() => {
     const loadValidations = async () => {
       try {
         setIsLoadingValidations(true);
         setValidationLoadError(null);
         
-        const currentRTO = getRTOById(selectedRTOId);
+        if (!selectedRTOId) {
+          console.warn('[ResultsExplorer] No RTO ID provided');
+          setValidationRecords([]);
+          setIsLoadingValidations(false);
+          return;
+        }
+
+        // Try cache first, then fetch directly if not found
+        let currentRTO = getRTOById(selectedRTOId);
+        
         if (!currentRTO?.code) {
-          console.warn('[ResultsExplorer] No RTO code available');
+          console.log('[ResultsExplorer] RTO not in cache, fetching directly...');
+          // Import and use fetchRTOById to get RTO data
+          const { fetchRTOById } = await import('../types/rto');
+          const rtoData = await fetchRTOById(selectedRTOId);
+          if (rtoData) {
+            currentRTO = {
+              id: rtoData.id.toString(),
+              code: rtoData.code,
+              name: rtoData.legalname,
+              legalname: rtoData.legalname,
+              validationCredits: { current: 10, total: 10 },
+              stats: {} as any,
+            };
+          }
+        }
+        
+        if (!currentRTO?.code) {
+          console.warn('[ResultsExplorer] Could not get RTO code for ID:', selectedRTOId);
           setValidationRecords([]);
           setIsLoadingValidations(false);
           return;
@@ -282,37 +380,69 @@ export function ResultsExplorer_v2({
       setUnitSearchTerm('');
       setShowUnitDropdown(false);
     }
-  }, [selectedValidationId]);
+  }, [selectedValidationId, setSearchTerm, setStatusFilter, setUnitSearchTerm]);
 
-  // Auto-select validation if ID provided (from dashboard double-click)
+  // Auto-select validation if ID provided (from URL or dashboard double-click)
+  // This runs when validationRecords load AND when selectedValidationId changes
   useEffect(() => {
-    if (selectedValidationId && validationRecords.length > 0) {
-      console.log('[ResultsExplorer] Looking for validation ID:', selectedValidationId);
-      console.log('[ResultsExplorer] Available validation records:', validationRecords.length);
-      console.log('[ResultsExplorer] Loading status:', isLoadingValidations);
-
-      const record = validationRecords.find(r => r.id.toString() === selectedValidationId);
-      
-      if (record) {
-        console.log('[ResultsExplorer] Found validation record:', record);
-        setSelectedValidation({
-          id: record.id.toString(),
-          unitCode: record.unit_code || 'N/A',
-          unitTitle: record.qualification_code || 'Unit',
-          validationType: (record.validation_type?.toLowerCase() as any) || 'unit',
-          rtoId: selectedRTOId,
-          validationDate: record.created_at,
-          status: record.req_extracted ? 'docExtracted' : 'pending',
-          progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
-          sector: 'N/A',
-        });
-        // When coming from dashboard, also set the search term to the unit code
-        setUnitSearchTerm(record.unit_code || '');
-      } else {
-        console.warn('[ResultsExplorer] Validation ID not found:', selectedValidationId);
-      }
+    console.log('[ResultsExplorer AUTO-SELECT] Effect triggered:', {
+      selectedValidationId,
+      isLoadingValidations,
+      validationRecordsCount: validationRecords.length,
+      currentSelectedId: selectedValidation?.id,
+    });
+    
+    // Wait for records to load
+    if (isLoadingValidations) {
+      console.log('[ResultsExplorer AUTO-SELECT] Still loading validations, waiting...');
+      return;
     }
-  }, [selectedValidationId, validationRecords, isLoadingValidations, selectedRTOId]);
+    
+    if (!selectedValidationId) {
+      console.log('[ResultsExplorer AUTO-SELECT] No validation ID in URL/props');
+      return;
+    }
+    
+    if (validationRecords.length === 0) {
+      console.log('[ResultsExplorer AUTO-SELECT] No validation records available');
+      return;
+    }
+    
+    // Check if we already have this validation selected
+    if (selectedValidation?.id === selectedValidationId) {
+      console.log('[ResultsExplorer AUTO-SELECT] Validation already selected:', selectedValidationId);
+      return;
+    }
+
+    console.log('[ResultsExplorer AUTO-SELECT] Looking for validation ID:', selectedValidationId);
+    console.log('[ResultsExplorer AUTO-SELECT] Available IDs:', validationRecords.map(r => r.id).slice(0, 10));
+
+    const record = validationRecords.find(r => r.id.toString() === selectedValidationId);
+    
+    if (record) {
+      console.log('[ResultsExplorer AUTO-SELECT] Found validation record:', record.id, record.unit_code);
+      setSelectedValidation({
+        id: record.id.toString(),
+        unitCode: record.unit_code || 'N/A',
+        unitTitle: record.qualification_code || 'Unit',
+        validationType: (record.validation_type?.toLowerCase() as any) || 'unit',
+        rtoId: selectedRTOId,
+        validationDate: record.created_at,
+        status: record.req_extracted ? 'docExtracted' : 'pending',
+        progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
+        sector: 'N/A',
+      });
+      // Update unit search to match the selected validation
+      if (record.unit_code) {
+        setUnitSearchTerm(record.unit_code);
+      }
+      // Close dropdown since we have a valid selection
+      setShowUnitDropdown(false);
+    } else {
+      console.warn('[ResultsExplorer AUTO-SELECT] Validation ID not found in records:', selectedValidationId);
+      console.warn('[ResultsExplorer AUTO-SELECT] Record IDs available:', validationRecords.map(r => r.id));
+    }
+  }, [selectedValidationId, validationRecords, isLoadingValidations, selectedRTOId, selectedValidation?.id, setUnitSearchTerm]);
 
   // Load validation evidence with comprehensive error handling
   useEffect(() => {

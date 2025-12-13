@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { Dashboard_v3 as Dashboard } from '../components/Dashboard_v3';
 import { UnitAcquisition } from '../components/UnitAcquisition';
@@ -19,26 +20,83 @@ import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
 
+// Valid view names for URL state
+const VALID_VIEWS = ['dashboard', 'acquisition', 'upload', 'results', 'settings', 'maintenance'];
+
 export function DashboardPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [selectedValidationId, setSelectedValidationId] = useState<string | null>(null);
+  // Read view state from URL, default to 'dashboard'
+  const urlView = searchParams.get('view') || 'dashboard';
+  const urlValidationId = searchParams.get('validationId');
+  const urlModule = searchParams.get('module');
+  
+  // Validate and use URL state
+  const currentView = VALID_VIEWS.includes(urlView) ? urlView : 'dashboard';
+  const selectedValidationId = urlValidationId;
+  const maintenanceModule = urlModule;
+  
   const [creditsRefreshTrigger, setCreditsRefreshTrigger] = useState(0);
-  const [maintenanceModule, setMaintenanceModule] = useState<string | null>(null);
   const [rtosLoaded, setRtosLoaded] = useState(false);
 
   // Use user's RTO ID from auth instead of state
   const selectedRTOId = user?.rto_id ? String(user.rto_id) : '';
 
-  // Custom navigation handler that clears validation ID when leaving results view
-  const handleNavigate = (view: string) => {
+  // Update URL params - this enables browser back/forward and refresh persistence
+  const updateUrlState = useCallback((updates: { view?: string; validationId?: string | null; module?: string | null }) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      
+      if (updates.view !== undefined) {
+        if (updates.view === 'dashboard') {
+          newParams.delete('view'); // Clean URL for default view
+        } else {
+          newParams.set('view', updates.view);
+        }
+      }
+      
+      if (updates.validationId !== undefined) {
+        if (updates.validationId === null) {
+          newParams.delete('validationId');
+        } else {
+          newParams.set('validationId', updates.validationId);
+        }
+      }
+      
+      if (updates.module !== undefined) {
+        if (updates.module === null || updates.module === 'hub') {
+          newParams.delete('module');
+        } else {
+          newParams.set('module', updates.module);
+        }
+      }
+      
+      return newParams;
+    }, { replace: false }); // Use push to enable back button
+  }, [setSearchParams]);
+
+  // Custom navigation handler that updates URL state
+  const handleNavigate = useCallback((view: string) => {
     // Clear validation ID when navigating away from results (unless navigating TO results)
     if (currentView === 'results' && view !== 'results') {
-      setSelectedValidationId(null);
+      updateUrlState({ view, validationId: null, module: null });
+    } else if (view === 'maintenance') {
+      updateUrlState({ view, module: 'hub' });
+    } else {
+      updateUrlState({ view, module: null });
     }
-    setCurrentView(view);
-  };
+  }, [currentView, updateUrlState]);
+
+  // Handler for setting validation ID (used when double-clicking a validation)
+  const setSelectedValidationId = useCallback((id: string | null) => {
+    updateUrlState({ validationId: id });
+  }, [updateUrlState]);
+
+  // Handler for setting maintenance module
+  const setMaintenanceModule = useCallback((module: string | null) => {
+    updateUrlState({ module });
+  }, [updateUrlState]);
 
   // Load RTOs cache on mount
   useEffect(() => {
@@ -59,11 +117,11 @@ export function DashboardPage() {
     loadRTOs();
   }, []);
 
-  const handleValidationDoubleClick = (validation: ValidationRecord) => {
+  const handleValidationDoubleClick = useCallback((validation: ValidationRecord) => {
     // Always navigate to Results Explorer when double-clicking a validation
-    setSelectedValidationId(validation.id.toString());
-    handleNavigate('results');
-  };
+    // Set both view and validationId in a single URL update
+    updateUrlState({ view: 'results', validationId: validation.id.toString() });
+  }, [updateUrlState]);
 
   const handleValidationSubmit = (validationData?: { validationId: number; documentName: string; unitCode: string }) => {
     // Navigate to dashboard after validation starts
@@ -162,8 +220,8 @@ export function DashboardPage() {
             {backButton}
             <TriggerValidation 
               onViewResults={(detailId) => {
-                setSelectedValidationId(detailId.toString());
-                handleNavigate('results');
+                // Navigate to results with validation ID in a single URL update
+                updateUrlState({ view: 'results', validationId: detailId.toString(), module: null });
               }}
             />
           </div>
