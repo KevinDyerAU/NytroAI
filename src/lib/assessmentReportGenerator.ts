@@ -171,10 +171,10 @@ export async function generateLearnerGuideReport(
     r.requirement_type === 'elements_performance_criteria'
   );
   
-  // Create sheets (Elements & PC, KE, PE)
+  // Create sheets (Elements & PC, KE, PE) - no smart questions for learner-guide
   await createCoverSheet(workbook, params);
   createLearnerGuideSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence);
-  createElementsPerformanceCriteriaSheet(workbook, elementsPerfCriteria);
+  createElementsPerformanceCriteriaSheet(workbook, elementsPerfCriteria, 'learner-guide');
   createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'learner-guide');
   createPerformanceEvidenceSheet(workbook, performanceEvidence, 'learner-guide');
   
@@ -465,6 +465,7 @@ function createLearnerGuideSummarySheet(
 
 /**
  * Create Knowledge Evidence Sheet
+ * For learner-guide reports, excludes Smart Question and Benchmark Answer columns
  */
 function createKnowledgeEvidenceSheet(
   workbook: ExcelJS.Workbook,
@@ -472,6 +473,7 @@ function createKnowledgeEvidenceSheet(
   reportType: 'assessment' | 'learner-guide'
 ) {
   const sheet = workbook.addWorksheet('Knowledge Evidence');
+  const includeSmartQuestions = reportType !== 'learner-guide';
   
   // Title
   let row = 2;
@@ -483,11 +485,12 @@ function createKnowledgeEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  const mergeEndCol = includeSmartQuestions ? 'I' : 'G';
+  sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
-  // Headers (matching Results Explorer columns exactly)
-  const headers = [
+  // Headers - conditionally include Smart Question and Benchmark Answer
+  const headers = includeSmartQuestions ? [
     'Number',
     'Requirement',
     'Mapping Status',
@@ -496,6 +499,13 @@ function createKnowledgeEvidenceSheet(
     'Citations',
     'Smart Question',
     'Benchmark Answer',
+  ] : [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Recommendations',
+    'Citations',
   ];
   
   headers.forEach((header, idx) => {
@@ -510,6 +520,8 @@ function createKnowledgeEvidenceSheet(
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   });
   row++;
+  
+  const maxCol = includeSmartQuestions ? 9 : 7;
   
   // Data rows (using validation_results fields)
   data.forEach((item) => {
@@ -526,17 +538,18 @@ function createKnowledgeEvidenceSheet(
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    // Smart questions (JSONB array)
-    const smartQuestions = parseJSONBArray(item.smart_questions);
-    sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
-      typeof q === 'string' ? q : q.question || q.text || ''
-    ).join('\n') || '';
-    
-    // Benchmark Answer
-    sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    // Smart questions and Benchmark Answer - only for assessment reports
+    if (includeSmartQuestions) {
+      const smartQuestions = parseJSONBArray(item.smart_questions);
+      sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
+        typeof q === 'string' ? q : q.question || q.text || ''
+      ).join('\n') || '';
+      
+      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    }
     
     // Apply text wrapping
-    for (let col = 2; col <= 9; col++) {
+    for (let col = 2; col <= maxCol; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
     
@@ -550,12 +563,15 @@ function createKnowledgeEvidenceSheet(
   sheet.getColumn('E').width = 30;
   sheet.getColumn('F').width = 25;
   sheet.getColumn('G').width = 30;
-  sheet.getColumn('H').width = 35;
-  sheet.getColumn('I').width = 30;
+  if (includeSmartQuestions) {
+    sheet.getColumn('H').width = 35;
+    sheet.getColumn('I').width = 30;
+  }
 }
 
 /**
  * Create Performance Evidence Sheet
+ * For learner-guide reports, excludes Smart Question and Benchmark Answer columns
  */
 function createPerformanceEvidenceSheet(
   workbook: ExcelJS.Workbook,
@@ -563,6 +579,7 @@ function createPerformanceEvidenceSheet(
   reportType: 'assessment' | 'learner-guide'
 ) {
   const sheet = workbook.addWorksheet('Performance Evidence');
+  const includeSmartQuestions = reportType !== 'learner-guide';
   
   // Title
   let row = 2;
@@ -574,11 +591,12 @@ function createPerformanceEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  const mergeEndCol = includeSmartQuestions ? 'I' : 'G';
+  sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
-  // Headers (matching Results Explorer columns exactly)
-  const headers = [
+  // Headers - conditionally include Smart Question and Benchmark Answer
+  const headers = includeSmartQuestions ? [
     'Number',
     'Requirement',
     'Mapping Status',
@@ -587,6 +605,13 @@ function createPerformanceEvidenceSheet(
     'Citations',
     'Smart Question',
     'Benchmark Answer',
+  ] : [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Recommendations',
+    'Citations',
   ];
   
   headers.forEach((header, idx) => {
@@ -601,6 +626,8 @@ function createPerformanceEvidenceSheet(
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   });
   row++;
+  
+  const maxCol = includeSmartQuestions ? 9 : 7;
   
   // Data rows (using validation_results fields)
   data.forEach((item) => {
@@ -617,17 +644,18 @@ function createPerformanceEvidenceSheet(
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    // Smart questions (JSONB array)
-    const smartQuestions = parseJSONBArray(item.smart_questions);
-    sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
-      typeof q === 'string' ? q : q.question || q.text || ''
-    ).join('\n') || '';
-    
-    // Benchmark Answer
-    sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    // Smart questions and Benchmark Answer - only for assessment reports
+    if (includeSmartQuestions) {
+      const smartQuestions = parseJSONBArray(item.smart_questions);
+      sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
+        typeof q === 'string' ? q : q.question || q.text || ''
+      ).join('\n') || '';
+      
+      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    }
     
     // Apply text wrapping
-    for (let col = 2; col <= 9; col++) {
+    for (let col = 2; col <= maxCol; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
     
@@ -641,18 +669,23 @@ function createPerformanceEvidenceSheet(
   sheet.getColumn('E').width = 30;
   sheet.getColumn('F').width = 25;
   sheet.getColumn('G').width = 30;
-  sheet.getColumn('H').width = 35;
-  sheet.getColumn('I').width = 30;
+  if (includeSmartQuestions) {
+    sheet.getColumn('H').width = 35;
+    sheet.getColumn('I').width = 30;
+  }
 }
 
 /**
  * Create Elements & Performance Criteria Sheet
+ * For learner-guide reports, excludes Smart Question and Benchmark Answer columns
  */
 function createElementsPerformanceCriteriaSheet(
   workbook: ExcelJS.Workbook,
-  data: ValidationEvidenceRecord[]
+  data: ValidationEvidenceRecord[],
+  reportType: 'assessment' | 'learner-guide' = 'assessment'
 ) {
   const sheet = workbook.addWorksheet('Elements & Performance Criteria');
+  const includeSmartQuestions = reportType !== 'learner-guide';
   
   // Title
   let row = 2;
@@ -664,11 +697,12 @@ function createElementsPerformanceCriteriaSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  const mergeEndCol = includeSmartQuestions ? 'I' : 'G';
+  sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
-  // Headers
-  const headers = [
+  // Headers - conditionally include Smart Question and Benchmark Answer
+  const headers = includeSmartQuestions ? [
     'Number',
     'Requirement',
     'Mapping Status',
@@ -677,6 +711,13 @@ function createElementsPerformanceCriteriaSheet(
     'Citations',
     'Smart Question',
     'Benchmark Answer',
+  ] : [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Recommendations',
+    'Citations',
   ];
   
   headers.forEach((header, idx) => {
@@ -691,6 +732,8 @@ function createElementsPerformanceCriteriaSheet(
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   });
   row++;
+  
+  const maxCol = includeSmartQuestions ? 9 : 7;
   
   // Data rows
   data.forEach((item) => {
@@ -706,14 +749,17 @@ function createElementsPerformanceCriteriaSheet(
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    const smartQuestions = parseJSONBArray(item.smart_questions);
-    sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
-      typeof q === 'string' ? q : q.question || q.text || ''
-    ).join('\n') || '';
+    // Smart questions and Benchmark Answer - only for assessment reports
+    if (includeSmartQuestions) {
+      const smartQuestions = parseJSONBArray(item.smart_questions);
+      sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
+        typeof q === 'string' ? q : q.question || q.text || ''
+      ).join('\n') || '';
+      
+      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    }
     
-    sheet.getCell(row, 9).value = item.benchmark_answer || '';
-    
-    for (let col = 2; col <= 9; col++) {
+    for (let col = 2; col <= maxCol; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
     
@@ -727,8 +773,10 @@ function createElementsPerformanceCriteriaSheet(
   sheet.getColumn('E').width = 30;
   sheet.getColumn('F').width = 25;
   sheet.getColumn('G').width = 30;
-  sheet.getColumn('H').width = 35;
-  sheet.getColumn('I').width = 30;
+  if (includeSmartQuestions) {
+    sheet.getColumn('H').width = 35;
+    sheet.getColumn('I').width = 30;
+  }
 }
 
 /**

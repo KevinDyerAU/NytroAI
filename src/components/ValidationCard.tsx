@@ -79,7 +79,15 @@ export function ValidationCard({ result, onChatClick, isReportSigned = false, ai
   };
   
   // Check if this requirement type should show smart questions/benchmark answers
+  // Hide for: assessment_conditions, assessment_instructions, AND all learner_guide validations
   const shouldShowSmartQuestions = () => {
+    // Hide for learner-guide validation type (all requirement types)
+    const valType = validationContext?.validationType?.toLowerCase() || '';
+    if (valType === 'learner-guide' || valType === 'learner_guide') {
+      return false;
+    }
+    
+    // Hide for specific requirement types (assessment_conditions, assessment_instructions)
     const reqType = getRequirementType().toLowerCase();
     return !reqType.includes('assessment_conditions') && 
            !reqType.includes('assessment conditions') &&
