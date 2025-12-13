@@ -32,17 +32,29 @@ export interface AssessmentReportParams {
 }
 
 /**
+ * Normalize status to consistent format: 'met', 'partial', or 'not-met'
+ */
+function normalizeStatus(status: string | undefined | null): 'met' | 'partial' | 'not-met' {
+  if (!status) return 'not-met';
+  const normalized = status.toLowerCase().replace(/[\s_]/g, '-');
+  if (normalized === 'met') return 'met';
+  if (normalized === 'not-met') return 'not-met';
+  if (normalized === 'partial' || normalized === 'partially-met') return 'partial';
+  return 'not-met';
+}
+
+/**
  * Apply status-based background color to cell
  */
 function applyStatusFill(cell: ExcelJS.Cell, status: string | undefined) {
   if (!status) return;
   
-  const normalizedStatus = status.toLowerCase().trim();
+  const normalizedStatus = normalizeStatus(status);
   let color = COLORS.PARTIAL;
   
   if (normalizedStatus === 'met') {
     color = COLORS.MET;
-  } else if (normalizedStatus === 'not-met' || normalizedStatus === 'not met') {
+  } else if (normalizedStatus === 'not-met') {
     color = COLORS.NOT_MET;
   }
   
@@ -293,12 +305,14 @@ function createAssessmentSummarySheet(
   sheet.getCell(`B${row}`).font = { bold: true, size: 12 };
   row++;
   
-  // Calculate stats
+  // Calculate stats with all status types
   const calculateStats = (items: ValidationEvidenceRecord[]) => {
     const total = items.length;
-    const met = items.filter(r => r.status === 'met').length;
+    const met = items.filter(r => normalizeStatus(r.status) === 'met').length;
+    const partial = items.filter(r => normalizeStatus(r.status) === 'partial').length;
+    const notMet = items.filter(r => normalizeStatus(r.status) === 'not-met').length;
     const percentage = total > 0 ? Math.round((met / total) * 100) : 0;
-    return { met, total, percentage };
+    return { met, partial, notMet, total, percentage };
   };
   
   const summaryData = [
@@ -310,8 +324,8 @@ function createAssessmentSummarySheet(
     ['Assessment Instructions', ...Object.values(calculateStats(assessmentInstructions))],
   ];
   
-  // Headers
-  ['Tab', 'Met', 'Total', 'Percentage'].forEach((header, idx) => {
+  // Headers - now includes Partial and Not Met columns
+  ['Tab', 'Met', 'Partial', 'Not Met', 'Total', 'Met %'].forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
     cell.value = header;
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -324,20 +338,27 @@ function createAssessmentSummarySheet(
   });
   row++;
   
-  // Data rows
-  summaryData.forEach(([tab, met, total, percentage]) => {
+  // Data rows with all status columns
+  summaryData.forEach(([tab, met, partial, notMet, total, percentage]) => {
     sheet.getCell(row, 2).value = tab;
     sheet.getCell(row, 3).value = met;
-    sheet.getCell(row, 4).value = total;
-    sheet.getCell(row, 5).value = `${percentage}%`;
+    applyStatusFill(sheet.getCell(row, 3), 'met');
+    sheet.getCell(row, 4).value = partial;
+    applyStatusFill(sheet.getCell(row, 4), 'partial');
+    sheet.getCell(row, 5).value = notMet;
+    applyStatusFill(sheet.getCell(row, 5), 'not-met');
+    sheet.getCell(row, 6).value = total;
+    sheet.getCell(row, 7).value = `${percentage}%`;
     row++;
   });
   
-  // Set column widths
+  // Set column widths for expanded summary
   sheet.getColumn('B').width = 35;
-  sheet.getColumn('C').width = 12;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 15;
+  sheet.getColumn('C').width = 10;
+  sheet.getColumn('D').width = 10;
+  sheet.getColumn('E').width = 10;
+  sheet.getColumn('F').width = 10;
+  sheet.getColumn('G').width = 10;
 }
 
 /**
@@ -389,12 +410,14 @@ function createLearnerGuideSummarySheet(
   // Get all results by type
   const elementsPerfCriteria = params.validationResults.filter(r => r.requirement_type === 'elements_performance_criteria');
   
-  // Calculate stats
+  // Calculate stats with all status types
   const calculateStats = (items: ValidationEvidenceRecord[]) => {
     const total = items.length;
-    const met = items.filter(r => r.status === 'met').length;
+    const met = items.filter(r => normalizeStatus(r.status) === 'met').length;
+    const partial = items.filter(r => normalizeStatus(r.status) === 'partial').length;
+    const notMet = items.filter(r => normalizeStatus(r.status) === 'not-met').length;
     const percentage = total > 0 ? Math.round((met / total) * 100) : 0;
-    return { met, total, percentage };
+    return { met, partial, notMet, total, percentage };
   };
   
   const summaryData = [
@@ -403,8 +426,8 @@ function createLearnerGuideSummarySheet(
     ['Performance Evidence', ...Object.values(calculateStats(performanceEvidence))],
   ];
   
-  // Headers
-  ['Tab', 'Met', 'Total', 'Percentage'].forEach((header, idx) => {
+  // Headers - now includes Partial and Not Met columns
+  ['Tab', 'Met', 'Partial', 'Not Met', 'Total', 'Met %'].forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
     cell.value = header;
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -417,20 +440,27 @@ function createLearnerGuideSummarySheet(
   });
   row++;
   
-  // Data rows
-  summaryData.forEach(([tab, met, total, percentage]) => {
+  // Data rows with all status columns
+  summaryData.forEach(([tab, met, partial, notMet, total, percentage]) => {
     sheet.getCell(row, 2).value = tab;
     sheet.getCell(row, 3).value = met;
-    sheet.getCell(row, 4).value = total;
-    sheet.getCell(row, 5).value = `${percentage}%`;
+    applyStatusFill(sheet.getCell(row, 3), 'met');
+    sheet.getCell(row, 4).value = partial;
+    applyStatusFill(sheet.getCell(row, 4), 'partial');
+    sheet.getCell(row, 5).value = notMet;
+    applyStatusFill(sheet.getCell(row, 5), 'not-met');
+    sheet.getCell(row, 6).value = total;
+    sheet.getCell(row, 7).value = `${percentage}%`;
     row++;
   });
   
-  // Set column widths
+  // Set column widths for expanded summary
   sheet.getColumn('B').width = 35;
-  sheet.getColumn('C').width = 12;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 15;
+  sheet.getColumn('C').width = 10;
+  sheet.getColumn('D').width = 10;
+  sheet.getColumn('E').width = 10;
+  sheet.getColumn('F').width = 10;
+  sheet.getColumn('G').width = 10;
 }
 
 /**
