@@ -626,11 +626,11 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
     // Map database columns to ValidationRecord interface
     // Handle both camelCase and snake_case column names
     const records: ValidationRecord[] = (data || []).map((record: any) => {
-      // Calculate progress: prefer validation_progress from trigger, fallback to manual calculation
-      const validationTotal = record.validation_total || record.req_total || 0;
+      // Use numOfReq from validation_detail table for total requirements count
+      const numOfReq = record.numOfReq || record.num_of_req || 0;
       const validationCount = record.validation_count || record.completed_count || 0;
-      const calculatedProgress = validationTotal > 0 
-        ? Math.round((validationCount / validationTotal) * 100) 
+      const calculatedProgress = numOfReq > 0 
+        ? Math.round((validationCount / numOfReq) * 100) 
         : 0;
       const progress = record.validation_progress || calculatedProgress;
       
@@ -642,8 +642,8 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
         validation_status: record.validation_status || 'Pending',
         doc_extracted: record.docExtracted !== undefined ? record.docExtracted : (record.doc_extracted || false),
         req_extracted: false,
-        num_of_req: record.req_total || 0,
-        req_total: validationTotal,
+        num_of_req: numOfReq,
+        req_total: numOfReq,
         completed_count: validationCount,
         validation_count: validationCount,
         validation_progress: progress,

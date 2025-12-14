@@ -162,7 +162,7 @@ export function Dashboard_v3({
     const total = validations.length;
     const completed = validations.filter(v => 
       v.extract_status === 'Completed' || 
-      (v.req_total > 0 && v.completed_count === v.req_total)
+      (v.num_of_req > 0 && v.completed_count === v.num_of_req)
     ).length;
     const inProgress = validations.filter(v => 
       v.extract_status === 'ProcessingInBackground' || 
@@ -398,7 +398,7 @@ export function Dashboard_v3({
                 validation.doc_extracted,
                 validation.req_extracted,
                 validation.num_of_req,
-                validation.req_total
+                validation.completed_count || 0
               );
 
               const statusMap: 'pending' | 'reqExtracted' | 'docExtracted' | 'validated' =

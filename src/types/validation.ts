@@ -223,10 +223,10 @@ export function getValidationStage(
   docExtracted: boolean,
   reqExtracted: boolean,
   numOfReq: number,
-  reqTotal: number
+  completedCount: number
 ): ValidationStage {
-  // Stage 4: Fully validated
-  if (numOfReq === reqTotal && reqTotal > 0) {
+  // Stage 4: Fully validated (all requirements completed)
+  if (numOfReq > 0 && completedCount >= numOfReq) {
     return 'validated';
   }
 
@@ -254,9 +254,9 @@ export function getValidationWorkflow(
   docExtracted: boolean,
   reqExtracted: boolean,
   numOfReq: number,
-  reqTotal: number
+  completedCount: number
 ): ValidationWorkflowStage[] {
-  const currentStage = getValidationStage(extractStatus, docExtracted, reqExtracted, numOfReq, reqTotal);
+  const currentStage = getValidationStage(extractStatus, docExtracted, reqExtracted, numOfReq, completedCount);
   const stageOrder: ValidationStage[] = ['pending', 'requirements', 'documents', 'validated'];
   const currentIndex = stageOrder.indexOf(currentStage);
 

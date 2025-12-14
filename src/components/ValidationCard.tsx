@@ -93,6 +93,14 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
            !reqType.includes('assessment_instructions') &&
            !reqType.includes('assessment instructions');
   };
+
+  // Check if this is a learner_guide validation type (should show recommendations instead of smart questions)
+  const isLearnerGuide = () => {
+    const valType = validationContext?.validationType?.toLowerCase() || '';
+    const isLG = valType === 'learner-guide' || valType === 'learner_guide';
+    console.log('[ValidationCard] isLearnerGuide check:', { valType, isLG, recommendations: result.recommendations });
+    return isLG;
+  };
   
   const getCitations = (): any[] => {
     try {
@@ -397,6 +405,23 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
               )}
             </div>
           </div>
+
+          {/* Recommendations Section - Only show for learner_guide validation type */}
+          {isLearnerGuide() && (
+            <div>
+              <h4 className="font-poppins text-[#3b82f6] mb-2 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4" />
+                Recommendations
+              </h4>
+              <div className="bg-white border border-[#93c5fd] rounded-lg p-4">
+                {result.recommendations ? (
+                  <p className="text-sm leading-relaxed text-[#475569] whitespace-pre-wrap">{result.recommendations}</p>
+                ) : (
+                  <p className="text-sm text-[#94a3b8] italic">No recommendations available for this requirement.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* AI Enhancement Section - Only show for non-assessment conditions/instructions */}
           {shouldShowSmartQuestions() && (

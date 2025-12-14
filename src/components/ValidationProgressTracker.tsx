@@ -63,7 +63,7 @@ export function ValidationProgressTracker({
       if (showValidationProgress && false) {
         const { data: detailData, error: detailError} = await supabase
           .from('validation_detail')
-          .select('completed_count, req_total, extract_status')  // ✅ Fixed: Use snake_case
+          .select('completed_count, numOfReq, extract_status')  // Use numOfReq for total requirements
           .eq('id', validationDetailId)
           .single();
 
@@ -210,15 +210,15 @@ export function ValidationProgressTracker({
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Validation Progress</span>
                 <span className="text-xs text-gray-600">
-                  {validationDetail.completed_count || 0} of {validationDetail.req_total || 0} requirements
+                  {validationDetail.completed_count || 0} of {validationDetail.numOfReq || 0} requirements
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div 
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{ 
-                    width: `${validationDetail.req_total > 0 
-                      ? (validationDetail.completed_count / validationDetail.req_total) * 100 
+                    width: `${validationDetail.numOfReq > 0 
+                      ? (validationDetail.completed_count / validationDetail.numOfReq) * 100 
                       : 0}%` 
                   }}
                 />

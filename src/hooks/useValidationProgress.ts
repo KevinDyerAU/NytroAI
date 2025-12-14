@@ -111,6 +111,8 @@ export function useValidationProgress(validationId: number): UseValidationProgre
         }
 
         if (data) {
+          // Use numOfReq from validation_detail table for total requirements
+          const numOfReq = data.numOfReq || data.num_of_req || data.req_total || 0;
           const progress: ValidationProgress = {
             id: data.id,
             unitCode: data.unit_code,
@@ -118,10 +120,10 @@ export function useValidationProgress(validationId: number): UseValidationProgre
             validationType: data.validation_type,
             documentType: data.document_type || 'unit',
             status: data.req_extracted ? (data.doc_extracted ? 'docExtracted' : 'reqExtracted') : 'pending',
-            progress: data.req_total ? Math.round((data.completed_count || 0) / data.req_total * 100) : 0,
+            progress: numOfReq ? Math.round((data.completed_count || 0) / numOfReq * 100) : 0,
             docExtracted: data.doc_extracted || false,
             reqExtracted: data.req_extracted || false,
-            reqTotal: data.req_total || 0,
+            reqTotal: numOfReq,
             completedCount: data.completed_count || 0,
             createdAt: data.created_at,
           };
@@ -198,6 +200,8 @@ export function useValidationProgress(validationId: number): UseValidationProgre
         },
         (payload) => {
           const updatedData = payload.new;
+          // Use numOfReq from validation_detail table for total requirements
+          const numOfReq = updatedData.numOfReq || updatedData.num_of_req || updatedData.req_total || 0;
           const progress: ValidationProgress = {
             id: updatedData.id,
             unitCode: updatedData.unit_code,
@@ -205,10 +209,10 @@ export function useValidationProgress(validationId: number): UseValidationProgre
             validationType: updatedData.validation_type,
             documentType: updatedData.document_type || 'unit',
             status: updatedData.req_extracted ? (updatedData.doc_extracted ? 'docExtracted' : 'reqExtracted') : 'pending',
-            progress: updatedData.req_total ? Math.round((updatedData.completed_count || 0) / updatedData.req_total * 100) : 0,
+            progress: numOfReq ? Math.round((updatedData.completed_count || 0) / numOfReq * 100) : 0,
             docExtracted: updatedData.doc_extracted || false,
             reqExtracted: updatedData.req_extracted || false,
-            reqTotal: updatedData.req_total || 0,
+            reqTotal: numOfReq,
             completedCount: updatedData.completed_count || 0,
             createdAt: updatedData.created_at,
           };

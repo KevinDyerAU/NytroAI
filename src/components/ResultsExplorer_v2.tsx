@@ -288,7 +288,7 @@ export function ResultsExplorer_v2({
         rtoId: selectedRTOId,
         validationDate: record.created_at,
         status: record.req_extracted ? 'docExtracted' : 'pending',
-        progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
+        progress: record.num_of_req ? Math.round((record.completed_count || 0) / record.num_of_req * 100) : 0,
         sector: 'N/A',
       });
     } else {
@@ -486,10 +486,10 @@ export function ResultsExplorer_v2({
 
   // Render validation evidence section
   const renderValidationEvidence = () => {
-    // Get progress info from current validation record
+    // Get progress info from current validation record (use num_of_req for total)
     const progressInfo = currentRecord ? {
       completed: currentRecord.completed_count || 0,
-      total: currentRecord.req_total || 0,
+      total: currentRecord.num_of_req || 0,
       status: currentRecord.validation_status || 'Unknown',
     } : undefined;
 
@@ -679,12 +679,12 @@ export function ResultsExplorer_v2({
                     extractStatus: currentRecord?.extract_status || 'Pending',
                     validationStatus: currentRecord?.validation_status || 'Pending',
                   }}
-                  progress={currentRecord?.req_total ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.req_total) * 100) : 0}
+                  progress={currentRecord?.num_of_req ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.num_of_req) * 100) : 0}
                   className="text-xs"
                 />
-                {currentRecord && currentRecord.req_total > 0 && (
+                {currentRecord && currentRecord.num_of_req > 0 && (
                   <span className="text-sm text-[#64748b]">
-                    {Math.min(currentRecord.completed_count || 0, currentRecord.req_total)} / {currentRecord.req_total} validated
+                    {Math.min(currentRecord.completed_count || 0, currentRecord.num_of_req)} / {currentRecord.num_of_req} validated
                   </span>
                 )}
               </div>

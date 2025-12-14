@@ -139,7 +139,7 @@ export async function generateAssessmentReport(
   createElementsPerformanceCriteriaSheet(workbook, elementsPerfCriteria);
   createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'assessment');
   createPerformanceEvidenceSheet(workbook, performanceEvidence, 'assessment');
-  createFoundationSkillsSheet(workbook, foundationSkills);
+  createFoundationSkillsSheet(workbook, foundationSkills, 'assessment');
   createAssessmentConditionsSheet(workbook, assessmentConditions);
   createAssessmentInstructionsSheet(workbook, assessmentInstructions);
   
@@ -465,7 +465,7 @@ function createLearnerGuideSummarySheet(
 
 /**
  * Create Knowledge Evidence Sheet
- * For learner-guide reports, excludes Smart Question and Benchmark Answer columns
+ * For learner-guide reports, includes Recommendations instead of Smart Question and Benchmark Answer
  */
 function createKnowledgeEvidenceSheet(
   workbook: ExcelJS.Workbook,
@@ -473,7 +473,7 @@ function createKnowledgeEvidenceSheet(
   reportType: 'assessment' | 'learner-guide'
 ) {
   const sheet = workbook.addWorksheet('Knowledge Evidence');
-  const includeSmartQuestions = reportType !== 'learner-guide';
+  const isLearnerGuide = reportType === 'learner-guide';
   
   // Title
   let row = 2;
@@ -485,12 +485,19 @@ function createKnowledgeEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  const mergeEndCol = includeSmartQuestions ? 'H' : 'F';
+  const mergeEndCol = isLearnerGuide ? 'G' : 'H';
   sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
-  // Headers - conditionally include Smart Question and Benchmark Answer
-  const headers = includeSmartQuestions ? [
+  // Headers - learner-guide gets Recommendations, assessment gets Smart Question and Benchmark Answer
+  const headers = isLearnerGuide ? [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Recommendations',
+  ] : [
     'Number',
     'Requirement',
     'Mapping Status',
@@ -498,12 +505,6 @@ function createKnowledgeEvidenceSheet(
     'Citations',
     'Smart Question',
     'Benchmark Answer',
-  ] : [
-    'Number',
-    'Requirement',
-    'Mapping Status',
-    'Reasoning',
-    'Citations',
   ];
   
   headers.forEach((header, idx) => {
@@ -519,7 +520,7 @@ function createKnowledgeEvidenceSheet(
   });
   row++;
   
-  const maxCol = includeSmartQuestions ? 8 : 6;
+  const maxCol = isLearnerGuide ? 7 : 8;
   
   // Data rows (using validation_results fields)
   data.forEach((item) => {
@@ -535,8 +536,11 @@ function createKnowledgeEvidenceSheet(
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    // Smart questions and Benchmark Answer - only for assessment reports
-    if (includeSmartQuestions) {
+    if (isLearnerGuide) {
+      // Recommendations - only for learner-guide reports
+      sheet.getCell(row, 7).value = item.recommendations || '';
+    } else {
+      // Smart questions and Benchmark Answer - only for assessment reports
       const smartQuestions = parseJSONBArray(item.smart_questions);
       sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
         typeof q === 'string' ? q : q.question || q.text || ''
@@ -559,7 +563,9 @@ function createKnowledgeEvidenceSheet(
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
   sheet.getColumn('F').width = 30;
-  if (includeSmartQuestions) {
+  if (isLearnerGuide) {
+    sheet.getColumn('G').width = 35;
+  } else {
     sheet.getColumn('G').width = 35;
     sheet.getColumn('H').width = 30;
   }
@@ -567,7 +573,7 @@ function createKnowledgeEvidenceSheet(
 
 /**
  * Create Performance Evidence Sheet
- * For learner-guide reports, excludes Smart Question and Benchmark Answer columns
+ * For learner-guide reports, includes Recommendations instead of Smart Question and Benchmark Answer
  */
 function createPerformanceEvidenceSheet(
   workbook: ExcelJS.Workbook,
@@ -575,7 +581,7 @@ function createPerformanceEvidenceSheet(
   reportType: 'assessment' | 'learner-guide'
 ) {
   const sheet = workbook.addWorksheet('Performance Evidence');
-  const includeSmartQuestions = reportType !== 'learner-guide';
+  const isLearnerGuide = reportType === 'learner-guide';
   
   // Title
   let row = 2;
@@ -587,12 +593,19 @@ function createPerformanceEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  const mergeEndCol = includeSmartQuestions ? 'H' : 'F';
+  const mergeEndCol = isLearnerGuide ? 'G' : 'H';
   sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
-  // Headers - conditionally include Smart Question and Benchmark Answer
-  const headers = includeSmartQuestions ? [
+  // Headers - learner-guide gets Recommendations, assessment gets Smart Question and Benchmark Answer
+  const headers = isLearnerGuide ? [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Recommendations',
+  ] : [
     'Number',
     'Requirement',
     'Mapping Status',
@@ -600,12 +613,6 @@ function createPerformanceEvidenceSheet(
     'Citations',
     'Smart Question',
     'Benchmark Answer',
-  ] : [
-    'Number',
-    'Requirement',
-    'Mapping Status',
-    'Reasoning',
-    'Citations',
   ];
   
   headers.forEach((header, idx) => {
@@ -621,7 +628,7 @@ function createPerformanceEvidenceSheet(
   });
   row++;
   
-  const maxCol = includeSmartQuestions ? 8 : 6;
+  const maxCol = isLearnerGuide ? 7 : 8;
   
   // Data rows (using validation_results fields)
   data.forEach((item) => {
@@ -637,8 +644,11 @@ function createPerformanceEvidenceSheet(
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    // Smart questions and Benchmark Answer - only for assessment reports
-    if (includeSmartQuestions) {
+    if (isLearnerGuide) {
+      // Recommendations - only for learner-guide reports
+      sheet.getCell(row, 7).value = item.recommendations || '';
+    } else {
+      // Smart questions and Benchmark Answer - only for assessment reports
       const smartQuestions = parseJSONBArray(item.smart_questions);
       sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
         typeof q === 'string' ? q : q.question || q.text || ''
@@ -661,7 +671,9 @@ function createPerformanceEvidenceSheet(
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
   sheet.getColumn('F').width = 30;
-  if (includeSmartQuestions) {
+  if (isLearnerGuide) {
+    sheet.getColumn('G').width = 35;
+  } else {
     sheet.getColumn('G').width = 35;
     sheet.getColumn('H').width = 30;
   }
@@ -669,7 +681,7 @@ function createPerformanceEvidenceSheet(
 
 /**
  * Create Elements & Performance Criteria Sheet
- * For learner-guide reports, excludes Smart Question and Benchmark Answer columns
+ * For learner-guide reports, includes Recommendations instead of Smart Question and Benchmark Answer
  */
 function createElementsPerformanceCriteriaSheet(
   workbook: ExcelJS.Workbook,
@@ -677,7 +689,7 @@ function createElementsPerformanceCriteriaSheet(
   reportType: 'assessment' | 'learner-guide' = 'assessment'
 ) {
   const sheet = workbook.addWorksheet('Elements & Performance Criteria');
-  const includeSmartQuestions = reportType !== 'learner-guide';
+  const isLearnerGuide = reportType === 'learner-guide';
   
   // Title
   let row = 2;
@@ -689,12 +701,19 @@ function createElementsPerformanceCriteriaSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  const mergeEndCol = includeSmartQuestions ? 'H' : 'F';
+  const mergeEndCol = isLearnerGuide ? 'G' : 'H';
   sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
-  // Headers - conditionally include Smart Question and Benchmark Answer
-  const headers = includeSmartQuestions ? [
+  // Headers - learner-guide gets Recommendations, assessment gets Smart Question and Benchmark Answer
+  const headers = isLearnerGuide ? [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Recommendations',
+  ] : [
     'Number',
     'Requirement',
     'Mapping Status',
@@ -702,12 +721,6 @@ function createElementsPerformanceCriteriaSheet(
     'Citations',
     'Smart Question',
     'Benchmark Answer',
-  ] : [
-    'Number',
-    'Requirement',
-    'Mapping Status',
-    'Reasoning',
-    'Citations',
   ];
   
   headers.forEach((header, idx) => {
@@ -723,7 +736,7 @@ function createElementsPerformanceCriteriaSheet(
   });
   row++;
   
-  const maxCol = includeSmartQuestions ? 8 : 6;
+  const maxCol = isLearnerGuide ? 7 : 8;
   
   // Data rows
   data.forEach((item) => {
@@ -738,8 +751,11 @@ function createElementsPerformanceCriteriaSheet(
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    // Smart questions and Benchmark Answer - only for assessment reports
-    if (includeSmartQuestions) {
+    if (isLearnerGuide) {
+      // Recommendations - only for learner-guide reports
+      sheet.getCell(row, 7).value = item.recommendations || '';
+    } else {
+      // Smart questions and Benchmark Answer - only for assessment reports
       const smartQuestions = parseJSONBArray(item.smart_questions);
       sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
         typeof q === 'string' ? q : q.question || q.text || ''
@@ -761,7 +777,9 @@ function createElementsPerformanceCriteriaSheet(
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
   sheet.getColumn('F').width = 30;
-  if (includeSmartQuestions) {
+  if (isLearnerGuide) {
+    sheet.getColumn('G').width = 35;
+  } else {
     sheet.getColumn('G').width = 35;
     sheet.getColumn('H').width = 30;
   }
@@ -769,12 +787,15 @@ function createElementsPerformanceCriteriaSheet(
 
 /**
  * Create Foundation Skills Sheet
+ * For learner-guide reports, includes Recommendations instead of Smart Question and Benchmark Answer
  */
 function createFoundationSkillsSheet(
   workbook: ExcelJS.Workbook,
-  data: ValidationEvidenceRecord[]
+  data: ValidationEvidenceRecord[],
+  reportType: 'assessment' | 'learner-guide' = 'assessment'
 ) {
   const sheet = workbook.addWorksheet('Foundation Skills');
+  const isLearnerGuide = reportType === 'learner-guide';
   
   // Title
   let row = 2;
@@ -786,11 +807,19 @@ function createFoundationSkillsSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:H${row}`);
+  const mergeEndCol = isLearnerGuide ? 'G' : 'H';
+  sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
-  // Headers
-  const headers = [
+  // Headers - learner-guide gets Recommendations, assessment gets Smart Question and Benchmark Answer
+  const headers = isLearnerGuide ? [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Reasoning',
+    'Citations',
+    'Recommendations',
+  ] : [
     'Number',
     'Requirement',
     'Mapping Status',
@@ -813,6 +842,8 @@ function createFoundationSkillsSheet(
   });
   row++;
   
+  const maxCol = isLearnerGuide ? 7 : 8;
+  
   // Data rows
   data.forEach((item) => {
     sheet.getCell(row, 2).value = item.requirement_number;
@@ -826,14 +857,20 @@ function createFoundationSkillsSheet(
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    const smartQuestions = parseJSONBArray(item.smart_questions);
-    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
-      typeof q === 'string' ? q : q.question || q.text || ''
-    ).join('\n') || '';
+    if (isLearnerGuide) {
+      // Recommendations - only for learner-guide reports
+      sheet.getCell(row, 7).value = item.recommendations || '';
+    } else {
+      // Smart questions and Benchmark Answer - only for assessment reports
+      const smartQuestions = parseJSONBArray(item.smart_questions);
+      sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
+        typeof q === 'string' ? q : q.question || q.text || ''
+      ).join('\n') || '';
+      
+      sheet.getCell(row, 8).value = item.benchmark_answer || '';
+    }
     
-    sheet.getCell(row, 8).value = item.benchmark_answer || '';
-    
-    for (let col = 2; col <= 8; col++) {
+    for (let col = 2; col <= maxCol; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
     
@@ -846,8 +883,12 @@ function createFoundationSkillsSheet(
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
   sheet.getColumn('F').width = 30;
-  sheet.getColumn('G').width = 35;
-  sheet.getColumn('H').width = 30;
+  if (isLearnerGuide) {
+    sheet.getColumn('G').width = 35;
+  } else {
+    sheet.getColumn('G').width = 35;
+    sheet.getColumn('H').width = 30;
+  }
 }
 
 /**
