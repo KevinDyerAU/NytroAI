@@ -485,7 +485,7 @@ function createKnowledgeEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  const mergeEndCol = includeSmartQuestions ? 'I' : 'G';
+  const mergeEndCol = includeSmartQuestions ? 'H' : 'F';
   sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
@@ -495,7 +495,6 @@ function createKnowledgeEvidenceSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
     'Smart Question',
     'Benchmark Answer',
@@ -504,7 +503,6 @@ function createKnowledgeEvidenceSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
   ];
   
@@ -521,7 +519,7 @@ function createKnowledgeEvidenceSheet(
   });
   row++;
   
-  const maxCol = includeSmartQuestions ? 9 : 7;
+  const maxCol = includeSmartQuestions ? 8 : 6;
   
   // Data rows (using validation_results fields)
   data.forEach((item) => {
@@ -530,22 +528,21 @@ function createKnowledgeEvidenceSheet(
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
-    sheet.getCell(row, 6).value = item.recommendations || '';
     
     // Citations (JSONB array)
     const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) => 
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
     // Smart questions and Benchmark Answer - only for assessment reports
     if (includeSmartQuestions) {
       const smartQuestions = parseJSONBArray(item.smart_questions);
-      sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
+      sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
         typeof q === 'string' ? q : q.question || q.text || ''
       ).join('\n') || '';
       
-      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+      sheet.getCell(row, 8).value = item.benchmark_answer || '';
     }
     
     // Apply text wrapping
@@ -561,11 +558,10 @@ function createKnowledgeEvidenceSheet(
   sheet.getColumn('C').width = 35;
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 25;
-  sheet.getColumn('G').width = 30;
+  sheet.getColumn('F').width = 30;
   if (includeSmartQuestions) {
-    sheet.getColumn('H').width = 35;
-    sheet.getColumn('I').width = 30;
+    sheet.getColumn('G').width = 35;
+    sheet.getColumn('H').width = 30;
   }
 }
 
@@ -591,7 +587,7 @@ function createPerformanceEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  const mergeEndCol = includeSmartQuestions ? 'I' : 'G';
+  const mergeEndCol = includeSmartQuestions ? 'H' : 'F';
   sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
@@ -601,7 +597,6 @@ function createPerformanceEvidenceSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
     'Smart Question',
     'Benchmark Answer',
@@ -610,7 +605,6 @@ function createPerformanceEvidenceSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
   ];
   
@@ -627,7 +621,7 @@ function createPerformanceEvidenceSheet(
   });
   row++;
   
-  const maxCol = includeSmartQuestions ? 9 : 7;
+  const maxCol = includeSmartQuestions ? 8 : 6;
   
   // Data rows (using validation_results fields)
   data.forEach((item) => {
@@ -636,22 +630,21 @@ function createPerformanceEvidenceSheet(
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
-    sheet.getCell(row, 6).value = item.recommendations || '';
     
     // Citations (JSONB array)
     const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) => 
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
     // Smart questions and Benchmark Answer - only for assessment reports
     if (includeSmartQuestions) {
       const smartQuestions = parseJSONBArray(item.smart_questions);
-      sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
+      sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
         typeof q === 'string' ? q : q.question || q.text || ''
       ).join('\n') || '';
       
-      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+      sheet.getCell(row, 8).value = item.benchmark_answer || '';
     }
     
     // Apply text wrapping
@@ -667,11 +660,10 @@ function createPerformanceEvidenceSheet(
   sheet.getColumn('C').width = 35;
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 25;
-  sheet.getColumn('G').width = 30;
+  sheet.getColumn('F').width = 30;
   if (includeSmartQuestions) {
-    sheet.getColumn('H').width = 35;
-    sheet.getColumn('I').width = 30;
+    sheet.getColumn('G').width = 35;
+    sheet.getColumn('H').width = 30;
   }
 }
 
@@ -697,7 +689,7 @@ function createElementsPerformanceCriteriaSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  const mergeEndCol = includeSmartQuestions ? 'I' : 'G';
+  const mergeEndCol = includeSmartQuestions ? 'H' : 'F';
   sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
   
@@ -707,7 +699,6 @@ function createElementsPerformanceCriteriaSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
     'Smart Question',
     'Benchmark Answer',
@@ -716,7 +707,6 @@ function createElementsPerformanceCriteriaSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
   ];
   
@@ -733,7 +723,7 @@ function createElementsPerformanceCriteriaSheet(
   });
   row++;
   
-  const maxCol = includeSmartQuestions ? 9 : 7;
+  const maxCol = includeSmartQuestions ? 8 : 6;
   
   // Data rows
   data.forEach((item) => {
@@ -742,21 +732,20 @@ function createElementsPerformanceCriteriaSheet(
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
-    sheet.getCell(row, 6).value = item.recommendations || '';
     
     const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) => 
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
     // Smart questions and Benchmark Answer - only for assessment reports
     if (includeSmartQuestions) {
       const smartQuestions = parseJSONBArray(item.smart_questions);
-      sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
+      sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
         typeof q === 'string' ? q : q.question || q.text || ''
       ).join('\n') || '';
       
-      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+      sheet.getCell(row, 8).value = item.benchmark_answer || '';
     }
     
     for (let col = 2; col <= maxCol; col++) {
@@ -771,11 +760,10 @@ function createElementsPerformanceCriteriaSheet(
   sheet.getColumn('C').width = 35;
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 25;
-  sheet.getColumn('G').width = 30;
+  sheet.getColumn('F').width = 30;
   if (includeSmartQuestions) {
-    sheet.getColumn('H').width = 35;
-    sheet.getColumn('I').width = 30;
+    sheet.getColumn('G').width = 35;
+    sheet.getColumn('H').width = 30;
   }
 }
 
@@ -798,7 +786,7 @@ function createFoundationSkillsSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  sheet.mergeCells(`B${row}:H${row}`);
   row += 2;
   
   // Headers
@@ -807,7 +795,6 @@ function createFoundationSkillsSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
     'Smart Question',
     'Benchmark Answer',
@@ -833,21 +820,20 @@ function createFoundationSkillsSheet(
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
-    sheet.getCell(row, 6).value = item.recommendations || '';
     
     const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) => 
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
     const smartQuestions = parseJSONBArray(item.smart_questions);
-    sheet.getCell(row, 8).value = smartQuestions.map((q: any) => 
+    sheet.getCell(row, 7).value = smartQuestions.map((q: any) => 
       typeof q === 'string' ? q : q.question || q.text || ''
     ).join('\n') || '';
     
-    sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    sheet.getCell(row, 8).value = item.benchmark_answer || '';
     
-    for (let col = 2; col <= 9; col++) {
+    for (let col = 2; col <= 8; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
     
@@ -859,10 +845,9 @@ function createFoundationSkillsSheet(
   sheet.getColumn('C').width = 35;
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 25;
-  sheet.getColumn('G').width = 30;
-  sheet.getColumn('H').width = 35;
-  sheet.getColumn('I').width = 30;
+  sheet.getColumn('F').width = 30;
+  sheet.getColumn('G').width = 35;
+  sheet.getColumn('H').width = 30;
 }
 
 /**
@@ -884,7 +869,7 @@ function createAssessmentConditionsSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:G${row}`);
+  sheet.mergeCells(`B${row}:F${row}`);
   row += 2;
   
   // Headers - No Smart Question or Benchmark Answer for Assessment Conditions
@@ -893,7 +878,6 @@ function createAssessmentConditionsSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
   ];
   
@@ -917,14 +901,13 @@ function createAssessmentConditionsSheet(
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
-    sheet.getCell(row, 6).value = item.recommendations || '';
     
     const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) => 
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    for (let col = 2; col <= 7; col++) {
+    for (let col = 2; col <= 6; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
     
@@ -936,8 +919,7 @@ function createAssessmentConditionsSheet(
   sheet.getColumn('C').width = 40;
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 35;
-  sheet.getColumn('F').width = 30;
-  sheet.getColumn('G').width = 35;
+  sheet.getColumn('F').width = 35;
 }
 
 /**
@@ -959,7 +941,7 @@ function createAssessmentInstructionsSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:G${row}`);
+  sheet.mergeCells(`B${row}:F${row}`);
   row += 2;
   
   // Headers - No Smart Question or Benchmark Answer for Assessment Instructions
@@ -968,7 +950,6 @@ function createAssessmentInstructionsSheet(
     'Requirement',
     'Mapping Status',
     'Reasoning',
-    'Recommendations',
     'Citations',
   ];
   
@@ -992,14 +973,13 @@ function createAssessmentInstructionsSheet(
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
-    sheet.getCell(row, 6).value = item.recommendations || '';
     
     const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) => 
+    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
       `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
     ).join('\n') || '';
     
-    for (let col = 2; col <= 7; col++) {
+    for (let col = 2; col <= 6; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
     
@@ -1011,8 +991,7 @@ function createAssessmentInstructionsSheet(
   sheet.getColumn('C').width = 40;
   sheet.getColumn('D').width = 12;
   sheet.getColumn('E').width = 35;
-  sheet.getColumn('F').width = 30;
-  sheet.getColumn('G').width = 35;
+  sheet.getColumn('F').width = 35;
 }
 
 /**

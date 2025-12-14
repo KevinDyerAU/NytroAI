@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { GlowButton } from './GlowButton';
 import { 
   Sparkles, Edit, Save, X, RotateCcw, FileText, AlertCircle,
-  ChevronDown, ChevronUp, Lightbulb, RefreshCw, AlertTriangle, FileCheck
+  ChevronDown, ChevronUp, RefreshCw, AlertTriangle, FileCheck, Lightbulb
 } from 'lucide-react';
 import { getRTOById, consumeAICredit } from '../types/rto';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
@@ -347,18 +347,6 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                 <p className="text-sm leading-relaxed text-[#475569]">{result.reasoning}</p>
               </div>
               
-              {result.recommendations && (
-                <div className="pt-3 border-t border-[#dbeafe]">
-                  <p className="text-sm font-medium text-[#64748b] mb-2 flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4 text-[#f59e0b]" />
-                    Recommendations:
-                  </p>
-                  <div className="bg-[#fffbeb] border border-[#fcd34d] rounded-lg p-3">
-                    <p className="text-sm leading-relaxed text-[#92400e] whitespace-pre-wrap">{result.recommendations}</p>
-                  </div>
-                </div>
-              )}
-              
               {result.mapped_content && (
                 <div className="pt-3 border-t border-[#dbeafe]">
                   <p className="text-sm font-medium text-[#64748b] mb-2">Mapped Content:</p>
@@ -598,7 +586,6 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                 <li>Evidence mapping</li>
                 <li>SMART question</li>
                 <li>Benchmark answer</li>
-                <li>AI recommendations</li>
               </ul>
             </div>
 
