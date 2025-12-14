@@ -25,7 +25,6 @@ import {
   RefreshCw,
   FileText,
   CheckCircle,
-  Info,
   MessageSquare,
 } from 'lucide-react';
 import {
@@ -65,20 +64,25 @@ interface ResultsExplorerProps {
 }
 
 export function ResultsExplorer_v2({ 
-  selectedValidationId, 
+  selectedValidationId: propValidationId, 
   aiCreditsAvailable = true, 
   selectedRTOId 
 }: ResultsExplorerProps) {
-  // Log the prop on every render to debug
-  console.log('[ResultsExplorer RENDER] Props:', { selectedValidationId, selectedRTOId });
-  
   // URL-based state for filters (persists across refresh)
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Read validationId from URL (takes precedence) or fall back to prop
+  const urlValidationId = searchParams.get('validationId');
+  const selectedValidationId = urlValidationId || propValidationId;
+  
+  // Log the prop on every render to debug
+  console.log('[ResultsExplorer RENDER] Props:', { propValidationId, selectedRTOId });
   
   // Log current URL params
   console.log('[ResultsExplorer RENDER] URL params:', {
     view: searchParams.get('view'),
-    validationId: searchParams.get('validationId'),
+    validationId: urlValidationId,
+    selectedValidationId,
     unit: searchParams.get('unit'),
     search: searchParams.get('search'),
     status: searchParams.get('status'),
@@ -149,28 +153,6 @@ export function ResultsExplorer_v2({
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastLoadedValidationId, setLastLoadedValidationId] = useState<string | null>(null);
   
-  // Unit autocomplete state - use URL for unitSearchTerm too
-  const urlUnitSearch = searchParams.get('unit') || '';
-  const [allUnits, setAllUnits] = useState<any[]>([]);
-  const [filteredUnits, setFilteredUnits] = useState<any[]>([]);
-  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-  const [isLoadingUnits, setIsLoadingUnits] = useState(false);
-  
-  // Use URL value for unit search
-  const unitSearchTerm = urlUnitSearch;
-  
-  // Setter that updates URL
-  const setUnitSearchTerm = useCallback((value: string) => {
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (value === '') {
-        newParams.delete('unit');
-      } else {
-        newParams.set('unit', value);
-      }
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams]);
 
   // Load AI credits
   useEffect(() => {
@@ -248,128 +230,6 @@ export function ResultsExplorer_v2({
     loadValidations();
   }, [selectedRTOId]);
 
-  // Load all units on mount
-  useEffect(() => {
-    const loadUnits = async () => {
-      setIsLoadingUnits(true);
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-        const response = await fetch(`${supabaseUrl}/functions/v1/fetch-units-of-competency`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({}),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result?.error || 'Failed to fetch units');
-        }
-
-        console.log('[ResultsExplorer] Loaded units:', result.data?.length || 0);
-        setAllUnits(result.data || []);
-      } catch (error) {
-        console.error('[ResultsExplorer] Error loading units:', error);
-        toast.error('Failed to load units of competency');
-      } finally {
-        setIsLoadingUnits(false);
-      }
-    };
-
-    loadUnits();
-  }, []);
-
-  // Filter units based on search term
-  useEffect(() => {
-    if (!unitSearchTerm) {
-      setFilteredUnits([]);
-      setShowUnitDropdown(false);
-      return;
-    }
-
-    // Don't show dropdown if we already have a selected validation matching the search term
-    // This prevents the dropdown from opening when navigating with a pre-selected unit
-    if (selectedValidation && selectedValidation.unitCode === unitSearchTerm) {
-      setFilteredUnits([]);
-      setShowUnitDropdown(false);
-      return;
-    }
-
-    const searchLower = unitSearchTerm.toLowerCase();
-    const filtered = allUnits.filter(unit => 
-      unit.unitCode?.toLowerCase().includes(searchLower) ||
-      unit.Title?.toLowerCase().includes(searchLower)
-    ).slice(0, 10); // Limit to 10 results
-
-    setFilteredUnits(filtered);
-    setShowUnitDropdown(filtered.length > 0);
-  }, [unitSearchTerm, allUnits, selectedValidation]);
-
-  // Handle unit selection from dropdown
-  const handleUnitSelect = (unit: any) => {
-    console.log('[ResultsExplorer] Unit selected:', unit.unitCode);
-    
-    // Find validation for this unit
-    const validation = validationRecords.find(r => r.unit_code === unit.unitCode);
-    
-    if (validation) {
-      const validationObj: Validation = {
-        id: validation.id.toString(),
-        unitCode: validation.unit_code || 'N/A',
-        unitTitle: validation.qualification_code || 'Unit',
-        validationType: (validation.validation_type?.toLowerCase() as 'learner-guide' | 'assessment' | 'unit') || 'unit',
-        rtoId: selectedRTOId,
-        validationDate: validation.created_at,
-        status: validation.req_extracted ? 'docExtracted' : 'pending',
-        progress: validation.req_total ? Math.round((validation.completed_count || 0) / validation.req_total * 100) : 0,
-        requirementsChecked: validation.completed_count || 0,
-        totalRequirements: validation.req_total || 0,
-        sector: 'General',
-        documentsValidated: validation.doc_extracted ? 1 : 0,
-        reportSigned: false
-      };
-      setSelectedValidation(validationObj);
-      toast.success(`Validation loaded for ${unit.unitCode}`);
-    } else {
-      toast.error(`No validation found for ${unit.unitCode}`);
-    }
-    
-    setUnitSearchTerm(unit.unitCode);
-    setShowUnitDropdown(false);
-  };
-
-  // Handle search input change
-  const handleSearchChange = (value: string) => {
-    setUnitSearchTerm(value);
-    // Clear selected validation when user starts typing a new search
-    if (selectedValidation && value !== selectedValidation.unitCode) {
-      setSelectedValidation(null);
-      setValidationEvidenceData([]);
-    }
-  };
-
-  // Handle Enter key to auto-select exact match
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && unitSearchTerm && filteredUnits.length > 0) {
-      // Check for exact match first
-      const exactMatch = filteredUnits.find(
-        unit => unit.unitCode?.toUpperCase() === unitSearchTerm.toUpperCase()
-      );
-      
-      if (exactMatch) {
-        handleUnitSelect(exactMatch);
-      } else {
-        // Select first result if no exact match
-        handleUnitSelect(filteredUnits[0]);
-      }
-    }
-  };
-
   // Reset filters and state when navigating directly to Results Explorer (no validation ID)
   useEffect(() => {
     if (!selectedValidationId) {
@@ -378,10 +238,8 @@ export function ResultsExplorer_v2({
       setStatusFilter('all');
       setSelectedValidation(null);
       setShowAIChat(false);
-      setUnitSearchTerm('');
-      setShowUnitDropdown(false);
     }
-  }, [selectedValidationId, setSearchTerm, setStatusFilter, setUnitSearchTerm]);
+  }, [selectedValidationId, setSearchTerm, setStatusFilter]);
 
   // Auto-select validation if ID provided (from URL or dashboard double-click)
   // This runs when validationRecords load AND when selectedValidationId changes
@@ -433,17 +291,11 @@ export function ResultsExplorer_v2({
         progress: record.req_total ? Math.round((record.completed_count || 0) / record.req_total * 100) : 0,
         sector: 'N/A',
       });
-      // Update unit search to match the selected validation
-      if (record.unit_code) {
-        setUnitSearchTerm(record.unit_code);
-      }
-      // Close dropdown since we have a valid selection
-      setShowUnitDropdown(false);
     } else {
       console.warn('[ResultsExplorer AUTO-SELECT] Validation ID not found in records:', selectedValidationId);
       console.warn('[ResultsExplorer AUTO-SELECT] Record IDs available:', validationRecords.map(r => r.id));
     }
-  }, [selectedValidationId, validationRecords, isLoadingValidations, selectedRTOId, selectedValidation?.id, setUnitSearchTerm]);
+  }, [selectedValidationId, validationRecords, isLoadingValidations, selectedRTOId, selectedValidation?.id]);
 
   // Load validation evidence with comprehensive error handling
   useEffect(() => {
@@ -797,104 +649,71 @@ export function ResultsExplorer_v2({
           </p>
         </div>
 
-        {/* Unit Selection */}
-        <Card className="p-6 bg-white mb-6">
-          <h2 className="text-xl font-semibold text-[#1e293b] mb-4">1. Select Unit of Competency</h2>
-          <div className="space-y-4">
-            <div className="relative">
-              <label className="block text-sm font-medium text-[#64748b] mb-2">
-                Unit Code
-              </label>
-              <input
-                type="text"
-                placeholder={isLoadingUnits ? "Loading units..." : "Search by code or title (e.g., BSBWHS521). Press Enter to select."}
-                value={unitSearchTerm}
-                onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
-                onKeyDown={handleKeyDown}
-                onFocus={() => {
-                  // Show dropdown if user is searching
-                  if (unitSearchTerm && (!selectedValidation || unitSearchTerm !== selectedValidation.unitCode)) {
-                    setShowUnitDropdown(true);
-                  }
-                }}
-                onBlur={() => {
-                  // Close dropdown when clicking outside (with small delay to allow click on dropdown items)
-                  setTimeout(() => setShowUnitDropdown(false), 200);
-                }}
-                disabled={isLoadingUnits}
-                className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3b82f6] disabled:bg-gray-100"
-              />
-              
-              {/* Autocomplete Dropdown */}
-              {showUnitDropdown && filteredUnits.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredUnits.map((unit) => (
-                    <button
-                      key={unit.id}
-                      type="button"
-                      onClick={() => handleUnitSelect(unit)}
-                      className="w-full text-left px-4 py-3 hover:bg-[#f8f9fb] border-b border-[#e2e8f0] last:border-b-0 transition-colors"
-                    >
-                      <p className="font-semibold text-[#1e293b]">{unit.unitCode}</p>
-                      <p className="text-sm text-[#64748b] truncate">{unit.Title}</p>
-                    </button>
-                  ))}
+        {/* Unit Info Header */}
+        {selectedValidation && (
+          <Card className="p-4 bg-white mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-[#64748b]">Unit Code:</span>
+                  <span className="font-bold text-[#1e293b] text-lg">{selectedValidation.unitCode}</span>
                 </div>
-              )}
-              
-              {unitSearchTerm && filteredUnits.length === 0 && !isLoadingUnits && !selectedValidation && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg p-4 text-center text-[#64748b]">
-                  <Info className="w-5 h-5 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No units found matching "{unitSearchTerm}"</p>
+                <div className="h-6 w-px bg-[#e2e8f0]" />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-[#64748b]">Type:</span>
+                  <span className="text-sm font-medium text-[#1e293b] capitalize">{selectedValidation.validationType || 'Assessment'}</span>
                 </div>
-              )}
-            </div>
-            
-            {selectedValidation && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-green-900">{selectedValidation.unitCode}</p>
-                      <p className="text-sm text-green-700">{selectedValidation.unitTitle}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
-                        <span>Type: <span className="font-medium capitalize">{selectedValidation.validationType || 'Unit'}</span></span>
-                        <span>Created: <span className="font-medium">{selectedValidation.validationDate ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</span></span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <ValidationStatusBadge
-                      status={{
-                        extractStatus: currentRecord?.extract_status || 'Pending',
-                        validationStatus: currentRecord?.validation_status || 'Pending',
-                      }}
-                      progress={currentRecord?.req_total ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.req_total) * 100) : 0}
-                      className="text-xs"
-                    />
-                    {currentRecord && currentRecord.req_total > 0 && (
-                      <span className="text-xs text-green-600">
-                        {currentRecord.completed_count || 0} / {currentRecord.req_total} validated
-                      </span>
-                    )}
-                  </div>
+                <div className="h-6 w-px bg-[#e2e8f0]" />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-[#64748b]">Date:</span>
+                  <span className="text-sm font-medium text-[#1e293b]">
+                    {selectedValidation.validationDate 
+                      ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) 
+                      : 'N/A'}
+                  </span>
                 </div>
               </div>
-            )}
-            
-            {validationLoadError && (
-              <InlineErrorMessage 
-                error={{
-                  code: 'DATABASE_ERROR',
-                  message: validationLoadError,
-                  retryable: true,
-                }}
-                onRetry={handleRefreshStatus}
-              />
-            )}
-          </div>
-        </Card>
+              <div className="flex items-center gap-4">
+                <ValidationStatusBadge
+                  status={{
+                    extractStatus: currentRecord?.extract_status || 'Pending',
+                    validationStatus: currentRecord?.validation_status || 'Pending',
+                  }}
+                  progress={currentRecord?.req_total ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.req_total) * 100) : 0}
+                  className="text-xs"
+                />
+                {currentRecord && currentRecord.req_total > 0 && (
+                  <span className="text-sm text-[#64748b]">
+                    {Math.min(currentRecord.completed_count || 0, currentRecord.req_total)} / {currentRecord.req_total} validated
+                  </span>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+        
+        {validationLoadError && (
+          <Card className="p-4 bg-white mb-6">
+            <InlineErrorMessage 
+              error={{
+                code: 'DATABASE_ERROR',
+                message: validationLoadError,
+                retryable: true,
+              }}
+              onRetry={handleRefreshStatus}
+            />
+          </Card>
+        )}
+        
+        {!selectedValidation && !validationLoadError && (
+          <Card className="p-6 bg-white mb-6">
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-medium mb-2">No Validation Selected</p>
+              <p className="text-sm">Please select a validation from the dashboard to view results.</p>
+            </div>
+          </Card>
+        )}
 
         {/* Validation evidence section */}
         {selectedValidation ? (
