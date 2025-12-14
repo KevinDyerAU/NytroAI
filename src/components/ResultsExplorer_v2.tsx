@@ -731,7 +731,7 @@ export function ResultsExplorer_v2({
       {/* AI Chat Dialog - Chat with Documents */}
       {showAIChat && selectedValidation && (
         <AIChat
-          context={`Unit ${selectedValidation.unitCode}: ${selectedValidation.unitTitle}`}
+          context={selectedValidation.unitCode}
           onClose={() => setShowAIChat(false)}
           selectedRTOId={selectedRTOId}
           validationDetailId={currentRecord?.id}

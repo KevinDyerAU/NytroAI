@@ -7,7 +7,7 @@ import { Send, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { getRTOById, consumeAICredit } from '../types/rto';
 import { sendAIChatMessage } from '../lib/n8nApi';
-import wizardLogo from '../assets/wizard-logo.png';
+import wizardLogo from '../assets/WizChat.jpg';
 
 interface Citation {
   type: 'file' | 'web' | 'unknown';
@@ -43,7 +43,7 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
       id: '1',
       role: 'assistant',
       content: context
-        ? `Hi, I'm Nytro your AI Assistant! I'm ready to help you analyze ${context}.`
+        ? `Hi, I'm Nytro your AI Assistant! Let's chat about the Unit Code: ${context} documents.`
         : "Hi, I'm Nytro your AI Assistant! How can I help you with the validation analysis?",
       timestamp: new Date()
     }
@@ -231,12 +231,12 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
               <div className={`
                 rounded-lg flex items-center justify-center flex-shrink-0
                 ${message.role === 'assistant' 
-                  ? 'w-10 h-10 bg-white border border-[#dbeafe]' 
+                  ? 'w-20 h-20 bg-white border border-[#dbeafe]' 
                   : 'w-8 h-8 bg-[#f1f5f9] text-[#64748b]'
                 }
               `}>
                 {message.role === 'assistant' ? (
-                  <span className="text-2xl">🧙‍♂️</span>
+                  <img src={wizardLogo} alt="Nytro" className="w-20 h-20 object-contain" />
                 ) : (
                   <User className="w-4 h-4" />
                 )}
