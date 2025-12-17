@@ -9,16 +9,16 @@
 
 import ExcelJS from 'exceljs';
 import { ValidationEvidenceRecord } from '../types/rto';
-import wizardLogo from '../assets/wizard-logo.png';
+import nytroLogo from '../assets/IMG_5440.jpeg';
 
-// Color scheme
+// Color scheme - matching website theme
 const COLORS = {
-  HEADER: '4472C4',      // Blue
-  TITLE: '2F5496',       // Dark Blue
+  HEADER: '3b82f6',      // Blue (website primary blue)
+  TITLE: '1e40af',       // Dark Blue (website dark blue)
   MET: 'C6EFCE',         // Light Green
   PARTIAL: 'FFEB9C',     // Light Yellow
   NOT_MET: 'FFC7CE',     // Light Red
-  COVER_BG: '1F4E78',    // Dark Blue for cover
+  COVER_BG: '0d9488',    // Teal (website gradient start)
 };
 
 export interface AssessmentReportParams {
@@ -197,22 +197,22 @@ async function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentRe
     orientation: 'portrait',
   };
   
-  // Add Nytro wizard logo at the top (rows 1-7)
+  // Add Nytro logo at the top (rows 1-7)
   try {
-    const response = await fetch(wizardLogo);
+    const response = await fetch(nytroLogo);
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
     const imageId = workbook.addImage({
       buffer: uint8Array as any,
-      extension: 'png',
+      extension: 'jpeg',
     });
     
     // Position logo at top center spanning rows 1-7
     sheet.addImage(imageId, {
       tl: { col: 1.5, row: 0.5 }, // Top-left position 
-      ext: { width: 242, height: 140 }, // Logo size (10% wider)
+      ext: { width: 121, height: 70 }, // Logo size (50% smaller)
     });
   } catch (error) {
     console.error('Failed to add logo to cover sheet:', error);
@@ -226,8 +226,9 @@ async function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentRe
   titleCell.fill = {
     type: 'pattern',
     pattern: 'solid',
-    fgColor: { argb: `FF${COLORS.COVER_BG}` },
+    fgColor: { argb: `FF${COLORS.HEADER}` },
   };
+  titleCell.alignment = { horizontal: 'left', vertical: 'middle' };
   sheet.mergeCells(`B${row}:D${row}`);
   sheet.getRow(row).height = 40;
   
@@ -236,7 +237,6 @@ async function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentRe
   const infoRows = [
     ['Unit Code:', params.unitCode],
     ['Unit Title:', params.unitTitle],
-    ['RTO Name:', params.rtoName],
     ['Report Type:', params.validationType === 'learner-guide' ? 'Learner Guide' : 'Assessment'],
     ['Generated Date:', params.createdDate || new Date().toISOString().split('T')[0]],
   ];
@@ -249,10 +249,10 @@ async function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentRe
     row++;
   });
   
-  // Set column widths
-  sheet.getColumn('B').width = 20;
-  sheet.getColumn('C').width = 40;
-  sheet.getColumn('D').width = 20;
+  // Set column widths (widened 15% for better readability)
+  sheet.getColumn('B').width = 23;
+  sheet.getColumn('C').width = 46;
+  sheet.getColumn('D').width = 23;
 }
 
 /**
@@ -352,13 +352,13 @@ function createAssessmentSummarySheet(
     row++;
   });
   
-  // Set column widths for expanded summary
-  sheet.getColumn('B').width = 35;
-  sheet.getColumn('C').width = 10;
-  sheet.getColumn('D').width = 10;
-  sheet.getColumn('E').width = 10;
-  sheet.getColumn('F').width = 10;
-  sheet.getColumn('G').width = 10;
+  // Set column widths for expanded summary (widened 15% for better readability)
+  sheet.getColumn('B').width = 40;
+  sheet.getColumn('C').width = 12;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 12;
+  sheet.getColumn('F').width = 12;
+  sheet.getColumn('G').width = 12;
 }
 
 /**
@@ -454,13 +454,13 @@ function createLearnerGuideSummarySheet(
     row++;
   });
   
-  // Set column widths for expanded summary
-  sheet.getColumn('B').width = 35;
-  sheet.getColumn('C').width = 10;
-  sheet.getColumn('D').width = 10;
-  sheet.getColumn('E').width = 10;
-  sheet.getColumn('F').width = 10;
-  sheet.getColumn('G').width = 10;
+  // Set column widths for expanded summary (widened 15% for better readability)
+  sheet.getColumn('B').width = 40;
+  sheet.getColumn('C').width = 12;
+  sheet.getColumn('D').width = 12;
+  sheet.getColumn('E').width = 12;
+  sheet.getColumn('F').width = 12;
+  sheet.getColumn('G').width = 12;
 }
 
 /**
@@ -557,17 +557,17 @@ function createKnowledgeEvidenceSheet(
     row++;
   });
   
-  // Set column widths
-  sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 35;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 30;
+  // Set column widths (widened 15% for better readability)
+  sheet.getColumn('B').width = 14;
+  sheet.getColumn('C').width = 40;
+  sheet.getColumn('D').width = 14;
+  sheet.getColumn('E').width = 35;
+  sheet.getColumn('F').width = 35;
   if (isLearnerGuide) {
-    sheet.getColumn('G').width = 35;
+    sheet.getColumn('G').width = 40;
   } else {
-    sheet.getColumn('G').width = 35;
-    sheet.getColumn('H').width = 30;
+    sheet.getColumn('G').width = 40;
+    sheet.getColumn('H').width = 35;
   }
 }
 
@@ -665,17 +665,17 @@ function createPerformanceEvidenceSheet(
     row++;
   });
   
-  // Set column widths
-  sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 35;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 30;
+  // Set column widths (widened 15% for better readability)
+  sheet.getColumn('B').width = 14;
+  sheet.getColumn('C').width = 40;
+  sheet.getColumn('D').width = 14;
+  sheet.getColumn('E').width = 35;
+  sheet.getColumn('F').width = 35;
   if (isLearnerGuide) {
-    sheet.getColumn('G').width = 35;
+    sheet.getColumn('G').width = 40;
   } else {
-    sheet.getColumn('G').width = 35;
-    sheet.getColumn('H').width = 30;
+    sheet.getColumn('G').width = 40;
+    sheet.getColumn('H').width = 35;
   }
 }
 
@@ -771,17 +771,17 @@ function createElementsPerformanceCriteriaSheet(
     row++;
   });
   
-  // Set column widths
-  sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 35;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 30;
+  // Set column widths (widened 15% for better readability)
+  sheet.getColumn('B').width = 14;
+  sheet.getColumn('C').width = 40;
+  sheet.getColumn('D').width = 14;
+  sheet.getColumn('E').width = 35;
+  sheet.getColumn('F').width = 35;
   if (isLearnerGuide) {
-    sheet.getColumn('G').width = 35;
+    sheet.getColumn('G').width = 40;
   } else {
-    sheet.getColumn('G').width = 35;
-    sheet.getColumn('H').width = 30;
+    sheet.getColumn('G').width = 40;
+    sheet.getColumn('H').width = 35;
   }
 }
 
@@ -877,17 +877,17 @@ function createFoundationSkillsSheet(
     row++;
   });
   
-  // Set column widths
-  sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 35;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 30;
-  sheet.getColumn('F').width = 30;
+  // Set column widths (widened 15% for better readability)
+  sheet.getColumn('B').width = 14;
+  sheet.getColumn('C').width = 40;
+  sheet.getColumn('D').width = 14;
+  sheet.getColumn('E').width = 35;
+  sheet.getColumn('F').width = 35;
   if (isLearnerGuide) {
-    sheet.getColumn('G').width = 35;
+    sheet.getColumn('G').width = 40;
   } else {
-    sheet.getColumn('G').width = 35;
-    sheet.getColumn('H').width = 30;
+    sheet.getColumn('G').width = 40;
+    sheet.getColumn('H').width = 35;
   }
 }
 
@@ -955,12 +955,12 @@ function createAssessmentConditionsSheet(
     row++;
   });
   
-  // Set column widths
-  sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 40;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 35;
-  sheet.getColumn('F').width = 35;
+  // Set column widths (widened 15% for better readability)
+  sheet.getColumn('B').width = 14;
+  sheet.getColumn('C').width = 46;
+  sheet.getColumn('D').width = 14;
+  sheet.getColumn('E').width = 40;
+  sheet.getColumn('F').width = 40;
 }
 
 /**
@@ -1027,12 +1027,12 @@ function createAssessmentInstructionsSheet(
     row++;
   });
   
-  // Set column widths
-  sheet.getColumn('B').width = 12;
-  sheet.getColumn('C').width = 40;
-  sheet.getColumn('D').width = 12;
-  sheet.getColumn('E').width = 35;
-  sheet.getColumn('F').width = 35;
+  // Set column widths (widened 15% for better readability)
+  sheet.getColumn('B').width = 14;
+  sheet.getColumn('C').width = 46;
+  sheet.getColumn('D').width = 14;
+  sheet.getColumn('E').width = 40;
+  sheet.getColumn('F').width = 40;
 }
 
 /**

@@ -692,7 +692,7 @@ export function ResultsExplorer_v2({
           const docComplete = extractStatus === 'Completed' || 
                               validationStatus === 'In Progress' || 
                               validationStatus === 'Finalised';
-          const revComplete = progress > 0 || validationStatus === 'Finalised';
+          const revComplete = validationEvidenceData.length > 0 || progress > 0 || validationStatus === 'Finalised';
           const repComplete = validationStatus === 'Finalised';
 
           // Status indicator component matching Dashboard with tooltip

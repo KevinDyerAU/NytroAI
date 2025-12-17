@@ -377,8 +377,8 @@ export function Dashboard_v3({
                                   validationStatus === 'In Progress' || 
                                   validationStatus === 'Finalised';
               
-              // REV: Under Review - complete when validation has results (progress > 0)
-              const revComplete = progress > 0 || validationStatus === 'Finalised';
+              // REV: Under Review - complete when validation has results (completed_count > 0 or progress > 0)
+              const revComplete = (validation.completed_count || 0) > 0 || progress > 0 || validationStatus === 'Finalised';
               
               // REP: Report - complete only when validation_status is Finalised (report generated)
               const repComplete = validationStatus === 'Finalised';

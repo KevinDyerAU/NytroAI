@@ -321,8 +321,8 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
           {/* Loading indicator when AI is thinking */}
           {isProcessing && (
             <div className="flex gap-3">
-              <div className="rounded-lg flex items-center justify-center flex-shrink-0 w-10 h-10 bg-white border border-[#dbeafe]">
-                <span className="text-2xl">🧙‍♂️</span>
+              <div className="rounded-lg flex items-center justify-center flex-shrink-0 w-10 h-10 bg-white border border-[#dbeafe] overflow-hidden">
+                <img src={wizardLogo} alt="Nytro" className="w-full h-full object-cover" />
               </div>
               
               <div className="flex-1 p-3 rounded-lg border bg-[#f8f9fb] border-[#dbeafe]">
