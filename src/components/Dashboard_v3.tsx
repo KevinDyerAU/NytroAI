@@ -7,22 +7,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { KPIWidget } from './KPIWidget';
 import { Card } from './ui/card';
-import { Button } from './ui/button';
 import { Progress } from './ui/progress';
-import { ValidationStatusIndicator } from './ValidationStatusIndicator';
-import { ValidationProgressTracker } from './ValidationProgressTracker';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { supabase } from '../lib/supabase';
 import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rto';
-import { getValidationStage } from '../types/validation';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
-import { ValidationStatusBadge } from './ValidationStatusBadge';
 import {
   Activity,
   FileText,
   TrendingUp,
-  Zap,
-  Info
+  Zap
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
 
@@ -357,152 +350,143 @@ export function Dashboard_v3({
         </Card>
       </div>
 
-      {/* Active Validations */}
+      {/* Validation History */}
       <Card className="p-6 bg-white border border-[#dbeafe] shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-[#1e293b] flex items-center gap-2">
-            <span>Active Validations</span>
+            <span>Validation History</span>
             <span className="text-sm font-normal text-[#64748b]">({activeValidations.length})</span>
           </h3>
         </div>
 
-        {/* Processing Information Banner - n8n 4-Stage Flow */}
-        {activeValidations.some(v => 
-          v.extract_status === 'In Progress' || 
-          v.extract_status === 'ProcessingInBackground' || 
-          v.extract_status === 'DocumentProcessing' ||
-          v.validation_status === 'In Progress'
-        ) && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-900 flex items-center gap-2">
-              <Info className="w-4 h-4 flex-shrink-0" />
-              <span>
-                <strong>Note:</strong> Validations progress through 4 stages: (1) Document Upload → (2) AI Learning → (3) Under Review → (4) Finalised. Processing happens automatically in the background.
-              </span>
-            </p>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {/* 
-            n8n 4-Stage Status Flow:
-            1. Document Upload: extractStatus='Pending', validationStatus='Pending'
-            2. AI Learning: extractStatus='In Progress' (files processing by Gemini)
-            3. Under Review: extractStatus='Completed', validationStatus='In Progress'
-            4. Finalised: validationStatus='Finalised' (results ready)
-          */}
+        <div className="space-y-3">
           {activeValidations.length > 0 ? (
             paginatedValidations.map((validation) => {
-              const stage = getValidationStage(
-                validation.extract_status,
-                validation.doc_extracted,
-                validation.req_extracted,
-                validation.num_of_req,
-                validation.completed_count || 0
-              );
-
-              const statusMap: 'pending' | 'reqExtracted' | 'docExtracted' | 'validated' =
-                stage === 'pending' ? 'pending' :
-                stage === 'requirements' ? 'reqExtracted' :
-                stage === 'documents' ? 'docExtracted' :
-                'validated';
-
-              // Progress is already calculated in the data mapping (rto.ts)
+              // Calculate progress percentage
               const progress = Math.min(100, Math.round(validation.validation_progress || 0));
+              
+              // Determine which stages are complete based on extract_status and validation_status
+              const extractStatus = validation.extract_status || 'Pending';
+              const validationStatus = validation.validation_status || 'Pending';
+              
+              // REQ: Requirements stage - complete when extraction has started or completed
+              const reqComplete = extractStatus !== 'Pending';
+              
+              // DOC: Document processing - complete when extraction is completed
+              const docComplete = extractStatus === 'Completed' || 
+                                  validationStatus === 'In Progress' || 
+                                  validationStatus === 'Finalised';
+              
+              // REV: Under Review - complete when validation has results (progress > 0)
+              const revComplete = progress > 0 || validationStatus === 'Finalised';
+              
+              // REP: Report - complete only when validation_status is Finalised (report generated)
+              const repComplete = validationStatus === 'Finalised';
+
+              // Format date like Results Explorer
+              const formatDate = (dateString: string) => {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+              };
+
+              // Check validation age for expiry status
+              const getExpiryStatus = () => {
+                const createdDate = new Date(validation.created_at);
+                const now = new Date();
+                const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+                if (hoursDiff > 48) return 'expired';
+                if (hoursDiff > 36) return 'expiring'; // Less than 12 hours left
+                return 'active';
+              };
+              const expiryStatus = getExpiryStatus();
+
+              // Status indicator component with tooltip
+              const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
+                <div 
+                  className="flex items-center gap-1.5 px-3 py-1 bg-[#f1f5f9] rounded-full cursor-help"
+                  title={tooltip}
+                >
+                  <div 
+                    className={`w-2 h-2 rounded-full ${isComplete ? 'bg-[#22c55e]' : 'bg-[#cbd5e1]'}`}
+                  />
+                  <span className="text-xs font-medium text-[#64748b]">{label}</span>
+                </div>
+              );
 
               return (
                 <div
                   key={validation.id}
-                  className="p-4 border border-[#dbeafe] rounded-lg hover:border-[#93c5fd] hover:shadow-md transition-all cursor-pointer"
+                  className="p-4 border-l-4 border-l-[#3b82f6] bg-white border border-[#e2e8f0] rounded-lg hover:shadow-md transition-all cursor-pointer"
                   onDoubleClick={() => onValidationDoubleClick?.(validation as any)}
                   title="Double-click to view validation results in Results Explorer"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="font-poppins text-[#1e293b]">
-                          {validation.unit_code || 'N/A'}{validation.validation_type ? ` • ${validation.validation_type}` : ''}
-                        </div>
+                  <div className="flex items-center justify-between">
+                    {/* Left side: Unit Code, Type, Date */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[#64748b]">Unit Code:</span>
+                        <span className="font-bold text-[#1e293b] text-lg">{validation.unit_code || 'N/A'}</span>
                       </div>
-                      <p className="text-sm text-[#64748b] mb-1 flex items-center gap-2">
-                        <span>Status:</span>
-                        <ValidationStatusBadge
-                          status={{
-                            extractStatus: validation.extract_status || 'Pending',
-                            validationStatus: validation.validation_status || 'Pending',
-                          }}
-                          progress={progress}
-                          className="text-xs"
-                        />
-                      </p>
-                      <p className="text-xs text-[#94a3b8]">
-                        Created: {formatValidationDate(validation.created_at)}
-                      </p>
-                      {validation.extract_status === 'Failed' && validation.error_message && (
-                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-                          <p className="text-xs text-red-800 flex items-center gap-1">
-                            <span className="font-semibold">Error:</span>
-                            <span>{validation.error_message}</span>
-                          </p>
-                        </div>
-                      )}
+                      <div className="h-6 w-px bg-[#e2e8f0]" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[#64748b]">Type:</span>
+                        <span className="text-sm font-medium text-[#1e293b] capitalize">{validation.validation_type || 'Unit'}</span>
+                      </div>
+                      <div className="h-6 w-px bg-[#e2e8f0]" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-[#64748b]">Date:</span>
+                        <span className="text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
+                        {expiryStatus === 'expired' && (
+                          <div 
+                            className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
+                            title="This validation is older than 48 hours. AI features are disabled."
+                          >
+                            <span>⚠️</span>
+                            <span>Expired</span>
+                          </div>
+                        )}
+                        {expiryStatus === 'expiring' && (
+                          <div 
+                            className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
+                            title="Less than 12 hours remaining before AI features are disabled."
+                          >
+                            <span>⏰</span>
+                            <span>Expiring Soon</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <ValidationStatusIndicator
-                        status={statusMap}
-                        progress={progress}
-                        size="sm"
-                        showLabel={true}
-                        compact={false}
-                        extractStatus={validation.extract_status}
-                        validationStatus={validation.validation_status}
+
+                    {/* Right side: Status Indicators */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <StatusPill 
+                        label="REQ" 
+                        isComplete={reqComplete} 
+                        tooltip={reqComplete ? 'Requirements: Extraction started' : 'Requirements: Waiting to start'}
+                      />
+                      <StatusPill 
+                        label="DOC" 
+                        isComplete={docComplete} 
+                        tooltip={docComplete ? 'Documents: Processing complete' : 'Documents: Processing in progress'}
+                      />
+                      <StatusPill 
+                        label="REV" 
+                        isComplete={revComplete} 
+                        tooltip={revComplete ? 'Review: Validation results available' : 'Review: Validation in progress'}
+                      />
+                      <StatusPill 
+                        label="REP" 
+                        isComplete={repComplete} 
+                        tooltip={repComplete ? 'Report: Generated and finalised' : 'Report: Not yet generated'}
                       />
                     </div>
-                  </div>
-
-                  {/* Show progress tracker for active validations (Stage 2 & 3) */}
-                  {(validation.extract_status === 'In Progress' || 
-                    validation.extract_status === 'DocumentProcessing' || 
-                    validation.extract_status === 'ProcessingInBackground' ||
-                    validation.validation_status === 'In Progress' ||
-                    validation.extract_status === 'Uploading') && (
-                    <div className="mt-3">
-                      <ValidationProgressTracker
-                        validationDetailId={validation.id}
-                        autoRefresh={true}
-                        refreshInterval={5000}
-                        showValidationProgress={true}
-                      />
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-[#64748b]">
-                      <span>Validation Progress</span>
-                      <span>
-                        {(validation.extract_status === 'In Progress' || 
-                          validation.extract_status === 'DocumentProcessing')
-                          ? 'Processing...'
-                          : `${progress}%`
-                        }
-                      </span>
-                    </div>
-                    <Progress
-                      value={
-                        (validation.extract_status === 'In Progress' || 
-                         validation.extract_status === 'DocumentProcessing') 
-                          ? 0 
-                          : progress
-                      }
-                      className="h-2 bg-[#dbeafe]"
-                    />
                   </div>
                 </div>
               );
             })
           ) : (
             <div className="text-center py-8 text-[#64748b]">
-              No active validations for this RTO
+              No validation history for this RTO
             </div>
           )}
         </div>

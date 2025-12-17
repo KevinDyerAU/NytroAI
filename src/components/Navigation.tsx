@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Home,
   Upload,
-  BarChart3,
   Target,
   Settings,
   Lock,
@@ -80,7 +79,6 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'acquisition', label: 'Unit Acquisition', icon: Target },
     { id: 'upload', label: 'Validate', icon: Upload },
-    { id: 'results', label: 'Results Explorer', icon: BarChart3 },
   ];
 
   return (

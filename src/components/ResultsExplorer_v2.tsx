@@ -3,7 +3,7 @@
  * Comprehensive error handling and status management
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from './ui/card';
 import { ValidationCard } from './ValidationCard';
@@ -152,6 +152,20 @@ export function ResultsExplorer_v2({
   const [evidenceError, setEvidenceError] = useState<ValidationResultsError | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastLoadedValidationId, setLastLoadedValidationId] = useState<string | null>(null);
+
+  // Check validation age for expiry status
+  const validationExpiryStatus = useMemo(() => {
+    if (!selectedValidation?.validationDate) return 'active';
+    const createdDate = new Date(selectedValidation.validationDate);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+    if (hoursDiff > 48) return 'expired';
+    if (hoursDiff > 36) return 'expiring'; // Less than 12 hours left
+    return 'active';
+  }, [selectedValidation?.validationDate]);
+  
+  // For backward compatibility with existing code
+  const isValidationExpired = validationExpiryStatus === 'expired';
   
 
   // Load AI credits
@@ -566,7 +580,11 @@ export function ResultsExplorer_v2({
               <SelectItem value="partial">Partial</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={handleRefreshStatus} variant="outline" size="sm">
+          <Button 
+            onClick={handleRefreshStatus} 
+            size="sm"
+            className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6]"
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -574,10 +592,10 @@ export function ResultsExplorer_v2({
           {currentRecord && selectedValidation && (
             <Button 
               onClick={() => setShowAIChat(true)} 
-              variant="outline" 
               size="sm"
-              disabled={aiCredits.current <= 0}
-              title={aiCredits.current <= 0 ? "No AI credits available" : "Chat with AI about the uploaded documents"}
+              className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6] disabled:opacity-50"
+              disabled={aiCredits.current <= 0 || isValidationExpired}
+              title={isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : aiCredits.current <= 0 ? "No AI credits available" : "Chat with AI about the uploaded documents"}
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               Chat with Documents
@@ -613,6 +631,7 @@ export function ResultsExplorer_v2({
                 result={record as any}
                 isReportSigned={false}
                 aiCreditsAvailable={aiCredits.current > 0}
+                isValidationExpired={isValidationExpired}
                 validationContext={{
                   rtoId: selectedRTOId,
                   unitCode: selectedValidation?.unitCode,
@@ -650,47 +669,99 @@ export function ResultsExplorer_v2({
         </div>
 
         {/* Unit Info Header */}
-        {selectedValidation && (
-          <Card className="p-4 bg-white mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-[#64748b]">Unit Code:</span>
-                  <span className="font-bold text-[#1e293b] text-lg">{selectedValidation.unitCode}</span>
+        {selectedValidation && (() => {
+          const extractStatus = currentRecord?.extract_status || 'Pending';
+          const validationStatus = currentRecord?.validation_status || 'Pending';
+          const progress = currentRecord?.num_of_req ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.num_of_req) * 100) : 0;
+          
+          // Status logic matching Dashboard
+          const reqComplete = extractStatus !== 'Pending';
+          const docComplete = extractStatus === 'Completed' || 
+                              validationStatus === 'In Progress' || 
+                              validationStatus === 'Finalised';
+          const revComplete = progress > 0 || validationStatus === 'Finalised';
+          const repComplete = validationStatus === 'Finalised';
+
+          // Status indicator component matching Dashboard with tooltip
+          const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
+            <div 
+              className="flex items-center gap-1.5 px-3 py-1 bg-[#f1f5f9] rounded-full cursor-help"
+              title={tooltip}
+            >
+              <div 
+                className={`w-2 h-2 rounded-full ${isComplete ? 'bg-[#22c55e]' : 'bg-[#cbd5e1]'}`}
+              />
+              <span className="text-xs font-medium text-[#64748b]">{label}</span>
+            </div>
+          );
+
+          return (
+            <div className="p-4 border-l-4 border-l-[#3b82f6] bg-white border border-[#e2e8f0] rounded-lg mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#64748b]">Unit Code:</span>
+                    <span className="font-bold text-[#1e293b] text-lg">{selectedValidation.unitCode}</span>
+                  </div>
+                  <div className="h-6 w-px bg-[#e2e8f0]" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#64748b]">Type:</span>
+                    <span className="text-sm font-medium text-[#1e293b] capitalize">{selectedValidation.validationType || 'Assessment'}</span>
+                  </div>
+                  <div className="h-6 w-px bg-[#e2e8f0]" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#64748b]">Date:</span>
+                    <span className="text-sm font-medium text-[#1e293b]">
+                      {selectedValidation.validationDate 
+                        ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) 
+                        : 'N/A'}
+                    </span>
+                    {validationExpiryStatus === 'expired' && (
+                      <div 
+                        className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
+                        title="This validation is older than 48 hours. AI features are disabled."
+                      >
+                        <span>⚠️</span>
+                        <span>Expired</span>
+                      </div>
+                    )}
+                    {validationExpiryStatus === 'expiring' && (
+                      <div 
+                        className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
+                        title="Less than 12 hours remaining before AI features are disabled."
+                      >
+                        <span>⏰</span>
+                        <span>Expiring Soon</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="h-6 w-px bg-[#e2e8f0]" />
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-[#64748b]">Type:</span>
-                  <span className="text-sm font-medium text-[#1e293b] capitalize">{selectedValidation.validationType || 'Assessment'}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <StatusPill 
+                    label="REQ" 
+                    isComplete={reqComplete} 
+                    tooltip={reqComplete ? 'Requirements: Extraction started' : 'Requirements: Waiting to start'}
+                  />
+                  <StatusPill 
+                    label="DOC" 
+                    isComplete={docComplete} 
+                    tooltip={docComplete ? 'Documents: Processing complete' : 'Documents: Processing in progress'}
+                  />
+                  <StatusPill 
+                    label="REV" 
+                    isComplete={revComplete} 
+                    tooltip={revComplete ? 'Review: Validation results available' : 'Review: Validation in progress'}
+                  />
+                  <StatusPill 
+                    label="REP" 
+                    isComplete={repComplete} 
+                    tooltip={repComplete ? 'Report: Generated and finalised' : 'Report: Not yet generated'}
+                  />
                 </div>
-                <div className="h-6 w-px bg-[#e2e8f0]" />
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-[#64748b]">Date:</span>
-                  <span className="text-sm font-medium text-[#1e293b]">
-                    {selectedValidation.validationDate 
-                      ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) 
-                      : 'N/A'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <ValidationStatusBadge
-                  status={{
-                    extractStatus: currentRecord?.extract_status || 'Pending',
-                    validationStatus: currentRecord?.validation_status || 'Pending',
-                  }}
-                  progress={currentRecord?.num_of_req ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.num_of_req) * 100) : 0}
-                  className="text-xs"
-                />
-                {currentRecord && currentRecord.num_of_req > 0 && (
-                  <span className="text-sm text-[#64748b]">
-                    {Math.min(currentRecord.completed_count || 0, currentRecord.num_of_req)} / {currentRecord.num_of_req} validated
-                  </span>
-                )}
               </div>
             </div>
-          </Card>
-        )}
+          );
+        })()}
         
         {validationLoadError && (
           <Card className="p-4 bg-white mb-6">
@@ -717,7 +788,7 @@ export function ResultsExplorer_v2({
 
         {/* Validation evidence section */}
         {selectedValidation ? (
-          <Card className="p-6">
+          <Card className="p-6 bg-white border border-[#e2e8f0]">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">
               Validation Results
             </h2>
@@ -738,6 +809,12 @@ export function ResultsExplorer_v2({
           onCreditConsumed={(newBalance) => {
             setAICredits(prev => ({ ...prev, current: newBalance }));
           }}
+          validationResults={validationEvidenceData.map(r => ({
+            requirement_number: r.requirement_number || '',
+            requirement_text: r.requirement_text || '',
+            status: r.status || '',
+            reasoning: r.reasoning || '',
+          }))}
         />
       )}
     </div>

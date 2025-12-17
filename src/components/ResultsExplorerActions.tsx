@@ -52,9 +52,8 @@ export function ResultsExplorerActions({
         <Button
           onClick={() => setShowReportPopup(true)}
           disabled={validationResults.length === 0}
-          variant="outline"
           size="sm"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6] disabled:opacity-50"
         >
           <FileDown className="w-4 h-4" />
           Download Report

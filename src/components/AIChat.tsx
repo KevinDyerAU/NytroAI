@@ -29,15 +29,34 @@ interface Message {
   citations?: Citation[];
 }
 
+interface ValidationResultSummary {
+  requirement_number: string;
+  requirement_text: string;
+  status: string;
+  reasoning?: string;
+}
+
 interface AIChatProps {
   context?: string;
   onClose?: () => void;
   selectedRTOId?: string;
   validationDetailId?: number;
   onCreditConsumed?: (newBalance: number) => void;
+  validationResults?: ValidationResultSummary[];
 }
 
-export function AIChat({ context, onClose, selectedRTOId, validationDetailId, onCreditConsumed }: AIChatProps) {
+export function AIChat({ context, onClose, selectedRTOId, validationDetailId, onCreditConsumed, validationResults }: AIChatProps) {
+  // Build validation results context string for AI
+  const buildResultsContext = () => {
+    if (!validationResults || validationResults.length === 0) return '';
+    
+    const resultsText = validationResults.map(r => 
+      `- ${r.requirement_number}: ${r.requirement_text} [Status: ${r.status}]${r.reasoning ? ` - ${r.reasoning.substring(0, 200)}` : ''}`
+    ).join('\n');
+    
+    return `\n\n[VALIDATION RESULTS CONTEXT]\nThe following are the validation results for this unit. Use this to answer questions about specific requirements (e.g., KE1, PC1.1, etc.):\n${resultsText}\n[END CONTEXT]\n\n`;
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -132,10 +151,17 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
           console.warn('No validationDetailId provided, AI chat may have limited context');
         }
 
+        // Prepend validation results context to first user message
+        const isFirstUserMessage = messages.filter(m => m.role === 'user').length === 0;
+        const messageWithContext = isFirstUserMessage 
+          ? buildResultsContext() + userMessageText 
+          : userMessageText;
+
         console.log('Sending message to n8n AI chat:', {
           validationDetailId,
-          messageLength: userMessageText.length,
-          message: userMessageText,
+          messageLength: messageWithContext.length,
+          message: messageWithContext,
+          hasResultsContext: isFirstUserMessage && validationResults && validationResults.length > 0,
         });
         
         // Prepare conversation history (exclude first welcome message)
@@ -148,7 +174,7 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
         
         const result = await sendAIChatMessage(
           validationDetailId || 0,
-          userMessageText,
+          messageWithContext,
           conversationHistory
         );
 

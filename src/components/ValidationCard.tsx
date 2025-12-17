@@ -40,6 +40,7 @@ interface ValidationCardProps {
   result: ValidationResult;
   isReportSigned?: boolean;
   aiCreditsAvailable?: boolean;
+  isValidationExpired?: boolean;
   validationContext?: {
     rtoId?: string;
     unitCode?: string;
@@ -50,7 +51,7 @@ interface ValidationCardProps {
   onCreditConsumed?: (newBalance: number) => void;
 }
 
-export function ValidationCard({ result, isReportSigned = false, aiCreditsAvailable = true, validationContext, onCreditConsumed }: ValidationCardProps) {
+export function ValidationCard({ result, isReportSigned = false, aiCreditsAvailable = true, isValidationExpired = false, validationContext, onCreditConsumed }: ValidationCardProps) {
   // Helper functions to parse JSON fields and provide backward compatibility
   const getRequirementNumber = () => result.requirement_number || result.requirementNumber || '';
   const getRequirementType = () => result.requirement_type || result.type || '';
@@ -459,8 +460,8 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                         variant="primary"
                         size="sm"
                         onClick={handleGenerateWithAI}
-                        disabled={isGenerating || !aiCreditsAvailable}
-                        title={!aiCreditsAvailable ? "No AI credits available" : "Provide context to help AI generate better questions"}
+                        disabled={isGenerating || !aiCreditsAvailable || isValidationExpired}
+                        title={isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : !aiCreditsAvailable ? "No AI credits available" : "Provide context to help AI generate better questions"}
                       >
                         <Sparkles className="w-4 h-4 mr-2" />
                         {isGenerating ? 'Generating...' : 'Generate with AI'}
@@ -541,8 +542,25 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                 </div>
               )}
               
+              {/* Validation Expired Warning */}
+              {isValidationExpired && !isReportSigned && (
+                <div className="p-4 bg-[#fef3c7] border border-[#f59e0b] rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-[#b45309] flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-[#92400e] font-medium mb-1">
+                        Validation Expired
+                      </p>
+                      <p className="text-xs text-[#78350f]">
+                        This validation is older than 48 hours. AI features (Smart Questions, Revalidation) are disabled. You can still download the report.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* No AI Credits Warning */}
-              {!aiCreditsAvailable && !isReportSigned && (
+              {!aiCreditsAvailable && !isValidationExpired && !isReportSigned && (
                 <div className="p-4 bg-[#fef2f2] border border-[#ef4444] rounded-lg">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-[#ef4444] flex-shrink-0 mt-0.5" />
@@ -565,8 +583,8 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                     variant="secondary" 
                     size="sm" 
                     onClick={handleEditClick} 
-                    disabled={isReportSigned || !aiCreditsAvailable}
-                    title={isReportSigned ? "Report is signed off - no updates allowed" : !aiCreditsAvailable ? "No AI credits available" : ""}
+                    disabled={isReportSigned || !aiCreditsAvailable || isValidationExpired}
+                    title={isReportSigned ? "Report is signed off - no updates allowed" : isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : !aiCreditsAvailable ? "No AI credits available" : ""}
                   >
                     Edit Question
                   </GlowButton>
@@ -576,8 +594,8 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                   variant="secondary" 
                   size="sm" 
                   onClick={() => setShowRevalidateDialog(true)}
-                  disabled={isRevalidating || isReportSigned || !aiCreditsAvailable}
-                  title={isReportSigned ? "Report is signed off - no updates allowed" : !aiCreditsAvailable ? "No AI credits available" : ""}
+                  disabled={isRevalidating || isReportSigned || !aiCreditsAvailable || isValidationExpired}
+                  title={isReportSigned ? "Report is signed off - no updates allowed" : isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : !aiCreditsAvailable ? "No AI credits available" : ""}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isRevalidating ? 'animate-spin' : ''}`} />
                   Revalidate
