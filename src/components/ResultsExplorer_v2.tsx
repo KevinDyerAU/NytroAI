@@ -615,6 +615,19 @@ export function ResultsExplorer_v2({
           )}
         </div>
 
+        {/* Validation Expired Warning Banner */}
+        {isValidationExpired && selectedValidation && (
+          <div className="p-4 bg-[#fef3c7] border border-[#f59e0b] rounded-lg flex items-start gap-3">
+            <span className="text-xl">⚠️</span>
+            <div>
+              <p className="text-sm text-[#92400e] font-semibold">Validation Expired</p>
+              <p className="text-sm text-[#78350f]">
+                This validation is older than 48 hours. AI features (AI Chat, Smart Questions, Revalidation) are disabled. You can still download the report.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Results count */}
         <p className="text-sm text-gray-600">
           Showing {filteredResults.length} of {validationEvidenceData.length} requirements

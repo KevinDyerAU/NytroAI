@@ -35,8 +35,8 @@ export default function App() {
           } 
         />
 
-        {/* Public Auth Routes */}
-        <Route path="/login" element={<LoginPage />} />
+        {/* Public Auth Routes - redirect to landing page */}
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

@@ -552,7 +552,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                         Validation Expired
                       </p>
                       <p className="text-xs text-[#78350f]">
-                        This validation is older than 48 hours. AI features (Smart Questions, Revalidation) are disabled. You can still download the report.
+                        This validation is older than 48 hours. AI features (AI Chat, Smart Questions, Revalidation) are disabled. You can still download the report.
                       </p>
                     </div>
                   </div>

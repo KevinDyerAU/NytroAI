@@ -97,9 +97,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         {/* RTO Details */}
         {rtoInfo && (
           <div className="mb-4 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
-            <p className="text-xs text-[#64748b] font-medium uppercase tracking-wider">RTO Code</p>
-            <p className="text-sm font-poppins font-semibold text-[#1e293b] mt-1">{rtoInfo.code}</p>
-            <p className="text-xs text-[#64748b] mt-2 leading-tight">{rtoInfo.legalname}</p>
+            <p className="text-sm font-poppins font-semibold text-[#1e293b]">{rtoInfo.legalname}</p>
           </div>
         )}
 
