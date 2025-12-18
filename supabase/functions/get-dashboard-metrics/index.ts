@@ -44,14 +44,30 @@ serve(async (req) => {
       }
     );
 
-    const { rtoId, rtoCode } = await req.json();
-    console.log('║ Parameters:', { rtoId, rtoCode });
+    const { rtoId, rtoCode: passedRtoCode } = await req.json();
+    console.log('║ Parameters:', { rtoId, passedRtoCode });
 
-    if (!rtoId && !rtoCode) {
+    if (!rtoId && !passedRtoCode) {
       console.log('║ ERROR: Missing required parameters');
       console.log('╚════════════════════════════════════════════════════════════════════');
       throw new Error('Either rtoId or rtoCode is required');
     }
+
+    // Look up the actual RTO code from the RTO table using rtoId
+    let rtoCode = passedRtoCode;
+    if (rtoId) {
+      const { data: rtoData, error: rtoLookupError } = await supabaseClient
+        .from('RTO')
+        .select('code')
+        .eq('id', rtoId)
+        .maybeSingle();
+
+      if (!rtoLookupError && rtoData?.code) {
+        rtoCode = rtoData.code;
+        console.log(`║ Looked up RTO code from ID ${rtoId}: ${rtoCode}`);
+      }
+    }
+    console.log('║ Using rtoCode:', rtoCode);
 
     // Get current date boundaries
     const now = new Date();
@@ -216,38 +232,80 @@ serve(async (req) => {
     // Count total validated units and currently processing (non-expired, within 48 hours)
     const expiryThreshold = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
     
-    let activeUnitsQuery = supabaseClient
+    // Query validation_detail - get all records first
+    const { data: activeUnitsData, error: activeUnitsError } = await supabaseClient
       .from('validation_detail')
-      .select(`
-        id,
-        created_at,
-        validation_status,
-        validation_summary!inner(
-          rtoCode
-        )
-      `);
-
-    if (rtoCode) {
-      activeUnitsQuery = activeUnitsQuery.eq('validation_summary.rtoCode', rtoCode);
-    }
-
-    const { data: activeUnitsData, error: activeUnitsError } = await activeUnitsQuery;
+      .select('id, created_at, validation_status, summary_id');
 
     if (activeUnitsError) {
       console.error('Error fetching active units:', activeUnitsError);
       throw activeUnitsError;
     }
 
+    console.log(`║ Found ${activeUnitsData?.length || 0} total validation_detail records`);
+
+    // Check for null summary_ids
+    const nullSummaryIds = (activeUnitsData || []).filter((v: any) => !v.summary_id);
+    console.log(`║ Records with null summary_id: ${nullSummaryIds.length}`);
+
+    // Get validation_summary records to map summary_id to rtoCode
+    const { data: summaryData, error: summaryError } = await supabaseClient
+      .from('validation_summary')
+      .select('id, rtoCode');
+
+    if (summaryError) {
+      console.error('Error fetching validation_summary:', summaryError);
+      throw summaryError;
+    }
+
+    console.log(`║ Found ${summaryData?.length || 0} validation_summary records`);
+
+    // Create a map of summary_id to rtoCode (convert to string for comparison)
+    const summaryMap = new Map<number, string>();
+    (summaryData || []).forEach((s: any) => {
+      summaryMap.set(s.id, String(s.rtoCode));
+    });
+
+    // Count how many validation_detail records have matching rtoCode
+    const matchingRtoCode = (activeUnitsData || []).filter((v: any) => {
+      const summaryRtoCode = summaryMap.get(v.summary_id);
+      return summaryRtoCode === String(rtoCode);
+    });
+
+    // Count how many have a different rtoCode
+    const differentRtoCode = (activeUnitsData || []).filter((v: any) => {
+      const summaryRtoCode = summaryMap.get(v.summary_id);
+      return summaryRtoCode && summaryRtoCode !== String(rtoCode);
+    });
+
+    // Count how many have no mapping
+    const noMapping = (activeUnitsData || []).filter((v: any) => {
+      return v.summary_id && !summaryMap.has(v.summary_id);
+    });
+
+    console.log(`║ Matching rtoCode ${rtoCode}: ${matchingRtoCode.length}`);
+    console.log(`║ Different rtoCode: ${differentRtoCode.length}`);
+    console.log(`║ No summary mapping: ${noMapping.length}`);
+
+    // Filter by RTO code if provided (compare as strings)
+    const filteredUnits = rtoCode 
+      ? matchingRtoCode
+      : (activeUnitsData || []);
+
+    console.log(`║ After RTO filter: ${filteredUnits.length} records for rtoCode ${rtoCode}`);
+
     // Total validated units (all validation_detail records for this RTO)
-    const totalValidatedUnits = activeUnitsData?.length || 0;
+    const totalValidatedUnits = filteredUnits.length;
     
     // Currently processing = non-expired (within 48 hours) AND not finalised
-    const currentlyProcessing = (activeUnitsData || []).filter((v: any) => {
+    const currentlyProcessing = filteredUnits.filter((v: any) => {
       const createdAt = new Date(v.created_at);
       const isNotExpired = createdAt >= expiryThreshold;
       const isNotFinalised = v.validation_status !== 'Finalised';
       return isNotExpired && isNotFinalised;
     }).length;
+
+    console.log(`║ Total validated: ${totalValidatedUnits}, Currently processing: ${currentlyProcessing}`);
 
     // 4. AI QUERIES
     console.log('║ Step 4: Counting AI queries from credit transactions...');
@@ -261,11 +319,11 @@ serve(async (req) => {
         .from('RTO')
         .select('id')
         .eq('code', rtoCode)
-        .single();
+        .maybeSingle();
 
       if (rtoError) {
         console.error('Error fetching RTO ID for AI queries:', rtoError);
-        throw rtoError;
+        // Don't throw - just continue without RTO filtering for AI queries
       }
 
       aiQueriesRtoId = rtoData?.id || null;
@@ -331,8 +389,8 @@ serve(async (req) => {
         status: `${currentlyProcessing} currently processing`,
       },
       aiQueries: {
-        count: totalQueriesThisMonth,
-        period: `${totalQueriesThisMonth.toLocaleString()} this month / ${totalQueriesAllTime.toLocaleString()} all time`,
+        count: totalQueriesThisMonth || 0,
+        period: `${(totalQueriesThisMonth || 0).toLocaleString()} this month / ${(totalQueriesAllTime || 0).toLocaleString()} all time`,
       },
     };
 

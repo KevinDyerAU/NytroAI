@@ -598,12 +598,26 @@ let activeValidationsErrorLogged = false;
 
 export async function getActiveValidationsByRTO(rtoCode: string): Promise<ValidationRecord[]> {
   try {
-    // Query validation_detail with joins to get unitCode and validation_type code
+    // First, look up the actual RTO code from the RTO table
+    // The passed rtoCode might be a short code (e.g., "7148") but DB stores full code (e.g., "71480000")
+    let actualRtoCode = rtoCode;
+    const { data: rtoData } = await supabase
+      .from('RTO')
+      .select('code')
+      .or(`code.eq.${rtoCode},code.ilike.${rtoCode}%`)
+      .maybeSingle();
+    
+    if (rtoData?.code) {
+      actualRtoCode = rtoData.code;
+      console.log(`[getActiveValidationsByRTO] Resolved RTO code: ${rtoCode} -> ${actualRtoCode}`);
+    }
+
+    // Query validation_detail with joins to get unitCode, validation_type code, and rtoCode for filtering
     const { data, error } = await supabase
       .from('validation_detail')
       .select(`
         *,
-        validation_summary:summary_id(unitCode),
+        validation_summary:summary_id(unitCode, rtoCode),
         validation_type:validationType_id(code)
       `)
       .order('created_at', { ascending: false });
@@ -620,12 +634,18 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       return [];
     }
 
+    // Filter by RTO code
+    const filteredData = (data || []).filter((record: any) => {
+      const summaryRtoCode = record.validation_summary?.rtoCode;
+      return summaryRtoCode === actualRtoCode;
+    });
+
     // Reset error flag on success
     activeValidationsErrorLogged = false;
 
     // Map database columns to ValidationRecord interface
     // Handle both camelCase and snake_case column names
-    const records: ValidationRecord[] = (data || []).map((record: any) => {
+    const records: ValidationRecord[] = filteredData.map((record: any) => {
       // Use numOfReq from validation_detail table for total requirements count
       const numOfReq = record.numOfReq || record.num_of_req || 0;
       const validationCount = record.validation_count || record.completed_count || 0;
