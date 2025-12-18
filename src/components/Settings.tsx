@@ -66,7 +66,7 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-[#f8f9fb] p-8">
+    <div className="min-h-screen w-full bg-[#f8f9fb] p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-poppins font-bold text-[#1e293b] mb-8">Settings</h1>
 

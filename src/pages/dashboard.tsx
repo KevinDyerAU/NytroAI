@@ -284,7 +284,8 @@ export function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fb]">
       <Navigation currentView={currentView} onNavigate={handleNavigate} />
-      <div className="pl-72">
+      {/* Main content - add top padding on mobile for header, left padding on desktop for sidebar */}
+      <div className="pt-16 md:pt-0 md:pl-72">
         {renderView()}
       </div>
     </div>

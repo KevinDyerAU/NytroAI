@@ -559,7 +559,7 @@ export function ResultsExplorer_v2({
     return (
       <div className="space-y-4">
         {/* Search and filter controls */}
-        <div className="flex gap-4 items-center">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4 md:items-center">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#94a3b8] w-4 h-4" />
             <Input
@@ -569,50 +569,52 @@ export function ResultsExplorer_v2({
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px] bg-white">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="met">Met</SelectItem>
-              <SelectItem value="not-met">Not Met</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button 
-            onClick={handleRefreshStatus} 
-            size="sm"
-            className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6]"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          {/* Chat with Documents Button */}
-          {currentRecord && selectedValidation && (
+          <div className="flex flex-wrap gap-2 md:gap-4 items-center">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] md:w-[180px] bg-white">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="met">Met</SelectItem>
+                <SelectItem value="not-met">Not Met</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
+              </SelectContent>
+            </Select>
             <Button 
-              onClick={() => setShowAIChat(true)} 
+              onClick={handleRefreshStatus} 
               size="sm"
-              className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6] disabled:opacity-50"
-              disabled={aiCredits.current <= 0 || isValidationExpired}
-              title={isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : aiCredits.current <= 0 ? "No AI credits available" : "Chat with AI about the uploaded documents"}
+              className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6]"
             >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Chat with Documents
+              <RefreshCw className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Refresh</span>
             </Button>
-          )}
-          {/* Report Generation with Popup */}
-          {currentRecord && selectedValidation && (
-            <ResultsExplorerActions
-              validationDetailId={currentRecord.id}
-              unitCode={selectedValidation.unitCode || currentRecord.unit_code || 'Unknown'}
-              unitTitle={selectedValidation.unitTitle || currentRecord.qualification_code || 'Unknown'}
-              rtoName={getRTOById(selectedRTOId)?.name || 'Unknown RTO'}
-              validationType={(currentRecord.validation_type?.toLowerCase().includes('learner') || currentRecord.validation_type?.toLowerCase().includes('guide')) ? 'learner-guide' : 'assessment'}
-              validationResults={validationEvidenceData as any}
-              onRefresh={handleRefreshStatus}
-            />
-          )}
+            {/* Chat with Documents Button */}
+            {currentRecord && selectedValidation && (
+              <Button 
+                onClick={() => setShowAIChat(true)} 
+                size="sm"
+                className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6] disabled:opacity-50"
+                disabled={aiCredits.current <= 0 || isValidationExpired}
+                title={isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : aiCredits.current <= 0 ? "No AI credits available" : "Chat with AI about the uploaded documents"}
+              >
+                <MessageSquare className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Chat with Documents</span>
+              </Button>
+            )}
+            {/* Report Generation with Popup */}
+            {currentRecord && selectedValidation && (
+              <ResultsExplorerActions
+                validationDetailId={currentRecord.id}
+                unitCode={selectedValidation.unitCode || currentRecord.unit_code || 'Unknown'}
+                unitTitle={selectedValidation.unitTitle || currentRecord.qualification_code || 'Unknown'}
+                rtoName={getRTOById(selectedRTOId)?.name || 'Unknown RTO'}
+                validationType={(currentRecord.validation_type?.toLowerCase().includes('learner') || currentRecord.validation_type?.toLowerCase().includes('guide')) ? 'learner-guide' : 'assessment'}
+                validationResults={validationEvidenceData as any}
+                onRefresh={handleRefreshStatus}
+              />
+            )}
+          </div>
         </div>
 
         {/* Validation Expired Warning Banner */}
@@ -669,7 +671,7 @@ export function ResultsExplorer_v2({
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fb] p-8">
+    <div className="min-h-screen bg-[#f8f9fb] p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -709,22 +711,22 @@ export function ResultsExplorer_v2({
           );
 
           return (
-            <div className="p-4 border-l-4 border-l-[#3b82f6] bg-white border border-[#e2e8f0] rounded-lg mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="p-3 md:p-4 border-l-4 border-l-[#3b82f6] bg-white border border-[#e2e8f0] rounded-lg mb-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 md:gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#64748b]">Unit Code:</span>
-                    <span className="font-bold text-[#1e293b] text-lg">{selectedValidation.unitCode}</span>
+                    <span className="text-xs md:text-sm text-[#64748b]">Unit:</span>
+                    <span className="font-bold text-[#1e293b] text-base md:text-lg">{selectedValidation.unitCode}</span>
                   </div>
-                  <div className="h-6 w-px bg-[#e2e8f0]" />
+                  <div className="hidden md:block h-6 w-px bg-[#e2e8f0]" />
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#64748b]">Type:</span>
-                    <span className="text-sm font-medium text-[#1e293b] capitalize">{selectedValidation.validationType || 'Assessment'}</span>
+                    <span className="text-xs md:text-sm text-[#64748b]">Type:</span>
+                    <span className="text-xs md:text-sm font-medium text-[#1e293b] capitalize">{selectedValidation.validationType || 'Assessment'}</span>
                   </div>
-                  <div className="h-6 w-px bg-[#e2e8f0]" />
+                  <div className="hidden md:block h-6 w-px bg-[#e2e8f0]" />
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#64748b]">Date:</span>
-                    <span className="text-sm font-medium text-[#1e293b]">
+                    <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
+                    <span className="text-xs md:text-sm font-medium text-[#1e293b]">
                       {selectedValidation.validationDate 
                         ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) 
                         : 'N/A'}
@@ -735,7 +737,7 @@ export function ResultsExplorer_v2({
                         title="This validation is older than 48 hours. AI features are disabled."
                       >
                         <span>⚠️</span>
-                        <span>Expired</span>
+                        <span className="hidden sm:inline">Expired</span>
                       </div>
                     )}
                     {validationExpiryStatus === 'expiring' && (
@@ -744,12 +746,12 @@ export function ResultsExplorer_v2({
                         title="Less than 12 hours remaining before AI features are disabled."
                       >
                         <span>⏰</span>
-                        <span>Expiring Soon</span>
+                        <span className="hidden sm:inline">Expiring Soon</span>
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
                   <StatusPill 
                     label="REQ" 
                     isComplete={reqComplete} 
@@ -801,7 +803,7 @@ export function ResultsExplorer_v2({
 
         {/* Validation evidence section */}
         {selectedValidation ? (
-          <Card className="p-6 bg-white border border-[#e2e8f0]">
+          <Card className="p-3 md:p-6 bg-white border border-[#e2e8f0]">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">
               Validation Results
             </h2>

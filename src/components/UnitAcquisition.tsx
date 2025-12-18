@@ -188,7 +188,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fb] p-8">
+    <div className="min-h-screen bg-[#f8f9fb] p-4 md:p-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-poppins text-[#1e293b] mb-2">
@@ -198,7 +198,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
       </div>
 
       {/* Targeting System */}
-      <Card className="border border-[#dbeafe] bg-white p-8 shadow-soft mb-8">
+      <Card className="border border-[#dbeafe] bg-white p-4 md:p-8 shadow-soft mb-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-lg bg-[#dbeafe] border border-[#3b82f6] flex items-center justify-center">
             <Target className="w-6 h-6 text-[#3b82f6]" />

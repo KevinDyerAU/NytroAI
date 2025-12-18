@@ -290,7 +290,7 @@ export function DocumentUploadAdapterSimplified({
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fb] p-8">
+    <div className="min-h-screen bg-[#f8f9fb] p-4 md:p-8">
       <div className={`max-w-7xl mx-auto space-y-6 ${selectedFiles.length > 0 && selectedUnit ? 'pb-24' : ''}`}>
         {/* Header */}
         <div className="flex items-center justify-between">

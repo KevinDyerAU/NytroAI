@@ -6,7 +6,9 @@ import {
   Target,
   Settings,
   Lock,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from 'lucide-react';
 import { HUDStatusIndicator } from './HUDStatusIndicator';
 import { useAuth } from '../hooks/useAuth';
@@ -29,6 +31,13 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
   const [rtoInfo, setRtoInfo] = useState<RTOInfo | null>(null);
   const [isLoadingRTO, setIsLoadingRTO] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu when navigating
+  const handleMobileNavigate = (view: string) => {
+    onNavigate(view);
+    setIsMobileMenuOpen(false);
+  };
 
   useEffect(() => {
     const loadRTOInfo = async () => {
@@ -82,7 +91,37 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
   ];
 
   return (
-    <nav className="fixed top-0 left-0 bottom-0 w-72 z-50 bg-white border-r border-[#dbeafe] shadow-soft flex flex-col">
+    <>
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#dbeafe] shadow-soft px-4 py-3 flex items-center justify-between">
+        <img
+          src={wizardLogo}
+          alt="Nytro Logo"
+          className="h-10 w-auto object-contain"
+        />
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 rounded-lg hover:bg-[#f1f5f9] transition-colors"
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6 text-[#64748b]" /> : <Menu className="w-6 h-6 text-[#64748b]" />}
+        </button>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Navigation */}
+      <nav className={`
+        fixed top-0 left-0 bottom-0 w-72 z-50 bg-white border-r border-[#dbeafe] shadow-soft flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+      `}>
       {/* Logo */}
       <div className="p-6 border-b border-[#dbeafe]">
         <div className="mb-4">
@@ -123,7 +162,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
           return (
             <button
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              onClick={() => handleMobileNavigate(item.id)}
               className={`
                 w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all
                 font-poppins text-sm
@@ -143,7 +182,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
       {/* Settings and Admin */}
       <div className="p-4 border-t border-[#dbeafe] space-y-1">
         <button
-          onClick={() => onNavigate('settings')}
+          onClick={() => handleMobileNavigate('settings')}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
             currentView === 'settings'
               ? 'bg-[#e0f2fe] text-[#0284c7]'
@@ -155,7 +194,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         </button>
 
         <button
-          onClick={() => onNavigate('maintenance')}
+          onClick={() => handleMobileNavigate('maintenance')}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
             currentView === 'maintenance'
               ? 'bg-[#f3e8ff] text-[#7c3aed]'
@@ -180,5 +219,6 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         </button>
       </div>
     </nav>
+    </>
   );
 }

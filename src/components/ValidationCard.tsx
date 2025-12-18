@@ -343,7 +343,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
 
       {/* Expanded View */}
       {expanded && (
-        <div className="border-t border-[#dbeafe] p-6 space-y-6 bg-[#f8f9fb] animate-fade-in">
+        <div className="border-t border-[#dbeafe] p-4 md:p-6 space-y-4 md:space-y-6 bg-[#f8f9fb] animate-fade-in">
           {/* Status & Reasoning */}
           <div>
             <h4 className="font-poppins text-[#1e293b] mb-2 flex items-center gap-2">
@@ -576,7 +576,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                 </div>
               )}
               
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2 md:gap-3">
                 {/* Edit Question button - hidden for learner_guide validation type */}
                 {shouldShowSmartQuestions() && (
                   <GlowButton 
@@ -586,7 +586,8 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                     disabled={isReportSigned || !aiCreditsAvailable || isValidationExpired}
                     title={isReportSigned ? "Report is signed off - no updates allowed" : isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : !aiCreditsAvailable ? "No AI credits available" : ""}
                   >
-                    Edit Question
+                    <span className="hidden sm:inline">Edit Question</span>
+                    <Edit className="w-4 h-4 sm:hidden" />
                   </GlowButton>
                 )}
                 {/* Revalidate button - always visible */}
@@ -597,8 +598,8 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                   disabled={isRevalidating || isReportSigned || !aiCreditsAvailable || isValidationExpired}
                   title={isReportSigned ? "Report is signed off - no updates allowed" : isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : !aiCreditsAvailable ? "No AI credits available" : ""}
                 >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${isRevalidating ? 'animate-spin' : ''}`} />
-                  Revalidate
+                  <RefreshCw className={`w-4 h-4 sm:mr-2 ${isRevalidating ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Revalidate</span>
                 </GlowButton>
               </div>
             </div>

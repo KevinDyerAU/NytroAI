@@ -24,13 +24,15 @@ const FloatingBubble = ({ position, color, scale = 1, speed = 1 }: { position: [
     <Sphere ref={ref} args={[1, 64, 64]} position={position} scale={scale}>
       <MeshDistortMaterial
         color={color}
-        envMapIntensity={1.5}
-        clearcoat={1}
-        clearcoatRoughness={0.1}
-        metalness={0.2}
-        roughness={0.2}
+        envMapIntensity={1}
+        clearcoat={0.8}
+        clearcoatRoughness={0.2}
+        metalness={0.1}
+        roughness={0.3}
         distort={0.3}
         speed={2}
+        transparent
+        opacity={0.6}
       />
     </Sphere>
   );

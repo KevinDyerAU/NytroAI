@@ -240,7 +240,7 @@ export function Dashboard_v3({
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fb] p-8">
+    <div className="min-h-screen bg-[#f8f9fb] p-4 md:p-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-poppins text-[#1e293b] mb-2">
@@ -288,7 +288,7 @@ export function Dashboard_v3({
       </div>
 
       {/* Progress Bars Section */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8">
         {/* Validation Credits */}
         <Card className="border border-[#dbeafe] bg-white p-3 shadow-soft">
           <div className="flex items-center justify-between mb-1">
@@ -420,29 +420,29 @@ export function Dashboard_v3({
                   onDoubleClick={() => onValidationDoubleClick?.(validation as any)}
                   title="Double-click to view validation results in Results Explorer"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     {/* Left side: Unit Code, Type, Date */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 md:gap-4">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-[#64748b]">Unit Code:</span>
-                        <span className="font-bold text-[#1e293b] text-lg">{validation.unit_code || 'N/A'}</span>
+                        <span className="text-xs md:text-sm text-[#64748b]">Unit:</span>
+                        <span className="font-bold text-[#1e293b] text-base md:text-lg">{validation.unit_code || 'N/A'}</span>
                       </div>
-                      <div className="h-6 w-px bg-[#e2e8f0]" />
+                      <div className="hidden md:block h-6 w-px bg-[#e2e8f0]" />
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-[#64748b]">Type:</span>
-                        <span className="text-sm font-medium text-[#1e293b] capitalize">{validation.validation_type || 'Unit'}</span>
+                        <span className="text-xs md:text-sm text-[#64748b]">Type:</span>
+                        <span className="text-xs md:text-sm font-medium text-[#1e293b] capitalize">{validation.validation_type || 'Unit'}</span>
                       </div>
-                      <div className="h-6 w-px bg-[#e2e8f0]" />
+                      <div className="hidden md:block h-6 w-px bg-[#e2e8f0]" />
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-[#64748b]">Date:</span>
-                        <span className="text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
+                        <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
+                        <span className="text-xs md:text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
                         {expiryStatus === 'expired' && (
                           <div 
                             className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
                             title="This validation is older than 48 hours. AI features are disabled."
                           >
                             <span>⚠️</span>
-                            <span>Expired</span>
+                            <span className="hidden sm:inline">Expired</span>
                           </div>
                         )}
                         {expiryStatus === 'expiring' && (
@@ -451,14 +451,14 @@ export function Dashboard_v3({
                             title="Less than 12 hours remaining before AI features are disabled."
                           >
                             <span>⏰</span>
-                            <span>Expiring Soon</span>
+                            <span className="hidden sm:inline">Expiring Soon</span>
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* Right side: Status Indicators */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
                       <StatusPill 
                         label="REQ" 
                         isComplete={reqComplete} 
