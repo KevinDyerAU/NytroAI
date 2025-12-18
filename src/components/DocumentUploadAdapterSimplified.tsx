@@ -478,6 +478,7 @@ export function DocumentUploadAdapterSimplified({
                 unitCode={selectedUnit?.code}
                 unitLink={selectedUnit?.Link}
                 validationType={validationType}
+                onCreditsConsumed={onCreditsConsumed}
                 onSuccess={() => {
                   setShowValidationDialog(false);
                   // Navigate to dashboard after validation starts

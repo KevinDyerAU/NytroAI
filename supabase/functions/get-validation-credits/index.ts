@@ -97,10 +97,16 @@ serve(async (req) => {
           throw new Error(`Failed to create credits record: ${insertError.message}`);
         }
 
+        const newCurrent = newCredits.current_credits || 0;
+        const newTotal = newCredits.total_credits || 0;
+        const newPercentage = newTotal > 0 ? Math.round((newCurrent / newTotal) * 100) : 0;
+        
         return createSuccessResponse({
-          current: newCredits.current_credits || 0,
-          total: newCredits.total_credits || 0,
+          current: newCurrent,
+          total: newTotal,
           subscription: newCredits.subscription_credits || 0,
+          percentage: newPercentage,
+          percentageText: `${newPercentage}% available`,
         });
       }
       
@@ -109,10 +115,16 @@ serve(async (req) => {
 
     console.log('[get-validation-credits] Credits found:', credits);
 
+    const current = credits?.current_credits || 0;
+    const total = credits?.total_credits || 0;
+    const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+
     return createSuccessResponse({
-      current: credits?.current_credits || 0,
-      total: credits?.total_credits || 0,
+      current,
+      total,
       subscription: credits?.subscription_credits || 0,
+      percentage,
+      percentageText: `${percentage}% available`,
     });
   } catch (error) {
     console.error('[get-validation-credits] Error:', error);

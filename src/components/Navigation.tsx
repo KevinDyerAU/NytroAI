@@ -13,7 +13,7 @@ import {
 import { HUDStatusIndicator } from './HUDStatusIndicator';
 import { useAuth } from '../hooks/useAuth';
 import { fetchRTOById } from '../types/rto';
-import wizardLogo from '../assets/wizard-logo.png';
+import nytroLogo from '../assets/IMG_5440.jpeg';
 
 interface NavigationProps {
   currentView: string;
@@ -95,7 +95,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#dbeafe] shadow-soft px-4 py-3 flex items-center justify-between">
         <img
-          src={wizardLogo}
+          src={nytroLogo}
           alt="Nytro Logo"
           className="h-10 w-auto object-contain"
         />
@@ -126,9 +126,9 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
       <div className="p-6 border-b border-[#dbeafe]">
         <div className="mb-4">
           <img
-            src={wizardLogo}
+            src={nytroLogo}
             alt="Nytro Logo"
-            className="w-full h-auto object-contain mb-2"
+            className="w-[70%] h-auto object-contain mb-2"
           />
           <p className="text-xs text-[#64748b] ml-1">Intelligence That Powers Performance</p>
         </div>

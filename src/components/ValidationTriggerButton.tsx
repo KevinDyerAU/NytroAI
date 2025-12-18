@@ -33,7 +33,7 @@ export function ValidationTriggerButton({
   const { trigger, isTriggering } = useValidationTrigger();
 
   const handleTrigger = async () => {
-    await trigger(validationDetailId);
+    await trigger(validationDetailId, []);
     if (onSuccess) {
       onSuccess();
     }
@@ -68,6 +68,7 @@ interface ValidationTriggerCardProps {
   totalCount: number;
   storagePaths: string[];
   onSuccess?: () => void;
+  onCreditsConsumed?: () => void; // Called after credits are consumed to trigger refresh
   // Required if validationDetailId not provided
   rtoCode?: string;
   unitCode?: string;
@@ -81,6 +82,7 @@ export function ValidationTriggerCard({
   totalCount,
   storagePaths,
   onSuccess,
+  onCreditsConsumed,
   rtoCode,
   unitCode,
   unitLink,
@@ -166,6 +168,11 @@ export function ValidationTriggerCard({
       await trigger(finalValidationDetailId!, storagePaths);
       setIsTriggered(true);
       setConfirmText(''); // Clear input after success
+      
+      // Notify parent that credits were consumed
+      if (onCreditsConsumed) {
+        onCreditsConsumed();
+      }
 
       // Wait a moment to show success message, then navigate
       setTimeout(() => {

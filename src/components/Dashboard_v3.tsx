@@ -269,12 +269,12 @@ export function Dashboard_v3({
         />
 
         <KPIWidget
-          title="Active Units"
+          title="Total Validated"
           value={metrics?.activeUnits?.count?.toString() || '0'}
-          subtitle={metrics?.activeUnits?.status || 'Currently processing'}
+          subtitle={metrics?.activeUnits?.status || '0 currently processing'}
           icon={Activity}
           variant="grey"
-          tooltip="Number of validation units not yet in Report stage (pending, processing, or validating)"
+          tooltip="Total units validated for this RTO. Subtitle shows non-expired validations still being processed."
         />
 
         <KPIWidget
@@ -383,6 +383,9 @@ export function Dashboard_v3({
               // REP: Report - complete only when validation_status is Finalised (report generated)
               const repComplete = validationStatus === 'Finalised';
 
+              // Calculate stage-based progress (25% per stage)
+              const stageProgress = (reqComplete ? 25 : 0) + (docComplete ? 25 : 0) + (revComplete ? 25 : 0) + (repComplete ? 25 : 0);
+
               // Format date like Results Explorer
               const formatDate = (dateString: string) => {
                 const date = new Date(dateString);
@@ -421,8 +424,8 @@ export function Dashboard_v3({
                   title="Double-click to view validation results in Results Explorer"
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    {/* Left side: Unit Code, Type, Date */}
-                    <div className="flex flex-wrap items-center gap-2 md:gap-4">
+                    {/* Left side: Unit Code, Type, Date - fixed width */}
+                    <div className="flex flex-wrap items-center gap-2 md:gap-4 md:min-w-[480px]">
                       <div className="flex items-center gap-2">
                         <span className="text-xs md:text-sm text-[#64748b]">Unit:</span>
                         <span className="font-bold text-[#1e293b] text-base md:text-lg">{validation.unit_code || 'N/A'}</span>
@@ -436,24 +439,34 @@ export function Dashboard_v3({
                       <div className="flex items-center gap-2">
                         <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
                         <span className="text-xs md:text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
-                        {expiryStatus === 'expired' && (
-                          <div 
-                            className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
-                            title="This validation is older than 48 hours. AI features are disabled."
-                          >
-                            <span>⚠️</span>
-                            <span className="hidden sm:inline">Expired</span>
-                          </div>
-                        )}
-                        {expiryStatus === 'expiring' && (
-                          <div 
-                            className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
-                            title="Less than 12 hours remaining before AI features are disabled."
-                          >
-                            <span>⏰</span>
-                            <span className="hidden sm:inline">Expiring Soon</span>
-                          </div>
-                        )}
+                      </div>
+                      {expiryStatus === 'expired' && (
+                        <div 
+                          className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
+                          title="This validation is older than 48 hours. AI features are disabled."
+                        >
+                          <span>⚠️</span>
+                          <span className="hidden sm:inline">Expired</span>
+                        </div>
+                      )}
+                      {expiryStatus === 'expiring' && (
+                        <div 
+                          className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
+                          title="Less than 12 hours remaining before AI features are disabled."
+                        >
+                          <span>⏰</span>
+                          <span className="hidden sm:inline">Expiring Soon</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Progress Bar - fixed width for alignment */}
+                    <div className="w-[180px] hidden md:block flex-shrink-0">
+                      <div className="h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-[#3b82f6] rounded-full transition-all duration-300"
+                          style={{ width: `${stageProgress}%` }}
+                        />
                       </div>
                     </div>
 

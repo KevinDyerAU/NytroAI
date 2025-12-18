@@ -213,15 +213,17 @@ serve(async (req) => {
 
     // 3. ACTIVE UNITS
     console.log('║ Step 3: Counting active units...');
-    // Count validations NOT in report stage (report stage = numOfReq === reqTotal and reqTotal > 0)
-    // Join with validation_summary to get reqTotal
+    // Count total validated units and currently processing (non-expired, within 48 hours)
+    const expiryThreshold = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
+    
     let activeUnitsQuery = supabaseClient
       .from('validation_detail')
       .select(`
         id,
-        numOfReq,
+        created_at,
+        validation_status,
         validation_summary!inner(
-          reqTotal
+          rtoCode
         )
       `);
 
@@ -236,10 +238,15 @@ serve(async (req) => {
       throw activeUnitsError;
     }
 
-    // Filter to only include validations NOT in report stage
-    const activeUnitsCount = (activeUnitsData || []).filter((v: any) => {
-      const reqTotal = v.validation_summary?.reqTotal;
-      return v.numOfReq < reqTotal || reqTotal === 0 || reqTotal === null;
+    // Total validated units (all validation_detail records for this RTO)
+    const totalValidatedUnits = activeUnitsData?.length || 0;
+    
+    // Currently processing = non-expired (within 48 hours) AND not finalised
+    const currentlyProcessing = (activeUnitsData || []).filter((v: any) => {
+      const createdAt = new Date(v.created_at);
+      const isNotExpired = createdAt >= expiryThreshold;
+      const isNotFinalised = v.validation_status !== 'Finalised';
+      return isNotExpired && isNotFinalised;
     }).length;
 
     // 4. AI QUERIES
@@ -320,8 +327,8 @@ serve(async (req) => {
         changeText,
       },
       activeUnits: {
-        count: activeUnitsCount || 0,
-        status: 'Currently processing',
+        count: totalValidatedUnits || 0,
+        status: `${currentlyProcessing} currently processing`,
       },
       aiQueries: {
         count: totalQueriesThisMonth,
