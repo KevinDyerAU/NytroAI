@@ -44,8 +44,8 @@ export const LandingPage: React.FC = () => {
         />
       </div>
 
-      {/* NytroWizard Video - Bottom Left (hidden on mobile) */}
-      <div className="hidden md:block absolute bottom-6 left-6 z-20 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+      {/* NytroWizard Video - Bottom Left (hidden on mobile and tablet, only show on desktop) */}
+      <div className="hidden lg:block absolute bottom-6 left-6 z-20 animate-fade-in" style={{ animationDelay: '0.3s' }}>
         <video
           src={nytroWizardVideo}
           autoPlay

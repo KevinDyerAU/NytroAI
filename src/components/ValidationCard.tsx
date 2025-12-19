@@ -49,9 +49,10 @@ interface ValidationCardProps {
     validationId?: string;
   };
   onCreditConsumed?: (newBalance: number) => void;
+  onRefresh?: () => void;
 }
 
-export function ValidationCard({ result, isReportSigned = false, aiCreditsAvailable = true, isValidationExpired = false, validationContext, onCreditConsumed }: ValidationCardProps) {
+export function ValidationCard({ result, isReportSigned = false, aiCreditsAvailable = true, isValidationExpired = false, validationContext, onCreditConsumed, onRefresh }: ValidationCardProps) {
   // Helper functions to parse JSON fields and provide backward compatibility
   const getRequirementNumber = () => result.requirement_number || result.requirementNumber || '';
   const getRequirementType = () => result.requirement_type || result.type || '';
@@ -298,6 +299,11 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
           id: 'revalidate',
           duration: 5000
         });
+        
+        // Trigger refresh to reload the updated data
+        if (onRefresh) {
+          onRefresh();
+        }
       } else {
         throw new Error(response.error || 'Revalidation failed');
       }

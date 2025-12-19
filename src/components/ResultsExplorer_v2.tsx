@@ -657,6 +657,7 @@ export function ResultsExplorer_v2({
                 onCreditConsumed={(newBalance) => {
                   setAICredits(prev => ({ ...prev, current: newBalance }));
                 }}
+                onRefresh={handleRefreshStatus}
               />
             );
           })
