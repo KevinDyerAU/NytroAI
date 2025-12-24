@@ -152,21 +152,34 @@ Last Month:  Nov 1, 2024 00:00:00 → Nov 30, 2024 23:59:59
 
 ## 3. High-Level System Architecture
 
-The modernized NytroAI architecture is composed of four primary layers, working in concert to provide a seamless validation experience. The system is built on a foundation of Supabase for data and file storage, n8n for workflow automation, and Google Gemini for AI-powered analysis.
+The modernized NytroAI architecture uses a **separation of concerns** approach with Netlify for frontend hosting (Australian CDN presence) and AWS Fargate for backend workflow orchestration in the Sydney region. The system is built on a foundation of Supabase for data and file storage, n8n running on AWS Fargate for workflow automation, and Google Gemini for AI-powered analysis.
 
 ![High-Level Component Diagram](docs/diagrams/simplified-architecture.png)
 
+### Infrastructure Overview
+
+| Component | Service | Region/Location |
+|-----------|---------|------------------|
+| **Frontend** | Netlify | Australian CDN Edge |
+| **Workflow Engine** | AWS Fargate + n8n | Sydney (ap-southeast-2) |
+| **Database** | Supabase PostgreSQL | Cloud |
+| **File Storage** | Supabase Storage | Cloud |
+| **Edge Functions** | Supabase Edge Functions | Cloud |
+| **AI Processing** | Google Gemini 2.0 Flash | Cloud |
+| **Security** | AWS WAF + ALB | Sydney (ap-southeast-2) |
+
 ### Architecture Comparison
 
-The new architecture represents a fundamental simplification of the system's design.
+The new architecture represents a fundamental simplification of the system's design with Australian data sovereignty.
 
-| Feature | Old Architecture (5+ Platforms) | New Architecture (3 Platforms) |
+| Feature | Old Architecture (5+ Platforms) | New Architecture (AWS Fargate) |
 | :--- | :--- | :--- |
-| **Core Stack** | React, AWS S3, Unstructured.io, OpenAI, Pinecone, Gemini | React, Supabase, n8n, Gemini |
-| **Data Flow** | UI → S3 → Unstructured → Embeddings → Pinecone → Gemini | UI → Supabase → n8n → Gemini |
+| **Core Stack** | React, AWS S3, Unstructured.io, OpenAI, Pinecone, Gemini | React (Netlify), Supabase, n8n (AWS Fargate), Gemini |
+| **Data Flow** | UI → S3 → Unstructured → Embeddings → Pinecone → Gemini | UI (Netlify) → Supabase → n8n (Fargate) → Gemini |
 | **AI Method** | Vector Search + File Search Stores | Simple File API + Large Context |
 | **Complexity** | High (multiple data handoffs, complex pipeline) | **Low** (unified backend, direct API calls) |
-| **Maintainability** | Difficult (multiple services to manage and debug) | **Easy** (centralized logic in n8n) |
+| **Maintainability** | Difficult (multiple services to manage and debug) | **Easy** (centralized logic in n8n on Fargate) |
+| **Australian Presence** | None | **Yes** (Netlify CDN + AWS Sydney) |
 
 ---
 
@@ -202,7 +215,7 @@ The architectural simplification has led to a dramatic reduction in monthly oper
 | **File Processing (Unstructured.io)** | $50 (Usage-based) | $0 |
 | **Primary Storage (AWS S3)** | $5 | $0 (included in Supabase) |
 | **Database & Backend (Supabase)** | $0 | $25 (Pro Plan) |
-| **Workflow Automation (n8n)** | $0 (Self-hosted) | $10 (Est. for cloud stability) |
+| **Workflow Automation (n8n on AWS Fargate)** | $0 (Self-hosted) | $15-25 (Fargate + ALB) |
 | **AI Model (Gemini API)** | $50+ (Complex usage) | $50 (Est. based on token usage) |
 | **Total Estimated Cost** | **~$245/month** | **~$85/month** |
 
