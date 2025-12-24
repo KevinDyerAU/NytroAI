@@ -1,27 +1,36 @@
 graph TB
-    subgraph "User Interface Layer"
-        UI[React/TypeScript Frontend<br/>Netlify Hosted]
+    subgraph "Frontend Layer - Australia"
+        UI[React/TypeScript Frontend<br/>Netlify Hosted<br/>🇦🇺 Australian CDN Edge]
     end
     
-    subgraph "Storage & Database Layer"
+    subgraph "AWS Sydney Region (ap-southeast-2)"
+        subgraph "Container Orchestration"
+            FARGATE[AWS Fargate<br/>Serverless Containers]
+            N8N[n8n Workflows<br/>Document Processing<br/>AI Validation]
+        end
+        
+        subgraph "Load Balancing & Security"
+            ALB[Application Load Balancer]
+            WAF[AWS WAF<br/>Web Application Firewall]
+        end
+        
+        FARGATE --> N8N
+        WAF --> ALB
+        ALB --> FARGATE
+    end
+    
+    subgraph "Supabase Cloud"
         SB_DB[(Supabase PostgreSQL<br/>Validation Data)]
         SB_STORAGE[Supabase Storage<br/>Document Bucket]
-    end
-    
-    subgraph "Workflow Automation Layer"
-        N8N[n8n Workflows<br/>Document Processing<br/>AI Validation]
+        EDGE[Supabase Edge Functions<br/>get-requirements]
     end
     
     subgraph "AI Processing Layer"
         GEMINI[Google Gemini 2.0 Flash<br/>1M Token Context<br/>File API]
     end
     
-    subgraph "Edge Functions"
-        EDGE[Supabase Edge Functions<br/>get-requirements]
-    end
-    
     UI -->|Upload Documents| SB_STORAGE
-    UI -->|Trigger Validation| N8N
+    UI -->|Trigger Validation| WAF
     UI -->|Query Results| SB_DB
     
     N8N -->|Read Documents| SB_STORAGE
@@ -33,9 +42,12 @@ graph TB
     EDGE -->|Query Requirements| SB_DB
     GEMINI -->|Process Documents| GEMINI
     
-    style UI fill:#e1f5ff
-    style SB_DB fill:#d4edda
-    style SB_STORAGE fill:#d4edda
-    style N8N fill:#fff3cd
-    style GEMINI fill:#f8d7da
-    style EDGE fill:#d1ecf1
+    style UI fill:#e1f5ff,stroke:#0077b6
+    style SB_DB fill:#3ECF8E,stroke:#1a7f5a,color:#fff
+    style SB_STORAGE fill:#3ECF8E,stroke:#1a7f5a,color:#fff
+    style EDGE fill:#3ECF8E,stroke:#1a7f5a,color:#fff
+    style N8N fill:#EA4B71,stroke:#c13a5a,color:#fff
+    style FARGATE fill:#FF9900,stroke:#cc7a00,color:#fff
+    style ALB fill:#FF9900,stroke:#cc7a00,color:#fff
+    style WAF fill:#FF9900,stroke:#cc7a00,color:#fff
+    style GEMINI fill:#4285F4,stroke:#2a5db0,color:#fff

@@ -1,6 +1,6 @@
 graph LR
     START([User Uploads<br/>Assessment Documents]) --> STORE[Store in<br/>Supabase Storage]
-    STORE --> PROCESS[Document Processing<br/>Workflow]
+    STORE --> PROCESS[Document Processing<br/>Workflow<br/>AWS Fargate + n8n]
     PROCESS --> UPLOAD[Upload to<br/>Gemini File API]
     UPLOAD --> TRIGGER[User Triggers<br/>Validation]
     
@@ -15,25 +15,26 @@ graph LR
     RATE --> CALL[Call Gemini API<br/>with Context]
     
     CALL --> PARSE[Parse Response<br/>+ Rich Metadata]
-    PARSE --> SAVE[Save Validation Result<br/>to Database]
+    PARSE --> SAVE[Save Validation Result<br/>to Supabase]
     SAVE --> PROGRESS[Update Progress<br/>Tracking]
     
     PROGRESS --> LOOP
     
     LOOP -->|All Done| COMPLETE[Mark Validation<br/>Complete]
-    COMPLETE --> END([User Views<br/>Results in UI])
+    COMPLETE --> END([User Views<br/>Results on Netlify UI])
     
     CALL -.->|Error| ERROR[Update Status: Error]
     FETCH -.->|Error| ERROR
     SAVE -.->|Error| ERROR
     ERROR -.-> END
     
-    style START fill:#e1f5ff
-    style STORE fill:#d4edda
-    style UPLOAD fill:#f8d7da
-    style LOOP fill:#fff3cd
-    style SESSION fill:#d1ecf1
-    style CALL fill:#f8d7da
-    style SAVE fill:#d4edda
-    style END fill:#e1f5ff
-    style ERROR fill:#f8d7da
+    style START fill:#e1f5ff,stroke:#0077b6
+    style STORE fill:#3ECF8E,stroke:#1a7f5a,color:#fff
+    style PROCESS fill:#FF9900,stroke:#cc7a00,color:#fff
+    style UPLOAD fill:#4285F4,stroke:#2a5db0,color:#fff
+    style LOOP fill:#EA4B71,stroke:#c13a5a,color:#fff
+    style SESSION fill:#d1ecf1,stroke:#0c5460
+    style CALL fill:#4285F4,stroke:#2a5db0,color:#fff
+    style SAVE fill:#3ECF8E,stroke:#1a7f5a,color:#fff
+    style END fill:#e1f5ff,stroke:#0077b6
+    style ERROR fill:#dc3545,stroke:#a71d2a,color:#fff
