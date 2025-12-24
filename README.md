@@ -366,7 +366,7 @@ This section outlines the planned enhancements and infrastructure improvements f
 
 | Priority | Task | Description | Status |
 |----------|------|-------------|--------|
-| **High** | Migrate n8n to AWS | Migrate the self-hosted n8n instance to AWS (Sydney region) for Australian data sovereignty. Use ECS with Fargate for a serverless, scalable deployment. | ⬜ Not Started |
+| **High** | Migrate n8n to AWS Fargate | Migrate the self-hosted n8n instance to AWS Fargate (Sydney region) for Australian data sovereignty. Fargate provides serverless container execution without managing servers. | ⬜ Not Started |
 | **High** | Implement Amazon Bedrock | Integrate Amazon Bedrock as the primary LLM provider to ensure all AI processing occurs within Australian data centers. | ⬜ Not Started |
 | **Medium** | RDS for PostgreSQL | Migrate the n8n database to Amazon RDS for PostgreSQL with Multi-AZ deployment for high availability. | ⬜ Not Started |
 | **Medium** | AWS WAF Integration | Implement AWS Web Application Firewall (WAF) to protect the n8n instance from common web exploits. | ⬜ Not Started |
@@ -377,15 +377,16 @@ For detailed implementation steps, refer to the [AWS Migration & Bedrock Impleme
 
 **Key Milestones:**
 
-1.  **Phase 1: AWS Infrastructure Setup**
+1.  **Phase 1: AWS Fargate Infrastructure Setup**
     - [ ] Create ECR repository for n8n Docker image
     - [ ] Provision RDS PostgreSQL instance in `ap-southeast-2`
-    - [ ] Set up ECS cluster and task definition
+    - [ ] Create Fargate task definition with n8n container
     - [ ] Configure Application Load Balancer (ALB)
+    - [ ] Set up AWS WAF for security
 
-2.  **Phase 2: n8n Migration**
+2.  **Phase 2: n8n Fargate Migration**
     - [ ] Build and push n8n Docker image to ECR
-    - [ ] Deploy n8n service on ECS Fargate
+    - [ ] Deploy n8n as Fargate service (serverless)
     - [ ] Migrate existing workflows and credentials
     - [ ] Test all validation workflows
 
