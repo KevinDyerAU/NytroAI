@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Database, Building2, BookOpen, Brain, CheckSquare, FileText, Zap, Target, MessageSquare, PlayCircle } from 'lucide-react';
+import { ChevronRight, Database, Building2, BookOpen, Brain, CheckSquare, FileText, Zap, Target, MessageSquare, PlayCircle, CreditCard } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -85,6 +85,13 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
       description: 'Manually trigger validation for debugging or re-running failed validations',
       icon: <PlayCircle className="w-8 h-8" />,
       color: 'bg-cyan-50 border-cyan-200',
+    },
+    {
+      id: 'subscriptions',
+      title: 'Subscriptions & Costs',
+      description: 'Monitor paid service subscriptions including Render, Supabase, Google, and Netlify',
+      icon: <CreditCard className="w-8 h-8" />,
+      color: 'bg-violet-50 border-violet-200',
     },
   ];
 

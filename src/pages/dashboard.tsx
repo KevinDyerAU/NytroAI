@@ -16,6 +16,7 @@ import { RequirementsMaintenance } from '../components/maintenance/RequirementsM
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
 import { PromptMaintenanceNew as PromptMaintenance } from '../components/maintenance/PromptMaintenanceNew';
 import { TriggerValidation } from '../components/maintenance/TriggerValidation';
+import { SubscriptionsAdmin } from '../components/maintenance/SubscriptionsAdmin';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
@@ -26,17 +27,17 @@ const VALID_VIEWS = ['dashboard', 'acquisition', 'upload', 'results', 'settings'
 export function DashboardPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Read view state from URL, default to 'dashboard'
   const urlView = searchParams.get('view') || 'dashboard';
   const urlValidationId = searchParams.get('validationId');
   const urlModule = searchParams.get('module');
-  
+
   // Validate and use URL state
   const currentView = VALID_VIEWS.includes(urlView) ? urlView : 'dashboard';
   const selectedValidationId = urlValidationId;
   const maintenanceModule = urlModule;
-  
+
   const [creditsRefreshTrigger, setCreditsRefreshTrigger] = useState(0);
   const [rtosLoaded, setRtosLoaded] = useState(false);
 
@@ -47,7 +48,7 @@ export function DashboardPage() {
   const updateUrlState = useCallback((updates: { view?: string; validationId?: string | null; module?: string | null }) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
-      
+
       if (updates.view !== undefined) {
         if (updates.view === 'dashboard') {
           newParams.delete('view'); // Clean URL for default view
@@ -55,7 +56,7 @@ export function DashboardPage() {
           newParams.set('view', updates.view);
         }
       }
-      
+
       if (updates.validationId !== undefined) {
         if (updates.validationId === null) {
           newParams.delete('validationId');
@@ -63,7 +64,7 @@ export function DashboardPage() {
           newParams.set('validationId', updates.validationId);
         }
       }
-      
+
       if (updates.module !== undefined) {
         if (updates.module === null || updates.module === 'hub') {
           newParams.delete('module');
@@ -71,7 +72,7 @@ export function DashboardPage() {
           newParams.set('module', updates.module);
         }
       }
-      
+
       return newParams;
     }, { replace: false }); // Use push to enable back button
   }, [setSearchParams]);
@@ -218,12 +219,19 @@ export function DashboardPage() {
         return (
           <div className="space-y-4">
             {backButton}
-            <TriggerValidation 
+            <TriggerValidation
               onViewResults={(detailId) => {
                 // Navigate to results with validation ID in a single URL update
                 updateUrlState({ view: 'results', validationId: detailId.toString(), module: null });
               }}
             />
+          </div>
+        );
+      case 'subscriptions':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <SubscriptionsAdmin />
           </div>
         );
       default:
