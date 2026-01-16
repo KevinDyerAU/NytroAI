@@ -9,6 +9,7 @@ export interface AuthUser {
   rto_code?: string;
   role: 'admin' | 'editor' | 'viewer';
   credits: number;
+  is_admin: boolean;
 }
 
 interface AuthState {
@@ -104,6 +105,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 rto_code: profile.rto_code,
                 role: profile.role,
                 credits: profile.credits,
+                is_admin: profile.is_admin ?? false,
               },
               isAuthenticated: true,
               isLoading: false,
@@ -173,7 +175,7 @@ if (typeof window !== 'undefined') {
         // Handle sign in events with valid session
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
           const currentState = useAuthStore.getState();
-          
+
           // Skip profile fetch if user is already authenticated with the same ID
           // This prevents unnecessary re-renders and state resets
           if (currentState.isAuthenticated && currentState.user?.id === session.user.id) {
@@ -181,7 +183,7 @@ if (typeof window !== 'undefined') {
             console.log('[AuthStore] ===== END AUTH STATE CHANGE (NO ACTION) =====');
             return;
           }
-          
+
           console.log('[AuthStore] Sign in event with valid session, fetching profile...');
           try {
             const { data: profile, error: profileError } = await supabase
@@ -201,6 +203,7 @@ if (typeof window !== 'undefined') {
                   rto_code: profile.rto_code,
                   role: profile.role,
                   credits: profile.credits,
+                  is_admin: profile.is_admin ?? false,
                 },
                 isAuthenticated: true,
               };
@@ -228,7 +231,7 @@ if (typeof window !== 'undefined') {
   };
 
   initializeAuth();
-  
+
   // Optional: Clean up on page unload (for Single Page Apps, this rarely happens)
   window.addEventListener('beforeunload', () => {
     if (authSubscription) {

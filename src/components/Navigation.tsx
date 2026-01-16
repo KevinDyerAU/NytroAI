@@ -109,7 +109,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setIsMobileMenuOpen(false)}
         />
@@ -122,103 +122,103 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
       `}>
-      {/* Logo */}
-      <div className="p-6 border-b border-[#dbeafe]">
-        <div className="mb-4">
-          <img
-            src={nytroLogo}
-            alt="Nytro Logo"
-            className="w-[70%] h-auto object-contain mb-2"
-          />
-          <p className="text-xs text-[#64748b] ml-1">Intelligence That Powers Performance</p>
+        {/* Logo */}
+        <div className="p-6 border-b border-[#dbeafe]">
+          <div className="mb-4">
+            <img
+              src={nytroLogo}
+              alt="Nytro Logo"
+              className="w-[70%] h-auto object-contain mb-2"
+            />
+            <p className="text-xs text-[#64748b] ml-1">Intelligence That Powers Performance</p>
+          </div>
+
+          {/* RTO Details */}
+          {rtoInfo && (
+            <div className="mb-4 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
+              <p className="text-sm font-poppins font-semibold text-[#1e293b]">{rtoInfo.legalname}</p>
+            </div>
+          )}
+
+          {isLoadingRTO && (
+            <div className="mb-4 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
+              <p className="text-xs text-[#cbd5e1] animate-pulse">Loading RTO details...</p>
+            </div>
+          )}
+
+          {/* System Status */}
+          <div className="flex flex-col gap-2">
+            <HUDStatusIndicator status="online" label="AI ONLINE" size="sm" />
+            <HUDStatusIndicator status="processing" label="ACTIVE" size="sm" />
+          </div>
         </div>
 
-        {/* RTO Details */}
-        {rtoInfo && (
-          <div className="mb-4 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
-            <p className="text-sm font-poppins font-semibold text-[#1e293b]">{rtoInfo.legalname}</p>
-          </div>
-        )}
+        {/* Nav Items */}
+        <div className="flex-1 p-4 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentView === item.id;
 
-        {isLoadingRTO && (
-          <div className="mb-4 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
-            <p className="text-xs text-[#cbd5e1] animate-pulse">Loading RTO details...</p>
-          </div>
-        )}
-
-        {/* System Status */}
-        <div className="flex flex-col gap-2">
-          <HUDStatusIndicator status="online" label="AI ONLINE" size="sm" />
-          <HUDStatusIndicator status="processing" label="ACTIVE" size="sm" />
-        </div>
-      </div>
-
-      {/* Nav Items */}
-      <div className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentView === item.id;
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => handleMobileNavigate(item.id)}
-              className={`
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleMobileNavigate(item.id)}
+                className={`
                 w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all
                 font-poppins text-sm
-                ${isActive 
-                  ? 'bg-[#3b82f6] text-white shadow-soft' 
-                  : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
-                }
+                ${isActive
+                    ? 'bg-[#3b82f6] text-white shadow-soft'
+                    : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
+                  }
               `}
+              >
+                <Icon className="w-5 h-5" />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Settings and Admin */}
+        <div className="p-4 border-t border-[#dbeafe] space-y-1">
+          <button
+            onClick={() => handleMobileNavigate('settings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === 'settings'
+                ? 'bg-[#e0f2fe] text-[#0284c7]'
+                : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
+              }`}
+          >
+            <Settings className="w-5 h-5" />
+            <span className="font-poppins text-sm">Settings</span>
+          </button>
+
+          {/* Admin - Only visible to admin users */}
+          {user?.is_admin && (
+            <button
+              onClick={() => handleMobileNavigate('maintenance')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === 'maintenance'
+                  ? 'bg-[#f3e8ff] text-[#7c3aed]'
+                  : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
+                }`}
             >
-              <Icon className="w-5 h-5" />
-              {item.label}
+              <Lock className="w-5 h-5" />
+              <span className="font-poppins text-sm">Admin</span>
             </button>
-          );
-        })}
-      </div>
-      
-      {/* Settings and Admin */}
-      <div className="p-4 border-t border-[#dbeafe] space-y-1">
-        <button
-          onClick={() => handleMobileNavigate('settings')}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-            currentView === 'settings'
-              ? 'bg-[#e0f2fe] text-[#0284c7]'
-              : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
-          }`}
-        >
-          <Settings className="w-5 h-5" />
-          <span className="font-poppins text-sm">Settings</span>
-        </button>
+          )}
 
-        <button
-          onClick={() => handleMobileNavigate('maintenance')}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-            currentView === 'maintenance'
-              ? 'bg-[#f3e8ff] text-[#7c3aed]'
-              : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
-          }`}
-        >
-          <Lock className="w-5 h-5" />
-          <span className="font-poppins text-sm">Admin</span>
-        </button>
-
-        <button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-            isLoggingOut
-              ? 'text-[#94a3b8] bg-[#f1f5f9] cursor-not-allowed'
-              : 'text-[#ef4444] hover:bg-[#fee2e2] hover:text-[#dc2626]'
-          }`}
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="font-poppins text-sm">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
-        </button>
-      </div>
-    </nav>
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isLoggingOut
+                ? 'text-[#94a3b8] bg-[#f1f5f9] cursor-not-allowed'
+                : 'text-[#ef4444] hover:bg-[#fee2e2] hover:text-[#dc2626]'
+              }`}
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="font-poppins text-sm">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
+          </button>
+        </div>
+      </nav>
     </>
   );
 }

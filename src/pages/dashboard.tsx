@@ -34,7 +34,11 @@ export function DashboardPage() {
   const urlModule = searchParams.get('module');
 
   // Validate and use URL state
-  const currentView = VALID_VIEWS.includes(urlView) ? urlView : 'dashboard';
+  // Block maintenance view for non-admin users (redirect to dashboard)
+  const isMaintenanceAllowed = user?.is_admin === true;
+  const currentView = VALID_VIEWS.includes(urlView)
+    ? (urlView === 'maintenance' && !isMaintenanceAllowed ? 'dashboard' : urlView)
+    : 'dashboard';
   const selectedValidationId = urlValidationId;
   const maintenanceModule = urlModule;
 
