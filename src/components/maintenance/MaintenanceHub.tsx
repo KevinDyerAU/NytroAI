@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Database, Building2, BookOpen, Brain, CheckSquare, FileText, Zap, Target, MessageSquare, PlayCircle, CreditCard } from 'lucide-react';
+import { ChevronRight, Building2, BookOpen, CheckSquare, Zap, MessageSquare, CreditCard } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -38,34 +38,6 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
       color: 'bg-green-50 border-green-200',
     },
     {
-      id: 'acquisition',
-      title: 'Unit Acquisition',
-      description: 'Extract Units of Competency from training.gov.au',
-      icon: <Target className="w-8 h-8" />,
-      color: 'bg-teal-50 border-teal-200',
-    },
-    {
-      id: 'questions',
-      title: 'Smart Questions',
-      description: 'Manage smart questions for validation and assessment',
-      icon: <Brain className="w-8 h-8" />,
-      color: 'bg-orange-50 border-orange-200',
-    },
-    {
-      id: 'validations',
-      title: 'Validation Records',
-      description: 'Manage validation summaries, details, and validation files',
-      icon: <FileText className="w-8 h-8" />,
-      color: 'bg-red-50 border-red-200',
-    },
-    {
-      id: 'requirements',
-      title: 'Requirements',
-      description: 'Manage knowledge evidence, performance evidence, and other requirements',
-      icon: <Database className="w-8 h-8" />,
-      color: 'bg-indigo-50 border-indigo-200',
-    },
-    {
       id: 'credits',
       title: 'Credits Management',
       description: 'Manage AI and validation credits for each RTO',
@@ -78,13 +50,6 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
       description: 'Manage Gemini AI validation prompts and correlate with validation types',
       icon: <MessageSquare className="w-8 h-8" />,
       color: 'bg-pink-50 border-pink-200',
-    },
-    {
-      id: 'trigger-validation',
-      title: 'Trigger Validation',
-      description: 'Manually trigger validation for debugging or re-running failed validations',
-      icon: <PlayCircle className="w-8 h-8" />,
-      color: 'bg-cyan-50 border-cyan-200',
     },
     {
       id: 'subscriptions',

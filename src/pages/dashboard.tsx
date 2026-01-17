@@ -10,12 +10,8 @@ import { MaintenanceHub } from '../components/maintenance/MaintenanceHub';
 import { RTOMaintenance } from '../components/maintenance/RTOMaintenance';
 import { QualificationsMaintenance } from '../components/maintenance/QualificationsMaintenance';
 import { UnitOfCompetencyMaintenance } from '../components/maintenance/UnitOfCompetencyMaintenance';
-import { SmartQuestionMaintenance } from '../components/maintenance/SmartQuestionMaintenance';
-import { ValidationsMaintenance } from '../components/maintenance/ValidationsMaintenance';
-import { RequirementsMaintenance } from '../components/maintenance/RequirementsMaintenance';
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
 import { PromptMaintenanceNew as PromptMaintenance } from '../components/maintenance/PromptMaintenanceNew';
-import { TriggerValidation } from '../components/maintenance/TriggerValidation';
 import { SubscriptionsAdmin } from '../components/maintenance/SubscriptionsAdmin';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
@@ -177,34 +173,6 @@ export function DashboardPage() {
             <UnitOfCompetencyMaintenance />
           </div>
         );
-      case 'acquisition':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <UnitAcquisition selectedRTOId={selectedRTOId} />
-          </div>
-        );
-      case 'questions':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <SmartQuestionMaintenance />
-          </div>
-        );
-      case 'validations':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <ValidationsMaintenance />
-          </div>
-        );
-      case 'requirements':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <RequirementsMaintenance />
-          </div>
-        );
       case 'credits':
         return (
           <div className="space-y-4">
@@ -217,18 +185,6 @@ export function DashboardPage() {
           <div className="space-y-4">
             {backButton}
             <PromptMaintenance />
-          </div>
-        );
-      case 'trigger-validation':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <TriggerValidation
-              onViewResults={(detailId) => {
-                // Navigate to results with validation ID in a single URL update
-                updateUrlState({ view: 'results', validationId: detailId.toString(), module: null });
-              }}
-            />
           </div>
         );
       case 'subscriptions':
