@@ -3,7 +3,7 @@ import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { GlowButton } from './GlowButton';
 import { StatusBadge } from './StatusBadge';
-import { Target, Search, ExternalLink, RefreshCw } from 'lucide-react';
+import { Target, Search, ExternalLink, RefreshCw, Sparkles, Eye, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchUnitsOfCompetency } from '../types/rto';
 import {
@@ -14,6 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from "./ui/table";
+import {
+  AlertDialog,
+  AlertDialogContent,
+} from "./ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+
+// Import wizard logo
+import wizardLogo from '../assets/wizard-logo.png';
 
 interface UnitAcquisitionProps {
   selectedRTOId: string;
@@ -36,6 +44,21 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
+
+  // Progress modal state
+  const [showAcquisitionModal, setShowAcquisitionModal] = useState(false);
+  const [acquisitionStep, setAcquisitionStep] = useState('');
+
+  // Unit details dialog state
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [detailUnit, setDetailUnit] = useState<UnitOfCompetency | null>(null);
+  const [activeTab, setActiveTab] = useState('ke');
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [keReqs, setKeReqs] = useState<any[]>([]);
+  const [peReqs, setPeReqs] = useState<any[]>([]);
+  const [fsReqs, setFsReqs] = useState<any[]>([]);
+  const [epcReqs, setEpcReqs] = useState<any[]>([]);
+  const [acReqs, setAcReqs] = useState<any[]>([]);
 
   const extractUnitCode = (input: string): string => {
     // Extract unit code from full URL or just the code itself
@@ -90,8 +113,8 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
 
   const filteredUnits = unitCode.trim()
     ? existingUnits.filter(unit =>
-        unit.unitCode.toUpperCase().includes(unitCode.toUpperCase())
-      )
+      unit.unitCode.toUpperCase().includes(unitCode.toUpperCase())
+    )
     : existingUnits;
 
   // Pagination calculations
@@ -105,22 +128,91 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     setCurrentPage(1);
   }, [unitCode]);
 
+  // Open unit details dialog and fetch requirements
+  const openUnitDetails = async (unit: UnitOfCompetency) => {
+    setDetailUnit(unit);
+    setShowDetailsDialog(true);
+    setActiveTab('ke');
+    setIsLoadingDetails(true);
+
+    // Clear previous data
+    setKeReqs([]);
+    setPeReqs([]);
+    setFsReqs([]);
+    setEpcReqs([]);
+    setAcReqs([]);
+
+    try {
+      // The requirements tables use unit_url which stores the full URL
+      // Match using the unit's link (exact match) or unit code pattern in URL
+      const unitLink = unit.link || '';
+      const unitCodePattern = `%${unit.unitCode}%`;
+
+      console.log('[UnitAcquisition] Fetching requirements for unit:', unit.unitCode);
+      console.log('[UnitAcquisition] Link URL:', unitLink);
+
+      // Fetch from all 5 requirements tables in parallel
+      // Use .eq() for exact URL match since that's how the data is stored
+      const [keResult, peResult, fsResult, epcResult, acResult] = await Promise.all([
+        supabase.from('knowledge_evidence_requirements')
+          .select('*')
+          .eq('unit_url', unitLink),
+        supabase.from('performance_evidence_requirements')
+          .select('*')
+          .eq('unit_url', unitLink),
+        supabase.from('foundation_skills_requirements')
+          .select('*')
+          .eq('unit_url', unitLink),
+        supabase.from('elements_performance_criteria_requirements')
+          .select('*')
+          .eq('unit_url', unitLink),
+        supabase.from('assessment_conditions_requirements')
+          .select('*')
+          .eq('unit_url', unitLink),
+      ]);
+
+      setKeReqs(keResult.data || []);
+      setPeReqs(peResult.data || []);
+      setFsReqs(fsResult.data || []);
+      setEpcReqs(epcResult.data || []);
+      setAcReqs(acResult.data || []);
+    } catch (error) {
+      console.error('Failed to load unit requirements:', error);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   const handleAcquire = async () => {
     if (!isCodeValid || unitCodeExists) return;
 
     const originUrl = buildWebhookUrl(unitCode);
     setIsScanning(true);
+    setShowAcquisitionModal(true);
+    setAcquisitionStep('Preparing extraction...');
 
     try {
+      // Step 1: Validate configuration
+      setAcquisitionStep('Checking configuration...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const n8nUrl = import.meta.env.VITE_N8N_WEB_SCRAPE_URL;
-      
+
       if (!n8nUrl) {
         throw new Error('N8N Web Scrape URL not configured. Please set VITE_N8N_WEB_SCRAPE_URL in environment variables.');
       }
 
+      // Step 2: Connect to training.gov.au
+      setAcquisitionStep(`Connecting to training.gov.au...`);
+      await new Promise(resolve => setTimeout(resolve, 400));
+
       // Build callback webhook URL (for n8n to send results back)
       const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`;
-      
+
+      // Step 3: Send extraction request
+      setAcquisitionStep(`Extracting unit ${unitCode}...`);
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const response = await fetch(n8nUrl, {
         method: 'POST',
         headers: {
@@ -133,11 +225,15 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
         }),
       });
 
+      // Step 4: Processing response
+      setAcquisitionStep('Processing requirements...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       // Check response status first
       if (!response.ok) {
         console.error('Webhook request failed:');
         console.error('Status:', response.status, response.statusText);
-        
+
         // Try to get error message from response body
         let errorText = 'Webhook request failed';
         try {
@@ -148,14 +244,14 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
         } catch (e) {
           // Ignore if we can't read the error
         }
-        
+
         throw new Error(errorText);
       }
 
       // Response is OK - try to parse JSON if there's content
       let result = null;
       const contentType = response.headers.get('content-type');
-      
+
       if (contentType && contentType.includes('application/json')) {
         try {
           const text = await response.text();
@@ -168,13 +264,21 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
         }
       }
 
+      // Step 5: Saving to database
+      setAcquisitionStep('Saving to database...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       console.log('Webhook request successful', result);
+
+      // Close modal and show success
+      setShowAcquisitionModal(false);
+      setAcquisitionStep('');
       setSuccessMessage(`Successfully initiated extraction for ${unitCode}. Requirements will be processed and saved to the database.`);
       setShowSuccessAlert(true);
 
       // Refresh the units list
       await fetchExistingUnits();
-      
+
       // Auto-dismiss after 8 seconds and clear filter
       setTimeout(() => {
         setShowSuccessAlert(false);
@@ -182,6 +286,11 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
       }, 8000);
     } catch (error) {
       console.error('Error sending webhook:', error);
+      setShowAcquisitionModal(false);
+      setAcquisitionStep('');
+      // Show error to user
+      setSuccessMessage(`Failed to extract unit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setShowSuccessAlert(true);
     } finally {
       setIsScanning(false);
     }
@@ -222,7 +331,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                 <div className="absolute inset-0 border-2 border-[#3b82f6] animate-pulse rounded-md"></div>
               )}
             </div>
-            
+
             <GlowButton
               variant="primary"
               onClick={handleAcquire}
@@ -360,22 +469,32 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                       {unit.created_at ? new Date(unit.created_at).toLocaleDateString('en-AU') : '-'}
                     </TableCell>
                     <TableCell>
-                      <button
-                        onClick={() => {
-                          if (unit.link) {
-                            window.open(unit.link, '_blank', 'width=1024,height=768');
-                          }
-                        }}
-                        disabled={!unit.link}
-                        className={`p-2 rounded transition-colors ${
-                          unit.link
+                      <div className="flex items-center gap-1">
+                        {/* View Requirements Button */}
+                        <button
+                          onClick={() => openUnitDetails(unit)}
+                          className="p-2 rounded transition-colors hover:bg-[#dbeafe] text-[#3b82f6] cursor-pointer"
+                          title="View extracted requirements"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {/* External Link Button */}
+                        <button
+                          onClick={() => {
+                            if (unit.link) {
+                              window.open(unit.link, '_blank', 'width=1024,height=768');
+                            }
+                          }}
+                          disabled={!unit.link}
+                          className={`p-2 rounded transition-colors ${unit.link
                             ? 'hover:bg-[#f1f5f9] text-[#64748b] hover:text-[#3b82f6] cursor-pointer'
                             : 'text-[#cbd5e1] cursor-not-allowed opacity-50'
-                        }`}
-                        title={unit.link ? 'Open unit details in new window' : 'No link available'}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
+                            }`}
+                          title={unit.link ? 'Open on training.gov.au' : 'No link available'}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -394,11 +513,10 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className={`px-3 py-1 rounded border transition-colors ${
-                  currentPage === 1
-                    ? 'border-[#e2e8f0] text-[#cbd5e1] cursor-not-allowed'
-                    : 'border-[#dbeafe] text-[#64748b] hover:bg-[#f1f5f9] hover:border-[#3b82f6] hover:text-[#3b82f6]'
-                }`}
+                className={`px-3 py-1 rounded border transition-colors ${currentPage === 1
+                  ? 'border-[#e2e8f0] text-[#cbd5e1] cursor-not-allowed'
+                  : 'border-[#dbeafe] text-[#64748b] hover:bg-[#f1f5f9] hover:border-[#3b82f6] hover:text-[#3b82f6]'
+                  }`}
               >
                 Previous
               </button>
@@ -429,11 +547,10 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`min-w-[2rem] px-3 py-1 rounded border transition-colors ${
-                        currentPage === page
-                          ? 'border-[#3b82f6] bg-[#3b82f6] text-white'
-                          : 'border-[#dbeafe] text-[#64748b] hover:bg-[#f1f5f9] hover:border-[#3b82f6] hover:text-[#3b82f6]'
-                      }`}
+                      className={`min-w-[2rem] px-3 py-1 rounded border transition-colors ${currentPage === page
+                        ? 'border-[#3b82f6] bg-[#3b82f6] text-white'
+                        : 'border-[#dbeafe] text-[#64748b] hover:bg-[#f1f5f9] hover:border-[#3b82f6] hover:text-[#3b82f6]'
+                        }`}
                     >
                       {page}
                     </button>
@@ -444,11 +561,10 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded border transition-colors ${
-                  currentPage === totalPages
-                    ? 'border-[#e2e8f0] text-[#cbd5e1] cursor-not-allowed'
-                    : 'border-[#dbeafe] text-[#64748b] hover:bg-[#f1f5f9] hover:border-[#3b82f6] hover:text-[#3b82f6]'
-                }`}
+                className={`px-3 py-1 rounded border transition-colors ${currentPage === totalPages
+                  ? 'border-[#e2e8f0] text-[#cbd5e1] cursor-not-allowed'
+                  : 'border-[#dbeafe] text-[#64748b] hover:bg-[#f1f5f9] hover:border-[#3b82f6] hover:text-[#3b82f6]'
+                  }`}
               >
                 Next
               </button>
@@ -456,6 +572,289 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
           </div>
         )}
       </Card>
+
+      {/* Unit Acquisition Loading Modal */}
+      <AlertDialog open={showAcquisitionModal} onOpenChange={setShowAcquisitionModal}>
+        <AlertDialogContent className="max-w-md bg-white">
+          <div className="flex flex-col items-center justify-center py-8 px-4">
+            {/* Wizard logo */}
+            <div className="mb-6 w-32">
+              <img
+                src={wizardLogo}
+                alt="Nytro Wizard"
+                className="w-full h-auto object-contain animate-pulse"
+              />
+            </div>
+
+            <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+              Nytro is extracting...
+            </h3>
+
+            {/* Progress indicator */}
+            <div className="w-full max-w-xs mb-4">
+              <div className="h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#22c55e] to-[#3b82f6] animate-pulse"
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+
+            {/* Current step display */}
+            <div className="flex items-center gap-2 mb-3 px-4 py-2 bg-[#f0fdf4] rounded-lg border border-[#86efac]">
+              <Target className="w-4 h-4 text-[#16a34a] animate-spin" style={{ animationDuration: '1.5s' }} />
+              <p className="text-sm font-medium text-[#166534]">
+                {acquisitionStep || 'Initializing...'}
+              </p>
+            </div>
+
+            {/* Bouncing dots */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#94a3b8] text-center">
+              Extracting requirements from training.gov.au for {unitCode}
+            </p>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unit Details Dialog */}
+      <AlertDialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <AlertDialogContent className="max-w-5xl w-[90vw] h-[85vh] overflow-hidden bg-white p-0 flex flex-col">
+          <div className="flex flex-col h-full min-h-0">
+            {/* Header */}
+            <div className="flex flex-none items-start justify-between p-6 border-b border-[#e2e8f0]">
+              <div>
+                <h3 className="font-poppins text-xl font-bold text-[#1e293b]">
+                  {detailUnit?.unitCode} - {detailUnit?.Title || 'Unit Details'}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="px-2 py-0.5 rounded bg-[#dbeafe] text-[#1e40af] text-xs font-medium">
+                    KE: {keReqs.length}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#dcfce7] text-[#166534] text-xs font-medium">
+                    PE: {peReqs.length}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#fef3c7] text-[#92400e] text-xs font-medium">
+                    FS: {fsReqs.length}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#e0e7ff] text-[#4338ca] text-xs font-medium">
+                    EPC: {epcReqs.length}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#fce7f3] text-[#be185d] text-xs font-medium">
+                    AC: {acReqs.length}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDetailsDialog(false)}
+                className="p-2 rounded-lg hover:bg-[#f1f5f9] text-[#64748b] hover:text-[#1e293b] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs Content */}
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0 p-6">
+              {isLoadingDetails ? (
+                <div className="flex items-center justify-center h-48">
+                  <div className="text-center">
+                    <RefreshCw className="w-8 h-8 text-[#3b82f6] animate-spin mx-auto mb-3" />
+                    <p className="text-[#64748b]">Loading requirements...</p>
+                  </div>
+                </div>
+              ) : (
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+                  <TabsList className="grid grid-cols-5 mb-4">
+                    <TabsTrigger value="ke" className="text-xs">
+                      Knowledge ({keReqs.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="pe" className="text-xs">
+                      Performance ({peReqs.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="fs" className="text-xs">
+                      Foundation ({fsReqs.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="epc" className="text-xs">
+                      Elements ({epcReqs.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="ac" className="text-xs">
+                      Conditions ({acReqs.length})
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <div className="flex-1 overflow-auto">
+                    {/* Knowledge Evidence Tab */}
+                    <TabsContent value="ke" className="mt-0 h-full">
+                      {keReqs.length === 0 ? (
+                        <div className="text-center py-8 text-[#64748b]">
+                          <p>No knowledge evidence requirements found for this unit.</p>
+                        </div>
+                      ) : (
+                        <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-[#f8f9fb]">
+                              <tr className="border-b border-[#e2e8f0]">
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold w-24">KE #</th>
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold">Knowledge Point</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {keReqs.map((req: any) => (
+                                <tr key={req.id} className="border-b border-[#e2e8f0] hover:bg-[#f8f9fb]">
+                                  <td className="py-3 px-4 font-mono text-[#3b82f6] font-semibold">{req.ke_number}</td>
+                                  <td className="py-3 px-4 text-[#1e293b]">{req.knowled_point}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    {/* Performance Evidence Tab */}
+                    <TabsContent value="pe" className="mt-0 h-full">
+                      {peReqs.length === 0 ? (
+                        <div className="text-center py-8 text-[#64748b]">
+                          <p>No performance evidence requirements found for this unit.</p>
+                        </div>
+                      ) : (
+                        <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-[#f8f9fb]">
+                              <tr className="border-b border-[#e2e8f0]">
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold w-24">PE #</th>
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold">Performance Evidence</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {peReqs.map((req: any) => (
+                                <tr key={req.id} className="border-b border-[#e2e8f0] hover:bg-[#f8f9fb]">
+                                  <td className="py-3 px-4 font-mono text-[#22c55e] font-semibold">{req.pe_number}</td>
+                                  <td className="py-3 px-4 text-[#1e293b]">{req.performance_evidence}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    {/* Foundation Skills Tab */}
+                    <TabsContent value="fs" className="mt-0 h-full">
+                      {fsReqs.length === 0 ? (
+                        <div className="text-center py-8 text-[#64748b]">
+                          <p>No foundation skills requirements found for this unit.</p>
+                        </div>
+                      ) : (
+                        <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-[#f8f9fb]">
+                              <tr className="border-b border-[#e2e8f0]">
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold w-24">FS #</th>
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold">Skill Point</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {fsReqs.map((req: any) => (
+                                <tr key={req.id} className="border-b border-[#e2e8f0] hover:bg-[#f8f9fb]">
+                                  <td className="py-3 px-4 font-mono text-[#f59e0b] font-semibold">{req.fs_number}</td>
+                                  <td className="py-3 px-4 text-[#1e293b]">{req.skill_point}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    {/* Elements & Performance Criteria Tab */}
+                    <TabsContent value="epc" className="mt-0 h-full">
+                      {epcReqs.length === 0 ? (
+                        <div className="text-center py-8 text-[#64748b]">
+                          <p>No elements & performance criteria found for this unit.</p>
+                        </div>
+                      ) : (
+                        <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-[#f8f9fb]">
+                              <tr className="border-b border-[#e2e8f0]">
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold w-24">EPC #</th>
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold">Performance Criteria</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {epcReqs.map((req: any) => (
+                                <tr key={req.id} className="border-b border-[#e2e8f0] hover:bg-[#f8f9fb]">
+                                  <td className="py-3 px-4 font-mono text-[#6366f1] font-semibold">{req.epc_number}</td>
+                                  <td className="py-3 px-4 text-[#1e293b]">{req.performance_criteria}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    {/* Assessment Conditions Tab */}
+                    <TabsContent value="ac" className="mt-0 h-full">
+                      {acReqs.length === 0 ? (
+                        <div className="text-center py-8 text-[#64748b]">
+                          <p>No assessment conditions found for this unit.</p>
+                        </div>
+                      ) : (
+                        <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-[#f8f9fb]">
+                              <tr className="border-b border-[#e2e8f0]">
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold w-24">AC #</th>
+                                <th className="text-left py-3 px-4 text-[#1e293b] font-semibold">Condition</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {acReqs.map((req: any) => (
+                                <tr key={req.id} className="border-b border-[#e2e8f0] hover:bg-[#f8f9fb]">
+                                  <td className="py-3 px-4 font-mono text-[#ec4899] font-semibold">{req.ac_number}</td>
+                                  <td className="py-3 px-4 text-[#1e293b]">{req.condition_text}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex-none border-t border-[#e2e8f0] p-4 flex justify-end gap-3">
+              {detailUnit?.link && (
+                <button
+                  onClick={() => window.open(detailUnit.link, '_blank')}
+                  className="px-4 py-2 text-[#3b82f6] border border-[#3b82f6] rounded-lg hover:bg-[#dbeafe] transition-colors flex items-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View on training.gov.au
+                </button>
+              )}
+              <button
+                onClick={() => setShowDetailsDialog(false)}
+                className="px-4 py-2 bg-[#1e40af] text-white rounded-lg hover:bg-[#1e3a8a] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
