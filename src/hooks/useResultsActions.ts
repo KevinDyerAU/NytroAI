@@ -18,12 +18,13 @@ import {
 interface UseResultsActionsReturn {
   generateAndDownloadReport: (validationDetailId: number) => Promise<void>;
   revalidate: (validationResult: any) => Promise<void>;
-  regenerateSmartQuestions: (validationResultId: number, userGuidance: string) => Promise<any>;
+  regenerateSmartQuestions: (validationDetailId: number, validationResultId: number, userGuidance: string) => Promise<any>;
   isGeneratingReport: boolean;
   isRevalidating: boolean;
   isRegeneratingQuestions: boolean;
   error: string | null;
 }
+
 
 export function useResultsActions(onRefresh?: () => void): UseResultsActionsReturn {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -37,7 +38,7 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
 
     try {
       console.log('[useResultsActions] Generating Excel report:', validationDetailId);
-      
+
       toast.loading('Generating Excel validation report...', { id: 'generate-report' });
 
       const result = await generateReport(validationDetailId);
@@ -55,7 +56,7 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
       const errorMsg = err instanceof Error ? err.message : 'Failed to generate report';
       setError(errorMsg);
       console.error('[useResultsActions] Report generation error:', errorMsg);
-      
+
       toast.error('Failed to generate report', {
         id: 'generate-report',
         description: errorMsg,
@@ -74,7 +75,7 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
         id: validationResult.id,
         validationDetailId: validationResult.validation_detail_id,
       });
-      
+
       toast.loading('Revalidating requirement...', { id: 'revalidate' });
 
       const result = await revalidateRequirement(validationResult);
@@ -96,7 +97,7 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
       const errorMsg = err instanceof Error ? err.message : 'Failed to revalidate';
       setError(errorMsg);
       console.error('[useResultsActions] Revalidation error:', errorMsg);
-      
+
       toast.error('Failed to revalidate', {
         id: 'revalidate',
         description: errorMsg,
@@ -107,6 +108,7 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
   };
 
   const regenerateSmartQuestions = async (
+    validationDetailId: number,
     validationResultId: number,
     userGuidance: string
   ) => {
@@ -115,15 +117,17 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
 
     try {
       console.log('[useResultsActions] Regenerating questions:', {
+        validationDetailId,
         validationResultId,
         guidanceLength: userGuidance.length,
       });
-      
+
       toast.loading('Regenerating smart questions...', { id: 'regenerate-questions' });
 
-      const result = await regenerateQuestions(validationResultId, userGuidance);
+      const result = await regenerateQuestions(validationDetailId, validationResultId, userGuidance);
 
-      if (result.success && result.questions) {
+      // Check if questions were returned (the API returns { validation_detail_id, questions, summary?, response_timestamp })
+      if (result.questions && result.questions.length > 0) {
         toast.success('Questions regenerated!', {
           id: 'regenerate-questions',
           description: `Generated ${result.questions.length} new questions.`,
@@ -136,13 +140,13 @@ export function useResultsActions(onRefresh?: () => void): UseResultsActionsRetu
 
         return result.questions;
       } else {
-        throw new Error(result.error || 'Failed to regenerate questions');
+        throw new Error('No questions generated');
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to regenerate questions';
       setError(errorMsg);
       console.error('[useResultsActions] Question regeneration error:', errorMsg);
-      
+
       toast.error('Failed to regenerate questions', {
         id: 'regenerate-questions',
         description: errorMsg,

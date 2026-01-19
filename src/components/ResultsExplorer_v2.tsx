@@ -16,8 +16,8 @@ import { ValidationReport } from './reports';
 import { ValidationStatusMessage, InlineErrorMessage } from './ValidationStatusMessage';
 import { ResultsExplorerActions, RequirementActions } from './ResultsExplorerActions';
 import { ValidationStatusBadge } from './ValidationStatusBadge';
-import { 
-  Search, 
+import {
+  Search,
   Download,
   X,
   Target,
@@ -43,17 +43,17 @@ import {
   DialogFooter,
 } from "./ui/dialog";
 import { toast } from 'sonner';
-import { 
-  getRTOById, 
-  getAICredits, 
-  consumeAICredit, 
-  getActiveValidationsByRTO, 
-  type ValidationRecord 
+import {
+  getRTOById,
+  getAICredits,
+  consumeAICredit,
+  getActiveValidationsByRTO,
+  type ValidationRecord
 } from '../types/rto';
-import { 
+import {
   getValidationResults,
   type ValidationEvidenceRecord,
-  type ValidationResultsError 
+  type ValidationResultsError
 } from '../lib/validationResults';
 import { Validation, getValidationTypeLabel, formatValidationDate } from '../types/validation';
 
@@ -63,21 +63,21 @@ interface ResultsExplorerProps {
   selectedRTOId: string;
 }
 
-export function ResultsExplorer_v2({ 
-  selectedValidationId: propValidationId, 
-  aiCreditsAvailable = true, 
-  selectedRTOId 
+export function ResultsExplorer_v2({
+  selectedValidationId: propValidationId,
+  aiCreditsAvailable = true,
+  selectedRTOId
 }: ResultsExplorerProps) {
   // URL-based state for filters (persists across refresh)
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Read validationId from URL (takes precedence) or fall back to prop
   const urlValidationId = searchParams.get('validationId');
   const selectedValidationId = urlValidationId || propValidationId;
-  
+
   // Log the prop on every render to debug
   console.log('[ResultsExplorer RENDER] Props:', { propValidationId, selectedRTOId });
-  
+
   // Log current URL params
   console.log('[ResultsExplorer RENDER] URL params:', {
     view: searchParams.get('view'),
@@ -87,16 +87,16 @@ export function ResultsExplorer_v2({
     search: searchParams.get('search'),
     status: searchParams.get('status'),
   });
-  
+
   // Read filter state from URL
   const urlSearchTerm = searchParams.get('search') || '';
   const urlStatusFilter = searchParams.get('status') || 'all';
-  
+
   // Update URL params helper
   const updateFilterParams = useCallback((updates: { search?: string; status?: string }) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
-      
+
       if (updates.search !== undefined) {
         if (updates.search === '') {
           newParams.delete('search');
@@ -104,7 +104,7 @@ export function ResultsExplorer_v2({
           newParams.set('search', updates.search);
         }
       }
-      
+
       if (updates.status !== undefined) {
         if (updates.status === 'all') {
           newParams.delete('status');
@@ -112,40 +112,41 @@ export function ResultsExplorer_v2({
           newParams.set('status', updates.status);
         }
       }
-      
+
       return newParams;
     }, { replace: true }); // Use replace to avoid cluttering history with filter changes
   }, [setSearchParams]);
-  
+
   // Use URL values for filters
   const searchTerm = urlSearchTerm;
   const statusFilter = urlStatusFilter;
-  
+
   // Setters that update URL
   const setSearchTerm = useCallback((value: string) => {
     updateFilterParams({ search: value });
   }, [updateFilterParams]);
-  
+
   const setStatusFilter = useCallback((value: string) => {
     updateFilterParams({ status: value });
   }, [updateFilterParams]);
-  
+
   // State management for non-filter state
   const [selectedValidation, setSelectedValidation] = useState<Validation | null>(null);
   const [showAIChat, setShowAIChat] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [confirmText, setConfirmText] = useState('');
-  
-  // Credits state
-  const [aiCredits, setAICredits] = useState({ current: 0, total: 0 });
+
+  // Credits state - default to positive values to prevent showing "No credits" while loading
+  const [aiCredits, setAICredits] = useState({ current: 100, total: 100 });
+  const [creditsLoaded, setCreditsLoaded] = useState(false);
   const [isConsumingCredit, setIsConsumingCredit] = useState(false);
-  
+
   // Validation records state
   const [validationRecords, setValidationRecords] = useState<ValidationRecord[]>([]);
   const [isLoadingValidations, setIsLoadingValidations] = useState(true);
   const [validationLoadError, setValidationLoadError] = useState<string | null>(null);
-  
+
   // Validation evidence state with comprehensive error handling
   const [validationEvidenceData, setValidationEvidenceData] = useState<ValidationEvidenceRecord[]>([]);
   const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
@@ -163,10 +164,10 @@ export function ResultsExplorer_v2({
     if (hoursDiff > 36) return 'expiring'; // Less than 12 hours left
     return 'active';
   }, [selectedValidation?.validationDate]);
-  
+
   // For backward compatibility with existing code
   const isValidationExpired = validationExpiryStatus === 'expired';
-  
+
 
   // Load AI credits
   useEffect(() => {
@@ -175,10 +176,15 @@ export function ResultsExplorer_v2({
       if (!currentRTO?.code) return;
 
       try {
+        console.log('[ResultsExplorer] Loading AI credits for RTO:', currentRTO.code);
         const credits = await getAICredits(currentRTO.code);
+        console.log('[ResultsExplorer] AI credits loaded:', credits);
         setAICredits(credits);
+        setCreditsLoaded(true);
       } catch (error) {
         console.error('[ResultsExplorer] Error loading AI credits:', error);
+        // On error, keep default positive values so features aren't disabled
+        setCreditsLoaded(true);
       }
     };
 
@@ -191,7 +197,7 @@ export function ResultsExplorer_v2({
       try {
         setIsLoadingValidations(true);
         setValidationLoadError(null);
-        
+
         if (!selectedRTOId) {
           console.warn('[ResultsExplorer] No RTO ID provided');
           setValidationRecords([]);
@@ -201,7 +207,7 @@ export function ResultsExplorer_v2({
 
         // Try cache first, then fetch directly if not found
         let currentRTO = getRTOById(selectedRTOId);
-        
+
         if (!currentRTO?.code) {
           console.log('[ResultsExplorer] RTO not in cache, fetching directly...');
           // Import and use fetchRTOById to get RTO data
@@ -218,7 +224,7 @@ export function ResultsExplorer_v2({
             };
           }
         }
-        
+
         if (!currentRTO?.code) {
           console.warn('[ResultsExplorer] Could not get RTO code for ID:', selectedRTOId);
           setValidationRecords([]);
@@ -229,7 +235,7 @@ export function ResultsExplorer_v2({
         console.log('[ResultsExplorer] Loading validations for RTO:', currentRTO.code);
         const records = await getActiveValidationsByRTO(currentRTO.code);
         console.log('[ResultsExplorer] Loaded validation records:', records.length);
-        
+
         setValidationRecords(records);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -264,23 +270,23 @@ export function ResultsExplorer_v2({
       validationRecordsCount: validationRecords.length,
       currentSelectedId: selectedValidation?.id,
     });
-    
+
     // Wait for records to load
     if (isLoadingValidations) {
       console.log('[ResultsExplorer AUTO-SELECT] Still loading validations, waiting...');
       return;
     }
-    
+
     if (!selectedValidationId) {
       console.log('[ResultsExplorer AUTO-SELECT] No validation ID in URL/props');
       return;
     }
-    
+
     if (validationRecords.length === 0) {
       console.log('[ResultsExplorer AUTO-SELECT] No validation records available');
       return;
     }
-    
+
     // Check if we already have this validation selected
     if (selectedValidation?.id === selectedValidationId) {
       console.log('[ResultsExplorer AUTO-SELECT] Validation already selected:', selectedValidationId);
@@ -291,7 +297,7 @@ export function ResultsExplorer_v2({
     console.log('[ResultsExplorer AUTO-SELECT] Available IDs:', validationRecords.map(r => r.id).slice(0, 10));
 
     const record = validationRecords.find(r => r.id.toString() === selectedValidationId);
-    
+
     if (record) {
       console.log('[ResultsExplorer AUTO-SELECT] Found validation record:', record.id, record.unit_code);
       setSelectedValidation({
@@ -443,7 +449,7 @@ export function ResultsExplorer_v2({
     setLastLoadedValidationId(null);
     setEvidenceError(null);
     setIsLoadingEvidence(true);
-    
+
     // Force re-run of effect
     if (selectedValidation) {
       const temp = selectedValidation;
@@ -457,29 +463,51 @@ export function ResultsExplorer_v2({
     const currentRTO = getRTOById(selectedRTOId);
     if (!currentRTO?.code) return;
 
+    console.log('[ResultsExplorer] handleRefreshStatus called - reloading data');
+
     try {
-      // Reset filters to show all results after refresh
-      setSearchTerm('');
-      setStatusFilter('all');
-      
+      // Show loading state
+      setIsLoadingEvidence(true);
+
+      // Reload validation records
       const records = await getActiveValidationsByRTO(currentRTO.code);
       setValidationRecords(records);
-      
-      // Force reload of evidence data
-      setLastLoadedValidationId(null);
-      
-      toast.success('Status refreshed');
+
+      // Force reload of evidence data by resetting the lastLoadedValidationId
+      // This triggers the existing useEffect to reload data
+      if (selectedValidation?.id) {
+        setLastLoadedValidationId(null);
+
+        // Import and call the validation results function directly
+        const { getValidationResults } = await import('../lib/validationResults');
+
+        // Get the valDetailId from the selected validation (parse to number)
+        const valDetailId = parseInt(selectedValidation.id.toString(), 10);
+
+        const response = await getValidationResults(selectedValidation.id.toString(), valDetailId);
+
+        if (response && 'data' in response && Array.isArray(response.data)) {
+          console.log('[ResultsExplorer] handleRefreshStatus reloaded', response.data.length, 'records');
+          setValidationEvidenceData(response.data);
+          setLastLoadedValidationId(selectedValidation.id.toString());
+        }
+      }
+
+      setIsLoadingEvidence(false);
+      toast.success('Results refreshed', { duration: 2000 });
     } catch (error) {
+      console.error('[ResultsExplorer] Failed to refresh status:', error);
       toast.error('Failed to refresh status');
+      setIsLoadingEvidence(false);
     }
-  }, [selectedRTOId]);
+  }, [selectedRTOId, selectedValidation]);
 
   // Filter results based on search and status
   const filteredResults = validationEvidenceData.filter(result => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       result.requirement_text.toLowerCase().includes(searchTerm.toLowerCase()) ||
       result.requirement_number.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     // Normalize status comparison to handle various formats:
     // Database: "Partially Met", "Met", "Not Met"
     // Filter values: "partial", "met", "not-met"
@@ -489,9 +517,9 @@ export function ResultsExplorer_v2({
       if (lower === 'partially-met') return 'partial';
       return lower;
     };
-    const matchesStatus = statusFilter === 'all' || 
+    const matchesStatus = statusFilter === 'all' ||
       normalizeStatus(result.status) === normalizeStatus(statusFilter);
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -581,8 +609,8 @@ export function ResultsExplorer_v2({
                 <SelectItem value="partial">Partial</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              onClick={handleRefreshStatus} 
+            <Button
+              onClick={handleRefreshStatus}
               size="sm"
               className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6]"
             >
@@ -591,8 +619,8 @@ export function ResultsExplorer_v2({
             </Button>
             {/* Chat with Documents Button */}
             {currentRecord && selectedValidation && (
-              <Button 
-                onClick={() => setShowAIChat(true)} 
+              <Button
+                onClick={() => setShowAIChat(true)}
                 size="sm"
                 className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6] disabled:opacity-50"
                 disabled={aiCredits.current <= 0 || isValidationExpired}
@@ -689,22 +717,22 @@ export function ResultsExplorer_v2({
           const extractStatus = currentRecord?.extract_status || 'Pending';
           const validationStatus = currentRecord?.validation_status || 'Pending';
           const progress = currentRecord?.num_of_req ? Math.round(((currentRecord?.completed_count || 0) / currentRecord.num_of_req) * 100) : 0;
-          
+
           // Status logic matching Dashboard
           const reqComplete = extractStatus !== 'Pending';
-          const docComplete = extractStatus === 'Completed' || 
-                              validationStatus === 'In Progress' || 
-                              validationStatus === 'Finalised';
+          const docComplete = extractStatus === 'Completed' ||
+            validationStatus === 'In Progress' ||
+            validationStatus === 'Finalised';
           const revComplete = validationEvidenceData.length > 0 || progress > 0 || validationStatus === 'Finalised';
           const repComplete = validationStatus === 'Finalised';
 
           // Status indicator component matching Dashboard with tooltip
           const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
-            <div 
+            <div
               className="flex items-center gap-1.5 px-3 py-1 bg-[#f1f5f9] rounded-full cursor-help"
               title={tooltip}
             >
-              <div 
+              <div
                 className={`w-2 h-2 rounded-full ${isComplete ? 'bg-[#22c55e]' : 'bg-[#cbd5e1]'}`}
               />
               <span className="text-xs font-medium text-[#64748b]">{label}</span>
@@ -728,12 +756,12 @@ export function ResultsExplorer_v2({
                   <div className="flex items-center gap-2">
                     <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
                     <span className="text-xs md:text-sm font-medium text-[#1e293b]">
-                      {selectedValidation.validationDate 
-                        ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) 
+                      {selectedValidation.validationDate
+                        ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
                         : 'N/A'}
                     </span>
                     {validationExpiryStatus === 'expired' && (
-                      <div 
+                      <div
                         className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
                         title="This validation is older than 48 hours. AI features are disabled."
                       >
@@ -742,7 +770,7 @@ export function ResultsExplorer_v2({
                       </div>
                     )}
                     {validationExpiryStatus === 'expiring' && (
-                      <div 
+                      <div
                         className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
                         title="Less than 12 hours remaining before AI features are disabled."
                       >
@@ -753,24 +781,24 @@ export function ResultsExplorer_v2({
                   </div>
                 </div>
                 <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-                  <StatusPill 
-                    label="REQ" 
-                    isComplete={reqComplete} 
+                  <StatusPill
+                    label="REQ"
+                    isComplete={reqComplete}
                     tooltip={reqComplete ? 'Requirements: Extraction started' : 'Requirements: Waiting to start'}
                   />
-                  <StatusPill 
-                    label="DOC" 
-                    isComplete={docComplete} 
+                  <StatusPill
+                    label="DOC"
+                    isComplete={docComplete}
                     tooltip={docComplete ? 'Documents: Processing complete' : 'Documents: Processing in progress'}
                   />
-                  <StatusPill 
-                    label="REV" 
-                    isComplete={revComplete} 
+                  <StatusPill
+                    label="REV"
+                    isComplete={revComplete}
                     tooltip={revComplete ? 'Review: Validation results available' : 'Review: Validation in progress'}
                   />
-                  <StatusPill 
-                    label="REP" 
-                    isComplete={repComplete} 
+                  <StatusPill
+                    label="REP"
+                    isComplete={repComplete}
                     tooltip={repComplete ? 'Report: Generated and finalised' : 'Report: Not yet generated'}
                   />
                 </div>
@@ -778,10 +806,10 @@ export function ResultsExplorer_v2({
             </div>
           );
         })()}
-        
+
         {validationLoadError && (
           <Card className="p-4 bg-white mb-6">
-            <InlineErrorMessage 
+            <InlineErrorMessage
               error={{
                 code: 'DATABASE_ERROR',
                 message: validationLoadError,
@@ -791,7 +819,7 @@ export function ResultsExplorer_v2({
             />
           </Card>
         )}
-        
+
         {!selectedValidation && !validationLoadError && (
           <Card className="p-6 bg-white mb-6">
             <div className="text-center py-8 text-gray-500">

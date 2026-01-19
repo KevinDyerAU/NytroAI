@@ -3,7 +3,7 @@ import { Card } from './ui/card';
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
 import { GlowButton } from './GlowButton';
-import { 
+import {
   Sparkles, Edit, Save, X, RotateCcw, FileText, AlertCircle,
   ChevronDown, ChevronUp, RefreshCw, AlertTriangle, FileCheck, Lightbulb
 } from 'lucide-react';
@@ -29,7 +29,7 @@ interface ValidationResult {
   citations: string; // JSON string of citations
   created_at?: string;
   updated_at?: string;
-  
+
   // Helper properties for backward compatibility (can be computed from DB fields)
   requirementNumber?: string; // alias for requirement_number
   type?: string; // alias for requirement_type
@@ -57,7 +57,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
   const getRequirementNumber = () => result.requirement_number || result.requirementNumber || '';
   const getRequirementType = () => result.requirement_type || result.type || '';
   const getRequirementText = () => result.requirement_text || result.requirementText || '';
-  
+
   const getMappedQuestions = (): string[] => {
     try {
       if (!result.mapped_content) return [];
@@ -67,7 +67,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
       return [];
     }
   };
-  
+
   const getDocReferences = (): (string | number)[] => {
     try {
       if (!result.doc_references) return [];
@@ -78,7 +78,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
       return result.doc_references ? result.doc_references.split(/[\n,]/).filter(Boolean) : [];
     }
   };
-  
+
   // Check if this requirement type should show smart questions/benchmark answers
   // Hide for: assessment_conditions, assessment_instructions, AND all learner_guide validations
   const shouldShowSmartQuestions = () => {
@@ -87,13 +87,13 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
     if (valType === 'learner-guide' || valType === 'learner_guide') {
       return false;
     }
-    
+
     // Hide for specific requirement types (assessment_conditions, assessment_instructions)
     const reqType = getRequirementType().toLowerCase();
-    return !reqType.includes('assessment_conditions') && 
-           !reqType.includes('assessment conditions') &&
-           !reqType.includes('assessment_instructions') &&
-           !reqType.includes('assessment instructions');
+    return !reqType.includes('assessment_conditions') &&
+      !reqType.includes('assessment conditions') &&
+      !reqType.includes('assessment_instructions') &&
+      !reqType.includes('assessment instructions');
   };
 
   // Check if this is a learner_guide validation type (should show recommendations instead of smart questions)
@@ -103,7 +103,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
     console.log('[ValidationCard] isLearnerGuide check:', { valType, isLG, recommendations: result.recommendations });
     return isLG;
   };
-  
+
   const getCitations = (): any[] => {
     try {
       if (!result.citations) return [];
@@ -114,7 +114,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
       return [];
     }
   };
-  
+
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedQuestion, setEditedQuestion] = useState(result.smart_questions || '');
@@ -126,6 +126,9 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
   const [confirmText, setConfirmText] = useState('');
   const [isRevalidating, setIsRevalidating] = useState(false);
   const [showGeneratingModal, setShowGeneratingModal] = useState(false);
+  const [showRevalidatingModal, setShowRevalidatingModal] = useState(false);
+  const [progressStep, setProgressStep] = useState<string>('');
+  const [revalidationStep, setRevalidationStep] = useState<string>('');
 
   /**
    * Generate improved SMART questions using AI with comprehensive context
@@ -134,23 +137,32 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
   const handleGenerateWithAI = async () => {
     setIsGenerating(true);
     setShowGeneratingModal(true);
-    
+    setProgressStep('Preparing context...');
+
     try {
-      // Import regenerateQuestions from n8nApi
+      // Step 1: Import and prepare
+      setProgressStep('Loading AI module...');
       const { regenerateQuestions } = await import('../lib/n8nApi');
-      
-      // Gather all context for n8n
+
+      // Step 2: Gather context
+      setProgressStep('Gathering requirement context...');
+      await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for visual feedback
+
       const requirementText = getRequirementText();
       const existingSmartQuestion = result.smart_questions;
-      
+
       // Call n8n via edge function proxy with full context
       const validationDetailId: number = result.validation_detail_id || 0;
       const validationResultId: number = parseInt(result.id, 10);
-      
+
       if (!validationDetailId) {
         throw new Error('validation_detail_id not found');
       }
-      
+
+      // Step 3: Call AI
+      setProgressStep('Sending to AI for analysis...');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       const response = await regenerateQuestions(
         validationDetailId,
         validationResultId,
@@ -158,30 +170,41 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
         requirementText,
         existingSmartQuestion
       );
-      
+
+      // Step 4: Processing response
+      setProgressStep('AI is generating smart questions...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       console.log('[ValidationCard] Full regenerate response:', JSON.stringify(response, null, 2));
       console.log('[ValidationCard] Questions array:', response.questions);
       console.log('[ValidationCard] Questions length:', response.questions?.length);
-      
+
       // New response structure: { validation_detail_id, questions: [...], summary, response_timestamp }
       if (!response.questions || !Array.isArray(response.questions) || response.questions.length === 0) {
         console.error('[ValidationCard] No questions in response:', response);
-        throw new Error('No questions generated. Check n8n workflow output.');
+        throw new Error('No questions generated. Please try again with different context.');
       }
-      
+
+      // Step 5: Apply results
+      setProgressStep('Applying generated content...');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       // Extract the first generated question (n8n returns array)
       const generated = response.questions[0];
       console.log('[ValidationCard] First question:', generated);
-      
+
       if (!generated.question) {
         console.error('[ValidationCard] Question object missing "question" field:', generated);
-        throw new Error('Invalid question format received from n8n');
+        throw new Error('Invalid question format received. Please try again.');
       }
-      
+
       // Update the edited fields with the AI-generated content
       setEditedQuestion(generated.question);
       setEditedAnswer(generated.rationale || 'No rationale provided');
-      
+
+      // Step 6: Finalize
+      setProgressStep('Finalizing...');
+
       // Consume AI credit
       if (validationContext?.rtoId) {
         const currentRTO = getRTOById(validationContext.rtoId);
@@ -193,15 +216,21 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
           }
         }
       }
-      
+
       setShowGeneratingModal(false);
-      toast.success('✨ Smart question generated! Review and click Save to keep it.', { 
-        duration: 4000
+      setProgressStep('');
+      toast.success('✨ Smart question generated! Review and click Save to keep it.', {
+        duration: 4000,
+        description: `Generated ${response.questions.length} question${response.questions.length > 1 ? 's' : ''} based on your requirement.`
       });
     } catch (error) {
       console.error('Error generating with AI:', error);
       setShowGeneratingModal(false);
-      toast.error('Failed to generate with AI. Please try again.');
+      setProgressStep('');
+      toast.error('Failed to generate with AI', {
+        description: error instanceof Error ? error.message : 'Please try again.',
+        duration: 5000
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -210,12 +239,12 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
   const handleSave = async () => {
     try {
       toast.loading('Saving changes...', { id: 'save-question' });
-      
+
       // Import supabase client
       const { supabase } = await import('../lib/supabase');
-      
+
       console.log('[ValidationCard] Updating validation_results, id:', result.id);
-      
+
       // Simple UPDATE - record should already exist
       const { error } = await supabase
         .from('validation_results')
@@ -225,25 +254,30 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
           citations: generatedCitations.length > 0 ? JSON.stringify(generatedCitations) : result.citations
         })
         .eq('id', result.id);
-      
+
       if (error) {
         console.error('[ValidationCard] Save error:', error);
         throw error;
       }
-      
+
       console.log('[ValidationCard] Saved successfully');
-      
+
       // Update local state
       result.smart_questions = editedQuestion;
       result.benchmark_answer = editedAnswer;
       if (generatedCitations.length > 0) {
         result.citations = JSON.stringify(generatedCitations);
       }
-      
+
       setIsEditing(false);
       setAiContext('');
-      
+
       toast.success('Changes saved successfully', { id: 'save-question' });
+
+      // Trigger refresh of parent state if callback provided
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (error) {
       console.error('Error saving changes:', error);
       toast.error('Failed to save changes. Please try again.', { id: 'save-question' });
@@ -271,18 +305,40 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
 
     setIsRevalidating(true);
     setShowRevalidateDialog(false);
+    setShowRevalidatingModal(true);
     setConfirmText('');
+    setRevalidationStep('Preparing revalidation...');
 
-    toast.loading('🤔 Nytro is thinking... Revalidating requirement', { id: 'revalidate' });
-    
     try {
-      // Import revalidateRequirement from n8nApi
+      // Step 1: Load module
+      setRevalidationStep('Loading revalidation module...');
+      await new Promise(resolve => setTimeout(resolve, 300));
       const { revalidateRequirement } = await import('../lib/n8nApi');
-      
+
+      // Step 2: Send to AI
+      setRevalidationStep('Sending to AI for analysis...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       // Send the complete validation result object to n8n
       const response = await revalidateRequirement(result);
-      
-      if (response.success) {
+
+      // Step 3: Processing
+      setRevalidationStep('Processing AI response...');
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      console.log('[ValidationCard] Revalidate response:', response);
+
+      // Cast to any for accessing dynamic n8n response properties
+      const n8nResponse = response as any;
+
+      // Check for success - either explicit success flag or presence of validation_result_id
+      const isSuccess = n8nResponse.success === true || (n8nResponse.validation_result_id !== undefined);
+
+      if (isSuccess) {
+        // Step 4: Finalizing
+        setRevalidationStep('Updating database...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         // Consume AI credit
         if (validationContext?.rtoId) {
           const currentRTO = getRTOById(validationContext.rtoId);
@@ -294,24 +350,37 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
             }
           }
         }
-        
-        toast.success(`✅ Revalidation started! Updated results will appear in the table once complete.`, { 
-          id: 'revalidate',
-          duration: 5000
-        });
-        
-        // Trigger refresh to reload the updated data
+
+        setShowRevalidatingModal(false);
+        setRevalidationStep('');
+
+        // Trigger refresh to reload the updated data (with slight delay to ensure DB update completes)
         if (onRefresh) {
-          onRefresh();
+          setTimeout(() => {
+            onRefresh();
+          }, 500);
         }
+
+        toast.success(`✅ Revalidation complete for ${getRequirementNumber()}!`, {
+          duration: 4000,
+          description: n8nResponse.status
+            ? `New status: ${n8nResponse.status.toUpperCase()}. Refreshing results...`
+            : 'Results updated. Refreshing...'
+        });
       } else {
-        throw new Error(response.error || 'Revalidation failed');
+        throw new Error(n8nResponse.error || n8nResponse.message || 'Revalidation failed. The AI may not have been able to process this requirement.');
       }
     } catch (error) {
       console.error('Error revalidating:', error);
-      toast.error('Failed to revalidate. Please try again.', { id: 'revalidate' });
+      setShowRevalidatingModal(false);
+      setRevalidationStep('');
+      toast.error(`❌ Failed to revalidate ${getRequirementNumber()}`, {
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        duration: 6000
+      });
     } finally {
       setIsRevalidating(false);
+      setRevalidationStep('');
     }
   };
 
@@ -361,7 +430,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                 <p className="text-sm font-medium text-[#64748b] mb-2">Reasoning:</p>
                 <p className="text-sm leading-relaxed text-[#475569]">{result.reasoning}</p>
               </div>
-              
+
               {result.mapped_content && (
                 <div className="pt-3 border-t border-[#dbeafe]">
                   <p className="text-sm font-medium text-[#64748b] mb-2">Mapped Content:</p>
@@ -515,7 +584,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                         {result.smart_questions?.trim() || <span className="text-[#94a3b8] italic">No SMART question available</span>}
                       </p>
                     </div>
-                    
+
                     <div>
                       <p className="text-sm text-[#3b82f6] mb-2">Benchmark Answer:</p>
                       <p className="text-sm text-[#64748b] whitespace-pre-wrap">
@@ -547,7 +616,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                   </div>
                 </div>
               )}
-              
+
               {/* Validation Expired Warning */}
               {isValidationExpired && !isReportSigned && (
                 <div className="p-4 bg-[#fef3c7] border border-[#f59e0b] rounded-lg">
@@ -564,7 +633,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                   </div>
                 </div>
               )}
-              
+
               {/* No AI Credits Warning */}
               {!aiCreditsAvailable && !isValidationExpired && !isReportSigned && (
                 <div className="p-4 bg-[#fef2f2] border border-[#ef4444] rounded-lg">
@@ -581,14 +650,14 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                   </div>
                 </div>
               )}
-              
+
               <div className="flex flex-wrap gap-2 md:gap-3">
                 {/* Edit Question button - hidden for learner_guide validation type */}
                 {shouldShowSmartQuestions() && (
-                  <GlowButton 
-                    variant="secondary" 
-                    size="sm" 
-                    onClick={handleEditClick} 
+                  <GlowButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleEditClick}
                     disabled={isReportSigned || !aiCreditsAvailable || isValidationExpired}
                     title={isReportSigned ? "Report is signed off - no updates allowed" : isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : !aiCreditsAvailable ? "No AI credits available" : ""}
                   >
@@ -597,9 +666,9 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                   </GlowButton>
                 )}
                 {/* Revalidate button - always visible */}
-                <GlowButton 
-                  variant="secondary" 
-                  size="sm" 
+                <GlowButton
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setShowRevalidateDialog(true)}
                   disabled={isRevalidating || isReportSigned || !aiCreditsAvailable || isValidationExpired}
                   title={isReportSigned ? "Report is signed off - no updates allowed" : isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : !aiCreditsAvailable ? "No AI credits available" : ""}
@@ -625,7 +694,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
               You are about to revalidate {getRequirementNumber()}. This action will replace all existing content.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          
+
           <div className="space-y-4">
             <div className="bg-[#fef2f2] border-l-4 border-[#ef4444] p-3 rounded">
               <p className="text-sm text-[#991b1b]">
@@ -661,7 +730,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel 
+            <AlertDialogCancel
               onClick={() => {
                 setConfirmText('');
                 setShowRevalidateDialog(false);
@@ -690,15 +759,33 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
               <img
                 src={wizardLogo}
                 alt="Nytro Wizard"
-                className="w-full h-auto object-contain"
+                className="w-full h-auto object-contain animate-pulse"
               />
             </div>
-            
+
             <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
               Nytro is thinking...
             </h3>
-            
-            {/* Bouncing dots like AI chat */}
+
+            {/* Progress indicator */}
+            <div className="w-full max-w-xs mb-4">
+              <div className="h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] animate-pulse"
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+
+            {/* Current step display */}
+            <div className="flex items-center gap-2 mb-3 px-4 py-2 bg-[#f0f9ff] rounded-lg border border-[#bfdbfe]">
+              <Sparkles className="w-4 h-4 text-[#3b82f6] animate-spin" style={{ animationDuration: '2s' }} />
+              <p className="text-sm font-medium text-[#1e40af]">
+                {progressStep || 'Initializing...'}
+              </p>
+            </div>
+
+            {/* Bouncing dots */}
             <div className="flex items-center gap-2 mb-2">
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
@@ -706,9 +793,60 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                 <span className="w-2 h-2 bg-[#3b82f6] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
               </div>
             </div>
-            
-            <p className="text-sm text-[#64748b] text-center">
-              Generating a smart question for this requirement
+
+            <p className="text-xs text-[#94a3b8] text-center">
+              Generating smart question for {getRequirementNumber()}
+            </p>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revalidation Loading Modal */}
+      <AlertDialog open={showRevalidatingModal} onOpenChange={setShowRevalidatingModal}>
+        <AlertDialogContent className="max-w-md bg-white">
+          <div className="flex flex-col items-center justify-center py-8 px-4">
+            {/* Wizard logo */}
+            <div className="mb-6 w-32">
+              <img
+                src={wizardLogo}
+                alt="Nytro Wizard"
+                className="w-full h-auto object-contain animate-pulse"
+              />
+            </div>
+
+            <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+              Nytro is revalidating...
+            </h3>
+
+            {/* Progress indicator */}
+            <div className="w-full max-w-xs mb-4">
+              <div className="h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#f59e0b] to-[#ef4444] animate-pulse"
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+
+            {/* Current step display */}
+            <div className="flex items-center gap-2 mb-3 px-4 py-2 bg-[#fef3c7] rounded-lg border border-[#fcd34d]">
+              <RefreshCw className="w-4 h-4 text-[#d97706] animate-spin" />
+              <p className="text-sm font-medium text-[#92400e]">
+                {revalidationStep || 'Initializing...'}
+              </p>
+            </div>
+
+            {/* Bouncing dots */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[#f59e0b] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-[#f59e0b] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-[#f59e0b] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#94a3b8] text-center">
+              Re-analyzing {getRequirementNumber()} against documents
             </p>
           </div>
         </AlertDialogContent>

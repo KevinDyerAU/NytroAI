@@ -75,12 +75,12 @@ export function ResultsExplorerActions({
 }
 
 interface RequirementActionsProps {
-  validationResultId: number;
+  result: any;
   onRefresh?: () => void;
 }
 
 export function RequirementActions({
-  validationResultId,
+  result,
   onRefresh,
 }: RequirementActionsProps) {
   const {
@@ -92,7 +92,7 @@ export function RequirementActions({
     <div className="flex items-center gap-2">
       {/* Revalidate Button */}
       <Button
-        onClick={() => revalidate(validationResultId)}
+        onClick={() => revalidate(result)}
         disabled={isRevalidating}
         variant="outline"
         size="sm"
@@ -110,6 +110,7 @@ export function RequirementActions({
 }
 
 interface RegenerateQuestionsProps {
+  validationDetailId: number;
   validationResultId: number;
   currentQuestions?: Array<{ id: number; question_text: string }>;
   onQuestionsRegenerated?: (newQuestions: any[]) => void;
@@ -117,6 +118,7 @@ interface RegenerateQuestionsProps {
 }
 
 export function RegenerateQuestionsDialog({
+  validationDetailId,
   validationResultId,
   currentQuestions,
   onQuestionsRegenerated,
@@ -124,7 +126,7 @@ export function RegenerateQuestionsDialog({
 }: RegenerateQuestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [userGuidance, setUserGuidance] = useState('');
-  
+
   const {
     regenerateSmartQuestions,
     isRegeneratingQuestions,
@@ -132,6 +134,7 @@ export function RegenerateQuestionsDialog({
 
   const handleRegenerate = async () => {
     const newQuestions = await regenerateSmartQuestions(
+      validationDetailId,
       validationResultId,
       userGuidance
     );

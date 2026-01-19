@@ -43,16 +43,16 @@ export interface GenerateAndStoreReportResult {
  */
 function applyStatusFill(cell: ExcelJS.Cell, status: string | undefined) {
   if (!status) return;
-  
+
   const normalizedStatus = status.toLowerCase().trim();
   let color = COLORS.PARTIAL;
-  
+
   if (normalizedStatus === 'met') {
     color = COLORS.MET;
   } else if (normalizedStatus === 'not-met' || normalizedStatus === 'not met') {
     color = COLORS.NOT_MET;
   }
-  
+
   cell.fill = {
     type: 'pattern',
     pattern: 'solid',
@@ -72,6 +72,30 @@ function parseRequirementNumber(requirementNumber: string): { type: string; numb
 }
 
 /**
+ * Parse JSONB array from validation_results (smart_questions or citations)
+ */
+function parseJSONBArray(jsonbField: any): any[] {
+  if (!jsonbField) return [];
+  if (Array.isArray(jsonbField)) return jsonbField;
+  if (typeof jsonbField === 'string') {
+    // Handle empty strings
+    if (jsonbField.trim() === '') return [];
+    try {
+      const parsed = JSON.parse(jsonbField);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      // If it's not valid JSON, treat it as a single item
+      return [jsonbField];
+    }
+  }
+  // If it's an object (already parsed JSONB from Postgres), wrap it or return empty
+  if (typeof jsonbField === 'object' && jsonbField !== null) {
+    return [jsonbField];
+  }
+  return [];
+}
+
+/**
  * Generate Assessment Report and store in Supabase
  */
 export async function generateAndStoreAssessmentReport(
@@ -79,35 +103,35 @@ export async function generateAndStoreAssessmentReport(
 ): Promise<GenerateAndStoreReportResult> {
   try {
     // Separate knowledge and performance evidence
-    const knowledgeEvidence = params.validationResults.filter(r => 
-      r.requirement_type?.toLowerCase() === 'knowledge' || 
+    const knowledgeEvidence = params.validationResults.filter(r =>
+      r.requirement_type?.toLowerCase() === 'knowledge' ||
       r.requirement_number?.startsWith('KE')
     );
-    
-    const performanceEvidence = params.validationResults.filter(r => 
-      r.requirement_type?.toLowerCase() === 'performance' || 
+
+    const performanceEvidence = params.validationResults.filter(r =>
+      r.requirement_type?.toLowerCase() === 'performance' ||
       r.requirement_number?.startsWith('PE')
     );
-    
+
     // Create workbook
     const workbook = new ExcelJS.Workbook();
-    
+
     // Create sheets
     createCoverSheet(workbook, params);
     createAssessmentSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence);
     createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'assessment');
     createPerformanceEvidenceSheet(workbook, performanceEvidence, 'assessment');
-    
+
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
-    
+
     // Generate filename
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `${params.unitCode}_Assessment_Report_${timestamp}.xlsx`;
-    
+
     // Upload to storage
     const storedReport = await uploadReportToStorage(
       blob,
@@ -116,14 +140,14 @@ export async function generateAndStoreAssessmentReport(
       params.validationDetailId,
       params.unitCode
     );
-    
+
     if (!storedReport) {
       return {
         success: false,
         error: 'Failed to upload report to storage',
       };
     }
-    
+
     return {
       success: true,
       report: storedReport,
@@ -146,35 +170,35 @@ export async function generateAndStoreLearnerGuideReport(
 ): Promise<GenerateAndStoreReportResult> {
   try {
     // Separate knowledge and performance evidence
-    const knowledgeEvidence = params.validationResults.filter(r => 
-      r.requirement_type?.toLowerCase() === 'knowledge' || 
+    const knowledgeEvidence = params.validationResults.filter(r =>
+      r.requirement_type?.toLowerCase() === 'knowledge' ||
       r.requirement_number?.startsWith('KE')
     );
-    
-    const performanceEvidence = params.validationResults.filter(r => 
-      r.requirement_type?.toLowerCase() === 'performance' || 
+
+    const performanceEvidence = params.validationResults.filter(r =>
+      r.requirement_type?.toLowerCase() === 'performance' ||
       r.requirement_number?.startsWith('PE')
     );
-    
+
     // Create workbook
     const workbook = new ExcelJS.Workbook();
-    
+
     // Create sheets
     createCoverSheet(workbook, params);
     createLearnerGuideSummarySheet(workbook, params, knowledgeEvidence, performanceEvidence);
     createPerformanceEvidenceSheet(workbook, performanceEvidence, 'learner-guide');
     createKnowledgeEvidenceSheet(workbook, knowledgeEvidence, 'learner-guide');
-    
+
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
-    
+
     // Generate filename
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `${params.unitCode}_Learner-Guide_Report_${timestamp}.xlsx`;
-    
+
     // Upload to storage
     const storedReport = await uploadReportToStorage(
       blob,
@@ -183,14 +207,14 @@ export async function generateAndStoreLearnerGuideReport(
       params.validationDetailId,
       params.unitCode
     );
-    
+
     if (!storedReport) {
       return {
         success: false,
         error: 'Failed to upload report to storage',
       };
     }
-    
+
     return {
       success: true,
       report: storedReport,
@@ -210,13 +234,13 @@ export async function generateAndStoreLearnerGuideReport(
  */
 function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentReportParams) {
   const sheet = workbook.addWorksheet('Cover');
-  
+
   // Set background
   sheet.pageSetup = {
     paperSize: 9, // A4
     orientation: 'portrait',
   };
-  
+
   // Title area
   let row = 5;
   const titleCell = sheet.getCell(`B${row}`);
@@ -229,7 +253,7 @@ function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentReportPa
   };
   sheet.mergeCells(`B${row}:D${row}`);
   sheet.getRow(row).height = 40;
-  
+
   // Unit Information
   row += 3;
   const infoRows = [
@@ -239,7 +263,7 @@ function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentReportPa
     ['Report Type:', params.validationType === 'learner-guide' ? 'Learner Guide' : 'Assessment'],
     ['Generated Date:', params.createdDate || new Date().toISOString().split('T')[0]],
   ];
-  
+
   infoRows.forEach(([label, value]) => {
     sheet.getCell(`B${row}`).value = label;
     sheet.getCell(`B${row}`).font = { bold: true, size: 12 };
@@ -247,7 +271,7 @@ function createCoverSheet(workbook: ExcelJS.Workbook, params: AssessmentReportPa
     sheet.getCell(`C${row}`).font = { size: 12 };
     row++;
   });
-  
+
   // Set column widths
   sheet.getColumn('B').width = 20;
   sheet.getColumn('C').width = 40;
@@ -264,7 +288,7 @@ function createAssessmentSummarySheet(
   performanceEvidence: ValidationEvidenceRecord[]
 ) {
   const sheet = workbook.addWorksheet('Summary');
-  
+
   // Title
   let row = 2;
   const titleCell = sheet.getCell(`B${row}`);
@@ -276,40 +300,40 @@ function createAssessmentSummarySheet(
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
   sheet.mergeCells(`B${row}:D${row}`);
-  
+
   // Unit Information
   row += 2;
   sheet.getCell(`B${row}`).value = 'Unit Code:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitCode;
   row++;
-  
+
   sheet.getCell(`B${row}`).value = 'Unit Title:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitTitle;
   row++;
-  
+
   sheet.getCell(`B${row}`).value = 'RTO:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.rtoName;
   row++;
-  
+
   // Validation Summary
   row += 2;
   sheet.getCell(`B${row}`).value = 'Validation Summary';
   sheet.getCell(`B${row}`).font = { bold: true, size: 12 };
   row++;
-  
+
   const keMetCount = knowledgeEvidence.filter(r => r.status === 'met').length;
   const keTotalCount = knowledgeEvidence.length;
   const peMetCount = performanceEvidence.filter(r => r.status === 'met').length;
   const peTotalCount = performanceEvidence.length;
-  
+
   const summaryData = [
     ['Knowledge Evidence', `${keMetCount}/${keTotalCount}`, `${keTotalCount > 0 ? Math.round((keMetCount / keTotalCount) * 100) : 0}%`],
     ['Performance Evidence', `${peMetCount}/${peTotalCount}`, `${peTotalCount > 0 ? Math.round((peMetCount / peTotalCount) * 100) : 0}%`],
   ];
-  
+
   // Headers
   ['Category', 'Met/Total', 'Percentage'].forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
@@ -322,14 +346,14 @@ function createAssessmentSummarySheet(
     };
   });
   row++;
-  
+
   summaryData.forEach(([category, metTotal, percentage]) => {
     sheet.getCell(row, 2).value = category;
     sheet.getCell(row, 3).value = metTotal;
     sheet.getCell(row, 4).value = percentage;
     row++;
   });
-  
+
   // Set column widths
   sheet.getColumn('B').width = 25;
   sheet.getColumn('C').width = 15;
@@ -346,7 +370,7 @@ function createLearnerGuideSummarySheet(
   performanceEvidence: ValidationEvidenceRecord[]
 ) {
   const sheet = workbook.addWorksheet('Summary');
-  
+
   // Title
   let row = 2;
   const titleCell = sheet.getCell(`B${row}`);
@@ -358,40 +382,40 @@ function createLearnerGuideSummarySheet(
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
   sheet.mergeCells(`B${row}:D${row}`);
-  
+
   // Unit Information
   row += 2;
   sheet.getCell(`B${row}`).value = 'Unit Code:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitCode;
   row++;
-  
+
   sheet.getCell(`B${row}`).value = 'Unit Title:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.unitTitle;
   row++;
-  
+
   sheet.getCell(`B${row}`).value = 'RTO:';
   sheet.getCell(`B${row}`).font = { bold: true };
   sheet.getCell(`C${row}`).value = params.rtoName;
   row++;
-  
+
   // Validation Summary
   row += 2;
   sheet.getCell(`B${row}`).value = 'Validation Summary';
   sheet.getCell(`B${row}`).font = { bold: true, size: 12 };
   row++;
-  
+
   const peMetCount = performanceEvidence.filter(r => r.status === 'met').length;
   const peTotalCount = performanceEvidence.length;
   const keMetCount = knowledgeEvidence.filter(r => r.status === 'met').length;
   const keTotalCount = knowledgeEvidence.length;
-  
+
   const summaryData = [
     ['Performance Evidence', `${peMetCount}/${peTotalCount}`, `${peTotalCount > 0 ? Math.round((peMetCount / peTotalCount) * 100) : 0}%`],
     ['Knowledge Evidence', `${keMetCount}/${keTotalCount}`, `${keTotalCount > 0 ? Math.round((keMetCount / keTotalCount) * 100) : 0}%`],
   ];
-  
+
   // Headers
   ['Category', 'Met/Total', 'Percentage'].forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
@@ -404,14 +428,14 @@ function createLearnerGuideSummarySheet(
     };
   });
   row++;
-  
+
   summaryData.forEach(([category, metTotal, percentage]) => {
     sheet.getCell(row, 2).value = category;
     sheet.getCell(row, 3).value = metTotal;
     sheet.getCell(row, 4).value = percentage;
     row++;
   });
-  
+
   // Set column widths
   sheet.getColumn('B').width = 25;
   sheet.getColumn('C').width = 15;
@@ -420,6 +444,7 @@ function createLearnerGuideSummarySheet(
 
 /**
  * Create Knowledge Evidence Sheet
+ * For learner-guide reports, includes Recommendations instead of Smart Question and Benchmark Answer
  */
 function createKnowledgeEvidenceSheet(
   workbook: ExcelJS.Workbook,
@@ -427,7 +452,8 @@ function createKnowledgeEvidenceSheet(
   reportType: 'assessment' | 'learner-guide'
 ) {
   const sheet = workbook.addWorksheet('Knowledge Evidence');
-  
+  const isLearnerGuide = reportType === 'learner-guide';
+
   // Title
   let row = 2;
   const titleCell = sheet.getCell(`B${row}`);
@@ -438,20 +464,30 @@ function createKnowledgeEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  const mergeEndCol = isLearnerGuide ? 'H' : 'I';
+  sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
-  
-  // Headers
-  const headers = [
+
+  // Headers - learner-guide gets Recommendations, assessment gets Smart Question and Benchmark Answer
+  const headers = isLearnerGuide ? [
     'Number',
     'Requirement',
     'Mapping Status',
     'Mapped Content',
-    'Unmapped Content Reasoning',
+    'Reasoning',
+    'Citations',
     'Recommendations',
-    'Document Reference',
+  ] : [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Mapped Content',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
   ];
-  
+
   headers.forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
     cell.value = header;
@@ -464,28 +500,47 @@ function createKnowledgeEvidenceSheet(
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   });
   row++;
-  
-  // Data rows
+
+  const maxCol = isLearnerGuide ? 8 : 9;
+
+  // Data rows (using validation_results fields)
   data.forEach((item) => {
     const parsed = parseRequirementNumber(item.requirement_number);
-    
+
     sheet.getCell(row, 2).value = item.requirement_number;
     sheet.getCell(row, 3).value = item.requirement_text;
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.mapped_content || '';
     sheet.getCell(row, 6).value = item.reasoning || '';
-    sheet.getCell(row, 7).value = item.benchmark_answer || '';
-    sheet.getCell(row, 8).value = item.doc_references || '';
-    
+
+    // Citations (JSONB array)
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) =>
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+
+    if (isLearnerGuide) {
+      // Recommendations - only for learner-guide reports
+      sheet.getCell(row, 8).value = item.recommendations || '';
+    } else {
+      // Smart questions and Benchmark Answer - only for assessment reports
+      const smartQuestions = parseJSONBArray(item.smart_questions);
+      sheet.getCell(row, 8).value = smartQuestions.map((q: any) =>
+        typeof q === 'string' ? q : q.question || q.text || ''
+      ).join('\n') || '';
+
+      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    }
+
     // Apply text wrapping
-    for (let col = 2; col <= 8; col++) {
+    for (let col = 2; col <= maxCol; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
-    
+
     row++;
   });
-  
+
   // Set column widths
   sheet.getColumn('B').width = 12;
   sheet.getColumn('C').width = 30;
@@ -493,11 +548,17 @@ function createKnowledgeEvidenceSheet(
   sheet.getColumn('E').width = 25;
   sheet.getColumn('F').width = 25;
   sheet.getColumn('G').width = 25;
-  sheet.getColumn('H').width = 20;
+  if (isLearnerGuide) {
+    sheet.getColumn('H').width = 30;
+  } else {
+    sheet.getColumn('H').width = 30;
+    sheet.getColumn('I').width = 25;
+  }
 }
 
 /**
  * Create Performance Evidence Sheet
+ * For learner-guide reports, includes Recommendations instead of Smart Question and Benchmark Answer
  */
 function createPerformanceEvidenceSheet(
   workbook: ExcelJS.Workbook,
@@ -505,7 +566,8 @@ function createPerformanceEvidenceSheet(
   reportType: 'assessment' | 'learner-guide'
 ) {
   const sheet = workbook.addWorksheet('Performance Evidence');
-  
+  const isLearnerGuide = reportType === 'learner-guide';
+
   // Title
   let row = 2;
   const titleCell = sheet.getCell(`B${row}`);
@@ -516,20 +578,30 @@ function createPerformanceEvidenceSheet(
     pattern: 'solid',
     fgColor: { argb: `FF${COLORS.TITLE}` },
   };
-  sheet.mergeCells(`B${row}:I${row}`);
+  const mergeEndCol = isLearnerGuide ? 'H' : 'I';
+  sheet.mergeCells(`B${row}:${mergeEndCol}${row}`);
   row += 2;
-  
-  // Headers
-  const headers = [
+
+  // Headers - learner-guide gets Recommendations, assessment gets Smart Question and Benchmark Answer
+  const headers = isLearnerGuide ? [
     'Number',
     'Requirement',
     'Mapping Status',
     'Mapped Content',
-    'Unmapped Content Reasoning',
+    'Reasoning',
+    'Citations',
     'Recommendations',
-    'Document Reference',
+  ] : [
+    'Number',
+    'Requirement',
+    'Mapping Status',
+    'Mapped Content',
+    'Reasoning',
+    'Citations',
+    'Smart Question',
+    'Benchmark Answer',
   ];
-  
+
   headers.forEach((header, idx) => {
     const cell = sheet.getCell(row, idx + 2);
     cell.value = header;
@@ -542,28 +614,47 @@ function createPerformanceEvidenceSheet(
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   });
   row++;
-  
-  // Data rows
+
+  const maxCol = isLearnerGuide ? 8 : 9;
+
+  // Data rows (using validation_results fields)
   data.forEach((item) => {
     const parsed = parseRequirementNumber(item.requirement_number);
-    
+
     sheet.getCell(row, 2).value = item.requirement_number;
     sheet.getCell(row, 3).value = item.requirement_text;
     sheet.getCell(row, 4).value = item.status;
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.mapped_content || '';
     sheet.getCell(row, 6).value = item.reasoning || '';
-    sheet.getCell(row, 7).value = item.benchmark_answer || '';
-    sheet.getCell(row, 8).value = item.doc_references || '';
-    
+
+    // Citations (JSONB array)
+    const citations = parseJSONBArray(item.citations);
+    sheet.getCell(row, 7).value = citations.map((c: any, idx: number) =>
+      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
+    ).join('\n') || '';
+
+    if (isLearnerGuide) {
+      // Recommendations - only for learner-guide reports
+      sheet.getCell(row, 8).value = item.recommendations || '';
+    } else {
+      // Smart questions and Benchmark Answer - only for assessment reports
+      const smartQuestions = parseJSONBArray(item.smart_questions);
+      sheet.getCell(row, 8).value = smartQuestions.map((q: any) =>
+        typeof q === 'string' ? q : q.question || q.text || ''
+      ).join('\n') || '';
+
+      sheet.getCell(row, 9).value = item.benchmark_answer || '';
+    }
+
     // Apply text wrapping
-    for (let col = 2; col <= 8; col++) {
+    for (let col = 2; col <= maxCol; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
     }
-    
+
     row++;
   });
-  
+
   // Set column widths
   sheet.getColumn('B').width = 12;
   sheet.getColumn('C').width = 30;
@@ -571,5 +662,10 @@ function createPerformanceEvidenceSheet(
   sheet.getColumn('E').width = 25;
   sheet.getColumn('F').width = 25;
   sheet.getColumn('G').width = 25;
-  sheet.getColumn('H').width = 20;
+  if (isLearnerGuide) {
+    sheet.getColumn('H').width = 30;
+  } else {
+    sheet.getColumn('H').width = 30;
+    sheet.getColumn('I').width = 25;
+  }
 }
