@@ -1,0 +1,899 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "system migration",
+    "autosaved": false,
+    "connections": {
+      "Claude Opus 4": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "n8n Builder",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Developer Tool": {
+        "ai_tool": [
+          [
+            {
+              "index": 0,
+              "node": "n8n Developer",
+              "type": "ai_tool"
+            }
+          ]
+        ]
+      },
+      "Extract from File": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "n8n Builder",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "GPT 4.1 mini": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "n8n Developer",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Get n8n Docs": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Extract from File",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Simple Memory": {
+        "ai_memory": [
+          [
+            {
+              "index": 0,
+              "node": "n8n Developer",
+              "type": "ai_memory"
+            }
+          ]
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Get n8n Docs",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "When chat message received": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "n8n Developer",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "n8n": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Workflow Link",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "n8n Builder": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "n8n",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-12-24T04:00:15.329Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "disabled": true,
+        "id": "02ab10db-dde5-4538-bcee-ad8d4e6d13b7",
+        "name": "When chat message received",
+        "parameters": {
+          "options": {}
+        },
+        "position": [
+          840,
+          100
+        ],
+        "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+        "typeVersion": 1.1,
+        "webhookId": "d832bc01-555e-4a24-a8cc-31db8fc1c816"
+      },
+      {
+        "id": "b54ce006-c9fe-4fa7-abb8-5ec47fa44cdd",
+        "name": "Claude Opus 4",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "Claude Opus 4",
+            "mode": "list",
+            "value": "claude-opus-4-20250514"
+          },
+          "options": {
+            "maxTokensToSample": 8000,
+            "thinking": true,
+            "thinkingBudget": 1024
+          }
+        },
+        "position": [
+          1280,
+          740
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+        "typeVersion": 1.3
+      },
+      {
+        "id": "867c79db-95de-4731-9157-e6d14737ba61",
+        "name": "Extract from File",
+        "parameters": {
+          "operation": "text",
+          "options": {}
+        },
+        "position": [
+          1160,
+          620
+        ],
+        "type": "n8n-nodes-base.extractFromFile",
+        "typeVersion": 1
+      },
+      {
+        "id": "0f14e2bc-dec5-43a0-84c8-c4623b5c75d6",
+        "name": "n8n",
+        "parameters": {
+          "operation": "create",
+          "requestOptions": {},
+          "workflowObject": "={{ $json.output[1].text }}"
+        },
+        "position": [
+          1640,
+          620
+        ],
+        "type": "n8n-nodes-base.n8n",
+        "typeVersion": 1
+      },
+      {
+        "id": "6667a4b3-503b-45b0-84b6-a2995f523809",
+        "name": "Workflow Link",
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "f4b8c16e-6788-4c17-b643-94a3f0620860",
+                "name": "Workflow Link",
+                "type": "string",
+                "value": "=https://YOUR N8N DOMAIN/workflow/{{ $json.id }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "position": [
+          1800,
+          620
+        ],
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4
+      },
+      {
+        "id": "d6b723e4-7e6a-4cf9-8eeb-11a703e0638f",
+        "name": "Get n8n Docs",
+        "parameters": {
+          "fileId": {
+            "__rl": true,
+            "cachedResultName": "n8n Documentation V4",
+            "cachedResultUrl": "https://docs.google.com/document/d/1TiRusVo4DbbANwAr7I0GUGDZY3pmEmHZy3k66mRxLCg/edit?usp=drivesdk",
+            "mode": "list",
+            "value": "1TiRusVo4DbbANwAr7I0GUGDZY3pmEmHZy3k66mRxLCg"
+          },
+          "operation": "download",
+          "options": {
+            "googleFileConversion": {
+              "conversion": {
+                "docsToFormat": "text/plain"
+              }
+            }
+          }
+        },
+        "position": [
+          1000,
+          620
+        ],
+        "type": "n8n-nodes-base.googleDrive",
+        "typeVersion": 3
+      },
+      {
+        "id": "53d2c609-aaec-4a1b-9c35-4dffc975b01f",
+        "name": "n8n Builder",
+        "parameters": {
+          "options": {
+            "systemMessage": "=# Overview\nYou are an expert AI automation developer specializing in building workflows for n8n. Your job is to translate a human’s natural language request into a fully functional n8n workflow JSON. It should be comprehensive, functional, and importable. It should have 100% valid JSON structure, node types, and connection methods.\n\n## Output\nYour output should only be the final JSON of the full workflow.\n\nYour output must start with a { and must end with a }.\n- Do not include anything before the { (such as ```json or any markdown formatting).\n- Do not include anything after the } (such as closing code blocks like ``` or explanations).\n\nYour output should be a pure JSON object that begins with { and ends with }, ready to be used as the body of a POST request.\n\nThe JSON must:\n- Be syntactically valid and complete\n- Include a `nodes` array with each node containing all required parameters\n- Include a `connections` object that correctly maps outputs to inputs\n- Start with a `trigger` node if one is required for the use case (e.g., Webhook, Schedule, etc.)\n- Contain descriptive names and parameter values relevant to the user request\n- Avoid placeholders unless no reasonable value can be inferred\n- Contain sticky notes that are explaining what's going on within each step and any credentials or connections that still need to be configured. The colors should vary throughout the workflow.\n\nBefore generating the JSON, analyze the request and:\n1. Break it down into logical automation steps\n2. Choose appropriate nodes based on the steps\n3. Properly connect the nodes to reflect execution order\n\nIf the request is ambiguous, make a best guess using standard automation logic.\n\nDo not return explanations, comments, or any output outside of the JSON markdown block.\n\nYou are expected to produce developer-grade output suitable for direct import into n8n.\n\n## API Submission Requirements\nTo automatically create a workflow using the n8n API, your generated JSON must include the following top-level fields in the final object:\n\n- `name` (string): A clear, descriptive workflow name.\n- `nodes` (array): The complete array of node objects used in the workflow.\n- `connections` (object): A valid map of node-to-node connections.\n- `settings` (object): Workflow-level settings (e.g. `saveManualExecutions`, `executionOrder`).\n- `staticData` (null or object): Set to `null` unless specific static data is needed.\n\nExample “settings” object:\n  \"settings\": {\n    \"executionOrder\": \"v1\",\n    \"saveManualExecutions\": true,\n    \"saveDataSuccessExecution\": \"all\",\n    \"saveExecutionProgress\": true,\n    \"saveDataErrorExecution\": \"all\",\n    \"errorWorkflow\": \"\",\n    \"timezone\": \"America/New_York\"\n  }\n\n## n8n Documentation\n\n{{ $json.data }}"
+          },
+          "promptType": "define",
+          "text": "=User request: {{ $('When Executed by Another Workflow').item.json.query }}"
+        },
+        "position": [
+          1320,
+          620
+        ],
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2
+      },
+      {
+        "id": "4d39e684-5db8-4689-a7f4-562542c78ab5",
+        "name": "Sticky Note",
+        "parameters": {
+          "color": 2,
+          "content": "# Workflow Builder\n",
+          "height": 340,
+          "width": 1280
+        },
+        "position": [
+          740,
+          520
+        ],
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1
+      },
+      {
+        "id": "9cba16d5-9f63-488e-97a8-94694e48db11",
+        "name": "GPT 4.1 mini",
+        "parameters": {
+          "options": {}
+        },
+        "position": [
+          800,
+          360
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1
+      },
+      {
+        "id": "995ed375-fb0d-46d3-82bb-12a785508ff7",
+        "name": "Sticky Note1",
+        "parameters": {
+          "color": 4,
+          "content": "# n8n Developer Agent\n",
+          "height": 280,
+          "width": 660
+        },
+        "position": [
+          740,
+          0
+        ],
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1
+      },
+      {
+        "id": "55f45b1e-72a0-4fbd-aaae-f90584cb5437",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          820,
+          620
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "1ed225cb-5265-4606-adfa-739a4377adbf",
+        "name": "n8n Developer",
+        "parameters": {
+          "options": {
+            "systemMessage": "=# Overview\nYour job is to take the incoming query and pass that to the \"Developer Tool\" tool EXACTLY AS YOU RECEIVED IT. Don't change any of the wording.\n\nOnce you receive a workflow link back from the Developer Tool, present it to the human as a clickable link that says \"View your finished workflow\" \n\nThe link should be clickable and take the user to the workflow.\n"
+          }
+        },
+        "position": [
+          1000,
+          100
+        ],
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2
+      },
+      {
+        "id": "baf7a163-ed9a-4a06-bd12-036f2a8dba47",
+        "name": "Developer Tool",
+        "parameters": {
+          "description": "Call this tool once you have a finished workflow design to build the workflow.",
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "lCxX3GtPYi8jhLHV"
+          },
+          "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false,
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "schema": [],
+            "value": {}
+          }
+        },
+        "position": [
+          1200,
+          360
+        ],
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2.2
+      },
+      {
+        "id": "19caf3e6-6a52-44a1-8c35-7a3dd4be251f",
+        "name": "Sticky Note2",
+        "parameters": {
+          "color": 6,
+          "content": "## Brain\n",
+          "height": 200,
+          "width": 320
+        },
+        "position": [
+          740,
+          300
+        ],
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1
+      },
+      {
+        "id": "48fdb2c1-d1e6-4d8c-9e2f-5921d7f909ec",
+        "name": "Sticky Note3",
+        "parameters": {
+          "color": 5,
+          "content": "## Tool\n",
+          "height": 200,
+          "width": 320
+        },
+        "position": [
+          1080,
+          300
+        ],
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1
+      },
+      {
+        "id": "7a8f90a1-2ba7-4602-bf77-a6489b9bba45",
+        "name": "Simple Memory",
+        "parameters": {},
+        "position": [
+          940,
+          360
+        ],
+        "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+        "typeVersion": 1.3
+      },
+      {
+        "id": "c08d0e2e-0294-4ec7-8a04-555fdaac8571",
+        "name": "Sticky Note4",
+        "parameters": {
+          "content": "# 🛠️ Setup Guide  \n**Author:** [Nate Herk](https://www.youtube.com/@nateherk)\n\nFollow the steps below to get this workflow up and running:\n\n### MY RECOMMENDATION\nHook up the chat trigger directly to the workflow builder workflow instead of the \"When executed by another workflow\" trigger. This will make testing easier and keep everything in one execution. \n\nIf you want to take the multi-agent approach, then follow the below instructions. \n\n### ✅ Step 1: Connect Your [OpenRouter](https://openrouter.ai/) API Key  \nThis powers the main LLM agent. Make sure your key is active and added via the HTTP Request or Credential node.\n\n### ✅ Step 2: Add Your [Anthropic](https://console.anthropic.com/dashboard) API Key (Optional)  \nIf you want to enable thinking using Claude Opus 4, connect your Anthropic API key.\n\n### ✅ Step 3: Link the Developer Tool  \nMake sure the node or sub-workflow responsible for building the JSON is properly connected to the main agent. The developer tool should return a structured workflow JSON back to the main flow.\n\n### ✅ Step 4: Add Your n8n API Key  \nCreate your **n8n API credential** and connect it in the credential section. This is what allows the agent to spin up new workflows automatically in your instance.\n\n### ✅ Step 5: Copy the [Google Doc](https://docs.google.com/document/d/1TiRusVo4DbbANwAr7I0GUGDZY3pmEmHZy3k66mRxLCg/edit?usp=sharing)  \nMake a copy in your own Google Suite so you can edit, test, and reference it inside the Google Drive node. Then make sure to connect your Google credentials.\n\n### 🧪 Final Step: Start Testing  \nOnce all connections are made, start prompting the agent and watch it build n8n workflows on demand.\n",
+          "height": 860,
+          "width": 720
+        },
+        "position": [
+          0,
+          0
+        ],
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2025-12-24T04:00:15.329Z",
+    "versionId": "f9461d4d-152c-4498-9392-c5bf020f8c87",
+    "workflowId": "mvBQgAY1bhHU45gB",
+    "workflowPublishHistory": []
+  },
+  "activeVersionId": "f9461d4d-152c-4498-9392-c5bf020f8c87",
+  "connections": {
+    "Claude Opus 4": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "n8n Builder",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Developer Tool": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "n8n Developer",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "n8n Builder",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "GPT 4.1 mini": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "n8n Developer",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Get n8n Docs": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract from File",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "index": 0,
+            "node": "n8n Developer",
+            "type": "ai_memory"
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get n8n Docs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "n8n Developer",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "n8n": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Workflow Link",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "n8n Builder": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "n8n",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-06-27T18:30:39.599Z",
+  "description": null,
+  "id": "mvBQgAY1bhHU45gB",
+  "isArchived": false,
+  "meta": null,
+  "name": "n8nDeveloperAgent",
+  "nodes": [
+    {
+      "disabled": true,
+      "id": "02ab10db-dde5-4538-bcee-ad8d4e6d13b7",
+      "name": "When chat message received",
+      "parameters": {
+        "options": {}
+      },
+      "position": [
+        840,
+        100
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "webhookId": "d832bc01-555e-4a24-a8cc-31db8fc1c816"
+    },
+    {
+      "id": "b54ce006-c9fe-4fa7-abb8-5ec47fa44cdd",
+      "name": "Claude Opus 4",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "Claude Opus 4",
+          "mode": "list",
+          "value": "claude-opus-4-20250514"
+        },
+        "options": {
+          "maxTokensToSample": 8000,
+          "thinking": true,
+          "thinkingBudget": 1024
+        }
+      },
+      "position": [
+        1280,
+        740
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3
+    },
+    {
+      "id": "867c79db-95de-4731-9157-e6d14737ba61",
+      "name": "Extract from File",
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "position": [
+        1160,
+        620
+      ],
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1
+    },
+    {
+      "id": "0f14e2bc-dec5-43a0-84c8-c4623b5c75d6",
+      "name": "n8n",
+      "parameters": {
+        "operation": "create",
+        "requestOptions": {},
+        "workflowObject": "={{ $json.output[1].text }}"
+      },
+      "position": [
+        1640,
+        620
+      ],
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1
+    },
+    {
+      "id": "6667a4b3-503b-45b0-84b6-a2995f523809",
+      "name": "Workflow Link",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f4b8c16e-6788-4c17-b643-94a3f0620860",
+              "name": "Workflow Link",
+              "type": "string",
+              "value": "=https://YOUR N8N DOMAIN/workflow/{{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        1800,
+        620
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "id": "d6b723e4-7e6a-4cf9-8eeb-11a703e0638f",
+      "name": "Get n8n Docs",
+      "parameters": {
+        "fileId": {
+          "__rl": true,
+          "cachedResultName": "n8n Documentation V4",
+          "cachedResultUrl": "https://docs.google.com/document/d/1TiRusVo4DbbANwAr7I0GUGDZY3pmEmHZy3k66mRxLCg/edit?usp=drivesdk",
+          "mode": "list",
+          "value": "1TiRusVo4DbbANwAr7I0GUGDZY3pmEmHZy3k66mRxLCg"
+        },
+        "operation": "download",
+        "options": {
+          "googleFileConversion": {
+            "conversion": {
+              "docsToFormat": "text/plain"
+            }
+          }
+        }
+      },
+      "position": [
+        1000,
+        620
+      ],
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3
+    },
+    {
+      "id": "53d2c609-aaec-4a1b-9c35-4dffc975b01f",
+      "name": "n8n Builder",
+      "parameters": {
+        "options": {
+          "systemMessage": "=# Overview\nYou are an expert AI automation developer specializing in building workflows for n8n. Your job is to translate a human’s natural language request into a fully functional n8n workflow JSON. It should be comprehensive, functional, and importable. It should have 100% valid JSON structure, node types, and connection methods.\n\n## Output\nYour output should only be the final JSON of the full workflow.\n\nYour output must start with a { and must end with a }.\n- Do not include anything before the { (such as ```json or any markdown formatting).\n- Do not include anything after the } (such as closing code blocks like ``` or explanations).\n\nYour output should be a pure JSON object that begins with { and ends with }, ready to be used as the body of a POST request.\n\nThe JSON must:\n- Be syntactically valid and complete\n- Include a `nodes` array with each node containing all required parameters\n- Include a `connections` object that correctly maps outputs to inputs\n- Start with a `trigger` node if one is required for the use case (e.g., Webhook, Schedule, etc.)\n- Contain descriptive names and parameter values relevant to the user request\n- Avoid placeholders unless no reasonable value can be inferred\n- Contain sticky notes that are explaining what's going on within each step and any credentials or connections that still need to be configured. The colors should vary throughout the workflow.\n\nBefore generating the JSON, analyze the request and:\n1. Break it down into logical automation steps\n2. Choose appropriate nodes based on the steps\n3. Properly connect the nodes to reflect execution order\n\nIf the request is ambiguous, make a best guess using standard automation logic.\n\nDo not return explanations, comments, or any output outside of the JSON markdown block.\n\nYou are expected to produce developer-grade output suitable for direct import into n8n.\n\n## API Submission Requirements\nTo automatically create a workflow using the n8n API, your generated JSON must include the following top-level fields in the final object:\n\n- `name` (string): A clear, descriptive workflow name.\n- `nodes` (array): The complete array of node objects used in the workflow.\n- `connections` (object): A valid map of node-to-node connections.\n- `settings` (object): Workflow-level settings (e.g. `saveManualExecutions`, `executionOrder`).\n- `staticData` (null or object): Set to `null` unless specific static data is needed.\n\nExample “settings” object:\n  \"settings\": {\n    \"executionOrder\": \"v1\",\n    \"saveManualExecutions\": true,\n    \"saveDataSuccessExecution\": \"all\",\n    \"saveExecutionProgress\": true,\n    \"saveDataErrorExecution\": \"all\",\n    \"errorWorkflow\": \"\",\n    \"timezone\": \"America/New_York\"\n  }\n\n## n8n Documentation\n\n{{ $json.data }}"
+        },
+        "promptType": "define",
+        "text": "=User request: {{ $('When Executed by Another Workflow').item.json.query }}"
+      },
+      "position": [
+        1320,
+        620
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2
+    },
+    {
+      "id": "4d39e684-5db8-4689-a7f4-562542c78ab5",
+      "name": "Sticky Note",
+      "parameters": {
+        "color": 2,
+        "content": "# Workflow Builder\n",
+        "height": 340,
+        "width": 1280
+      },
+      "position": [
+        740,
+        520
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "9cba16d5-9f63-488e-97a8-94694e48db11",
+      "name": "GPT 4.1 mini",
+      "parameters": {
+        "options": {}
+      },
+      "position": [
+        800,
+        360
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1
+    },
+    {
+      "id": "995ed375-fb0d-46d3-82bb-12a785508ff7",
+      "name": "Sticky Note1",
+      "parameters": {
+        "color": 4,
+        "content": "# n8n Developer Agent\n",
+        "height": 280,
+        "width": 660
+      },
+      "position": [
+        740,
+        0
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "55f45b1e-72a0-4fbd-aaae-f90584cb5437",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        820,
+        620
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "1ed225cb-5265-4606-adfa-739a4377adbf",
+      "name": "n8n Developer",
+      "parameters": {
+        "options": {
+          "systemMessage": "=# Overview\nYour job is to take the incoming query and pass that to the \"Developer Tool\" tool EXACTLY AS YOU RECEIVED IT. Don't change any of the wording.\n\nOnce you receive a workflow link back from the Developer Tool, present it to the human as a clickable link that says \"View your finished workflow\" \n\nThe link should be clickable and take the user to the workflow.\n"
+        }
+      },
+      "position": [
+        1000,
+        100
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2
+    },
+    {
+      "id": "baf7a163-ed9a-4a06-bd12-036f2a8dba47",
+      "name": "Developer Tool",
+      "parameters": {
+        "description": "Call this tool once you have a finished workflow design to build the workflow.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lCxX3GtPYi8jhLHV"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        1200,
+        360
+      ],
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "19caf3e6-6a52-44a1-8c35-7a3dd4be251f",
+      "name": "Sticky Note2",
+      "parameters": {
+        "color": 6,
+        "content": "## Brain\n",
+        "height": 200,
+        "width": 320
+      },
+      "position": [
+        740,
+        300
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "48fdb2c1-d1e6-4d8c-9e2f-5921d7f909ec",
+      "name": "Sticky Note3",
+      "parameters": {
+        "color": 5,
+        "content": "## Tool\n",
+        "height": 200,
+        "width": 320
+      },
+      "position": [
+        1080,
+        300
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "7a8f90a1-2ba7-4602-bf77-a6489b9bba45",
+      "name": "Simple Memory",
+      "parameters": {},
+      "position": [
+        940,
+        360
+      ],
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3
+    },
+    {
+      "id": "c08d0e2e-0294-4ec7-8a04-555fdaac8571",
+      "name": "Sticky Note4",
+      "parameters": {
+        "content": "# 🛠️ Setup Guide  \n**Author:** [Nate Herk](https://www.youtube.com/@nateherk)\n\nFollow the steps below to get this workflow up and running:\n\n### MY RECOMMENDATION\nHook up the chat trigger directly to the workflow builder workflow instead of the \"When executed by another workflow\" trigger. This will make testing easier and keep everything in one execution. \n\nIf you want to take the multi-agent approach, then follow the below instructions. \n\n### ✅ Step 1: Connect Your [OpenRouter](https://openrouter.ai/) API Key  \nThis powers the main LLM agent. Make sure your key is active and added via the HTTP Request or Credential node.\n\n### ✅ Step 2: Add Your [Anthropic](https://console.anthropic.com/dashboard) API Key (Optional)  \nIf you want to enable thinking using Claude Opus 4, connect your Anthropic API key.\n\n### ✅ Step 3: Link the Developer Tool  \nMake sure the node or sub-workflow responsible for building the JSON is properly connected to the main agent. The developer tool should return a structured workflow JSON back to the main flow.\n\n### ✅ Step 4: Add Your n8n API Key  \nCreate your **n8n API credential** and connect it in the credential section. This is what allows the agent to spin up new workflows automatically in your instance.\n\n### ✅ Step 5: Copy the [Google Doc](https://docs.google.com/document/d/1TiRusVo4DbbANwAr7I0GUGDZY3pmEmHZy3k66mRxLCg/edit?usp=sharing)  \nMake a copy in your own Google Suite so you can edit, test, and reference it inside the Google Drive node. Then make sure to connect your Google credentials.\n\n### 🧪 Final Step: Start Testing  \nOnce all connections are made, start prompting the agent and watch it build n8n workflows on demand.\n",
+        "height": 860,
+        "width": 720
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-06-27T18:30:39.603Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-06-27T18:30:39.603Z",
+      "workflowId": "mvBQgAY1bhHU45gB"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-14T07:12:50.000Z",
+  "versionCounter": 4,
+  "versionId": "f9461d4d-152c-4498-9392-c5bf020f8c87"
+}

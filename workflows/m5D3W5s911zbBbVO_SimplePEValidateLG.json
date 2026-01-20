@@ -1,0 +1,953 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "system migration",
+    "autosaved": false,
+    "connections": {
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Supabase SAVE PE Val",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Embeddings OpenAI": {
+        "ai_embedding": [
+          [
+            {
+              "index": 0,
+              "node": "Pinecone Vector Store",
+              "type": "ai_embedding"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Pinecone Vector Store": {
+        "ai_tool": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_tool"
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_outputParser"
+            }
+          ]
+        ]
+      },
+      "Supabase SAVE PE Val": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Update a row1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row1",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-11-28T18:15:14.136Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "id": "27941164-7fa1-47d9-a780-a4b4f1a6df3f",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "a418806a-c35f-4cd3-b514-a42938878b65"
+        },
+        "position": [
+          -1744,
+          16
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "a418806a-c35f-4cd3-b514-a42938878b65"
+      },
+      {
+        "id": "ec955c1d-8a80-4879-97c9-8bc012f5bbc0",
+        "name": "AI Agent",
+        "parameters": {
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "Performance Evidence Learner Validation Prompt\n\nYour task is to gather all required information and documents for validation from the Document Store, perform the validation, and return a JSON response. The objective is to validate that the learner guide content thoroughly covers each performance evidence requirement, ensuring alignment with the necessary unit competency performance points.\n\nProcess for Validating Performance Evidence in Learner Guides:\n\n1.\nGather Unit Performance Evidence Requirements:\n\n•\nExtract all relevant performance evidence points from the Document Store.\n\n•\nIdentify document names, section titles, and page numbers for each performance point.\n\n\n\n2.\nReview Learner Guide Content for Alignment:\n\n•\nLocate sections, explanations, activities, or examples in the learner guide that directly teach or demonstrate how to meet each performance evidence requirement.\n\n•\nFor each matched content item, include the section or topic title, page number(s), and the learner guide name.\n\n\n\n3.\nMap Performance Points to Learner Guide Content:\n\n•\nMap each performance point to the relevant content section(s) in the learner guide.\n\n•\nIf no matching content is found, state \"Not met\".\n\n\n\n4.\nIdentify Content Gaps:\n\n•\nIf no content in the learner guide aligns with a performance evidence requirement, mark it as \"Not Met\".\n\n•\nProvide a brief explanation for the gap.\n\n•\nProvide recommendations for new content to be created to address the gap.\n\n\n\n5.\nAssign Status:\n\n•\nAssign one of the following statuses to the Performance Evidence:\n\n•\nMet: The learner guide fully explains or demonstrates how to meet the performance requirement.\n\n•\nPartially Met: Some relevant content exists, but it does not fully cover the requirement.\n\n•\nNot Met: No relevant content is found in the learner guide.\n\n\n\n\n\nJSON Structure for Results:\n\n•\nAlways return a response adhering to the JSON structure.\n\n•\nIf no matching results are found, mark each section as \"n/a\" or \"not found\".\n\nWhen assessing, be very lenient. If the content is close enough to the requirement, mark it as met.\n\nReturn only the JSON schema and nothing else."
+          },
+          "promptType": "define",
+          "text": "={{ $json.requirement }}"
+        },
+        "position": [
+          -1088,
+          32
+        ],
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.2
+      },
+      {
+        "credentials": {
+          "pineconeApi": {
+            "id": "yelFxS1GAveaGbaN",
+            "name": "PineconeApi Starter"
+          }
+        },
+        "id": "91ecc125-7201-495c-864a-372be916309a",
+        "name": "Pinecone Vector Store",
+        "parameters": {
+          "mode": "retrieve-as-tool",
+          "options": {
+            "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+          },
+          "pineconeIndex": {
+            "__rl": true,
+            "cachedResultName": "smartrto",
+            "mode": "list",
+            "value": "smartrto"
+          },
+          "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+        },
+        "position": [
+          -1056,
+          304
+        ],
+        "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "dbfd196e-9186-4305-b263-5135a189524f",
+        "name": "Embeddings OpenAI",
+        "parameters": {
+          "model": "text-embedding-ada-002",
+          "options": {}
+        },
+        "position": [
+          -1072,
+          496
+        ],
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "67749e3d-212d-4ec6-a8a9-2ba9d453efa6",
+        "name": "OpenAI Chat Model1",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-4o",
+            "mode": "list",
+            "value": "gpt-4o"
+          },
+          "options": {}
+        },
+        "position": [
+          -1376,
+          288
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "8f265eea-30a3-44ac-9fe1-8c87e6e11626",
+        "name": "Structured Output Parser",
+        "parameters": {
+          "autoFix": true,
+          "jsonSchemaExample": "{\n  \"Performance Evidence Requirement\": \"Description of the Performance Evidence Requirement being mapped.\",\n  \"Status\": \"Met\",\n  \"Document and Pages\": \"LearnerGuide.pdf: Page 10-12\",\n  \"Mapped Content\": {\n      \"Section and Title\": \"Text of the mapped content from the learner guide addressing the requirement.\"\n  },\n  \"Unmapped Content\": {\n     \"Reasoning\": \"The learner guide does not provide specific instructions on how to perform this task.\",\n     \"Recommendations\": \"Add a new section with a step-by-step guide and a practical example for this performance requirement.\"\n  }\n}"
+        },
+        "position": [
+          -656,
+          224
+        ],
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "4dbbffd9-9a0a-4f1b-8201-84a6c08b4d95",
+        "name": "OpenAI Chat Model",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1-mini"
+          },
+          "options": {}
+        },
+        "position": [
+          -736,
+          432
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "258c14c7-5af0-4f13-981e-11d9c5f140b0",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          -1760,
+          208
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "d8ed6c85-e80e-4e04-8dfb-97f000a20d42",
+        "name": "Update a row",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "COMPLETE"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -304,
+          32
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "c525366d-4dcd-4cb7-81e1-901592fa65aa",
+        "name": "Update a row1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "PROCESSING"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -1456,
+          32
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "executeOnce": true,
+        "id": "5e9f2b40-cc58-4dcf-9405-cb616910b62e",
+        "name": "Supabase SAVE PE Val",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "mapped_content",
+                "fieldValue": "={{ $json.output['Mapped Content']['Question Number and Title'] }}"
+              },
+              {
+                "fieldId": "valDetail_id",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+              },
+              {
+                "fieldId": "pe_number",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+              },
+              {
+                "fieldId": "pe_requirement",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+              },
+              {
+                "fieldId": "requirementId",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+              },
+              {
+                "fieldId": "status",
+                "fieldValue": "={{ $json.output.Status }}"
+              },
+              {
+                "fieldId": "unmappedContent",
+                "fieldValue": "={{ $json.output['Unmapped Content'].Reasoning }}"
+              },
+              {
+                "fieldId": "unmappedRecommendation",
+                "fieldValue": "={{ $json.output['Unmapped Content'].Recommendation }}"
+              },
+              {
+                "fieldId": "docReferences",
+                "fieldValue": "={{ $json.output['Document and Pages'] }}"
+              }
+            ]
+          },
+          "tableId": "performance_evidence_learner_validations"
+        },
+        "position": [
+          -608,
+          32
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2025-11-28T18:15:14.136Z",
+    "versionId": "52e2e0cb-d8ea-46ad-9efb-67bbd3ffce45",
+    "workflowId": "m5D3W5s911zbBbVO",
+    "workflowPublishHistory": []
+  },
+  "activeVersionId": "52e2e0cb-d8ea-46ad-9efb-67bbd3ffce45",
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Supabase SAVE PE Val",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Supabase SAVE PE Val": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row1",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-11-07T19:30:26.203Z",
+  "description": null,
+  "id": "m5D3W5s911zbBbVO",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SimplePEValidateLG",
+  "nodes": [
+    {
+      "id": "27941164-7fa1-47d9-a780-a4b4f1a6df3f",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "a418806a-c35f-4cd3-b514-a42938878b65"
+      },
+      "position": [
+        -1744,
+        16
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "a418806a-c35f-4cd3-b514-a42938878b65"
+    },
+    {
+      "id": "ec955c1d-8a80-4879-97c9-8bc012f5bbc0",
+      "name": "AI Agent",
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Performance Evidence Learner Validation Prompt\n\nYour task is to gather all required information and documents for validation from the Document Store, perform the validation, and return a JSON response. The objective is to validate that the learner guide content thoroughly covers each performance evidence requirement, ensuring alignment with the necessary unit competency performance points.\n\nProcess for Validating Performance Evidence in Learner Guides:\n\n1.\nGather Unit Performance Evidence Requirements:\n\n•\nExtract all relevant performance evidence points from the Document Store.\n\n•\nIdentify document names, section titles, and page numbers for each performance point.\n\n\n\n2.\nReview Learner Guide Content for Alignment:\n\n•\nLocate sections, explanations, activities, or examples in the learner guide that directly teach or demonstrate how to meet each performance evidence requirement.\n\n•\nFor each matched content item, include the section or topic title, page number(s), and the learner guide name.\n\n\n\n3.\nMap Performance Points to Learner Guide Content:\n\n•\nMap each performance point to the relevant content section(s) in the learner guide.\n\n•\nIf no matching content is found, state \"Not met\".\n\n\n\n4.\nIdentify Content Gaps:\n\n•\nIf no content in the learner guide aligns with a performance evidence requirement, mark it as \"Not Met\".\n\n•\nProvide a brief explanation for the gap.\n\n•\nProvide recommendations for new content to be created to address the gap.\n\n\n\n5.\nAssign Status:\n\n•\nAssign one of the following statuses to the Performance Evidence:\n\n•\nMet: The learner guide fully explains or demonstrates how to meet the performance requirement.\n\n•\nPartially Met: Some relevant content exists, but it does not fully cover the requirement.\n\n•\nNot Met: No relevant content is found in the learner guide.\n\n\n\n\n\nJSON Structure for Results:\n\n•\nAlways return a response adhering to the JSON structure.\n\n•\nIf no matching results are found, mark each section as \"n/a\" or \"not found\".\n\nWhen assessing, be very lenient. If the content is close enough to the requirement, mark it as met.\n\nReturn only the JSON schema and nothing else."
+        },
+        "promptType": "define",
+        "text": "={{ $json.requirement }}"
+      },
+      "position": [
+        -1088,
+        32
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "91ecc125-7201-495c-864a-372be916309a",
+      "name": "Pinecone Vector Store",
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "options": {
+          "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "smartrto",
+          "mode": "list",
+          "value": "smartrto"
+        },
+        "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+      },
+      "position": [
+        -1056,
+        304
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "dbfd196e-9186-4305-b263-5135a189524f",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "position": [
+        -1072,
+        496
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "67749e3d-212d-4ec6-a8a9-2ba9d453efa6",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        -1376,
+        288
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "8f265eea-30a3-44ac-9fe1-8c87e6e11626",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{\n  \"Performance Evidence Requirement\": \"Description of the Performance Evidence Requirement being mapped.\",\n  \"Status\": \"Met\",\n  \"Document and Pages\": \"LearnerGuide.pdf: Page 10-12\",\n  \"Mapped Content\": {\n      \"Section and Title\": \"Text of the mapped content from the learner guide addressing the requirement.\"\n  },\n  \"Unmapped Content\": {\n     \"Reasoning\": \"The learner guide does not provide specific instructions on how to perform this task.\",\n     \"Recommendations\": \"Add a new section with a step-by-step guide and a practical example for this performance requirement.\"\n  }\n}"
+      },
+      "position": [
+        -656,
+        224
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "4dbbffd9-9a0a-4f1b-8201-84a6c08b4d95",
+      "name": "OpenAI Chat Model",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        -736,
+        432
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "258c14c7-5af0-4f13-981e-11d9c5f140b0",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -1760,
+        208
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "d8ed6c85-e80e-4e04-8dfb-97f000a20d42",
+      "name": "Update a row",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "COMPLETE"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -304,
+        32
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "c525366d-4dcd-4cb7-81e1-901592fa65aa",
+      "name": "Update a row1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "PROCESSING"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -1456,
+        32
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "5e9f2b40-cc58-4dcf-9405-cb616910b62e",
+      "name": "Supabase SAVE PE Val",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "mapped_content",
+              "fieldValue": "={{ $json.output['Mapped Content']['Question Number and Title'] }}"
+            },
+            {
+              "fieldId": "valDetail_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+            },
+            {
+              "fieldId": "pe_number",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+            },
+            {
+              "fieldId": "pe_requirement",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+            },
+            {
+              "fieldId": "requirementId",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.output.Status }}"
+            },
+            {
+              "fieldId": "unmappedContent",
+              "fieldValue": "={{ $json.output['Unmapped Content'].Reasoning }}"
+            },
+            {
+              "fieldId": "unmappedRecommendation",
+              "fieldValue": "={{ $json.output['Unmapped Content'].Recommendation }}"
+            },
+            {
+              "fieldId": "docReferences",
+              "fieldValue": "={{ $json.output['Document and Pages'] }}"
+            }
+          ]
+        },
+        "tableId": "performance_evidence_learner_validations"
+      },
+      "position": [
+        -608,
+        32
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "requirement": "techniques to collaborate effectively with those working remotely."
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "35.155.119.178",
+            "cf-ipcountry": "US",
+            "cf-ray": "993e3cdfcc755ed3-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "84",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "ce367b05-91ef-4cfc",
+            "true-client-ip": "35.155.119.178",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "35.155.119.178, 172.71.124.194",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1761358858304685"
+          },
+          "params": {},
+          "query": {
+            "ke_number": "KE 8",
+            "pineconeNamespace": "000/single/BSBXTW301/LearnerGuide/2025-10-24 06:01/",
+            "requirementID": "1529",
+            "unitLink": "https://training.gov.au/training/details/BSBXTW301/unitdetails",
+            "validationDetailId": "295"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/3d7c890b-b1a7-4c3e-9cd8-3aebbc5417c8"
+        }
+      }
+    ],
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "asessementcondition": null,
+          "asessementinstruction": null,
+          "created_at": "2025-11-06T20:47:20.600388+00:00",
+          "detid": 295,
+          "element": null,
+          "id": 1201,
+          "namespace_code": "000/single/BSBXTW301/LearnerGuide/2025-10-24 06:01/",
+          "number": "KE 1.1",
+          "reqid": 1518,
+          "requirement": "organisational requirements relevant to working in a workplace team: workplace policies",
+          "status": "READY",
+          "summary_id": null,
+          "type": "KE",
+          "unit_url": "https://training.gov.au/training/details/BSBXTW301/unitdetails",
+          "updated_at": null
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-11-07T19:30:26.207Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-11-07T19:30:26.207Z",
+      "workflowId": "m5D3W5s911zbBbVO"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-15T02:21:01.000Z",
+  "versionCounter": 4,
+  "versionId": "52e2e0cb-d8ea-46ad-9efb-67bbd3ffce45"
+}

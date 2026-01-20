@@ -1,0 +1,763 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "AUDIO": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update Input",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "DOCUMENT": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "File data": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Items",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Generate chat Input": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "IMG": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "If Not Files": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Split Out Files",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Input": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If Not Files",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Aggregate",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Upload a file",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_memory"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Generate chat Input",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Split Out Files": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Items",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Update Input": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Upload a file": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "File data",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "VIDEO": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-11-25T09:56:09.426Z",
+  "description": null,
+  "id": "wzgVQfwATw8ihnKp",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "GoogleFileFlow",
+  "nodes": [
+    {
+      "id": "87ded3af-dbf2-4b47-9c47-b8e39170e78c",
+      "name": "AI Agent",
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a helpful and reliable assistant. Your primary goal is to answer user queries clearly, concisely, and briefly.\n\nYou can use external features or tools when available to complete tasks more efficiently. Use these resources independently and without asking permission, as long as they help you provide a better response to the user.\n\nIf you don't have enough information to answer, ask for the necessary data directly. Be proactive, take the initiative when helpful, and always focus on delivering practical and understandable solutions."
+        }
+      },
+      "position": [
+        1328,
+        256
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1
+    },
+    {
+      "id": "45bff017-5940-4a6a-a5f7-096c06de3de6",
+      "name": "Loop Over Items",
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "position": [
+        592,
+        624
+      ],
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3
+    },
+    {
+      "executeOnce": false,
+      "id": "80d2129f-ba51-4a42-a146-ee1a9bd0bd8b",
+      "name": "Split Out Files",
+      "parameters": {
+        "fieldToSplitOut": "=files",
+        "include": "allOtherFields",
+        "options": {
+          "destinationFieldName": "=files",
+          "includeBinary": true
+        }
+      },
+      "position": [
+        400,
+        624
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "id": "8a83f2c6-433b-427b-81e8-20c3e12db845",
+      "name": "Aggregate",
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "file"
+            }
+          ]
+        },
+        "options": {
+          "includeBinaries": false
+        }
+      },
+      "position": [
+        752,
+        480
+      ],
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1
+    },
+    {
+      "id": "b36af30e-1a89-487f-bd9f-1a1be923b291",
+      "name": "Merge",
+      "parameters": {},
+      "position": [
+        768,
+        256
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "aeac7f5a-6496-45cd-82e8-9dca58524679",
+      "name": "IMG",
+      "parameters": {
+        "descriptionType": "manual",
+        "imageUrls": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('URL_s_', ``, 'string') }}",
+        "modelId": {
+          "__rl": true,
+          "cachedResultName": "models/gemma-3-27b-it",
+          "mode": "list",
+          "value": "models/gemma-3-27b-it"
+        },
+        "operation": "analyze",
+        "options": {},
+        "resource": "image",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Text_Input', ``, 'string') }}",
+        "toolDescription": "Analyze image in Google Gemini"
+      },
+      "position": [
+        1392,
+        496
+      ],
+      "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "3a996ee0-cd32-4caa-8f21-fea3ed098ecc",
+      "name": "VIDEO",
+      "parameters": {
+        "descriptionType": "manual",
+        "modelId": {
+          "__rl": true,
+          "cachedResultName": "models/gemini-2.0-flash-lite",
+          "mode": "list",
+          "value": "models/gemini-2.0-flash-lite"
+        },
+        "operation": "analyze",
+        "options": {},
+        "resource": "video",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Text_Input', ``, 'string') }}",
+        "toolDescription": "Analyze video in Google Gemini",
+        "videoUrls": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('URL_s_', ``, 'string') }}"
+      },
+      "position": [
+        1488,
+        496
+      ],
+      "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "0f430939-d207-4e7f-a196-6c4dad59422c",
+      "name": "AUDIO",
+      "parameters": {
+        "audioUrls": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('URL_s_', ``, 'string') }}",
+        "descriptionType": "manual",
+        "modelId": {
+          "__rl": true,
+          "cachedResultName": "models/gemini-2.0-flash-lite",
+          "mode": "list",
+          "value": "models/gemini-2.0-flash-lite"
+        },
+        "operation": "analyze",
+        "options": {},
+        "resource": "audio",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Text_Input', ``, 'string') }}",
+        "toolDescription": "Analyze audio in Google Gemini"
+      },
+      "position": [
+        1584,
+        496
+      ],
+      "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "0bcce2dd-3d17-41a6-bb42-d9b996bdaea1",
+      "name": "DOCUMENT",
+      "parameters": {
+        "descriptionType": "manual",
+        "documentUrls": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('URL_s_', ``, 'string') }}",
+        "modelId": {
+          "__rl": true,
+          "cachedResultName": "models/gemini-2.0-flash-lite",
+          "mode": "list",
+          "value": "models/gemini-2.0-flash-lite"
+        },
+        "options": {},
+        "resource": "document",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Text_Input', ``, 'string') }}",
+        "toolDescription": "Analyze document in Google Gemini"
+      },
+      "position": [
+        1696,
+        496
+      ],
+      "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+      "typeVersion": 1
+    },
+    {
+      "id": "ce6e0c8b-9a1a-45b4-9eaf-f03c7340e719",
+      "name": "Input",
+      "parameters": {
+        "options": {
+          "allowFileUploads": true
+        }
+      },
+      "position": [
+        384,
+        256
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "webhookId": "2c774c20-3be1-429c-a9b6-86ca7cf2dcf9"
+    },
+    {
+      "id": "663b5f5a-f6c1-4d6c-beca-1c3d03ef4b0b",
+      "name": "If Not Files",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "e3475200-6983-492f-b08d-ca1c40f9e4a5",
+              "leftValue": "={{ $json.files }}",
+              "operator": {
+                "operation": "notExists",
+                "singleValue": true,
+                "type": "array"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        544,
+        256
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "0ec96892-4878-429a-9966-c69b4050bea1",
+      "name": "Upload a file",
+      "parameters": {
+        "binaryPropertyName": "=data{{$runIndex}}",
+        "inputType": "binary",
+        "resource": "file"
+      },
+      "position": [
+        752,
+        640
+      ],
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1
+    },
+    {
+      "id": "87b15364-c200-4f2b-8319-2ec3a37781cb",
+      "name": "File data",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c51e91b2-0bc3-41f7-ad20-6553a1f16a4f",
+              "name": "file.url",
+              "type": "string",
+              "value": "={{ $json.fileUri }}"
+            },
+            {
+              "id": "898419e5-f238-464c-abec-9410e0709bc8",
+              "name": "file.name",
+              "type": "string",
+              "value": "={{ $('Split Out Files').item.json.files.fileName }}"
+            },
+            {
+              "id": "4c088e7c-ed7c-48df-a448-e6107ca58fd9",
+              "name": "mimeType",
+              "type": "string",
+              "value": "={{ $json.mimeType }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        896,
+        640
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "id": "e4b4386e-ef03-4a23-bb9b-4bd919f93e67",
+      "name": "Update Input",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1fba2a0e-8f8f-422d-8b3d-2ce9aba9718a",
+              "name": "files",
+              "type": "array",
+              "value": "={{ $json.file }}"
+            },
+            {
+              "id": "264f9f25-ab51-481d-b1b0-68fc63297d79",
+              "name": "",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "id": "54da9062-5aef-4f1e-baf0-f2ea57864aef",
+              "name": "sessionId",
+              "type": "string",
+              "value": "={{ $('Input').item.json.sessionId }}"
+            },
+            {
+              "id": "dac98866-efeb-4fa3-af76-adf282ee6b29",
+              "name": "action",
+              "type": "string",
+              "value": "={{ $('Input').item.json.action }}"
+            },
+            {
+              "id": "34e03f34-f3d9-4eb3-8171-d47b0c276ef1",
+              "name": "chatInput",
+              "type": "string",
+              "value": "={{ $('Input').item.json.chatInput }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        896,
+        480
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "id": "d9ac95c9-ee88-4fe2-b701-63c4bb68763e",
+      "name": "Generate chat Input",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "88fdb9fb-e003-498e-98f8-9e8fcde8dd53",
+              "name": "chatInput",
+              "type": "string",
+              "value": "={{ $json.chatInput }}\n{{ $json.files ? 'Media: ' + $json.files.toJsonString() : '' }}"
+            },
+            {
+              "id": "8274ca7b-69b9-4b46-beb4-a8e11198c488",
+              "name": "sessionId",
+              "type": "string",
+              "value": "={{ $json.sessionId }}"
+            },
+            {
+              "id": "048b0f23-3d57-4056-b813-7ee8c25522fd",
+              "name": "action",
+              "type": "string",
+              "value": "={{ $json.action }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        928,
+        256
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "id": "9f4582aa-3314-4755-a191-1b1950011509",
+      "name": "Memory",
+      "parameters": {
+        "contextWindowLength": 15
+      },
+      "position": [
+        1264,
+        496
+      ],
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3
+    },
+    {
+      "id": "a0c37744-5c0b-43a3-8046-3628aa503b4e",
+      "name": "Sticky Note",
+      "parameters": {
+        "color": 4,
+        "content": "## Start \n",
+        "height": 336,
+        "width": 448
+      },
+      "position": [
+        272,
+        80
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "726cfe6b-b9b9-4b64-b02d-8ead1442ae5c",
+      "name": "Sticky Note1",
+      "parameters": {
+        "content": "## If files \n**Upload all files to Google**",
+        "height": 448,
+        "width": 816
+      },
+      "position": [
+        272,
+        416
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "6c906462-724b-426c-a48c-77624084c38d",
+      "name": "Sticky Note2",
+      "parameters": {
+        "color": 2,
+        "content": "## The real chat input ",
+        "height": 336,
+        "width": 368
+      },
+      "position": [
+        720,
+        80
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "2baa48b4-dce0-4542-8350-7285485aff38",
+      "name": "Sticky Note3",
+      "parameters": {
+        "color": 5,
+        "content": "## The Agent \n",
+        "height": 784,
+        "width": 736
+      },
+      "position": [
+        1088,
+        80
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "fcf4f74a-495d-47df-a2d6-0876c010499f",
+      "name": "Google Gemini Chat Model",
+      "parameters": {
+        "options": {}
+      },
+      "position": [
+        1136,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-11-25T09:56:09.429Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-11-25T09:56:09.429Z",
+      "workflowId": "wzgVQfwATw8ihnKp"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-11-25T10:00:51.000Z",
+  "versionCounter": 1,
+  "versionId": "61441e53-68f6-4083-82a9-d32adf0b24ff"
+}

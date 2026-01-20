@@ -1,0 +1,397 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "Extract Title": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "UOC Sections Supabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract Title",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Information Extractor",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAICHath": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Extract Title",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "UOC Sections Supabase": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Information Extractor",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2024-11-02T02:18:18.799Z",
+  "description": null,
+  "id": "4X587nEcBi2IszLE",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "UOCExtractCatchSaveSections",
+  "nodes": [
+    {
+      "id": "8c473d60-9f2f-4fd5-af31-069dd1eb2d3b",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "620c5080-5e0b-4adb-b3fd-5051072206bb"
+      },
+      "position": [
+        -48,
+        240
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "a3afbb11-4917-4b28-bc68-e16b2c0cdf74"
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "aa086722-7ade-4f2c-a392-8ca9b82b4706",
+      "name": "UOC Sections Supabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "epc",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.ElementsAndPerformanceCriteria }}"
+            },
+            {
+              "fieldId": "fs",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.FoundationSkills }}"
+            },
+            {
+              "fieldId": "pe",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.PerformanceEvidence }}"
+            },
+            {
+              "fieldId": "ke",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.KnowledgeEvidence }}"
+            },
+            {
+              "fieldId": "ac",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.AssessmentConditions }}"
+            },
+            {
+              "fieldId": "applciation",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.Application }}"
+            },
+            {
+              "fieldId": "UOCpage",
+              "fieldValue": "={{ $('Webhook').item.json.body.task.capturedTexts.UOCpage }}"
+            },
+            {
+              "fieldId": "Link",
+              "fieldValue": "={{ $('Webhook').item.json.body.task.inputParameters.originUrl }}"
+            },
+            {
+              "fieldId": "unitCode",
+              "fieldValue": "={{ $('Webhook').item.json.body.task.inputParameters.originUrl.substring(41,$('Webhook').item.json.body.task.inputParameters.originUrl.lastIndexOf('/'))}}"
+            },
+            {
+              "fieldId": "Type",
+              "fieldValue": "auto"
+            },
+            {
+              "fieldId": "Status",
+              "fieldValue": "auto"
+            },
+            {
+              "fieldId": "qualificationLink",
+              "fieldValue": "single"
+            },
+            {
+              "fieldId": "Title",
+              "fieldValue": "={{ $json.output.Title }}"
+            }
+          ]
+        },
+        "tableId": "UnitOfCompetency"
+      },
+      "position": [
+        1056,
+        240
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "2aee4c45-84c3-4272-9ce7-6ff7cfaaa0ad",
+      "name": "Information Extractor",
+      "parameters": {
+        "jsonSchemaExample": "{\n\n\"capturedTexts\": \n{\n\"UOCpage\": \n\"Unit of competency\\n|\\nShow history\\nno\\nCHCDIV001 Work with diverse people\\nUsage recommendation\\nCurrent\\n06/Aug/2015\\ninfo\\ninfo\\nRelease\\n1\\nexpand_more\\nCurrent\\n06/Aug/2015\\ndownload\\nDownload\\nUnit details\\nexpand_more\\nUnit of competency\\nModification history\\nRelease Comments\\n\\n\\nRelease 1\\n\\n \\n\\nThis version was released in CHC Community Services Training Package release 2.0 and meets the requirements of the 2012 Standards for Training Packages.\\n\\nMerged HLTHIR403C/CHCCS405C. Significant changes to the elements and performance criteria. New evidence requirements for assessment, including volume and frequency.\\n\\nApplication\\n\\nThis unit describes the skills and knowledge required to work respectfully with people from diverse social and cultural groups and situations, including Aboriginal and/or Torres Strait Islander people.\\n\\nThis unit applies to all workers.\\n\\nThe skills in this unit must be applied in accordance with Commonwealth and State/Territory legislation, Australian/New Zealand standards and industry codes of practice.\\n\\nElements and performance criteria\\nElement Performance criteria\\n\\n\\nElements define the essential outcomes\\n\\n \\n\\nPerformance criteria describe the performance needed to demonstrate achievement of the element\\n\\n\\n \\n\\n\\n1. Reflect on own perspectives\\n\\n \\n\\n1.1 Identify and reflect on own social and cultural perspectives and biases\\n\\n1.2 Work with awareness of own limitations in self and social awareness\\n\\n1.3 Use reflection to support own ability to work inclusively and with understanding of others\\n\\n1.4 Identify and act on ways to improve own self and social awareness\\n\\n\\n \\n\\n\\n2. Appreciate diversity and inclusiveness, and their benefits\\n\\n \\n\\n2.1 Value and respect diversity and inclusiveness across all areas of work\\n\\n2.2 Contribute to the development of work place and professional relationships based on appreciation of diversity and inclusiveness\\n\\n2.3 Use work practices that make environments safe for all\\n\\n\\n \\n\\n\\n3. Communicate with people from diverse backgrounds and situations\\n\\n \\n\\n3.1 Show respect for diversity in communication with all people\\n\\n3.2 Use verbal and non-verbal communication constructively to establish, develop and maintain effective relationships, mutual trust and confidence\\n\\n3.3 Where a language barrier exists, use effective strategies to communicate in the most efficient way possible\\n\\n3.4 Seek assistance from interpreters or other persons according to communication needs\\n\\n\\n \\n\\n\\n4. Promote understanding across diverse groups\\n\\n \\n\\n4.1 Identify issues that may cause communication misunderstandings or other difficulties\\n\\n4.2 Where difficulties or misunderstandings occur, consider the impact of social and cultural diversity\\n\\n4.3 Make an effort to sensitively resolve differences, taking account of diversity considerations\\n\\n4.4 Address any difficulties with appropriate people and seek assistance when required\\n\\nFoundation skills\\n\\nThe Foundation Skills describe those required skills (language, literacy, numeracy and employment skills) that are essential to performance.\\n\\n\\n\\n\\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\\n\\nUnit mapping information\\n\\nNo equivalent unit.\\n\\nAssessment requirements\\nModification history\\nRelease Comments\\n\\n\\nRelease 1\\n\\n \\n\\nThis version was released in CHC Community Services Training Package release 2.0 and meets the requirements of the 2012 Standards for Training Packages.\\n\\nMerged HLTHIR403C/CHCCS405C. Significant changes to the elements and performance criteria. New evidence requirements for assessment, including volume and frequency.\\n\\nPerformance evidence\\n\\nThe candidate must show evidence of the ability to complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the job role. There must be evidence that the candidate has:\\n\\nundertaken a structured process to reflect on own perspectives on diversity\\nrecognised and respected the needs of people from diverse social and cultural backgrounds in at least 3 different situations:\\nselected and used appropriate verbal and non verbal communication\\nrecognised situations where misunderstandings may arise from diversity and formed appropriate responses\\nKnowledge evidence\\n\\nThe candidate must be able to demonstrate essential knowledge required to effectively complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the work role. This includes knowledge of:\\n\\nconcepts of cultural awareness, cultural safety and cultural competence and how these impact different work roles\\nconcepts and definitions of diversity\\nown culture and the community attitudes, language, policies and structures of that culture and how they impact on different people and groups\\nfeatures of diversity in Australia and how this impacts different areas of work and life:\\npolitical\\nsocial\\neconomic\\ncultural\\nlegal and ethical considerations (international, national, state/territory, local) for working with diversity, how these impact individual workers, and the consequences of breaches:\\ndiscrimination:\\nage\\ndisability\\nracial\\nsex\\nhuman rights:\\nUniversal declaration of human rights\\nrelationship between human needs and human rights\\nframeworks, approaches and instruments used in the workplace\\nrights and responsibilities of workers, employers and clients, including appropriate action when rights are being infringed or responsibilities not being carried out\\nkey areas of diversity and their characteristics, including:\\nculture, race, ethnicity\\ndisability\\nreligious or spiritual beliefs\\ngender, including transgender\\nintersex\\ngenerational\\nsexual orientation/sexual identity - lesbian, gay, bisexual, heterosexual\\nkey aspects, and the diversity, of Australia’s Aboriginal and/or Torres Strait Islander cultures, including:\\nsocial, political and economic issues affecting Aboriginal and/or Torres Strait Islander people\\nown culture, western systems and structures and how these impact on Aboriginal and/or Torres Strait Islander people and their engagement with services\\npotential needs of marginalised groups, including:\\nprotective factors\\nphysical, mental and emotional health issues/care needs\\nconsideration of impacts of discrimination, trauma, exclusion and negative attitudes\\nresources that support individuals and organisations to embrace and respond to diversity\\nlanguage and cultural interpreters\\nimagery\\ninfluences and changing practices in Australia and their impact on the diverse communities that make up Australian society\\nimpact of diversity practices and experiences on personal behaviour, interpersonal relationships, perception and social expectations of others\\nAssessment conditions\\n\\nSkills must have been demonstrated in the workplace or in a simulated environment that reflects workplace conditions. Where simulation is used, it must reflect real working conditions by modelling industry operating conditions and contingencies, as well as, using suitable facilities, equipment and resources.\\n\\nAssessors must satisfy the Standards for Registered Training Organisations (RTOs) 2015/AQTF mandatory competency requirements for assessors.\",\n\"Application\": \n\"Application\\n\\nThis unit describes the skills and knowledge required to work respectfully with people from diverse social and cultural groups and situations, including Aboriginal and/or Torres Strait Islander people.\\n\\nThis unit applies to all workers.\\n\\nThe skills in this unit must be applied in accordance with Commonwealth and State/Territory legislation, Australian/New Zealand standards and industry codes of practice.\",\n\"ElementsAndPerformanceCriteria\": \n\"Elements and performance criteria\\nElement Performance criteria\\n\\n\\nElements define the essential outcomes\\n\\n \\n\\nPerformance criteria describe the performance needed to demonstrate achievement of the element\\n\\n\\n \\n\\n\\n1. Reflect on own perspectives\\n\\n \\n\\n1.1 Identify and reflect on own social and cultural perspectives and biases\\n\\n1.2 Work with awareness of own limitations in self and social awareness\\n\\n1.3 Use reflection to support own ability to work inclusively and with understanding of others\\n\\n1.4 Identify and act on ways to improve own self and social awareness\\n\\n\\n \\n\\n\\n2. Appreciate diversity and inclusiveness, and their benefits\\n\\n \\n\\n2.1 Value and respect diversity and inclusiveness across all areas of work\\n\\n2.2 Contribute to the development of work place and professional relationships based on appreciation of diversity and inclusiveness\\n\\n2.3 Use work practices that make environments safe for all\\n\\n\\n \\n\\n\\n3. Communicate with people from diverse backgrounds and situations\\n\\n \\n\\n3.1 Show respect for diversity in communication with all people\\n\\n3.2 Use verbal and non-verbal communication constructively to establish, develop and maintain effective relationships, mutual trust and confidence\\n\\n3.3 Where a language barrier exists, use effective strategies to communicate in the most efficient way possible\\n\\n3.4 Seek assistance from interpreters or other persons according to communication needs\\n\\n\\n \\n\\n\\n4. Promote understanding across diverse groups\\n\\n \\n\\n4.1 Identify issues that may cause communication misunderstandings or other difficulties\\n\\n4.2 Where difficulties or misunderstandings occur, consider the impact of social and cultural diversity\\n\\n4.3 Make an effort to sensitively resolve differences, taking account of diversity considerations\\n\\n4.4 Address any difficulties with appropriate people and seek assistance when required\",\n\"FoundationSkills\": \n\"Foundation skills\\n\\nThe Foundation Skills describe those required skills (language, literacy, numeracy and employment skills) that are essential to performance.\\n\\n\\n\\n\\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\",\n\"PerformanceEvidence\": \n\"Performance evidence\\n\\nThe candidate must show evidence of the ability to complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the job role. There must be evidence that the candidate has:\\n\\nundertaken a structured process to reflect on own perspectives on diversity\\nrecognised and respected the needs of people from diverse social and cultural backgrounds in at least 3 different situations:\\nselected and used appropriate verbal and non verbal communication\\nrecognised situations where misunderstandings may arise from diversity and formed appropriate responses\",\n\"KnowledgeEvidence\": \n\"Knowledge evidence\\n\\nThe candidate must be able to demonstrate essential knowledge required to effectively complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the work role. This includes knowledge of:\\n\\nconcepts of cultural awareness, cultural safety and cultural competence and how these impact different work roles\\nconcepts and definitions of diversity\\nown culture and the community attitudes, language, policies and structures of that culture and how they impact on different people and groups\\nfeatures of diversity in Australia and how this impacts different areas of work and life:\\npolitical\\nsocial\\neconomic\\ncultural\\nlegal and ethical considerations (international, national, state/territory, local) for working with diversity, how these impact individual workers, and the consequences of breaches:\\ndiscrimination:\\nage\\ndisability\\nracial\\nsex\\nhuman rights:\\nUniversal declaration of human rights\\nrelationship between human needs and human rights\\nframeworks, approaches and instruments used in the workplace\\nrights and responsibilities of workers, employers and clients, including appropriate action when rights are being infringed or responsibilities not being carried out\\nkey areas of diversity and their characteristics, including:\\nculture, race, ethnicity\\ndisability\\nreligious or spiritual beliefs\\ngender, including transgender\\nintersex\\ngenerational\\nsexual orientation/sexual identity - lesbian, gay, bisexual, heterosexual\\nkey aspects, and the diversity, of Australia’s Aboriginal and/or Torres Strait Islander cultures, including:\\nsocial, political and economic issues affecting Aboriginal and/or Torres Strait Islander people\\nown culture, western systems and structures and how these impact on Aboriginal and/or Torres Strait Islander people and their engagement with services\\npotential needs of marginalised groups, including:\\nprotective factors\\nphysical, mental and emotional health issues/care needs\\nconsideration of impacts of discrimination, trauma, exclusion and negative attitudes\\nresources that support individuals and organisations to embrace and respond to diversity\\nlanguage and cultural interpreters\\nimagery\\ninfluences and changing practices in Australia and their impact on the diverse communities that make up Australian society\\nimpact of diversity practices and experiences on personal behaviour, interpersonal relationships, perception and social expectations of others\",\n\"AssessmentConditions\": \n\"Assessment conditions\\n\\nSkills must have been demonstrated in the workplace or in a simulated environment that reflects workplace conditions. Where simulation is used, it must reflect real working conditions by modelling industry operating conditions and contingencies, as well as, using suitable facilities, equipment and resources.\\n\\nAssessors must satisfy the Standards for Registered Training Organisations (RTOs) 2015/AQTF mandatory competency requirements for assessors.\"\n}\n}",
+        "options": {
+          "systemPromptTemplate": "You are a highly specialized extraction algorithm.\n\nExtract only the explicitly relevant information from the provided text.\nDo not summarize, paraphrase, or correct any content.\nExtract the requested sections verbatim, preserving their original wording.\nIf an attribute's value is not found in the text, return an empty string for that attribute."
+        },
+        "schemaType": "fromJson",
+        "text": "={{ $json.body.task.capturedTexts.toJsonString() }}"
+      },
+      "position": [
+        272,
+        240
+      ],
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "d9e3eab7-fc19-43e2-8c37-85b5b513a69a",
+      "name": "OpenAI Chat Model",
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {}
+      },
+      "position": [
+        176,
+        448
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "02482add-265a-4a28-b0f4-abd9ee43961f",
+      "name": "OpenAICHath",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        672,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "391bb826-a652-47b5-836c-05be73d52a09",
+      "name": "Extract Title",
+      "parameters": {
+        "attributes": {
+          "attributes": [
+            {
+              "description": "uoc title",
+              "name": "Title"
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "You are an expert extraction algorithm.\nOnly extract relevant information from the text.\n\nExtract the title found after the Show history text and before Usage Recommendation\n\nIf you do not know the value of an attribute asked to extract, you may omit the attribute's value."
+        },
+        "text": "={{ $json.output.capturedTexts.UOCpage }}"
+      },
+      "position": [
+        624,
+        240
+      ],
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "event": "task.finishedSuccessfully",
+            "task": {
+              "capturedDataTemporaryUrl": null,
+              "capturedLists": {},
+              "capturedScreenshots": {},
+              "capturedTexts": {
+                "Application": "Application\n\nIt includes systematic and efficient control of all vehicle functions, monitoring traffic and road conditions, managing vehicle condition and performance, and effectively managing hazardous situations.\n\nDriving is performed with limited or minimum supervision, and with limited accountability and responsibility for self and others in achieving the prescribed outcomes.\n\nDriving involves the application of routine vehicle driving principles and procedures to maintain the safety and operation of a commercial light rigid vehicle across a variety of driving contexts.\n\nNo licensing, legislative or certification requirements apply to this unit at the time of publication.",
+                "AssessmentConditions": "Assessment conditions\n\nAssessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must occur in workplace operational situations where it is appropriate to do so; where this is not appropriate, assessment must occur in simulated workplace operational situations that replicate workplace conditions.\n\nAssessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.\n\nAssessment of this unit may be undertaken within a licensing examination conducted by, or under the authority of, the relevant state/territory road and traffic authority.\n\nResources for assessment must include:\n\na range of relevant exercises, case studies and/or simulations\nrelevant materials, tools, equipment and personal protective equipment (PPE) currently used in industry\napplicable documentation, including workplace procedures, regulations, codes of practice and operation manuals.",
+                "ElementsAndPerformanceCriteria": "Pre-requisite unit\n\nNot applicable.",
+                "FoundationSkills": "Competency field\n\nC – Vehicle Operation",
+                "KnowledgeEvidence": "Knowledge evidence\n\nEvidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria and include knowledge of:\n\ncauses and effects of fatigue on drivers\ndifferences between transmission types\ndriving hazards and related defensive driving techniques\nefficient driving techniques\nengine power management and safe driving strategies\nfactors that increase fatigue-related accidents\nfactors that may cause traffic delays and diversions and related actions that can be taken\nfatigue management strategies including on-road techniques\nlifestyles that promote effective long-term fatigue management\nlight rigid vehicle controls, instruments and indicators and their use\nlight rigid vehicle handling procedures\nmap reading and road navigation techniques including using a global positioning system (GPS) device, as required\npre-operational checks carried out on vehicle and related actions\nprinciples of stress management when driving a vehicle\nprocedures to be followed in a driving emergency\nrelevant state/territory road and traffic authority road rules, regulations, permits and licence requirements\nrelevant work health and safety (WHS)/occupational health and safety (OHS) and environmental procedures and regulations\nworkplace driving and operational instructions.",
+                "PerformanceEvidence": "Performance evidence\n\nEvidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria on at least one occasion and include:\n\napplying precautions and required action to minimise, control or eliminate identified hazards\ncarrying out pre-operational checks on vehicle\ncompleting relevant documentation\ndemonstrating low-risk driving behaviours\nmodifying activities depending on operational contingencies, risk situations and environments\nmonitoring and anticipating traffic hazards and taking appropriate action\nreading and interpreting relevant instructions, procedures, information and signs\nreporting and/or rectifying identified problems, faults or malfunctions promptly in accordance with regulatory requirements and workplace procedures.",
+                "UOCpage": "Unit of competency\n|\nShow history\nno\nTLIC2002 Drive light rigid vehicle\nUsage recommendation\nCurrent\n29/Feb/2016\ninfo\ninfo\nRelease\nCurrent Release\n2\nexpand_more\nCurrent\n12/Jun/2020\ndownload\nDownload\nUnit details\nexpand_more\nUnit of competency\nModification history\n\nRelease 2. This is the second release of this unit of competency in the TLI Transport and Logistics Training Package:\n\nMinor statement changes in Assessment Conditions.\n\n\n\nRelease 1. This is the first release of this unit of competency in the TLI Transport and Logistics Training Package.\n\nApplication\n\nIt includes systematic and efficient control of all vehicle functions, monitoring traffic and road conditions, managing vehicle condition and performance, and effectively managing hazardous situations.\n\nDriving is performed with limited or minimum supervision, and with limited accountability and responsibility for self and others in achieving the prescribed outcomes.\n\nDriving involves the application of routine vehicle driving principles and procedures to maintain the safety and operation of a commercial light rigid vehicle across a variety of driving contexts.\n\nNo licensing, legislative or certification requirements apply to this unit at the time of publication.\n\nPre-requisite unit\n\nNot applicable.\n\nCompetency field\n\nC – Vehicle Operation\n\nUnit sector\n\nNot applicable.\n\nElements and performance criteria\nElements\tPerformance criteria\n\n\nElements describe the essential outcomes.\n\n\t\n\nPerformance criteria describe the performance needed to demonstrate achievement of the element.\n\n\n1\t\n\nDrive light rigid vehicle\n\n\t\n\n1.1\n\n\t\n\nLight rigid vehicle is started, steered, manoeuvred, positioned and stopped in accordance with traffic regulations and manufacturer instructions\n\n\n\t\t\n\n1.2\n\n\t\n\nEngine power is managed to ensure efficiency and performance and to minimise engine and transmission damage\n\n\n\t\t\n\n1.3\n\n\t\n\nDriving hazards are identified and/or anticipated and avoided or controlled through defensive driving\n\n\n\t\t\n\n1.4\n\n\t\n\nLight rigid vehicle is driven in reverse, maintaining visibility and achieving accurate positioning\n\n\n\t\t\n\n1.5\n\n\t\n\nLight rigid vehicle is parked, shut down and secured in accordance with manufacturer specifications, traffic regulations and workplace procedures\n\n\n\t\t\n\n1.6\n\n\t\n\nAppropriate procedures are followed in a driving emergency\n\n\n2\t\n\nMonitor traffic and road conditions\n\n\t\n\n2.1\n\n\t\n\nMost efficient route of travel is taken by monitoring and anticipating traffic flows and conditions, road standards and other factors likely to cause delays or route deviations\n\n\n\t\t\n\n2.2\n\n\t\n\nTraffic and road conditions are constantly monitored and acted on to enable safe operation and to ensure no injury to people or damage to property, equipment, loads and facilities\n\n\n3\t\n\nMonitor and maintain vehicle performance\n\n\t\n\n3.1\n\n\t\n\nVehicle performance is maintained through vehicle pre-operational inspections and checks\n\n\n\t\t\n\n3.2\n\n\t\n\nPerformance and efficiency of vehicle operation is monitored during use\n\n\n\t\t\n\n3.3\n\n\t\n\nDefective or irregular performance or malfunctions are reported to appropriate authority\n\n\n\t\t\n\n3.4\n\n\t\n\nVehicle records are maintained/updated and information is processed in accordance with workplace procedures\n\nFoundation skills\n\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\n\nRange of conditions\n\nRange is restricted to essential operating conditions and any other variables essential to the work environment.\n\nAssessment requirements\nModification history\n\nRelease 2. This is the second release of this unit of competency in the TLI Transport and Logistics Training Package:\n\nMinor statement changes in Assessment Conditions.\n\n\n\nRelease 1. This is the first release of this unit of competency in the TLI Transport and Logistics Training Package.\n\nPerformance evidence\n\nEvidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria on at least one occasion and include:\n\napplying precautions and required action to minimise, control or eliminate identified hazards\ncarrying out pre-operational checks on vehicle\ncompleting relevant documentation\ndemonstrating low-risk driving behaviours\nmodifying activities depending on operational contingencies, risk situations and environments\nmonitoring and anticipating traffic hazards and taking appropriate action\nreading and interpreting relevant instructions, procedures, information and signs\nreporting and/or rectifying identified problems, faults or malfunctions promptly in accordance with regulatory requirements and workplace procedures.\nKnowledge evidence\n\nEvidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria and include knowledge of:\n\ncauses and effects of fatigue on drivers\ndifferences between transmission types\ndriving hazards and related defensive driving techniques\nefficient driving techniques\nengine power management and safe driving strategies\nfactors that increase fatigue-related accidents\nfactors that may cause traffic delays and diversions and related actions that can be taken\nfatigue management strategies including on-road techniques\nlifestyles that promote effective long-term fatigue management\nlight rigid vehicle controls, instruments and indicators and their use\nlight rigid vehicle handling procedures\nmap reading and road navigation techniques including using a global positioning system (GPS) device, as required\npre-operational checks carried out on vehicle and related actions\nprinciples of stress management when driving a vehicle\nprocedures to be followed in a driving emergency\nrelevant state/territory road and traffic authority road rules, regulations, permits and licence requirements\nrelevant work health and safety (WHS)/occupational health and safety (OHS) and environmental procedures and regulations\nworkplace driving and operational instructions.\nAssessment conditions\n\nAssessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must occur in workplace operational situations where it is appropriate to do so; where this is not appropriate, assessment must occur in simulated workplace operational situations that replicate workplace conditions.\n\nAssessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.\n\nAssessment of this unit may be undertaken within a licensing examination conducted by, or under the authority of, the relevant state/territory road and traffic authority.\n\nResources for assessment must include:\n\na range of relevant exercises, case studies and/or simulations\nrelevant materials, tools, equipment and personal protective equipment (PPE) currently used in industry\napplicable documentation, including workplace procedures, regulations, codes of practice and operation manuals."
+              },
+              "createdAt": 1752953132846,
+              "finishedAt": 1752953193572,
+              "id": "01982426-172f-7549-a902-b6da064467f2",
+              "inputParameters": {
+                "originUrl": "https://training.gov.au/training/details/TLIC2002/unitdetails"
+              },
+              "retriedByTaskId": null,
+              "retriedOriginalTaskId": null,
+              "retriedTaskId": null,
+              "robotBulkRunId": null,
+              "robotId": "c92d0eb7-8b6f-4c3b-8c25-9918d758fa6e",
+              "runByAPI": true,
+              "runByTaskMonitorId": null,
+              "runByUserId": null,
+              "startedAt": 1752953172858,
+              "status": "successful",
+              "triedRecordingVideo": false,
+              "userFriendlyError": null,
+              "videoRemovedAt": null,
+              "videoUrl": null
+            }
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "3.228.254.190",
+            "cf-ipcountry": "US",
+            "cf-ray": "961c9c74d8084e63-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "12655",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "ac74a8a3-9c3d-4446",
+            "traceparent": "00-687bf169000000002feaf4dfac2469d4-49dc332a3c89f34e-01",
+            "tracestate": "dd=t.tid:687bf16900000000;t.dm:-1;s:1;p:49dc332a3c89f34e",
+            "true-client-ip": "3.228.254.190",
+            "user-agent": "axios/1.9.0",
+            "x-datadog-parent-id": "5322185116142400334",
+            "x-datadog-sampling-priority": "1",
+            "x-datadog-tags": "_dd.p.tid=687bf16900000000,_dd.p.dm=-1",
+            "x-datadog-trace-id": "3452841305835858388",
+            "x-forwarded-for": "3.228.254.190, 172.71.124.211",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1752953193886720"
+          },
+          "params": {},
+          "query": {},
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/620c5080-5e0b-4adb-b3fd-5051072206bb"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2024-11-02T02:18:18.802Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2024-11-02T02:18:18.802Z",
+      "workflowId": "4X587nEcBi2IszLE"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-07T17:56:51.021Z",
+  "versionCounter": 2,
+  "versionId": "50f2bf39-a39d-4f8f-bee7-922408169199"
+}

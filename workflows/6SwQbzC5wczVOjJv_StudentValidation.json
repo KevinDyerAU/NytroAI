@@ -1,0 +1,475 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Stop and Error",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Supabase SAVE StudentValidation",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2024-12-07T05:17:08.586Z",
+  "description": null,
+  "id": "6SwQbzC5wczVOjJv",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "StudentValidation",
+  "nodes": [
+    {
+      "id": "56a53250-4258-48e8-b82a-75e0354d2f43",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "0c4a37fd-7d8d-4b6a-a57e-6969cfdb530e"
+      },
+      "position": [
+        -1424,
+        32
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "0c4a37fd-7d8d-4b6a-a57e-6969cfdb530e"
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "2c3c8eb7-5cce-46bc-b056-393a5bc03d5a",
+      "name": "Supabase SAVE StudentValidation",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "vbf_id",
+              "fieldValue": "={{ $('Webhook').item.json.query.vbf_id }}"
+            },
+            {
+              "fieldId": "unit",
+              "fieldValue": "={{ $('Webhook').item.json.body.unitCode }}"
+            },
+            {
+              "fieldId": "qualification",
+              "fieldValue": "={{ $('Webhook').item.json.body.qualificationCode }}"
+            },
+            {
+              "fieldId": "student_name",
+              "fieldValue": "={{ $('Webhook').item.json.body.studentName }}"
+            },
+            {
+              "fieldId": "date_of_activity",
+              "fieldValue": "={{ $json.output.date_of_activity }}"
+            },
+            {
+              "fieldId": "assessment_type",
+              "fieldValue": "={{ $('Webhook').item.json.body.assessmentType }}"
+            },
+            {
+              "fieldId": "taskId",
+              "fieldValue": "={{ $json.output.task_id }}"
+            },
+            {
+              "fieldId": "benchmark_answer",
+              "fieldValue": "={{ $json.output.benchmark_answer }}"
+            },
+            {
+              "fieldId": "student_response",
+              "fieldValue": "={{ $json.output.student_response }}"
+            },
+            {
+              "fieldId": "student_result",
+              "fieldValue": "={{ $json.output.result }}"
+            },
+            {
+              "fieldId": "trainer_comments",
+              "fieldValue": "={{ $json.output.trainer_feedback.trainer_comments }}"
+            },
+            {
+              "fieldId": "trainer_result",
+              "fieldValue": "={{ $json.output.trainer_feedback.trainer_result }}"
+            },
+            {
+              "fieldId": "trainer_feedback_summary",
+              "fieldValue": "={{ $json.output.summary }}"
+            },
+            {
+              "fieldId": "trainer_marking_accuracy",
+              "fieldValue": "={{ $json.output.focus_areas.trainer_marking_accuracy }}"
+            },
+            {
+              "fieldId": "trainer_feedback_sufficiency",
+              "fieldValue": "={{ $json.output.focus_areas.trainer_feedback_sufficiency }}"
+            },
+            {
+              "fieldId": "trainer_feedback_suggestion",
+              "fieldValue": "={{ $json.output.focus_areas.trainer_feedback_suggestion }}"
+            },
+            {
+              "fieldId": "trainer_tone",
+              "fieldValue": "={{ $json.output.focus_areas.trainer_tone }}"
+            }
+          ]
+        },
+        "tableId": "student_validations"
+      },
+      "position": [
+        -96,
+        144
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "3cbb3012-5208-44d3-868b-09e3d4ce1ef9",
+      "name": "If",
+      "parameters": {
+        "conditions": {
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "ec5f8614-36f3-44c9-a4ec-008d50d6e78f",
+              "leftValue": "={{ $json.output.trainer_feedback.trainer_result }}",
+              "operator": {
+                "operation": "empty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "ab269406-6c7e-4d0d-a6c5-2c579deee38c",
+              "leftValue": "={{ $json.output.trainer_feedback.trainer_result }}",
+              "operator": {
+                "operation": "notExists",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -336,
+        32
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "ae7a6284-ceda-4f43-ae5e-304a814f561f",
+      "name": "Stop and Error",
+      "parameters": {
+        "errorMessage": "NO RESULT"
+      },
+      "position": [
+        -128,
+        -128
+      ],
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1
+    },
+    {
+      "id": "2c37db0b-2966-4de3-a278-a8db3629315e",
+      "name": "AI Agent",
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are tasked with retrieving relevant questions, tasks, benchmark answers, and trainer feedback from a document store and evaluating a trainer’s assessment of a student’s answer, comparing it to a benchmark answer within a provided student assessment document.\n\nFollow these steps to complete the task:\n\n1. Extract the date of the student assessment activity\n\n2. Extract the student response from the document.to the specific task provided.\n  2.1. Find the corresponding benchmark answer for the task.\n  2.2. Compare the student response to the benchmark answer.\n  2.3 Determine if the student’s response is “Correct”, “Incorrect”, or “Partially Correct”.\n  2.4 Mark the result as \"None\".\n\n3. Review the trainer’s feedback:\nTrainer feedback must always return a result, even if the student didn’t respond.\nCritically important is that the trainers feedback summary reflects how the trainer evaluated the students reponse and not an evaluation of the student response itself.\nIf the trainer provided feedback, extract and evaluate its clarity and accuracy.\n  3.1 If the trainer left the response blank, set \"trainer_result\": \"None\".\n  3.2 Mark the trainer’s result as either (\"Satisfactory\", \"Not Satisfactory\", \"Partially Satisfactory\", \"None\").\n  3.3 Extract the trainer’s comments.\n  3.4 Evaluate the trainer’s feedback:\n    3.4.1 Assess the accuracy of the trainer’s marking.\n    3.4.2 Determine if the feedback provided is sufficient to help the student improve.\n    3.4.3 Evaluate the tone of the feedback.\n    3.4.4 Suggest what the trainer could have added to better guide the student.\n  \n4. Summarize the evaluation.\n\n\nStructure the feedback and assessment in JSON format as shown below. Include all necessary fields.\n\nExample JSON:\n\n\n“task_id”: “Q1002”,\n“benchmark_answer”: “Explain the process of risk assessment in a workplace.”,\n“student_response”: “Identify hazards, assess risks, control risks, review controls.”,\n“result”: “Partially Correct”,\n“date_of_activity”: “1900-01-01”,\n“trainer_feedback”: \n  “trainer_result”: “Incorrect”,\n  “trainer_comments”: “You missed explaining the importance of documentation in risk assessment.”,\n  “summary”: “Trainer’s feedback correctly identified a gap but did not explain why it matters.”,\n“focus_areas”: \n  “trainer_marking_accuracy”: “Trainer marked this incorrect but could have marked it partially correct.”,\n  “trainer_feedback_sufficiency”: “Trainer feedback was insufficient to fully guide the student.”,\n  “trainer_feedback_suggestion”: “Trainer could have provided an example of documentation importance.”,\n  “trainer_tone”: “Neutral, could be more encouraging.”\n\n\nUse the provided student assessment document for reference and return only the JSON structure as shown above."
+        },
+        "promptType": "define",
+        "text": "=Question {{ $json.body.question_number }}: Please validate the following question/task: {{ $json.body.question }}"
+      },
+      "position": [
+        -896,
+        80
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "35e0b113-a1bc-46d0-a07e-e4ecf15d4465",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        -1200,
+        368
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "da919937-379e-4ead-934f-181b2201817c",
+      "name": "Pinecone Vector Store",
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "options": {
+          "pineconeNamespace": "={{ $json.query.pineconeNamespace }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "smartrto",
+          "mode": "list",
+          "value": "smartrto"
+        },
+        "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be valdiated."
+      },
+      "position": [
+        -1056,
+        384
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "d8239794-400a-46e5-8733-0cc04c855102",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "position": [
+        -1088,
+        720
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "3606e9d3-02cb-43f2-addb-259b129b05dc",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{\n    \"task_id\": \"Q1\",\n    \"date_of_activity\": \"2024-12-09\",\n    \"benchmark_answer\": \"Description of workplace layout including specific areas and associated main activities for each area, in approximately 25 words.\",\n    \"student_response\": \"Details about workplace layout and main activities in each area, response should be approximately 25 words.\",\n    \"result\": \"Partially Correct\",\n    \"trainer_feedback\": {\n        \"trainer_result\": \"Satisfactory\",\n        \"trainer_comments\": \"The student provided adequate detail about the layout and activities but could expand on specific activities in each area for a more complete answer.\"\n    },\n    \"summary\": \"Student's response was marked satisfactory despite needing more detail for a full correct answer.\",\n    \"focus_areas\": {\n        \"trainer_marking_accuracy\": \"Trainer marked it satisfactory, which aligns with a partially correct response due to the brevity and lack of detail.\",\n        \"trainer_feedback_sufficiency\": \"The feedback suggests improvement areas but could provide examples for deeper understanding.\",\n        \"trainer_feedback_suggestion\": \"Trainer could have added examples of activities in specific areas to guide the student further.\",\n        \"trainer_tone\": \"Encouraging and constructive.\"\n    }\n}"
+      },
+      "position": [
+        -704,
+        320
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "fd3d7d12-6975-4f15-bfb8-2b78488f0e45",
+      "name": "OpenAI Chat Model2",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        -672,
+        656
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2024-12-07T05:17:08.591Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2024-12-07T05:17:08.591Z",
+      "workflowId": "6SwQbzC5wczVOjJv"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-20T17:45:26.000Z",
+  "versionCounter": 1,
+  "versionId": "3d87549c-a787-4c2c-8d2f-e4993aa108f8"
+}

@@ -1,0 +1,638 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Kevin Dyer",
+    "autosaved": false,
+    "connections": {
+      "Build Gemini Request": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Call Gemini Chat API",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Call Gemini Chat API": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Respond to Webhook",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Fetch Chat Prompt Template": {
+        "main": [
+          [
+            {
+              "index": 1,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Fetch Validation Documents": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Prepare Chat Context",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Prepare Chat Context": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Build Gemini Request",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook - Chat Input": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Fetch Validation Documents",
+              "type": "main"
+            },
+            {
+              "index": 0,
+              "node": "Fetch Chat Prompt Template",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-12-05T08:23:34.923Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "id": "931ad9ac-6faf-4ea8-91d7-7309f6feb63f",
+        "name": "Webhook - Chat Input",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {
+            "allowedOrigins": "*"
+          },
+          "path": "chat",
+          "responseMode": "responseNode"
+        },
+        "position": [
+          -1472,
+          128
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1.1,
+        "webhookId": "chat-webhook"
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "postgres": {
+            "id": "jkimYLj5JZa13Ude",
+            "name": "Supabase Nytro"
+          }
+        },
+        "id": "3aadaecd-f5ec-4bf1-8387-6e89f977f474",
+        "name": "Fetch Validation Documents",
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_detail_id }}' ORDER BY created_at DESC"
+        },
+        "position": [
+          -1024,
+          16
+        ],
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.4
+      },
+      {
+        "credentials": {
+          "postgres": {
+            "id": "jkimYLj5JZa13Ude",
+            "name": "Supabase Nytro"
+          }
+        },
+        "id": "19a91555-032a-4319-9ad4-365dbf2d46c5",
+        "name": "Fetch Chat Prompt Template",
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "SELECT * FROM prompts WHERE prompt_type = 'chat' AND is_active = true AND is_default = true LIMIT 1"
+        },
+        "position": [
+          -1024,
+          224
+        ],
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.4
+      },
+      {
+        "id": "bc4c3da5-7b3c-4bd3-933d-7e5e4e6a61c5",
+        "name": "Prepare Chat Context",
+        "parameters": {
+          "jsCode": "// Prepare context for AI chat agent using existing documents table\n\nconst userMessage = $('Webhook - Chat Input').item.json.body.message;\nconst validationDetailId = $json.validation_detail_id;\n\nconst documents = $('Fetch Validation Documents').first().json;\nconst promptTemplate = $('Fetch Chat Prompt Template').first().json;\n\n// Build document context from validation_documents table\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n\n**IMPORTANT**: Reference these documents when relevant to provide evidence-based responses.\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string\nconst contextString = `\n**CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${validationDetailId}\n────────────────────────────────────────────────────────────────────\n`;\n\n// Build full prompt with context\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are a helpful AI assistant. Provide clear, accurate, and contextually relevant responses.';\n\nconst fullPrompt = `${systemPrompt}\n\n${contextString}\n\n${documentContext}\n\n**USER MESSAGE**:\n${userMessage}\n\nPlease provide a helpful response to the user's message. Reference documents when relevant.`;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    user_message: userMessage,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents || [],\n    prompt_template: promptTemplate\n  }\n};\n",
+          "mode": "runOnceForEachItem"
+        },
+        "position": [
+          -272,
+          96
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "094b47f9-5dfa-4e9d-9bf2-526986b4b5ac",
+        "name": "Build Gemini Request",
+        "parameters": {
+          "jsCode": "// Build Gemini request with proper context and document handling\nconst context = $input.item.json;\n\n// Convert documents to array\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\n// Build file parts from documents - ONLY if they have gemini_file_uri\nconst fileParts = documents\n  .filter(doc => doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build conversation history context\nconst conversationHistory = context.conversation_history || [];\nconst historyText = conversationHistory.length > 0\n  ? `\\n**CONVERSATION HISTORY**:\\n${conversationHistory.map(msg => \n      `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`\n    ).join('\\n')}\\n`\n  : '';\n\n// Determine document status message\nconst documentStatus = fileParts.length > 0\n  ? `**DOCUMENTS ATTACHED**: ${fileParts.length} document(s) available for reference:\\n${documents.filter(d => d.gemini_file_uri).map(d => `  - ${d.file_name}`).join('\\n')}`\n  : '**NOTE**: No documents are currently available for this validation.';\n\n// Build clean user prompt (NO system instruction duplication)\nconst userPrompt = `**CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${context.validation_detail_id || 'N/A'}\n────────────────────────────────────────────────────────────────────\n\n${documentStatus}\n${historyText}\n**USER MESSAGE**:\n${context.user_message}\n\nPlease analyze the attached document(s) and provide a helpful, detailed response to the user's question. Include specific page numbers when referencing information from the document(s).`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: context.system_prompt\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,  // Attach document files FIRST\n        {\n          text: userPrompt  // Then the clean user prompt\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: context.prompt_template?.generation_config?.temperature || 0.7,\n    maxOutputTokens: context.prompt_template?.generation_config?.maxOutputTokens || 4096,\n    topP: context.prompt_template?.generation_config?.topP || 0.95,\n    topK: context.prompt_template?.generation_config?.topK || 40,\n    responseMimeType: \"application/json\",\n    responseSchema: context.prompt_template?.output_schema || {\n      type: \"object\",\n      required: [\"response\"],\n      properties: {\n        response: {\n          type: \"string\",\n          description: \"The assistant response to the user query\"\n        },\n        confidence: {\n          type: \"number\",\n          minimum: 0,\n          maximum: 1,\n          description: \"Confidence level of the response (0-1)\"\n        },\n        document_references: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              page: { type: \"integer\" },\n              section: { type: \"string\" },\n              file_name: { type: \"string\" }\n            }\n          },\n          description: \"References to documents cited in the response\"\n        }\n      }\n    }\n  }\n};\n\n// Return enhanced context\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    user_message: context.user_message,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest\n  }\n};",
+          "mode": "runOnceForEachItem"
+        },
+        "position": [
+          112,
+          96
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "credentials": {
+          "googlePalmApi": {
+            "id": "NIZFWdmjDBYpgwmS",
+            "name": "Google Gemini(PaLM) Api account 2"
+          }
+        },
+        "id": "55396d9d-50e7-4333-9ce9-fd03fab2ecba",
+        "name": "Call Gemini Chat API",
+        "parameters": {
+          "authentication": "predefinedCredentialType",
+          "jsonBody": "={{ $json.gemini_request }}",
+          "method": "POST",
+          "nodeCredentialType": "googlePalmApi",
+          "options": {
+            "timeout": 120000
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+        },
+        "position": [
+          480,
+          96
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2
+      },
+      {
+        "id": "77bf9ee3-8ba9-442d-8ae5-d032456ed529",
+        "name": "Respond to Webhook",
+        "parameters": {
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                },
+                {
+                  "name": "Access-Control-Allow-Methods",
+                  "value": "POST, OPTIONS"
+                },
+                {
+                  "name": "Access-Control-Allow-Headers",
+                  "value": "Content-Type"
+                }
+              ]
+            }
+          }
+        },
+        "position": [
+          992,
+          96
+        ],
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "ec149777-7452-4b81-8add-32048e2d19b0",
+        "name": "Merge",
+        "parameters": {},
+        "position": [
+          -576,
+          96
+        ],
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2
+      }
+    ],
+    "updatedAt": "2025-12-05T08:23:34.923Z",
+    "versionId": "aa5f5404-e7b0-4072-8a1d-748138b807e1",
+    "workflowId": "8kX5ACI4xgVQ6jTH",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-12-05T08:23:34.981Z",
+        "event": "activated",
+        "id": 87,
+        "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "versionId": "aa5f5404-e7b0-4072-8a1d-748138b807e1",
+        "workflowId": "8kX5ACI4xgVQ6jTH"
+      }
+    ]
+  },
+  "activeVersionId": "aa5f5404-e7b0-4072-8a1d-748138b807e1",
+  "connections": {
+    "Build Gemini Request": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call Gemini Chat API",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Call Gemini Chat API": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Respond to Webhook",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Chat Prompt Template": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Documents": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Prepare Chat Context",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Chat Context": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Build Gemini Request",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook - Chat Input": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Fetch Validation Documents",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Fetch Chat Prompt Template",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-12-04T18:25:12.300Z",
+  "description": null,
+  "id": "8kX5ACI4xgVQ6jTH",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "AI Chat Agent - Document QA (No History, Direct Documents)",
+  "nodes": [
+    {
+      "id": "931ad9ac-6faf-4ea8-91d7-7309f6feb63f",
+      "name": "Webhook - Chat Input",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {
+          "allowedOrigins": "*"
+        },
+        "path": "chat",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        -1472,
+        128
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "webhookId": "chat-webhook"
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      },
+      "id": "3aadaecd-f5ec-4bf1-8387-6e89f977f474",
+      "name": "Fetch Validation Documents",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_detail_id }}' ORDER BY created_at DESC"
+      },
+      "position": [
+        -1024,
+        16
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      },
+      "id": "19a91555-032a-4319-9ad4-365dbf2d46c5",
+      "name": "Fetch Chat Prompt Template",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM prompts WHERE prompt_type = 'chat' AND is_active = true AND is_default = true LIMIT 1"
+      },
+      "position": [
+        -1024,
+        224
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4
+    },
+    {
+      "id": "bc4c3da5-7b3c-4bd3-933d-7e5e4e6a61c5",
+      "name": "Prepare Chat Context",
+      "parameters": {
+        "jsCode": "// Prepare context for AI chat agent using existing documents table\n\nconst userMessage = $('Webhook - Chat Input').item.json.body.message;\nconst validationDetailId = $json.validation_detail_id;\n\nconst documents = $('Fetch Validation Documents').first().json;\nconst promptTemplate = $('Fetch Chat Prompt Template').first().json;\n\n// Build document context from validation_documents table\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n\n**IMPORTANT**: Reference these documents when relevant to provide evidence-based responses.\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string\nconst contextString = `\n**CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${validationDetailId}\n────────────────────────────────────────────────────────────────────\n`;\n\n// Build full prompt with context\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are a helpful AI assistant. Provide clear, accurate, and contextually relevant responses.';\n\nconst fullPrompt = `${systemPrompt}\n\n${contextString}\n\n${documentContext}\n\n**USER MESSAGE**:\n${userMessage}\n\nPlease provide a helpful response to the user's message. Reference documents when relevant.`;\n\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    user_message: userMessage,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents || [],\n    prompt_template: promptTemplate\n  }\n};\n",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        -272,
+        96
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "094b47f9-5dfa-4e9d-9bf2-526986b4b5ac",
+      "name": "Build Gemini Request",
+      "parameters": {
+        "jsCode": "// Build Gemini request with proper context and document handling\nconst context = $input.item.json;\n\n// Convert documents to array\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\n// Build file parts from documents - ONLY if they have gemini_file_uri\nconst fileParts = documents\n  .filter(doc => doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build conversation history context\nconst conversationHistory = context.conversation_history || [];\nconst historyText = conversationHistory.length > 0\n  ? `\\n**CONVERSATION HISTORY**:\\n${conversationHistory.map(msg => \n      `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`\n    ).join('\\n')}\\n`\n  : '';\n\n// Determine document status message\nconst documentStatus = fileParts.length > 0\n  ? `**DOCUMENTS ATTACHED**: ${fileParts.length} document(s) available for reference:\\n${documents.filter(d => d.gemini_file_uri).map(d => `  - ${d.file_name}`).join('\\n')}`\n  : '**NOTE**: No documents are currently available for this validation.';\n\n// Build clean user prompt (NO system instruction duplication)\nconst userPrompt = `**CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${context.validation_detail_id || 'N/A'}\n────────────────────────────────────────────────────────────────────\n\n${documentStatus}\n${historyText}\n**USER MESSAGE**:\n${context.user_message}\n\nPlease analyze the attached document(s) and provide a helpful, detailed response to the user's question. Include specific page numbers when referencing information from the document(s).`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: context.system_prompt\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,  // Attach document files FIRST\n        {\n          text: userPrompt  // Then the clean user prompt\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: context.prompt_template?.generation_config?.temperature || 0.7,\n    maxOutputTokens: context.prompt_template?.generation_config?.maxOutputTokens || 4096,\n    topP: context.prompt_template?.generation_config?.topP || 0.95,\n    topK: context.prompt_template?.generation_config?.topK || 40,\n    responseMimeType: \"application/json\",\n    responseSchema: context.prompt_template?.output_schema || {\n      type: \"object\",\n      required: [\"response\"],\n      properties: {\n        response: {\n          type: \"string\",\n          description: \"The assistant response to the user query\"\n        },\n        confidence: {\n          type: \"number\",\n          minimum: 0,\n          maximum: 1,\n          description: \"Confidence level of the response (0-1)\"\n        },\n        document_references: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              page: { type: \"integer\" },\n              section: { type: \"string\" },\n              file_name: { type: \"string\" }\n            }\n          },\n          description: \"References to documents cited in the response\"\n        }\n      }\n    }\n  }\n};\n\n// Return enhanced context\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    user_message: context.user_message,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest\n  }\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        112,
+        96
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "55396d9d-50e7-4333-9ce9-fd03fab2ecba",
+      "name": "Call Gemini Chat API",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "jsonBody": "={{ $json.gemini_request }}",
+        "method": "POST",
+        "nodeCredentialType": "googlePalmApi",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+      },
+      "position": [
+        480,
+        96
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "77bf9ee3-8ba9-442d-8ae5-d032456ed529",
+      "name": "Respond to Webhook",
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "position": [
+        992,
+        96
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "ec149777-7452-4b81-8add-32048e2d19b0",
+      "name": "Merge",
+      "parameters": {},
+      "position": [
+        -576,
+        96
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    }
+  ],
+  "pinData": {
+    "Webhook - Chat Input": [
+      {
+        "json": {
+          "body": {
+            "conversation_history": [
+              {
+                "content": "hello",
+                "role": "user"
+              },
+              {
+                "content": "I apologize, but I encountered an error processing your request. Please try again.",
+                "role": "assistant"
+              }
+            ],
+            "message": "please tell me which page this requirement is on",
+            "validation_detail_id": 752
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "*",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "13.239.169.120",
+            "cf-ipcountry": "AU",
+            "cf-ray": "9a8e9f31ba6daacb-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "264",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "605b0f51-9534-4ab4",
+            "true-client-ip": "13.239.169.120",
+            "user-agent": "Deno/2.1.4 (variant; SupabaseEdgeRuntime/1.69.25)",
+            "x-forwarded-for": "13.239.169.120, 172.70.142.184",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1764886100835516"
+          },
+          "params": {},
+          "query": {},
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/chat"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-12-04T18:25:12.304Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-12-04T18:25:12.304Z",
+      "workflowId": "8kX5ACI4xgVQ6jTH"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-05T08:23:34.922Z",
+  "versionCounter": 25,
+  "versionId": "aa5f5404-e7b0-4072-8a1d-748138b807e1"
+}

@@ -1,0 +1,290 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Split Out",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        []
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "call Flowise": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "createdAt": "2025-10-20T17:48:24.150Z",
+  "description": null,
+  "id": "xnO9WNh491x3GFLG",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SimplePremarkQuestionExtractAgent",
+  "nodes": [
+    {
+      "id": "1cfbd39a-8583-4093-8f22-5174b26d5bac",
+      "name": "Split Out",
+      "parameters": {
+        "fieldToSplitOut": "json[0].properties.extractedPoints",
+        "options": {}
+      },
+      "position": [
+        1232,
+        464
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "id": "1f51e979-060c-4b67-8ae5-33e90cba8129",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "202f1491-04ab-4f33-a094-3b868c7f51ac"
+      },
+      "position": [
+        464,
+        464
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "202f1491-04ab-4f33-a094-3b868c7f51ac"
+    },
+    {
+      "id": "1af558d1-a02f-4e27-bab0-7f3c61928221",
+      "name": "call Flowise",
+      "parameters": {
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "question",
+              "value": "=Here is the content to review:\n\n{{ $('Webhook').item.json.body.content }}"
+            }
+          ]
+        },
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "url": "https://flowise-smartrto.onrender.com/api/v1/prediction/d5e0b448-a07a-4a77-b596-0deae09ee14d"
+      },
+      "position": [
+        240,
+        608
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "47dc02fc-f2da-418f-8f55-efb9bc7c4b39",
+      "name": "Basic LLM Chain",
+      "parameters": {
+        "batching": {},
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are provided with a detailed set of tasks, questions, and sub-points related to a job role. Your task is to extract this information into a structured and generic JSON format suitable for further processing. Additionally, include the Zod schema to validate the JSON structure.\n\nThe JSON structure should be flexible to account for various forms of tasks, questions, and sub-points. The Zod schema will enable validation of this generic structure.\n\nHere is an example of the tasks, questions, and sub-points to be extracted:\n\"\"\"\nFor a job role in the following sectors identify two (2) of the following categories:\na. Personal Characteristics - Skills/Knowledge\nb. Boundaries\nc. Responsibilities\n\nQuestion 2\nIdentify four (4) sources where can you find information regarding your responsibilities when working in children’s education and care:\n\nQuestion 3\nAnswer the following questions in relation to the National Quality Framework (NQF).\n\na. Briefly explain what is the purpose of the National Quality Framework (NQF)?\nb. Briefly explain what the purpose of the National Law is:\nc. Briefly explain the purpose of National Regulations is:\nd) Briefly describe the interrelations between National Law and National Regulations and the National Quality Framework\ne. Name each National Quality Area then briefly identify the Standards within each one:\nf. Briefly explain what the definition of the assessment and quality rating process is:\ng. Briefly explain the definition of an approved learning framework\nh. What are the two (2) nationally approved learning frameworks and what are they approved for?\n\nQuestion 4\nIdentify four (4) policies and procedures that your service has in place that relates to your general work practices in children’s education and care.\n\nQuestion 5\nIdentify three (3) reasons why collaboration plays an important role in providing quality education and care.\n\nQuestion 6\nAnswer the following questions on reflective practice.\na. Identify a minimum of three (3) points on what reflection is:\nb. Briefly describe why and how educators use reflection:\nc. Briefly describe what a meaningful reflection is:\n\nQuestion 7\nProvide a minimum of one (1) example for how each of these communication techniques that are applied in a children’s education and care\nservice:\n\tActive listening\n\tBody language\n\tConflict resolution\n\tOral methods for conveying information clearly and concisely\n\tWritten methods for conveying information clearlClosed questioningy and concisely\n\tOpen questioning\n\tVerbal cues\n\tNon-verbal cues\n\tVoice tonality\n\nQuestion 8\n\tAreas of Your Own Well-being\nAs an Educator your own well-being is important. Identify ways you can care for your own needs in each of the following areas:\n\tAreas of Your Own Well-being\n\tWhat are five (5) ways you can take care of your needs in this area?\n\tAreas of Your Own Well-being\n\tWhat are four (4) ways you can take care of your needs in this area?\n\tAreas of Your Own Well-being\n\tWhat are two (2) ways you can take care of your needs in this area?\n\tAreas of Your Own Well-being\n\tWhat are six (6) ways you can take care of your needs in this area?\n\t\n\t\nQuestion 9\n\tIdentify four theorists and their beliefs related to child development and early childhood learning.\n\t(1) Theorist\n\tIdentify five (5) Beliefs/Theories\n\t(2) Theorist\n\tIdentify four (4) Beliefs/Theories\n\t(3) Theorist\n\tIdentify three (3)Beliefs/Theories\n\t(4) Theorist\n\tIdentify two (2) Beliefs/Theories\n\nPractical Task 1 - Research Information on Working in Children’s Education and Care\n\t1. Identify and access sources using digital media that provide current and accurate information and are aligned with the National Quality\n\tFramework.\n\tSources may include: Websites for Professional associations, Trade Unions, Employer associations, Staff Handbooks etc.\n\t2. Access and interpret information about the following topics from three different sources:\n\ta. The rights and responsibilities of your own role in children’s education and care\n\tb. At least two skill and knowledge requirements for your own role\n\tc. At least two skill and knowledge requirements for two other related roles\n\tRelated roles may include: Supervisor, Room Leader, Support Worker etc.\n\td. Two service procedures in children’s education and care\n\te. Two service procedures related to employment in children’s education and care\n\t\nTask 1 Reflective Task Question 1\nList at least three (3) of the sources that you accessed for information and which are aligned with the National Quality Framework, including the\ndigital media you used to access the information.\n\nQuestion 2\nWhat are the rights and responsibilities of your job role, identify a minimum of two (2) for each.\na. Rights:\nb. Responsibilities:\t\n\nQuestion 3\nIdentify one (1) skill and one (1) knowledge requirement when performing your job role.\n\nQuestion 4\nIdentify one (1) skill and one (1) knowledge required for the following two roles:\n(1) Room Leader\n(2) Support Worker\n\nQuestion 5\nName two (2) organisational policies and procedures in children’s education and care.\n\nQuestion 6\nName two (2) policies and procedures related to employment conditions in children’s education and care.\n\n\nPractical Task 2 – Demonstrate Effective Communication in Children’s Education and Care\n1. You must be observed completing the following five daily work activities according to your job role and in line with your services procedures:\na. Opening/Safety Checklist\nb. Nappy Change/Toileting\nc. Supervising Children including ratio checks\nd. Setting up daily experiences or complete a group time\ne. Complete a bathroom clean or room clean\n2. Before commencing each task, seek advice from your supervisor to confirm your understanding of your service’s requirements for the task.\n3. Plan and organise your daily work activities within the scope of your responsibility, to achieve the required outcomes for each task.\n4. During each of your five tasks you must demonstrate:\na. Effective use of planning, organisational and communication skills.\nb. Using the correct lines of communication and reporting according to your service’s practices.\nThis includes internal, external verbal, and written communication.\nc. The correct presentation standards according to your service’s policy.\nd. Promptly acting on instructions and following procedures relevant to the task.\ne. Clear communication with your supervisor when you need additional support to complete a task.\nf. Prioritising and completing tasks within the designated timeframes.\n5. Work collaboratively with at least one other colleague during at least two of your five tasks, you must demonstrate:\na. Sharing and seeking information that maximises cooperation and the quality of daily work outcomes.\nb .Respect for individual differences and work roles by using effective verbal and non-verbal communication.\nc. Listening skills to clarify and respond to requests appropriately.\nd. Exchanging and communicating information clearly in a timely manner and according to confidentiality procedures.\ne. Use of oral communication skills to prevent, defuse, and resolve conflict situations\nPlease Note* If there are no conflict situations within your five daily work tasks, you must role play two scenarios; one to prevent conflict and one\nto defuse and resolve conflict. Conflict situations may include but are not limited to: conflict between two children or conflict between yourself and\na child or colleague.\n\n\n5e - Role Play directions\nUse of oral communication skills to prevent, defuse, and resolve conflict situations. Or role played two scenarios with their supervisor.\n\nTask 2 - 1a-e Reflective Task Question 1\n\nTask a- Opening/Safety Checklist\nBriefly explain how you planned opening/safety checklist\n\nTask a- Opening/Safety Checklist\nBriefly explain how you organised opening/safety Checklist\n\nTask a- Opening/Safety Checklist\nBriefly explain how you communicated with your supervisor for the opening/safety checklist\n\nTask b- Nappy Change/Toileting\nBriefly explain how you organised nappy change/toileting\n\nTask b- Nappy Change/Toileting\nBriefly explain how you communicated with your supervisor for the nappy change/toileting\n\nTask c- Supervising Children including ratio checks\nBriefly explain how you planned to supervise Children including ratio checks\n\nTask c- Supervising Children including ratio checks\nBriefly explain how you organised supervising children including ratio checks\n\nTask c- Supervising Children including ratio checks\nBriefly explain how you communicated with your supervisor for the supervising Children including ratio checks\n\nTask d- Setting up daily experiences or complete a group time\nBriefly explain how you planned to set up daily experiences or complete a group time\n\nTask d- Setting up daily experiences or complete a group time\nBriefly explain how you organised to set up daily experiences or complete a group time\n\nTask d- Setting up daily experiences or complete a group time\nBriefly explain how you communicated with your supervisor for the setting up daily experiences or completing a group time\n\nTask e- Clear communication with the Supervisor when you require additional support to complete the task of a bathroom or room\nclean.\nBriefly explain how you planned to clearly communicate (either verbally or through documentation) with your Supervisor when you required\nadditional support to meet the requirements of a bathroom or room clean.\n\nTask e- Clear communication with the Supervisor when you require additional support to complete the task of a bathroom or room\nclean.\nBriefly explain how you organised and prepared for clearly communicating with your Supervisor when you required additional support to meet the\nrequirements of a bathroom or room clean\n\nTask e-Clear communication with the Supervisor when you require additional support to complete the task of a bathroom or room\nclean.\nBriefly explain how you corresponded with your Supervisor for clear communication when you required additional support to complete a\nbathroom or room clean\n\nQuestion 2\nThinking of the five (5) tasks above, provide one example for the following question.\nComment on how you…\nUsed the correct lines of communication and reporting according to your service’s practices.\n\nQuestion 2a\nThinking of the five (5) tasks above, provide a minimum of five (5) points for the following question.\nHow did you practise the correct presentation standards according to your service’s policy?\n\nQuestion 4\nThinking of the five (5) tasks above, briefly describe:\nHow you promptly acted on instructions and followed procedures relevant to the task.\n\nQuestion 5\nThinking of the five (5) tasks above, briefly describe:\nHow you clearly communicated with the supervisor when needing additional support to complete a task.\n\nQuestion 6\nThinking of the five (5) tasks above, briefly describe:\nHow you prioritised and completed tasks within the designated timeframes.\n\nQuestion 7\nThinking of the five (5) tasks above, briefly describe:\nHow you shared and sought information that maximised cooperation and quality, of daily work outcomes.\n\nQuestion 8\nThinking of the five (5) tasks above, briefly describe:\nHow you respected individual differences and work roles by using effective verbal and non-verbal communication.\n\nQuestion 9\nThinking of the five (5) tasks above, briefly describe:\nHow you practised effective listening skills to clarify and respond to requests appropriately?\n\nQuestion 10\nThinking of the five (5) tasks above, briefly describe:\nHow you exchanged and communicated information clearly in a timely manner and according to confidentiality procedures.\n\nQuestion 11\nThinking of the five (5) tasks above, briefly describe:\nHow you used effective communication skills to prevent, defuse, and resolve conflict in challenging situations.\n\n\n\nPractical Task 3 – Develop Personal and Professional Practice\n1. You must find ways to develop your personal and professional practice in early childhood education and care, then document your responses\nin the Personal and Professional Development template.\n2. Investigate two theories and one piece of modern research relating to early childhood.\nDocument the name of theorists after reciting their theory.\n3. Reflect on your own personal values and beliefs in relation to early childhood and how these align with the two theories and modern research.\n4. Create your own personal professional philosophy in relation to early childhood.\n5. Recognise the role of an Educator in advocating for children and the sector of early childhood education and care.\n\nTask 3 - No 2 Reflective Task\nInvestigate two theories and one piece of modern research relating to early childhood.\nDocument the name of theorists after reciting their theory.\nPersonal and Professional Development\nTheories and Theorists\n\nTheories and Theorists (2)\nInvestigate two theories relating to early childhood.\n\nModern Research\nInvestigate modern research relating to early childhood.\n\nTask 3 - No3 Reflective Task\nBriefly identify what your personal Values and Beliefs are:\nHow does this align with the two theories and modern research?\n\nTask 3 - No 4 Reflective Task\nBriefly identify what your personal professional philosophy is:\n\nTask 3 - No 5 Reflective Task\nBriefly identify your role as an educator in advocating for children and the sector are\n\"\"\"\n\nThe JSON structure should follow this format:\n\n  \"tasks\": [\n      \"taskNumber\": 1,\n      \"title\": \"Task Title\",\n      \"description\": \"Detailed description of the task\",\n      \"subTasks\": [\n          \"subTaskTitle\": \"Sub-task Title\",\n          \"description\": \"Details of the sub-task\"\n      ],\n    ...\n  ],\n  \"questions\": [\n      \"questionNumber\": 1,\n      \"questionText\": \"Question Text\",\n      \"categories\": [\n          \"categoryTitle\": \"Category Title\",\n          \"details\": [\"Detail 1\", \"Detail 2\"]\n      ],\n      \"additionalInfo\": [\n        \"sources\": [\"Source 1\", \"Source 2\"],\n        \"explanation\": \"Explanation text\",\n        \"relatedTopics\": [\"Topic 1\", \"Topic 2\"]\n        ,\n    ...\n  ]\n"
+            }
+          ]
+        },
+        "promptType": "define",
+        "text": "=Here is the content to review:\n\n{{ $('Webhook').item.json.body.content }}"
+      },
+      "position": [
+        816,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "1d652c57-063a-4805-928b-fe073031fb64",
+      "name": "OpenAI Chat Model",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        736,
+        640
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "2e5a669c-5ffc-45e9-9de8-a8617f4e06a1",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "inputSchema": "z.object({\n  items: z.array(\n    z.object({\n      type: z.enum([\"task\", \"question\"]),\n      number: z.number(),\n      title: z.string().optional(),\n      description: z.string().optional(),\n      questionText: z.string().optional(),\n      subItems: z.array(\n        z.object({\n          type: z.enum([\"subTask\", \"detail\"]).optional(),\n          title: z.string().optional(),\n          description: z.string().optional(),\n          details: z.array(z.string()).optional(),\n        })\n      ).optional(),\n      additionalInfo: z.object({\n        sources: z.array(z.string()).optional(),\n        explanation: z.string().optional(),\n        relatedTopics: z.array(z.string()).optional(),\n      }).optional(),\n      categories: z.array(\n        z.object({\n          categoryTitle: z.string(),\n          details: z.array(z.string()),\n        })\n      ).optional(),\n    })\n  ),\n})",
+        "schemaType": "manual"
+      },
+      "position": [
+        976,
+        656
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "dac1f0c6-2c32-42d7-9cc5-8df16c318193",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        1024,
+        880
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-20T17:48:24.154Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-20T17:48:24.154Z",
+      "workflowId": "xnO9WNh491x3GFLG"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-20T17:52:24.000Z",
+  "versionCounter": 1,
+  "versionId": "3378e336-38ad-4551-8f6d-e6c4a44135d3"
+}

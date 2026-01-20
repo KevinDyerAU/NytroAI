@@ -1,0 +1,880 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Kevin Dyer",
+    "autosaved": false,
+    "connections": {
+      "Basic LLM Chain": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Split Out",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "If1",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "FSSaveSupabase": {
+        "main": [
+          []
+        ]
+      },
+      "If1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "FSSaveSupabase2",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Split Out": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "FSSaveSupabase",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "ai_outputParser"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code in JavaScript",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-12-07T21:11:50.051Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "alwaysOutputData": true,
+        "id": "03405677-ff28-4c3a-9816-6133902d484e",
+        "name": "Split Out",
+        "parameters": {
+          "fieldToSplitOut": "output.extractedPoints",
+          "include": "allOtherFields",
+          "options": {}
+        },
+        "position": [
+          928,
+          464
+        ],
+        "type": "n8n-nodes-base.splitOut",
+        "typeVersion": 1
+      },
+      {
+        "id": "79f1995b-655c-4bdc-984b-c12b5a3e5f9b",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "1b8da2f3-3b18-4c3e-87ac-3b55044caeb1"
+        },
+        "position": [
+          -848,
+          704
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "7bd3d363-6122-4c7f-a1d6-908d369f08e3"
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "d30d0cbb-92df-478a-bd86-99392441618e",
+        "name": "FSSaveSupabase",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "unit_url",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+              },
+              {
+                "fieldId": "fs_number",
+                "fieldValue": "={{ $json['output.extractedPoints'].skill }} - {{ $json['output.extractedPoints'].id }}"
+              },
+              {
+                "fieldId": "skill_point",
+                "fieldValue": "={{ $json['output.extractedPoints'].text }}"
+              }
+            ]
+          },
+          "tableId": "foundation_skills_requirements"
+        },
+        "position": [
+          1312,
+          464
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "7e90e238-a362-4d1c-8814-5f1f5b104af6",
+        "name": "Basic LLM Chain",
+        "parameters": {
+          "batching": {},
+          "hasOutputParser": true,
+          "messages": {
+            "messageValues": [
+              {
+                "message": "This AI is designed to only output information in JSON format without exception. This AI can only output JSON and will never output any other text.  When asked to correct itself, this AI will only output the corrected JSON and never any other text.  Instructions: Identify the \"Foundation Skills\": Use the provided text content and locate the section detailing \"Foundation Skills\"  Extract Data in Original Form:  For each Skill, extract the title and assign it to the field \"Skill n\" where n represents the number in the Skill title. For each Description associated with an Skill, assign its text to a field named \"Skill Description n.m\" where n represents the Skill number and m the specific Description number under that Skill. Make sure to not increment the Skill number for each Skill Description, only increment the Skill Description number under each Skill.  Populate JSON Fields:  Set \"FoundationSkillsDescription\" to: \"Foundation skills essential to performance in this unit, but not explicit in the performance criteria are listed here, along with a brief context statement.\" Populate \"extractedPoints\" as an array containing each \"Skill\" and \"Skill Description\" pairing as separate objects. Repeat the Skill field for each Skill Description associated with that Skill. Preserve all original text; avoid summarizing or paraphrasing."
+              }
+            ]
+          },
+          "promptType": "define",
+          "text": "=Here is the content to review:\n\n{{ $json.fs }}"
+        },
+        "position": [
+          352,
+          464
+        ],
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.7
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "5d3cab13-a0a2-4c9f-9214-e3e08087d322",
+        "name": "OpenAI Chat Model",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-4o",
+            "mode": "list",
+            "value": "gpt-4o"
+          },
+          "options": {}
+        },
+        "position": [
+          -176,
+          752
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "75047883-a1f2-4702-8971-ea5568282670",
+        "name": "Structured Output Parser",
+        "parameters": {
+          "autoFix": true,
+          "jsonSchemaExample": "{\n  \"extractedPoints\": [\n    { \"id\": \"FS 1\", \"skill\": \"Reading\", \"text\": \"Interprets textual information including legislation and organisational policy, to plan, implement and review resource requirements; Analyses organisational information to assess resource usage practices\" },\n    { \"id\": \"FS 2\", \"skill\": \"Writing\", \"text\": \"Develops organisational texts including proposals, reports and plans according to organisational requirements\" },\n    { \"id\": \"FS 3\", \"skill\": \"Oral communication\", \"text\": \"Participates in spoken exchanges with stakeholders using structure and language appropriate to context and audience\" },\n    { \"id\": \"FS 4\", \"skill\": \"Numeracy\", \"text\": \"Selects and uses familiar mathematical techniques to determine costs and benefits associated with strategic resource decisions; Defines timeframes according to schedule requirements; Selects and uses familiar mathematical techniques to organise timely supply of required resources as well as identify budgetary information and monitor performance\" },\n    { \"id\": \"FS 5\", \"skill\": \"Enterprise and initiative\", \"text\": \"Contribute to the development of organisational policies and procedures; Adheres to legal requirements and organisational policies and procedures\" },\n    { \"id\": \"FS 6\", \"skill\": \"Teamwork\", \"text\": \"Collaborates and negotiates with others to achieve required outcomes\" },\n    { \"id\": \"FS 7\", \"skill\": \"Planning and organising\", \"text\": \"Accepts responsibility for planning and sequencing complex tasks to achieve organisational requirements; Develops plans and systems to manage resource allocation; Systematically gathers and analyses all relevant information, evaluates options and conducts reviews to inform recommendations about resource usage improvements\" }\n  ]\n}"
+        },
+        "position": [
+          528,
+          704
+        ],
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "328dd147-5964-4bcc-b9ca-b0af42b06922",
+        "name": "OpenAI Chat Model1",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-4o",
+            "mode": "list",
+            "value": "gpt-4o"
+          },
+          "options": {}
+        },
+        "position": [
+          784,
+          992
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "alwaysOutputData": true,
+        "id": "b68ac37c-8ec1-4d42-87b0-4f885cd9f162",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          -848,
+          480
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "099e2c9a-6917-4158-b1b4-d3362990def6",
+        "name": "Code in JavaScript",
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nlet fsText = item.fs || '';\n\n// Check for bad/misplaced data first\nconst badDataIndicators = [\n  'Unit sector',\n  'Competency field',\n  'Pre-requisite unit'\n];\n\nconst isBadData = badDataIndicators.some(indicator => \n  fsText.startsWith(indicator) || \n  (fsText.includes(indicator) && !fsText.includes('Skill'))\n);\n\nif (isBadData) {\n  // Try to extract from UOCpage\n  // ... (same as before)\n}\n\n// Phrases indicating implicit FS\nconst implicitPhrases = [\n  'explicit in the performance criteria',\n  'embedded in the performance criteria',\n  'incorporated in the performance criteria'\n];\n\n// Check if it's implicit - BUT only if there's NO table\nconst hasTable = fsText.includes('| Skill') || \n                 fsText.includes('|Skill') ||\n                 fsText.includes('| **Skill**') ||\n                 fsText.includes('| Reading') ||\n                 fsText.includes('| Writing');\n\nconst hasImplicitPhrase = implicitPhrases.some(phrase => \n  fsText.toLowerCase().includes(phrase.toLowerCase())\n);\n\n// It's implicit ONLY if it has the implicit phrase AND NO table\nconst isImplicit = hasImplicitPhrase && !hasTable;\n\nif (isImplicit) {\n  return {\n    json: {\n      isImplicit: true,\n      extractedPoints: [{\n        id: \"FS\",\n        text: \"Foundation skills are implicit in the performance criteria of this unit.\",\n        type: \"implicit\"\n      }],\n      originalText: fsText,\n      unitCode: item.unitCode\n    }\n  };\n} else {\n  // Has explicit FS table - send to LLM\n  return {\n    json: {\n      isImplicit: false,\n      foundationSkillsText: fsText,\n      unitCode: item.unitCode,\n      unitTitle: item.Title\n    }\n  };\n}"
+        },
+        "position": [
+          -640,
+          480
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "63da131e-fb7d-4474-9142-153babde2c4f",
+        "name": "If1",
+        "parameters": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "70125db5-109f-4853-82c3-fef9e4ad9ec4",
+                "leftValue": "={{ $json.isImplicit }}",
+                "operator": {
+                  "operation": "equals",
+                  "type": "boolean"
+                },
+                "rightValue": true
+              }
+            ],
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            }
+          },
+          "options": {}
+        },
+        "position": [
+          -432,
+          480
+        ],
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "4bc81a68-d78f-4ee8-95f5-52bde1c20258",
+        "name": "FSSaveSupabase2",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "unit_url",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+              },
+              {
+                "fieldId": "fs_number",
+                "fieldValue": "={{ $json.extractedPoints[0].id }}"
+              },
+              {
+                "fieldId": "skill_point",
+                "fieldValue": "={{ $json.originalText }}"
+              }
+            ]
+          },
+          "tableId": "foundation_skills_requirements"
+        },
+        "position": [
+          -80,
+          368
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2025-12-07T21:11:50.051Z",
+    "versionId": "8fa6bdd0-4df1-4ca7-be69-af1484383b65",
+    "workflowId": "Pko54vCSzneXmYXh",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-12-07T21:11:50.112Z",
+        "event": "activated",
+        "id": 144,
+        "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "versionId": "8fa6bdd0-4df1-4ca7-be69-af1484383b65",
+        "workflowId": "Pko54vCSzneXmYXh"
+      }
+    ]
+  },
+  "activeVersionId": "8fa6bdd0-4df1-4ca7-be69-af1484383b65",
+  "connections": {
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Split Out",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "FSSaveSupabase": {
+      "main": [
+        []
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "FSSaveSupabase2",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "FSSaveSupabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code in JavaScript",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2024-11-03T02:59:25.811Z",
+  "description": null,
+  "id": "Pko54vCSzneXmYXh",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SmartFSxtractAgent_v4",
+  "nodes": [
+    {
+      "alwaysOutputData": true,
+      "id": "03405677-ff28-4c3a-9816-6133902d484e",
+      "name": "Split Out",
+      "parameters": {
+        "fieldToSplitOut": "output.extractedPoints",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "position": [
+        928,
+        464
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "id": "79f1995b-655c-4bdc-984b-c12b5a3e5f9b",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "1b8da2f3-3b18-4c3e-87ac-3b55044caeb1"
+      },
+      "position": [
+        -848,
+        704
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "7bd3d363-6122-4c7f-a1d6-908d369f08e3"
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "d30d0cbb-92df-478a-bd86-99392441618e",
+      "name": "FSSaveSupabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "unit_url",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+            },
+            {
+              "fieldId": "fs_number",
+              "fieldValue": "={{ $json['output.extractedPoints'].skill }} - {{ $json['output.extractedPoints'].id }}"
+            },
+            {
+              "fieldId": "skill_point",
+              "fieldValue": "={{ $json['output.extractedPoints'].text }}"
+            }
+          ]
+        },
+        "tableId": "foundation_skills_requirements"
+      },
+      "position": [
+        1312,
+        464
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "7e90e238-a362-4d1c-8814-5f1f5b104af6",
+      "name": "Basic LLM Chain",
+      "parameters": {
+        "batching": {},
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "This AI is designed to only output information in JSON format without exception. This AI can only output JSON and will never output any other text.  When asked to correct itself, this AI will only output the corrected JSON and never any other text.  Instructions: Identify the \"Foundation Skills\": Use the provided text content and locate the section detailing \"Foundation Skills\"  Extract Data in Original Form:  For each Skill, extract the title and assign it to the field \"Skill n\" where n represents the number in the Skill title. For each Description associated with an Skill, assign its text to a field named \"Skill Description n.m\" where n represents the Skill number and m the specific Description number under that Skill. Make sure to not increment the Skill number for each Skill Description, only increment the Skill Description number under each Skill.  Populate JSON Fields:  Set \"FoundationSkillsDescription\" to: \"Foundation skills essential to performance in this unit, but not explicit in the performance criteria are listed here, along with a brief context statement.\" Populate \"extractedPoints\" as an array containing each \"Skill\" and \"Skill Description\" pairing as separate objects. Repeat the Skill field for each Skill Description associated with that Skill. Preserve all original text; avoid summarizing or paraphrasing."
+            }
+          ]
+        },
+        "promptType": "define",
+        "text": "=Here is the content to review:\n\n{{ $json.fs }}"
+      },
+      "position": [
+        352,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "5d3cab13-a0a2-4c9f-9214-e3e08087d322",
+      "name": "OpenAI Chat Model",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        -176,
+        752
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "75047883-a1f2-4702-8971-ea5568282670",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{\n  \"extractedPoints\": [\n    { \"id\": \"FS 1\", \"skill\": \"Reading\", \"text\": \"Interprets textual information including legislation and organisational policy, to plan, implement and review resource requirements; Analyses organisational information to assess resource usage practices\" },\n    { \"id\": \"FS 2\", \"skill\": \"Writing\", \"text\": \"Develops organisational texts including proposals, reports and plans according to organisational requirements\" },\n    { \"id\": \"FS 3\", \"skill\": \"Oral communication\", \"text\": \"Participates in spoken exchanges with stakeholders using structure and language appropriate to context and audience\" },\n    { \"id\": \"FS 4\", \"skill\": \"Numeracy\", \"text\": \"Selects and uses familiar mathematical techniques to determine costs and benefits associated with strategic resource decisions; Defines timeframes according to schedule requirements; Selects and uses familiar mathematical techniques to organise timely supply of required resources as well as identify budgetary information and monitor performance\" },\n    { \"id\": \"FS 5\", \"skill\": \"Enterprise and initiative\", \"text\": \"Contribute to the development of organisational policies and procedures; Adheres to legal requirements and organisational policies and procedures\" },\n    { \"id\": \"FS 6\", \"skill\": \"Teamwork\", \"text\": \"Collaborates and negotiates with others to achieve required outcomes\" },\n    { \"id\": \"FS 7\", \"skill\": \"Planning and organising\", \"text\": \"Accepts responsibility for planning and sequencing complex tasks to achieve organisational requirements; Develops plans and systems to manage resource allocation; Systematically gathers and analyses all relevant information, evaluates options and conducts reviews to inform recommendations about resource usage improvements\" }\n  ]\n}"
+      },
+      "position": [
+        528,
+        704
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "328dd147-5964-4bcc-b9ca-b0af42b06922",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        784,
+        992
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "alwaysOutputData": true,
+      "id": "b68ac37c-8ec1-4d42-87b0-4f885cd9f162",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -848,
+        480
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "099e2c9a-6917-4158-b1b4-d3362990def6",
+      "name": "Code in JavaScript",
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet fsText = item.fs || '';\n\n// Check for bad/misplaced data first\nconst badDataIndicators = [\n  'Unit sector',\n  'Competency field',\n  'Pre-requisite unit'\n];\n\nconst isBadData = badDataIndicators.some(indicator => \n  fsText.startsWith(indicator) || \n  (fsText.includes(indicator) && !fsText.includes('Skill'))\n);\n\nif (isBadData) {\n  // Try to extract from UOCpage\n  // ... (same as before)\n}\n\n// Phrases indicating implicit FS\nconst implicitPhrases = [\n  'explicit in the performance criteria',\n  'embedded in the performance criteria',\n  'incorporated in the performance criteria'\n];\n\n// Check if it's implicit - BUT only if there's NO table\nconst hasTable = fsText.includes('| Skill') || \n                 fsText.includes('|Skill') ||\n                 fsText.includes('| **Skill**') ||\n                 fsText.includes('| Reading') ||\n                 fsText.includes('| Writing');\n\nconst hasImplicitPhrase = implicitPhrases.some(phrase => \n  fsText.toLowerCase().includes(phrase.toLowerCase())\n);\n\n// It's implicit ONLY if it has the implicit phrase AND NO table\nconst isImplicit = hasImplicitPhrase && !hasTable;\n\nif (isImplicit) {\n  return {\n    json: {\n      isImplicit: true,\n      extractedPoints: [{\n        id: \"FS\",\n        text: \"Foundation skills are implicit in the performance criteria of this unit.\",\n        type: \"implicit\"\n      }],\n      originalText: fsText,\n      unitCode: item.unitCode\n    }\n  };\n} else {\n  // Has explicit FS table - send to LLM\n  return {\n    json: {\n      isImplicit: false,\n      foundationSkillsText: fsText,\n      unitCode: item.unitCode,\n      unitTitle: item.Title\n    }\n  };\n}"
+      },
+      "position": [
+        -640,
+        480
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "63da131e-fb7d-4474-9142-153babde2c4f",
+      "name": "If1",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "70125db5-109f-4853-82c3-fef9e4ad9ec4",
+              "leftValue": "={{ $json.isImplicit }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -432,
+        480
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "4bc81a68-d78f-4ee8-95f5-52bde1c20258",
+      "name": "FSSaveSupabase2",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "unit_url",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+            },
+            {
+              "fieldId": "fs_number",
+              "fieldValue": "={{ $json.extractedPoints[0].id }}"
+            },
+            {
+              "fieldId": "skill_point",
+              "fieldValue": "={{ $json.originalText }}"
+            }
+          ]
+        },
+        "tableId": "foundation_skills_requirements"
+      },
+      "position": [
+        -80,
+        368
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "content": "_This section describes those language, literacy, numeracy and employment skills that are essential to performance but not explicit in the performance criteria._\n\n|     |     |\n| --- | --- |\n| **Skill** | **Description** |\n| Interact with others | - Uses appropriate communication practices when communicating with others<br>- Cooperates and collaborates with team members |\n| Get the work done | - Plans and implements routine tasks and workload making limited decisions on sequencing, timing and collaboration, seeking assistance in setting priorities<br>- Uses digital technology to find, record or communicate information |"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "35.155.119.178",
+            "cf-ipcountry": "US",
+            "cf-ray": "993dc9ad29f953d9-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "647",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "248c917c-30ad-41ac",
+            "true-client-ip": "35.155.119.178",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "35.155.119.178, 104.23.175.144",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1761354139820328"
+          },
+          "params": {},
+          "query": {
+            "unitLink": "https://training.gov.au/training/details/BSBXTW301/unitdetails"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/1b8da2f3-3b18-4c3e-87ac-3b55044caeb1"
+        }
+      }
+    ],
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "Link": "https://training.gov.au/training/details/BSBOPS501/unitdetails",
+          "Status": "auto",
+          "Title": "BSBOPS501 Manage business resources",
+          "Type": "auto",
+          "UOCpage": "error\n\n# Unit of competency\n\n\\|\n\nShow history\n\nyes\n\nno\n\n**BSBOPS501** Manage business resources\n\nUsage recommendation\n\nCurrent\n\n19/Oct/2020First releasedinfoinfo Supersedes:\n\n[BSBADM506 - not equivalent](https://training.gov.au/training/details/BSBADM506)\n\n[BSBCUE406 - not equivalent](https://training.gov.au/training/details/BSBCUE406)\n\n[BSBCUE502 - not equivalent](https://training.gov.au/training/details/BSBCUE502)\n\n[BSBCUE607 - not equivalent](https://training.gov.au/training/details/BSBCUE607)\n\n[BSBCUE608 - not equivalent](https://training.gov.au/training/details/BSBCUE608)\n\n[BSBMGT622 - equivalent](https://training.gov.au/training/details/BSBMGT622)\n\nRelease\n\nCurrent Release\n\n1expand\\_more\n\n- 1done\n\ncurrent\n\n19/Oct/2020Release Date\n\ndownload Download\n\n- downloadDownload unit as pdf\n- downloadDownload unit as word\n- downloadDownload unit files as a zip\n- linkAccess CVIG\n\nUnit details expand\\_more\n\n- Unit details\ndone\n- Qualifications\n\n- Skill sets\n\n- Accredited courses\n\n- Summary\n\n- Find RTOs\n\n\n### **Unit of competency**\n\n## Modification history\n\n| Release | Comments |\n| --- | --- |\n| Release 1 | This version first released with BSB Business Services Training Package Version 7.0. |\n\n## Application\n\nThis unit describes the skills and knowledge required to manage resources according to planned business strategies. It includes analysing resource requirements, developing resource plans, allocating resources, and reviewing and reporting on resource usage.\n\nThe unit applies to individuals with a role in allocating and monitoring the use of physical and/or human resources to meet defined business objectives.\n\nNo licensing, legislative or certification requirements apply to this unit at the time of publication.\n\n## Unit sector\n\nBusiness Competence – Business Operations\n\n## Elements and performance criteria\n\n| Element | Performance criteria |\n| --- | --- |\n| _Elements describe the essential outcomes._ | _Performance criteria describe the performance needed to demonstrate achievement of the element._ |\n| - 1\\. Analyse resource requirements | - 1.1 Develop resource bids according to required outputs specified in business plans<br>- 1.2 Consult with relevant stakeholders and determine the nature and level of resources required<br>- 1.3 Analyse resource requirements and identify proposed costs and benefits<br>- 1.4 Identify opportunities to share resources across business units within the organisation |\n| - 2\\. Develop resource plans | - 2.1 Determine internal resourcing capabilities and external resourcing requirements<br>- 2.2 Develop procedures for the evaluation of resource allocation and incorporate them in resource plans<br>- 2.3 Identify risks and establish risk management processes<br>- 2.4 Obtain required approvals from relevant personnel |\n| - 3\\. Allocate resources | - 3.1 Identify and adhere to organisational policies and procedures for resource allocation<br>- 3.2 Manage resource allocation according to business unit objectives<br>- 3.3 Negotiate and obtain resources within required timeframe according to business unit objectives<br>- 3.4 Develop and implement systems for monitoring resource usage |\n| - 4\\. Review and report on resource usage | - 4.1 Develop and implement procedures to review resource allocation against business unit objectives<br>- 4.2 Suggest improvements to work practices for the efficient use of resources <br>- 4.3 Monitor compliance with program and project budgets and take corrective action where necessary<br>- 4.4 Prepare report that indicates the level of performance achieved and any action taken to adjust or rectify procedures in meeting service and product delivery standards |\n\n## Foundation skills\n\n_This section describes language, literacy, numeracy and employment skills incorporated in the performance criteria that are required for competent performance._\n\n|     |     |\n| --- | --- |\n| **Skill** | **Description** |\n| Reading | - Interprets textual information including legislation and organisational policy, to plan, implement and review resource requirements<br>- Analyses organisational information to assess resource usage practices |\n| Writing | - Develops organisational texts including proposals, reports and plans according to organisational requirements |\n| Oral communication | - Participates in spoken exchanges with stakeholders using structure and language appropriate to context and audience |\n| Numeracy | - Selects and uses familiar mathematical techniques to determine costs and benefits associated with strategic resource decisions<br>- Defines timeframes according to schedule requirements<br>- Selects and uses familiar mathematical techniques to organise timely supply of required resources as well as identify budgetary information and monitor performance |\n| Enterprise and initiative | - Contribute to the development of organisational policies and procedures<br>- Adheres to legal requirements and organisational policies and procedures |\n| Teamwork | - Collaborates and negotiates with others to achieve required outcomes |\n| Planning and organising | - Accepts responsibility for planning and sequencing complex tasks to achieve organisational requirements<br>- Develops plans and systems to manage resource allocation<br>- Systematically gathers and analyses all relevant information, evaluates options and conducts reviews to inform recommendations about resource usage improvements |\n\n### **Assessment requirements**\n\n## Modification history\n\n| Release | Comments |\n| --- | --- |\n| Release 1 | This version first released with BSB Business Services Training Package Version 7.0. |\n\n## Performance evidence\n\nThe candidate must demonstrate the ability to complete the tasks outlined in the elements, performance criteria and foundation skills of this unit, including evidence of the ability to:\n\n- develop, implement and review at least three resource plans.\n\nIn the course of the above, the candidate must:\n\n- consult with stakeholders and analyse information to determine the nature and level of resources required to achieve business objectives\n- plan for, acquire and allocate the resources, incorporating strategies to maximise efficiency and manage risk\n- develop and implement systems to:\n  - incorporate efficient use of resources into work practices\n  - monitor resource use against budgets and business objectives\n- prepare a report that indicates the level of performance achieved and any adjustments needed to achieve service and product delivery standards.\n\n## Knowledge evidence\n\nThe candidate must be able to demonstrate knowledge to complete the tasks outlined in the elements, performance criteria and foundation skills of this unit, including knowledge of:\n\n- legislative and regulatory context of the organisation in relation to managing resources\n- contents of resource plans including:\n  - acquisition and allocation of resources\n  - timelines and the relationship to business strategies\n  - contingency plans and processes\n  - costs and budgets\n- resource acquisition processes\n- managing finance, including project budgets\n- resource allocation review procedures\n- objectives of business unit\n- typical risks associated with managing business resources and risk management strategies\n- procedures for risk management, including requirements for the consideration of potential changes in government priorities\n- key elements and sources of information required to monitor usage of:\n  - physical resources\n  - human resources.\n\n## Assessment conditions\n\nSkills in this unit must be demonstrated in a workplace or simulated environment where the conditions are typical of those in a working environment in this industry.\n\nThis includes access to:\n\n- relevant legislation, regulations, standards and codes\n- workplace documentation and resources.\n\nAssessors of this unit must satisfy the requirements for assessors in applicable vocational education and training legislation, frameworks and/or standards.\n\n## Qualifications that include this unit\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 1 (8 records with 10 per page)\n\n|     |     |     |     |     |\n| --- | --- | --- | --- | --- |\n| Code<br>[BSB50120](https://training.gov.au/training/details/BSB50120) | Title<br>Diploma of Business | Usage recommendation<br>Current | Release<br>1 | Essential<br>Core |\n| Code<br>[BSB50220](https://training.gov.au/training/details/BSB50220) | Title<br>Diploma of Aboriginal and Torres Strait Islander Governance | Usage recommendation<br>Superseded | Release<br>1 | Essential<br>Elective |\n| Code<br>[BSB50420](https://training.gov.au/training/details/BSB50420) | Title<br>Diploma of Leadership and Management | Usage recommendation<br>Current | Release<br>1-3 | Essential<br>Elective |\n| Code<br>[BSB50820](https://training.gov.au/training/details/BSB50820) | Title<br>Diploma of Project Management | Usage recommendation<br>Current | Release<br>1 | Essential<br>Elective |\n| Code<br>[HLT60121](https://training.gov.au/training/details/HLT60121) | Title<br>Advanced Diploma of Aboriginal and/or Torres Strait Islander Primary Health Care Management | Usage recommendation<br>Current | Release<br>1 | Essential<br>Elective |\n| Code<br>[PSP60122](https://training.gov.au/training/details/PSP60122) | Title<br>Advanced Diploma of Government | Usage recommendation<br>Current | Release<br>1-2 | Essential<br>Elective |\n| Code<br>[SIS50122](https://training.gov.au/training/details/SIS50122) | Title<br>Diploma of Sport, Aquatics and Recreation Management | Usage recommendation<br>Current | Release<br>1 | Essential<br>Elective |\n| Code<br>[SIS50421](https://training.gov.au/training/details/SIS50421) | Title<br>Diploma of Outdoor Leadership | Usage recommendation<br>Current | Release<br>1-2 | Essential<br>Elective |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n## Skill sets that include this unit\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 1 (2 records with 10 per page)\n\n|     |     |     |     |\n| --- | --- | --- | --- |\n| Code<br>[BSBSS00101](https://training.gov.au/training/details/BSBSS00101) | Title<br>Business Operations Management Skill Set | Usage recommendation<br>Current | Release<br>1 |\n| Code<br>[BSBSS00115](https://training.gov.au/training/details/BSBSS00115) | Title<br>Copyright Management Skill Set | Usage recommendation<br>Current | Release<br>1 |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n## Accredited courses that include this unit\n\n|     |\n| --- |\n| There are no records to show |\n\n## Mapping\n\n|     |     |     |\n| --- | --- | --- |\n| Mapping<br>Supersedes [BSBADM506](https://training.gov.au/training/details/BSBADM506)  Manage business document design and development | Notes | Date<br>18/Oct/2020 |\n| Mapping<br>Supersedes [BSBCUE406](https://training.gov.au/training/details/BSBCUE406)  Run a multicentre | Notes | Date<br>18/Oct/2020 |\n| Mapping<br>Supersedes [BSBCUE502](https://training.gov.au/training/details/BSBCUE502)  Establish a multicentre | Notes | Date<br>18/Oct/2020 |\n| Mapping<br>Supersedes [BSBCUE607](https://training.gov.au/training/details/BSBCUE607)  Manage customer engagement centre staffing | Notes | Date<br>18/Oct/2020 |\n| Mapping<br>Supersedes [BSBCUE608](https://training.gov.au/training/details/BSBCUE608)  Manage customer engagement operational costs | Notes | Date<br>18/Oct/2020 |\n| Mapping<br>Supersedes and is equivalent to [BSBMGT622](https://training.gov.au/training/details/BSBMGT622)  Manage resources | Notes | Date<br>18/Oct/2020 |\n\n## Releases\n\n[swap\\_horiz Advanced compare](https://training.gov.au/training/compare?trainingType=4&fromRelease=15b53049-d808-42cb-9365-0d787ad130c3)\n\n|     |     |     |\n| --- | --- | --- |\n| Compare<br>Select 1 (This release) | Release<br>**1 (This release)**<br>current | Release date<br>19/Oct/2020 |\n\n## Training packages that include this unit\n\n|     |     |     |\n| --- | --- | --- |\n| Code<br>[BSB](https://training.gov.au/training/details/BSB) | Title<br>Business Services Training Package | Release<br>7.0-8.1 |\n| Code<br>[HLT](https://training.gov.au/training/details/HLT) | Title<br>Health | Release<br>9.0-9.2 |\n| Code<br>[PSP](https://training.gov.au/training/details/PSP) | Title<br>Public Sector Training Package | Release<br>3.0-4.0 |\n| Code<br>[SIS](https://training.gov.au/training/details/SIS) | Title<br>Sport, Fitness and Recreation Training Package | Release<br>5.0-6.1 |\n\n## Classifications\n\n|     |     |     |\n| --- | --- | --- |\n| Scheme<br>ASCED Module/Unit of Competency Field of Education Identifier | Code<br>080301 | Classification value<br>Business Management |\n\n## Companion volumes\n\n|     |     |     |     |     |\n| --- | --- | --- | --- | --- |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Cafes, Restaurants and Accommodation - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/44b37700-62cd-482b-a7fe-b81f8540dc08.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Construction and Property Services - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/874ce52f-f8b1-412a-9d24-9fabfd5e98ab.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Domestic Travel - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/007a2172-a487-4614-b410-7bd767d3ae20.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Education - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/cf91aec8-e066-406e-b679-1bfb8ed606c9.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Entertainment and Amusement - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/13cda157-611c-44be-9d3f-34b47fa77c86.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Mining, Drilling and Civil Infrastructure - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/83cda8e5-2a6a-439b-8c47-be8c89269552.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Sports and Recreation - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/543db423-f652-4f97-9edd-bf1868c6c02e.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document (Weddings, Funerals and Religious Services - Infection Control Contextualisation))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/5686a8ca-b8ec-4f10-9d1f-d51679cdc922.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document - Business Services - Infection Control Contextualisation)](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/cd2c607b-8297-4891-9340-672e2eda81fc.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 6.1 Companion Volume Jun 2020 (Guidance Document Jun 2020 (Hair and Beauty - Infection Control Contextualisation Guidance))](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/1917d4db-1ea5-41a7-9338-10751535f6cb.PDF) | Filetype<br>PDF | Status<br>Current | Created date<br>16/Jul/2020 | Release<br>6.1 - 8.0 |\n| Title<br>[BSB release 8.0 Companion Volume Jan 2022](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/c839ddd0-30f4-463a-9e1c-ede179bdf474.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>24/Jan/2022 | Release<br>8.0 - 8.1 |\n| Title<br>[BSB release 8.1 Companion Volume\\_CVIG\\_V8.1](https://training.gov.au/api/files/org/7683909a-6ebd-46b0-8fd9-7cefb78f27e9/9ad4bb92-f1d6-44df-9297-4e079cd86100.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n\n## Find RTOs\n\nRTOs approved to deliver and/or assess this unit.\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ntuneFilter0\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 113 (1121 records with 10 per page)\n\n|     |     |     |     |     |     |     |     |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| Code<br>[45267](https://training.gov.au/organisation/details/45267) | Legal name<br>The Cairnmillar Institute | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>15/Jul/2022 | Scope end date<br>18/Oct/2031 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/BSBOPS501/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[91412](https://training.gov.au/organisation/details/91412) | Legal name<br>Australian College of Commerce & Information Technology Pty Ltd | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>19/May/2021 | Scope end date<br>18/Dec/2025 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[45443](https://training.gov.au/organisation/details/45443) | Legal name<br>The Lions Institute Pty Ltd | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>20/May/2021 | Scope end date<br>19/Mar/2028 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[45694](https://training.gov.au/organisation/details/45694) | Legal name<br>Shafston International Pty Ltd | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>21/May/2021 | Scope end date<br>31/Aug/2026 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[45046](https://training.gov.au/organisation/details/45046) | Legal name<br>SWANN INTERNATIONAL PTY LTD | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>24/May/2021 | Scope end date<br>20/Nov/2030 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[2857](https://training.gov.au/organisation/details/2857) | Legal name<br>AUIT Group Pty Ltd as Trustee for The Holistic Trust | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>25/May/2021 | Scope end date<br>30/Jun/2030 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[3910](https://training.gov.au/organisation/details/3910) | Legal name<br>Smart Connection Company Pty Ltd | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>26/May/2021 | Scope end date<br>31/Jan/2029 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[45299](https://training.gov.au/organisation/details/45299) | Legal name<br>Advocate Training Pty Ltd | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>28/May/2021 | Scope end date<br>22/Nov/2031 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[41452](https://training.gov.au/organisation/details/41452) | Legal name<br>F & Z EDUCATION PTY LTD | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>01/Jun/2021 | Scope end date<br>17/Mar/2030 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[45696](https://training.gov.au/organisation/details/45696) | Legal name<br>Holborne Institute Pty Ltd | RTO status<br>Current | Scope<br>Implicit | Extent<br>Deliver and assess | Scope start date<br>01/Jun/2021 | Scope end date<br>30/May/2030 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n[arrow\\_upwardarrow\\_upwardBack to top](https://training.gov.au/training/details/BSBOPS501/unitdetails#content)\n\ncontact\\_supportcontact\\_supportHelp",
+          "ac": "Skills in this unit must be demonstrated in a workplace or simulated environment where the conditions are typical of those in a working environment in this industry.\n\nThis includes access to:\n\n- relevant legislation, regulations, standards and codes\n- workplace documentation and resources.\n\nAssessors of this unit must satisfy the requirements for assessors in applicable vocational education and training legislation, frameworks and/or standards.",
+          "applciation": "This unit describes the skills and knowledge required to manage resources according to planned business strategies. It includes analysing resource requirements, developing resource plans, allocating resources, and reviewing and reporting on resource usage.\n\nThe unit applies to individuals with a role in allocating and monitoring the use of physical and/or human resources to meet defined business objectives.\n\nNo licensing, legislative or certification requirements apply to this unit at the time of publication.",
+          "created_at": "2025-12-04T04:26:56.652811",
+          "epc": "| Element | Performance criteria |\n| --- | --- |\n| _Elements describe the essential outcomes._ | _Performance criteria describe the performance needed to demonstrate achievement of the element._ |\n| - 1. Analyse resource requirements | - 1.1 Develop resource bids according to required outputs specified in business plans<br>- 1.2 Consult with relevant stakeholders and determine the nature and level of resources required<br>- 1.3 Analyse resource requirements and identify proposed costs and benefits<br>- 1.4 Identify opportunities to share resources across business units within the organisation |\n| - 2. Develop resource plans | - 2.1 Determine internal resourcing capabilities and external resourcing requirements<br>- 2.2 Develop procedures for the evaluation of resource allocation and incorporate them in resource plans<br>- 2.3 Identify risks and establish risk management processes<br>- 2.4 Obtain required approvals from relevant personnel |\n| - 3. Allocate resources | - 3.1 Identify and adhere to organisational policies and procedures for resource allocation<br>- 3.2 Manage resource allocation according to business unit objectives<br>- 3.3 Negotiate and obtain resources within required timeframe according to business unit objectives<br>- 3.4 Develop and implement systems for monitoring resource usage |\n| - 4. Review and report on resource usage | - 4.1 Develop and implement procedures to review resource allocation against business unit objectives<br>- 4.2 Suggest improvements to work practices for the efficient use of resources <br>- 4.3 Monitor compliance with program and project budgets and take corrective action where necessary<br>- 4.4 Prepare report that indicates the level of performance achieved and any action taken to adjust or rectify procedures in meeting service and product delivery standards |",
+          "fs": "_This section describes language, literacy, numeracy and employment skills incorporated in the performance criteria that are required for competent performance._\n\n|     |     |\n| --- | --- |\n| **Skill** | **Description** |\n| Reading | - Interprets textual information including legislation and organisational policy, to plan, implement and review resource requirements<br>- Analyses organisational information to assess resource usage practices |\n| Writing | - Develops organisational texts including proposals, reports and plans according to organisational requirements |\n| Oral communication | - Participates in spoken exchanges with stakeholders using structure and language appropriate to context and audience |\n| Numeracy | - Selects and uses familiar mathematical techniques to determine costs and benefits associated with strategic resource decisions<br>- Defines timeframes according to schedule requirements<br>- Selects and uses familiar mathematical techniques to organise timely supply of required resources as well as identify budgetary information and monitor performance |\n| Enterprise and initiative | - Contribute to the development of organisational policies and procedures<br>- Adheres to legal requirements and organisational policies and procedures |\n| Teamwork | - Collaborates and negotiates with others to achieve required outcomes |\n| Planning and organising | - Accepts responsibility for planning and sequencing complex tasks to achieve organisational requirements<br>- Develops plans and systems to manage resource allocation<br>- Systematically gathers and analyses all relevant information, evaluates options and conducts reviews to inform recommendations about resource usage improvements |",
+          "id": 4219,
+          "ke": "The candidate must be able to demonstrate knowledge to complete the tasks outlined in the elements, performance criteria and foundation skills of this unit, including knowledge of:\n\n- legislative and regulatory context of the organisation in relation to managing resources\n- contents of resource plans including:\n  - acquisition and allocation of resources\n  - timelines and the relationship to business strategies\n  - contingency plans and processes\n  - costs and budgets\n- resource acquisition processes\n- managing finance, including project budgets\n- resource allocation review procedures\n- objectives of business unit\n- typical risks associated with managing business resources and risk management strategies\n- procedures for risk management, including requirements for the consideration of potential changes in government priorities\n- key elements and sources of information required to monitor usage of:\n  - physical resources\n  - human resources.",
+          "pe": "The candidate must demonstrate the ability to complete the tasks outlined in the elements, performance criteria and foundation skills of this unit, including evidence of the ability to:\n\n- develop, implement and review at least three resource plans.\n\nIn the course of the above, the candidate must:\n\n- consult with stakeholders and analyse information to determine the nature and level of resources required to achieve business objectives\n- plan for, acquire and allocate the resources, incorporating strategies to maximise efficiency and manage risk\n- develop and implement systems to:\n  - incorporate efficient use of resources into work practices\n  - monitor resource use against budgets and business objectives\n- prepare a report that indicates the level of performance achieved and any adjustments needed to achieve service and product delivery standards.",
+          "qualificationLink": "single",
+          "unitCode": "BSBOPS501",
+          "unit_identifier": "4f021466-c09e-4982-bf89-27c5823e62eb"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2024-11-03T02:59:25.815Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2024-11-03T02:59:25.815Z",
+      "workflowId": "Pko54vCSzneXmYXh"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-07T21:11:50.051Z",
+  "versionCounter": 25,
+  "versionId": "8fa6bdd0-4df1-4ca7-be69-af1484383b65"
+}

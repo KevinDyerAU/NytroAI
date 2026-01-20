@@ -1,0 +1,973 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "system migration",
+    "autosaved": false,
+    "connections": {
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "EandPCValidationSupabase",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "EandPCValidationSupabase": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Embeddings OpenAI": {
+        "ai_embedding": [
+          [
+            {
+              "index": 0,
+              "node": "Pinecone Vector Store",
+              "type": "ai_embedding"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model2": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Pinecone Vector Store": {
+        "ai_tool": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_tool"
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_outputParser"
+            }
+          ]
+        ]
+      },
+      "Update a row1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row1",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-11-28T18:15:14.136Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "executeOnce": true,
+        "id": "296cb816-5faa-4860-8bc0-a65090b95df6",
+        "name": "EandPCValidationSupabase",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "epc_number",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+              },
+              {
+                "fieldId": "performance_criteria",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+              },
+              {
+                "fieldId": "element",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.element }}"
+              },
+              {
+                "fieldId": "valDetail_id",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+              },
+              {
+                "fieldId": "requirementId",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+              },
+              {
+                "fieldId": "status",
+                "fieldValue": "={{ $json.output.Status }}"
+              },
+              {
+                "fieldId": "unmappedContent",
+                "fieldValue": "={{ $json.output['Unmapped Content'].Reasonsing }}"
+              },
+              {
+                "fieldId": "unmappedRecommendation",
+                "fieldValue": "={{ $json.output['Unmapped Content'].Recommendation }}"
+              },
+              {
+                "fieldId": "docReferences",
+                "fieldValue": "={{ $json.output['Document and Pages'] }}"
+              },
+              {
+                "fieldId": "mapped_content",
+                "fieldValue": "={{ $json.output['Mapped Guide Content Sections'] }}"
+              }
+            ]
+          },
+          "tableId": "elements_performance_criteria_learner_validations"
+        },
+        "position": [
+          -160,
+          640
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "dd6699b1-25e8-4455-aad5-46ebfe186710",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "d5f04b60-7729-4d0d-bd33-4b89bd663e89"
+        },
+        "position": [
+          -2048,
+          576
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "d5f04b60-7729-4d0d-bd33-4b89bd663e89"
+      },
+      {
+        "id": "bb5aeaf0-6961-44fa-a7b7-179bc533384b",
+        "name": "AI Agent",
+        "parameters": {
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "=Your task is to gather all required information and documents for validation from the Document Store, perform the validation, and return a JSON response, following the process below.\n\nElements and performance criteria are assessed through practical demonstration, using methods such as:\nDirect Observation:\nWatching the student perform tasks in real or simulated environments.\nExample: Observing the student safely operate equipment.\nPractical Demonstration:\nThe student shows their skills in specific scenarios.\nExample: Demonstrating correct use of workplace machinery.\nCompetency Checklists:\nAssessing tasks against set criteria.\nExample: Completing a step-by-step task assessment.\nScenario-Based Assessments:-this is only if there is no other option! \nSimulating real-world conditions to test responses.\nExample: Handling an emergency situation following workplace procedures.\n\nEvaluation Process for Learner Guides:\n\n1. **Content Mapping:**\n   - **Identify Relevant Content:**\n     - Thoroughly review each learner guide to pinpoint sections, explanations, activities, examples, or exercises that align with specific elements and performance criteria.\n     - Document each mapped content item with:\n       - Section name or title.\n       - Page number(s) and document name.\n       - Guide name (if multiple guides are used).\n\n2. **Competency Alignment:**\n   - **Content Verification:**\n     - Ensure each selected content item aligns with the performance criteria and elements, demonstrating the required skills or actions for competency.\n     - Confirm that explanations, examples, and activities meet the depth and context required.\n\n3. **Identify Content Gaps:**\n   - **Mark Unmapped Content:**\n     - If no content aligns with an element or criterion, mark it as unmapped.\n     - Provide a brief explanation if no content is found.\n     - Provide recommendations.\n     - Do not return page numbers and document names\n\n4. **Originality and Specificity Check:**\n   - **Content Source Verification:**\n     - Verify that the mapped content is sourced directly from the learner guide, and not from external or generic sources.\n   - **Language Specificity:**\n     - Ensure content provides detailed explanations or examples related to the criterion, avoiding generic descriptions.\n\n5. **Documentation:**\n   - **Page Number Update:**\n     - Record the learner guide page numbers corresponding to the mapped content.\n   - **Alignment Check:**\n     - Verify that page numbers correctly match the performance criteria and content for accuracy.\n-**- Do not return page numbers and document names if status is \"not met\"\n\t \n6. Return the JSON structure per the below format:\n\n**Structure for Reporting:**\n  \"Element\": \"Describe the element being evaluated.\",\n  \"Performance Criterion\": \"Specify the related performance criterion.\",\n  \"Status\": \"Met, Not Met or Partially Met\",\n  \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\", \n  \"Mapped Guide Content Sections\": \n      \"Section Title\": \"Title of the relevant section.\",\n  ,\n \"Unmapped Questions\": \n     \"Reasoning\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\n     \"Recommendations\": \"Include detailed procedures for identifying and implementing personalized safety measures.\"\n   \n\nWhen asessing be very lenient, if the content is close enough to the requirement mark it as met. \nReturn only the JSON structure"
+          },
+          "promptType": "define",
+          "text": "={{ $json.element }} {{ $json.number }} {{ $json.requirement }}"
+        },
+        "position": [
+          -880,
+          640
+        ],
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.7
+      },
+      {
+        "id": "9ba08c46-9e77-4aae-9ecd-0dc3fd7114c6",
+        "name": "Sticky Note9",
+        "parameters": {
+          "color": 5,
+          "content": "## 🤖Retrieve Content from Pinecone Vector Store",
+          "height": 680,
+          "width": 860
+        },
+        "position": [
+          -1184,
+          544
+        ],
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "db095a57-ee58-4a28-af39-f2d79b9fdd55",
+        "name": "OpenAI Chat Model1",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-4o",
+            "mode": "list",
+            "value": "gpt-4o"
+          },
+          "options": {}
+        },
+        "position": [
+          -1072,
+          864
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "credentials": {
+          "pineconeApi": {
+            "id": "yelFxS1GAveaGbaN",
+            "name": "PineconeApi Starter"
+          }
+        },
+        "id": "c0a0b0a2-3bca-4a5b-bb60-78b963c44b41",
+        "name": "Pinecone Vector Store",
+        "parameters": {
+          "mode": "retrieve-as-tool",
+          "options": {
+            "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+          },
+          "pineconeIndex": {
+            "__rl": true,
+            "cachedResultName": "smartrto",
+            "mode": "list",
+            "value": "smartrto"
+          },
+          "toolDescription": "Use this function to answer user questions about Elements and Performance Criteria. It contains a RTO Documents  that relate to the Unit Of Competency that need to be validated."
+        },
+        "position": [
+          -864,
+          880
+        ],
+        "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "76405076-3ba0-46c6-8ce9-15757961f33c",
+        "name": "Embeddings OpenAI",
+        "parameters": {
+          "model": "text-embedding-ada-002",
+          "options": {}
+        },
+        "position": [
+          -1024,
+          1088
+        ],
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "102a965f-8f46-4f85-b2b7-2ba2bdf04ee2",
+        "name": "Structured Output Parser",
+        "parameters": {
+          "autoFix": true,
+          "jsonSchemaExample": "{  \"Element\": \"Develop personal professional\",  \"Performance Criterion\": \"Recognise the role of the xxx  in advocating for animals and the sector\",  \"Status\": \"Partially Met\", \"Document and Pages\": \"ABCCE001.pdf: Page 6, 7\",   \"Mapped Guide Content Sections\": \"Task demonstration and reflection in practical settings\"   ,  \"Unmapped Content\": {\"Reasonsing\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\"Recommendation\": \"The content related to following service policies, task demonstrations, and engaging with supervisors covers general roles and responsibilities but does not specifically address out of school hours care. The examples given are more aligned with day-to-day operational tasks which are applicable across various settings.\"} }"
+        },
+        "position": [
+          -592,
+          896
+        ],
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "d64a35db-ca96-4d54-bdd0-0227c58a0c1d",
+        "name": "OpenAI Chat Model2",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1-mini"
+          },
+          "options": {}
+        },
+        "position": [
+          -576,
+          1104
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "43582a15-6ad4-47d8-a0ee-efe91f13ab92",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          -1600,
+          640
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "8c5758a8-a5e5-4907-b67d-7d34587c3903",
+        "name": "Update a row",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "COMPLETE"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          112,
+          640
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "5e99b759-ce5a-4b2e-b0ad-324d5ac99401",
+        "name": "Update a row1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "PROCESSING"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -1312,
+          640
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2025-11-28T18:15:14.136Z",
+    "versionId": "08f9c190-7c7c-4a6c-b891-62ff5229062d",
+    "workflowId": "HxarVZw6GbO9Z0PU",
+    "workflowPublishHistory": []
+  },
+  "activeVersionId": "08f9c190-7c7c-4a6c-b891-62ff5229062d",
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "EandPCValidationSupabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "EandPCValidationSupabase": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row1",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-03-28T23:55:51.840Z",
+  "description": null,
+  "id": "HxarVZw6GbO9Z0PU",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SimpleE_PCValidateLG",
+  "nodes": [
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "296cb816-5faa-4860-8bc0-a65090b95df6",
+      "name": "EandPCValidationSupabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "epc_number",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+            },
+            {
+              "fieldId": "performance_criteria",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+            },
+            {
+              "fieldId": "element",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.element }}"
+            },
+            {
+              "fieldId": "valDetail_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+            },
+            {
+              "fieldId": "requirementId",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.output.Status }}"
+            },
+            {
+              "fieldId": "unmappedContent",
+              "fieldValue": "={{ $json.output['Unmapped Content'].Reasonsing }}"
+            },
+            {
+              "fieldId": "unmappedRecommendation",
+              "fieldValue": "={{ $json.output['Unmapped Content'].Recommendation }}"
+            },
+            {
+              "fieldId": "docReferences",
+              "fieldValue": "={{ $json.output['Document and Pages'] }}"
+            },
+            {
+              "fieldId": "mapped_content",
+              "fieldValue": "={{ $json.output['Mapped Guide Content Sections'] }}"
+            }
+          ]
+        },
+        "tableId": "elements_performance_criteria_learner_validations"
+      },
+      "position": [
+        -160,
+        640
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "dd6699b1-25e8-4455-aad5-46ebfe186710",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "d5f04b60-7729-4d0d-bd33-4b89bd663e89"
+      },
+      "position": [
+        -2048,
+        576
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "d5f04b60-7729-4d0d-bd33-4b89bd663e89"
+    },
+    {
+      "id": "bb5aeaf0-6961-44fa-a7b7-179bc533384b",
+      "name": "AI Agent",
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Your task is to gather all required information and documents for validation from the Document Store, perform the validation, and return a JSON response, following the process below.\n\nElements and performance criteria are assessed through practical demonstration, using methods such as:\nDirect Observation:\nWatching the student perform tasks in real or simulated environments.\nExample: Observing the student safely operate equipment.\nPractical Demonstration:\nThe student shows their skills in specific scenarios.\nExample: Demonstrating correct use of workplace machinery.\nCompetency Checklists:\nAssessing tasks against set criteria.\nExample: Completing a step-by-step task assessment.\nScenario-Based Assessments:-this is only if there is no other option! \nSimulating real-world conditions to test responses.\nExample: Handling an emergency situation following workplace procedures.\n\nEvaluation Process for Learner Guides:\n\n1. **Content Mapping:**\n   - **Identify Relevant Content:**\n     - Thoroughly review each learner guide to pinpoint sections, explanations, activities, examples, or exercises that align with specific elements and performance criteria.\n     - Document each mapped content item with:\n       - Section name or title.\n       - Page number(s) and document name.\n       - Guide name (if multiple guides are used).\n\n2. **Competency Alignment:**\n   - **Content Verification:**\n     - Ensure each selected content item aligns with the performance criteria and elements, demonstrating the required skills or actions for competency.\n     - Confirm that explanations, examples, and activities meet the depth and context required.\n\n3. **Identify Content Gaps:**\n   - **Mark Unmapped Content:**\n     - If no content aligns with an element or criterion, mark it as unmapped.\n     - Provide a brief explanation if no content is found.\n     - Provide recommendations.\n     - Do not return page numbers and document names\n\n4. **Originality and Specificity Check:**\n   - **Content Source Verification:**\n     - Verify that the mapped content is sourced directly from the learner guide, and not from external or generic sources.\n   - **Language Specificity:**\n     - Ensure content provides detailed explanations or examples related to the criterion, avoiding generic descriptions.\n\n5. **Documentation:**\n   - **Page Number Update:**\n     - Record the learner guide page numbers corresponding to the mapped content.\n   - **Alignment Check:**\n     - Verify that page numbers correctly match the performance criteria and content for accuracy.\n-**- Do not return page numbers and document names if status is \"not met\"\n\t \n6. Return the JSON structure per the below format:\n\n**Structure for Reporting:**\n  \"Element\": \"Describe the element being evaluated.\",\n  \"Performance Criterion\": \"Specify the related performance criterion.\",\n  \"Status\": \"Met, Not Met or Partially Met\",\n  \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\", \n  \"Mapped Guide Content Sections\": \n      \"Section Title\": \"Title of the relevant section.\",\n  ,\n \"Unmapped Questions\": \n     \"Reasoning\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\n     \"Recommendations\": \"Include detailed procedures for identifying and implementing personalized safety measures.\"\n   \n\nWhen asessing be very lenient, if the content is close enough to the requirement mark it as met. \nReturn only the JSON structure"
+        },
+        "promptType": "define",
+        "text": "={{ $json.element }} {{ $json.number }} {{ $json.requirement }}"
+      },
+      "position": [
+        -880,
+        640
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7
+    },
+    {
+      "id": "9ba08c46-9e77-4aae-9ecd-0dc3fd7114c6",
+      "name": "Sticky Note9",
+      "parameters": {
+        "color": 5,
+        "content": "## 🤖Retrieve Content from Pinecone Vector Store",
+        "height": 680,
+        "width": 860
+      },
+      "position": [
+        -1184,
+        544
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "db095a57-ee58-4a28-af39-f2d79b9fdd55",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        -1072,
+        864
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "c0a0b0a2-3bca-4a5b-bb60-78b963c44b41",
+      "name": "Pinecone Vector Store",
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "options": {
+          "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "smartrto",
+          "mode": "list",
+          "value": "smartrto"
+        },
+        "toolDescription": "Use this function to answer user questions about Elements and Performance Criteria. It contains a RTO Documents  that relate to the Unit Of Competency that need to be validated."
+      },
+      "position": [
+        -864,
+        880
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "76405076-3ba0-46c6-8ce9-15757961f33c",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "position": [
+        -1024,
+        1088
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "102a965f-8f46-4f85-b2b7-2ba2bdf04ee2",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{  \"Element\": \"Develop personal professional\",  \"Performance Criterion\": \"Recognise the role of the xxx  in advocating for animals and the sector\",  \"Status\": \"Partially Met\", \"Document and Pages\": \"ABCCE001.pdf: Page 6, 7\",   \"Mapped Guide Content Sections\": \"Task demonstration and reflection in practical settings\"   ,  \"Unmapped Content\": {\"Reasonsing\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\"Recommendation\": \"The content related to following service policies, task demonstrations, and engaging with supervisors covers general roles and responsibilities but does not specifically address out of school hours care. The examples given are more aligned with day-to-day operational tasks which are applicable across various settings.\"} }"
+      },
+      "position": [
+        -592,
+        896
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "d64a35db-ca96-4d54-bdd0-0227c58a0c1d",
+      "name": "OpenAI Chat Model2",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        -576,
+        1104
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "43582a15-6ad4-47d8-a0ee-efe91f13ab92",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -1600,
+        640
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "8c5758a8-a5e5-4907-b67d-7d34587c3903",
+      "name": "Update a row",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "COMPLETE"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        112,
+        640
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "5e99b759-ce5a-4b2e-b0ad-324d5ac99401",
+      "name": "Update a row1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "PROCESSING"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -1312,
+        640
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "requirement": "Identify team goals and own responsibilities relevant to achieving team goals"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "34.209.17.50",
+            "cf-ipcountry": "US",
+            "cf-ray": "993e01dfbb45ff0d-PDX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "95",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "68d6aa59-044b-46ec",
+            "true-client-ip": "34.209.17.50",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "34.209.17.50, 172.68.174.120",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1761356442080601"
+          },
+          "params": {},
+          "query": {
+            "element": "Element 2 - Contribute effectively to team goals",
+            "pc__number": "Performance Criterion 2.1",
+            "pineconeNamespace": "000/single/BSBXTW301/LearnerGuide/2025-10-24 06:01/",
+            "requirementID": "1174",
+            "unitLink": "https://training.gov.au/training/details/BSBXTW301/unitdetails",
+            "validationDetailId": "295"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/d5f04b60-7729-4d0d-bd33-4b89bd663e89"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-03-28T23:55:51.843Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-03-28T23:55:51.843Z",
+      "workflowId": "HxarVZw6GbO9Z0PU"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-15T02:20:43.000Z",
+  "versionCounter": 4,
+  "versionId": "08f9c190-7c7c-4a6c-b891-62ff5229062d"
+}

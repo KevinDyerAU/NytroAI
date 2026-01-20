@@ -1,0 +1,566 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Kevin Dyer",
+    "autosaved": false,
+    "connections": {
+      "Basic LLM Chain": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code in JavaScript1",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Supabase1",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code in JavaScript",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-12-07T21:55:37.452Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "057e998b-0326-4940-9b7c-b6b2609e1215",
+        "name": "Supabase1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "unit_url",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+              },
+              {
+                "fieldId": "knowled_point",
+                "fieldValue": "={{ $json.knowledge_evidence }}"
+              },
+              {
+                "fieldId": "ke_number",
+                "fieldValue": "={{ $json.ke_number }}"
+              }
+            ]
+          },
+          "tableId": "knowledge_evidence_requirements"
+        },
+        "position": [
+          1744,
+          464
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "b05746c8-0138-4f82-ba65-2799dbcfeefd",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "d7617829-fec9-44a8-b3c7-f87d7ca82bf3"
+        },
+        "position": [
+          224,
+          688
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "8c9f866c-3a69-45e7-b0c0-8c05e6380fc2"
+      },
+      {
+        "id": "95c572ec-7627-41a1-b7ad-bc1e86406bb8",
+        "name": "Basic LLM Chain",
+        "parameters": {
+          "batching": {},
+          "hasOutputParser": true,
+          "messages": {
+            "messageValues": [
+              {
+                "message": "This AI is designed to only output information in JSON format without exception. This AI can only output JSON and will never output any other text.  When asked to correct itself, this AI will only output the corrected JSON and never any other text.  Instructions: Extract Knowledge Evidence: Extract the exact list of knowledge evidence points, including all sub-points. Create JSON Object: Description: Assign the description from the “Knowledge Evidence” section to the knowledgeEvidenceDescription field. Extracted Points:   Do not summarize or paraphrase the content.   If there are no sub-points, extract the main point as its own element.   If there are sub-points, do not extract the main point as its own element.Concatenate the main point with each sub-point individually and extract each concatenated sub-point as its own element.   Assign each element a new KE number, with main points as top-level numbers and sub-points indented (e.g., KE 1, KE 1.1, KE 1.2, KE 2, KE 3, KE 3.1, KE 4, KE 5, KE 5.1, etc.).  Add the list to the extractedPoints array within the JSON object.  Preserve all original text; avoid summarizing or paraphrasing."
+              }
+            ]
+          },
+          "promptType": "define",
+          "text": "=Extract Knowledge Evidence requirements from the following text.\nNumber each main requirement sequentially as KE 1, KE 2, etc.\nFor nested sub-items (indented bullets), use KE 6.1, KE 6.2 format.\n\nReturn ONLY valid JSON in this exact format - no markdown, no code fences:\n{\n  \"extractedPoints\": [\n    {\"KE 1\": \"first requirement\"},\n    {\"KE 2\": \"second requirement\"},\n    {\"KE 6\": \"parent item with sub-items\"},\n    {\"KE 6.1\": \"first sub-item\"},\n    {\"KE 6.2\": \"second sub-item\"}\n  ]\n}\n\nText to extract from:\n{{ $json.knowledgeEvidenceText }}"
+        },
+        "position": [
+          816,
+          464
+        ],
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.7
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "5a57c6e7-5992-4e52-b155-c2898aa13984",
+        "name": "OpenAI Chat Model",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-4o",
+            "mode": "list",
+            "value": "gpt-4o"
+          },
+          "options": {}
+        },
+        "position": [
+          752,
+          656
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "alwaysOutputData": true,
+        "id": "13ab4d35-b646-4220-9ab1-3d2b9d411d41",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          224,
+          464
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "a1e9c7ec-30b3-45be-90d8-40c0663f6861",
+        "name": "Code in JavaScript",
+        "parameters": {
+          "jsCode": "// In a Code node before the LLM\nconst item = $input.first().json;\nreturn {\n  json: {\n    knowledgeEvidenceText: item.ke,\n    unitCode: item.unitCode,\n    unitTitle: item.Title\n  }\n};"
+        },
+        "position": [
+          496,
+          464
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "4578d7a7-aeaa-4ceb-91fa-e5ce3dc9321f",
+        "name": "Code in JavaScript1",
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nlet text = item.text || '';\n\ntext = text\n  .replace(/^```json\\s*/i, '')\n  .replace(/\\s*```$/i, '')\n  .trim();\n\nconst parsed = JSON.parse(text);\nconst points = parsed.extractedPoints || [];\n\nreturn points.map(point => {\n  const key = Object.keys(point)[0];\n  const value = point[key];\n  \n  return {\n    json: {\n      ke_number: key,\n      knowledge_evidence: value\n    }\n  };\n});"
+        },
+        "position": [
+          1312,
+          464
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      }
+    ],
+    "updatedAt": "2025-12-07T21:55:37.452Z",
+    "versionId": "fba0b862-a94d-4eb9-9dfc-3397283f61ef",
+    "workflowId": "v7JZXoBYPW5E6Prf",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-12-07T21:55:37.522Z",
+        "event": "activated",
+        "id": 149,
+        "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "versionId": "fba0b862-a94d-4eb9-9dfc-3397283f61ef",
+        "workflowId": "v7JZXoBYPW5E6Prf"
+      }
+    ]
+  },
+  "activeVersionId": "fba0b862-a94d-4eb9-9dfc-3397283f61ef",
+  "connections": {
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code in JavaScript1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Supabase1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code in JavaScript",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2024-11-03T02:41:57.104Z",
+  "description": null,
+  "id": "v7JZXoBYPW5E6Prf",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SmartKExtractAgent_v4",
+  "nodes": [
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "057e998b-0326-4940-9b7c-b6b2609e1215",
+      "name": "Supabase1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "unit_url",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+            },
+            {
+              "fieldId": "knowled_point",
+              "fieldValue": "={{ $json.knowledge_evidence }}"
+            },
+            {
+              "fieldId": "ke_number",
+              "fieldValue": "={{ $json.ke_number }}"
+            }
+          ]
+        },
+        "tableId": "knowledge_evidence_requirements"
+      },
+      "position": [
+        1744,
+        464
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "b05746c8-0138-4f82-ba65-2799dbcfeefd",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "d7617829-fec9-44a8-b3c7-f87d7ca82bf3"
+      },
+      "position": [
+        224,
+        688
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "8c9f866c-3a69-45e7-b0c0-8c05e6380fc2"
+    },
+    {
+      "id": "95c572ec-7627-41a1-b7ad-bc1e86406bb8",
+      "name": "Basic LLM Chain",
+      "parameters": {
+        "batching": {},
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "This AI is designed to only output information in JSON format without exception. This AI can only output JSON and will never output any other text.  When asked to correct itself, this AI will only output the corrected JSON and never any other text.  Instructions: Extract Knowledge Evidence: Extract the exact list of knowledge evidence points, including all sub-points. Create JSON Object: Description: Assign the description from the “Knowledge Evidence” section to the knowledgeEvidenceDescription field. Extracted Points:   Do not summarize or paraphrase the content.   If there are no sub-points, extract the main point as its own element.   If there are sub-points, do not extract the main point as its own element.Concatenate the main point with each sub-point individually and extract each concatenated sub-point as its own element.   Assign each element a new KE number, with main points as top-level numbers and sub-points indented (e.g., KE 1, KE 1.1, KE 1.2, KE 2, KE 3, KE 3.1, KE 4, KE 5, KE 5.1, etc.).  Add the list to the extractedPoints array within the JSON object.  Preserve all original text; avoid summarizing or paraphrasing."
+            }
+          ]
+        },
+        "promptType": "define",
+        "text": "=Extract Knowledge Evidence requirements from the following text.\nNumber each main requirement sequentially as KE 1, KE 2, etc.\nFor nested sub-items (indented bullets), use KE 6.1, KE 6.2 format.\n\nReturn ONLY valid JSON in this exact format - no markdown, no code fences:\n{\n  \"extractedPoints\": [\n    {\"KE 1\": \"first requirement\"},\n    {\"KE 2\": \"second requirement\"},\n    {\"KE 6\": \"parent item with sub-items\"},\n    {\"KE 6.1\": \"first sub-item\"},\n    {\"KE 6.2\": \"second sub-item\"}\n  ]\n}\n\nText to extract from:\n{{ $json.knowledgeEvidenceText }}"
+      },
+      "position": [
+        816,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "5a57c6e7-5992-4e52-b155-c2898aa13984",
+      "name": "OpenAI Chat Model",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        752,
+        656
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "alwaysOutputData": true,
+      "id": "13ab4d35-b646-4220-9ab1-3d2b9d411d41",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        224,
+        464
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "a1e9c7ec-30b3-45be-90d8-40c0663f6861",
+      "name": "Code in JavaScript",
+      "parameters": {
+        "jsCode": "// In a Code node before the LLM\nconst item = $input.first().json;\nreturn {\n  json: {\n    knowledgeEvidenceText: item.ke,\n    unitCode: item.unitCode,\n    unitTitle: item.Title\n  }\n};"
+      },
+      "position": [
+        496,
+        464
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "4578d7a7-aeaa-4ceb-91fa-e5ce3dc9321f",
+      "name": "Code in JavaScript1",
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet text = item.text || '';\n\ntext = text\n  .replace(/^```json\\s*/i, '')\n  .replace(/\\s*```$/i, '')\n  .trim();\n\nconst parsed = JSON.parse(text);\nconst points = parsed.extractedPoints || [];\n\nreturn points.map(point => {\n  const key = Object.keys(point)[0];\n  const value = point[key];\n  \n  return {\n    json: {\n      ke_number: key,\n      knowledge_evidence: value\n    }\n  };\n});"
+      },
+      "position": [
+        1312,
+        464
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "content": "The candidate must be able to demonstrate knowledge to complete the tasks outlined in the elements and performance criteria of this unit. This includes knowledge of:\n\n- organisational requirements relevant to working in a workplace team:\n  - workplace policies\n  - codes of conduct\n  - organisational reputation and culture\n- typical compositions of workplace teams, and the roles and responsibilities of team members within organisations\n- techniques for giving and receiving feedback in a constructive manner\n- methods to support team members\n- key principles of cross-cultural communication and communication with individuals with special needs or disabilities\n- methods and tools to work with others remotely:\n  - collaboration via phone or mobile\n  - collaboration via video conference\n  - collaboration via other digital tools or software\n- issues that may impact team performance and outcomes\n- techniques to collaborate effectively with those working remotely."
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "35.86.18.137",
+            "cf-ipcountry": "US",
+            "cf-ray": "993dc9a948a62fbe-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "997",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "bc4bd4bf-fca1-4348",
+            "true-client-ip": "35.86.18.137",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "35.86.18.137, 172.68.164.90",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1761354139184875"
+          },
+          "params": {},
+          "query": {
+            "unitLink": "https://training.gov.au/training/details/BSBXTW301/unitdetails"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/d7617829-fec9-44a8-b3c7-f87d7ca82bf3"
+        }
+      }
+    ],
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "Link": "https://training.gov.au/training/details/TLIF0009/unitdetails",
+          "Status": "auto",
+          "Title": "TLIF0009 Ensure the safety of transport activities (Chain of Responsibility)",
+          "Type": "auto",
+          "UOCpage": "error\n\n# Unit of competency\n\n\\|\n\nShow history\n\nyes\n\nno\n\n**TLIF0009** Ensure the safety of transport activities (Chain of Responsibility)\n\nUsage recommendation\n\nCurrent\n\n12/Jun/2020First releasedinfoinfo Supersedes:\n\n[TLIF0001 - not equivalent](https://training.gov.au/training/details/TLIF0001)\n\nRelease\n\nCurrent Release\n\n2expand\\_more\n\n- 2done\n- 1\n\ncurrent\n\n10/Jul/2024Release Date\n\ndownload Download\n\n- downloadDownload unit as pdf\n- downloadDownload unit as word\n- downloadDownload unit files as a zip\n- linkAccess CVIG\n\nUnit details expand\\_more\n\n- Unit details\ndone\n- Qualifications\n\n- Skill sets\n\n- Accredited courses\n\n- Summary\n\n- Find RTOs\n\n\n### **Unit of competency**\n\n## Modification history\n\n|     |\n| --- |\n| **Release 2**. This is the second release of this unit of competency in the TLI Transport and Logistics Training Package.<br>- Added job roles titles to unit Application<br>- Minor grammatical changes to Performance Criteria<br>- Minor changes in Performance Evidence to clarify terminology<br>- Minor changes in Knowledge Evidence to clarify terminology. |\n| **Release 1.** This is the first release of this unit of competency in the TLI Transport and Logistics Training Package. |\n\n## Application\n\nThis unit involves the skills and knowledge required to ensure the safety of transport activities.\n\nIt includes identifying features and applying chain of responsibility obligation in the Heavy Vehicle National Law (HVNL) or applicable state/territory law and regulations. It also includes identifying and reporting chain of responsibility risks.\n\n**Job roles**\n\nJob roles and titles vary across different sectors. Possible job titles relevant to this unit of competency, include but are not limited to:\n\n- administration worker\n- equipment worker\n- freight handler\n- intermodal terminal worker\n- loader and/or unloader of a heavy vehicle\n- loading manager for any goods in a heavy vehicle\n- logistics worker\n- mobile crane worker\n- picker and packer worker\n- receival and despatch worker\n- scheduler\n- specialised cargo handler\n- stevedore\n- storeperson\n- supply chain worker\n- warehouse worker\n\nTransport activities as defined by the HVNL or applicable state/territory law and regulations.\n\nWork is performed under close direction, generally within a team environment.\n\nNo licensing, legislative or certification requirements apply to this unit at the time of publication.\n\n## Pre-requisite unit\n\nNot applicable.\n\n## Competency field\n\nF – Safety Management\n\n## Unit sector\n\nNot applicable.\n\n## Elements and performance criteria\n\n| Elements | Performance criteria |\n| --- | --- |\n| Elements describe the essential outcomes. | Performance criteria describe the performance needed to demonstrate achievement of the element. |\n| 1 | **Identify**<br>**chain of responsibility features in the HVNL or applicable state/territory law and regulations** | **1.1** | Transport activities and parties in the chain of responsibility are identified |\n|  |  | **1.2** | Principle of shared responsibility obligations within chain of responsibility in the HVNL or applicable state/territory law and regulations are identified |\n|  |  | **1.3** | Primary duty of each party in the chain of responsibility as outlined in the HVNL or applicable state/territory law and regulations are explained |\n|  |  | **1.4** | So far as is reasonably practicable or reasonable steps, compliance with chain of responsibility as outlined in the HVNL or applicable state/territory law and regulations are explained |\n|  |  | **1.5** | Breaches and penalties for failure to comply with chain of responsibility as identified in the HVNL or applicable state/territory law and regulations are explained |\n| 2 | **Apply chain of responsibility obligations in the HVNL or applicable state/territory law and regulations** | **2.1** | Workplace policies, procedures and/or other documents relevant to transport activities as they apply to own job function are identified and explained |\n|  |  | **2.2** | Methods and requirements to facilitate and ensure management of speed and fatigue are explained in accordance with job functions and workplace procedures |\n|  |  | **2.3** | Methods to assess vehicle dimension and mass limits are explained in accordance with job functions and workplace procedures |\n|  |  | **2.4** | Methods to ensure loads are secured are explained in accordance with job functions and workplace procedures |\n|  |  | **2.5** | Heavy vehicles safety standards are identified in accordance with job functions and workplace procedures |\n|  |  | **2.6** | Transport activities hazards and risks are identified and assessed with control measures implemented and reported in accordance with job functions and workplace procedures |\n|  |  | **2.7** | Workplace procedures and industry practices for reporting transport activities risks are identified and followed |\n|  |  | **2.8** | Workplace documents relating to chain of responsibility are completed and processed to workplace requirements |\n\n## Foundation skills\n\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\n\n## Range of conditions\n\nRange is restricted to essential operating conditions and any other variables essential to the work environment.\n\n### **Assessment requirements**\n\n## Modification history\n\n|     |\n| --- |\n| **Release 2**. This is the second release of this unit of competency in the TLI Transport and Logistics Training Package.<br>- Added job roles titles to unit Application<br>- Minor grammatical changes to Performance Criteria<br>- Minor changes in Performance Evidence to clarify terminology<br>- Minor changes in Knowledge Evidence to clarify terminology. |\n| **Release 1.** This is the first release of this unit of competency in the TLI Transport and Logistics Training Package. |\n\n## Performance evidence\n\nEvidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria on at least one occasion and includes:\n\n- applying workplace policies and procedures\n- assessing the likelihood and consequences of harm relating to own job function on a minimum of three occasions\n- completing safety documentation of identified transport activities of a heavy vehicle risk on a minimum of three occasions, each about a different type of risk\n- ensuring safety of transport activities on road\n- identifying risks associated with transport activities of own job function and at least two other job functions that could impact heavy vehicle safety on the road (directly or indirectly)\n- implementing relevant risk control measures relevant to the job function in accordance with workplace procedures on a minimum of three scenarios\n- reporting and recording observations and actions taken to address risks to the relevant person in accordance with workplace procedures on a minimum of three occasions.\n\n## Knowledge evidence\n\nEvidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria and include knowledge of:\n\n- actions required when possible risks of the transport activities are identified\n- consideration of external factors in managing speed and fatigue\n- function of driver and how they relate to transport activities, including level of influence and control\n- heavy vehicle work and rest requirements\n- impact of crossing legislative jurisdictions\n- methods, industry standards and requirements to ensure safety of transport activities including relation to how they relate to transport activities including:\n  - speed\n  - fatigue\n  - mass requirements\n  - dimension requirements\n  - loading requirements and load restraint\n  - vehicle standards\n- parties in the chain of responsibility and the concept of level of influence and control\n- potential consequences of non-compliance with the applicable heavy vehicle state/territory law and regulations\n- primary duty and executive duty obligations\n- principle of shared responsibility\n- risks and associated performance of the job functions in relation to safety of a heavy vehicle on a road\n- transport activities as defined by the Heavy Vehicle National Law (HVNL) or applicable state/territory law and regulations\n- what constitutes an unreasonable request\n- where to locate current information relating to heavy vehicle transport activities including:\n  - codes of practices\n  - fatigue-regulated heavy vehicle and definitions\n  - heavy vehicle standards\n  - securing loads, load placement and load restraint\n  - vehicle dimension and mass limits\n- workplace policies and procedures for own job function.\n\n## Assessment conditions\n\nAssessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must occur in workplace operational situations where it is appropriate to do so; where this is not appropriate, assessment must occur in simulated workplace operational situations that replicate workplace conditions.\n\nAssessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.\n\nResources for assessment must include:\n\n- a range of relevant exercises, case studies and/or simulations\n- relevant and appropriate materials, tools, equipment and personal protective equipment (PPE) currently used in industry\n- applicable documentation including legislation, regulations, codes of practice, workplace procedures and operation manuals.\n\n## Qualifications that include this unit\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 5 (42 records with 10 per page)\n\n|     |     |     |     |     |\n| --- | --- | --- | --- | --- |\n| Code<br>[FWP30322](https://training.gov.au/training/details/FWP30322) | Title<br>Certificate III in Timber and Wood Products Operations | Usage recommendation<br>Current | Release<br>1 | Essential<br>Elective |\n| Code<br>[FWP30620](https://training.gov.au/training/details/FWP30620) | Title<br>Certificate III in Timber Building Products Supply | Usage recommendation<br>Superseded | Release<br>1 | Essential<br>Elective |\n| Code<br>[FWP30621](https://training.gov.au/training/details/FWP30621) | Title<br>Certificate III in Timber Building Products Supply | Usage recommendation<br>Superseded | Release<br>1 | Essential<br>Elective |\n| Code<br>[FWP30622](https://training.gov.au/training/details/FWP30622) | Title<br>Certificate III in Timber Building Products Supply | Usage recommendation<br>Current | Release<br>1 | Essential<br>Elective |\n| Code<br>[TLI20119](https://training.gov.au/training/details/TLI20119) | Title<br>Certificate II in Logistics | Usage recommendation<br>Superseded | Release<br>1 | Essential<br>Core |\n| Code<br>[TLI20219](https://training.gov.au/training/details/TLI20219) | Title<br>Certificate II in Road Transport Terminal Operations | Usage recommendation<br>Superseded | Release<br>1-2 | Essential<br>Core |\n| Code<br>[TLI20221](https://training.gov.au/training/details/TLI20221) | Title<br>Certificate II in Road Transport Terminal Operations | Usage recommendation<br>Current | Release<br>1-3 | Essential<br>Core |\n| Code<br>[TLI20319](https://training.gov.au/training/details/TLI20319) | Title<br>Certificate II in Stevedoring | Usage recommendation<br>Superseded | Release<br>1 | Essential<br>Elective |\n| Code<br>[TLI20321](https://training.gov.au/training/details/TLI20321) | Title<br>Certificate II in Stevedoring | Usage recommendation<br>Current | Release<br>1 | Essential<br>Elective |\n| Code<br>[TLI20419](https://training.gov.au/training/details/TLI20419) | Title<br>Certificate II in Warehousing Operations | Usage recommendation<br>Superseded | Release<br>1 | Essential<br>Core |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n## Skill sets that include this unit\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 1 (10 records with 10 per page)\n\n|     |     |     |     |\n| --- | --- | --- | --- |\n| Code<br>[TLISS00157](https://training.gov.au/training/details/TLISS00157) | Title<br>Road Transport Driver Skill Set | Usage recommendation<br>Current | Release<br>2-3 |\n| Code<br>[TLISS00158](https://training.gov.au/training/details/TLISS00158) | Title<br>Chemical Tanker Driver Skill Set | Usage recommendation<br>Superseded | Release<br>2 |\n| Code<br>[TLISS00160](https://training.gov.au/training/details/TLISS00160) | Title<br>LP Gas Tanker Driver Skill Set | Usage recommendation<br>Superseded | Release<br>2 |\n| Code<br>[TLISS00161](https://training.gov.au/training/details/TLISS00161) | Title<br>Owner Driver Skill Set | Usage recommendation<br>Superseded | Release<br>2 |\n| Code<br>[TLISS00164](https://training.gov.au/training/details/TLISS00164) | Title<br>International Freight Forwarding Skill Set | Usage recommendation<br>Current | Release<br>2-4 |\n| Code<br>[TLISS00187](https://training.gov.au/training/details/TLISS00187) | Title<br>Coordinate Pooled Equipment Skill Set | Usage recommendation<br>Current | Release<br>1 |\n| Code<br>[TLISS00198](https://training.gov.au/training/details/TLISS00198) | Title<br>Operate Pooled Equipment Skill Set | Usage recommendation<br>Current | Release<br>1-2 |\n| Code<br>[TLISS00214](https://training.gov.au/training/details/TLISS00214) | Title<br>Chemical Tanker Driver Skill Set | Usage recommendation<br>Current | Release<br>1 |\n| Code<br>[TLISS00219](https://training.gov.au/training/details/TLISS00219) | Title<br>LP Gas Tanker Driver Skill Set | Usage recommendation<br>Current | Release<br>1 |\n| Code<br>[TLISS00223](https://training.gov.au/training/details/TLISS00223) | Title<br>Owner Driver Skill Set | Usage recommendation<br>Current | Release<br>1 |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n## Accredited courses that include this unit\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 1 (2 records with 10 per page)\n\n|     |     |     |\n| --- | --- | --- |\n| Code<br>[10842NAT](https://training.gov.au/training/details/10842NAT) | Title<br>Diploma of Grain Management | Status<br>Cancelled |\n| Code<br>[52904WA](https://training.gov.au/training/details/52904WA) | Title<br>Certificate III in Defence Industry Pathways | Status<br>Current |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n## Mapping\n\n|     |     |     |\n| --- | --- | --- |\n| Mapping<br>Supersedes [TLIF0001](https://training.gov.au/training/details/TLIF0001)  Apply chain of responsibility legislation, regulations and workplace procedures | Notes | Date<br>11/Jun/2020 |\n\n## Releases\n\n[swap\\_horiz Advanced compare](https://training.gov.au/training/compare?trainingType=4&fromRelease=70e71311-c5a0-4dad-9e7a-1fd60e1cc75b)\n\n|     |     |     |\n| --- | --- | --- |\n| Compare<br>Select 2 (This release) | Release<br>**2 (This release)**<br>current | Release date<br>10/Jul/2024 |\n| Compare<br>Select 1 View release | Release<br>1 View release | Release date<br>12/Jun/2020 |\n\n## Training packages that include this unit\n\n|     |     |     |\n| --- | --- | --- |\n| Code<br>[FWP](https://training.gov.au/training/details/FWP) | Title<br>Forest and Wood Products Training Package | Release<br>9.1 |\n| Code<br>[TLI](https://training.gov.au/training/details/TLI) | Title<br>Transport and Logistics Training Package | Release<br>15.0-16.0 |\n\n## Classifications\n\n|     |     |     |\n| --- | --- | --- |\n| Scheme<br>ASCED Module/Unit of Competency Field of Education Identifier | Code<br>080301 | Classification value<br>Business Management |\n\n## Companion volumes\n\n|     |     |     |     |     |\n| --- | --- | --- | --- | --- |\n| Title<br>[TLI Release 15.0 Companion Volume part 01 of 10 (Implementation Guide)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/d0fc508d-529b-4701-b582-ff97fac3379c.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 02 of 10 (Implementation Guide) (ATTACHMENT D)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/07164930-c3ea-4c2e-ac8a-f57bb699aecd.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 03 of 10 (Implementation Guide) (ATTACHMENT E)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/0618afa6-5204-49a1-92dc-2c3ecf85d3e7.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 04 of 10 (Implementation Guide) (ATTACHMENT F - TLIA-TLIB)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/34c16687-865a-4fb4-b3b2-48965067b811.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 05 of 10 (Implementation Guide) (ATTACHMENT F - TLIC-TLID)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/1d0ea5e5-dd4e-43aa-8aec-d9da407c0a87.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 06 of 10 (Implementation Guide) (ATTACHMENT F - TLIE-TLIK)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/7a87cc35-601e-4ae9-a573-75f135cbfa14.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 07 of 10 (Implementation Guide) (ATTACHMENT F - TLILIC)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/22efb31d-97c0-4d45-af55-8f2975743b3e.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 08 of 10 (Implementation Guide) (ATTACHMENT F - TLIL-TLIP)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/79077c28-7708-4e0d-b535-82ff280c609c.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 09 of 10 (Implementation Guide) (ATACHMENT F - TLIR-TLIX)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a7a5d101-eb10-4d5c-b987-9c3dc0605d0a.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume part 10 of 10 (Implementation Guide) (ATTACHMENT G-H)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/f9198fe9-7e7e-45dc-b1ec-cc23f26203a5.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 15.0 Companion Volume V0.1 (Mapping Attachments A-C)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/3292280d-38ff-49cb-ad31-c9ba9204d708.xlsx) | Filetype<br>xlsx | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 01 of 10 (Implementation Guide)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/67c52b97-c4d2-4ac1-92c9-77fcc8fe07e2.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 02 of 10 (Implementation Guide) (ATTACHMENT D)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/7fdfbb1e-80d0-4c31-a05c-ac980196be2a.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 03 of 10 (Implementation Guide) (ATTACHMENT E)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a13fc46e-c860-4fd3-90b0-f843568eaf92.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 04 of 10 (Implementation Guide) (ATTACHMENT F - TLIA-TLIB)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/180c062d-0c3c-4e96-b096-91ca762a1931.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 05 of 10 (Implementation Guide) (ATTACHMENT F - TLIC-TLID)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/9508922f-9187-4c44-813b-f74149a75e06.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 06 of 10 (Implementation Guide) (ATTACHMENT F - TLIE-TLIK)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/d352a607-0c76-41fe-a22a-7dc00efc1b20.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 07 of 10 (Implementation Guide) (ATTACHMENT F - TLILIC)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/128ab84e-0abb-4342-b8b7-15db83abad62.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 08 of 10 (Implementation Guide) (ATTACHMENT F - TLIL-TLIP)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a40b2c22-6231-4bdb-bfb6-fde93d63b07b.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 09 of 10 (Implementation Guide) (ATACHMENT F - TLIR-TLIX)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/91a81f45-85c6-4262-b97b-2b07ecbbe24e.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume part 10 of 10 (Implementation Guide) (ATTACHMENT G-H)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/241fad7f-2c1d-49c4-85fa-56581d9088c7.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n| Title<br>[TLI Release 16.0 Companion Volume V0.1 (Mapping Attachments A-C)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a126b9b8-41b8-432b-8442-7685f2a56600.xlsx) | Filetype<br>xlsx | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>2 |\n\n## Find RTOs\n\nRTOs approved to deliver and/or assess this unit.\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ntuneFilter0\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 22 (219 records with 10 per page)\n\n|     |     |     |     |     |     |     |     |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| Code<br>[40889](https://training.gov.au/organisation/details/40889) | Legal name<br>TECTRA AUSTRALIA PTY LTD | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>24/Aug/2020 | Scope end date<br>06/Apr/2026 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[31735](https://training.gov.au/organisation/details/31735) | Legal name<br>Logisafe Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>23/Oct/2020 | Scope end date<br>31/May/2026 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[32519](https://training.gov.au/organisation/details/32519) | Legal name<br>Australian Skills Group Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>10/Nov/2020 | Scope end date<br>12/Dec/2030 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[91141](https://training.gov.au/organisation/details/91141) | Legal name<br>Health & Safety Advisory Service Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>01/Dec/2020 | Scope end date<br>20/Dec/2025 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[41518](https://training.gov.au/organisation/details/41518) | Legal name<br>WILS TRAINING Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>15/Jan/2021 | Scope end date<br>04/Jun/2030 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[41356](https://training.gov.au/organisation/details/41356) | Legal name<br>Servitium Group Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>25/Jan/2021 | Scope end date<br>06/Dec/2029 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[40907](https://training.gov.au/organisation/details/40907) | Legal name<br>Health Security & Education Pty Ltd as trustee for Health Security & Education Unit Trust | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>18/May/2021 | Scope end date<br>30/Apr/2026 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[31544](https://training.gov.au/organisation/details/31544) | Legal name<br>Astra Group Services Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>26/May/2021 | Scope end date<br>02/Feb/2032 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[31973](https://training.gov.au/organisation/details/31973) | Legal name<br>1AAA Training Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>10/Jun/2021 | Scope end date<br>31/Dec/2026 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[40871](https://training.gov.au/organisation/details/40871) | Legal name<br>GL TRAINING PTY LTD | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>14/Jun/2021 | Scope end date<br>11/Mar/2026 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0009/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n[arrow\\_upwardarrow\\_upwardBack to top](https://training.gov.au/training/details/TLIF0009/unitdetails#content)\n\ncontact\\_supportcontact\\_supportHelp",
+          "ac": "Assessors must hold credentials specified within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must satisfy the Principles of Assessment and Rules of Evidence and all regulatory requirements included within the Standards for Registered Training Organisations current at the time of assessment.\n\nAssessment must occur in workplace operational situations where it is appropriate to do so; where this is not appropriate, assessment must occur in simulated workplace operational situations that replicate workplace conditions.\n\nAssessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.\n\nResources for assessment must include:\n\n- a range of relevant exercises, case studies and/or simulations\n- relevant and appropriate materials, tools, equipment and personal protective equipment (PPE) currently used in industry\n- applicable documentation including legislation, regulations, codes of practice, workplace procedures and operation manuals.",
+          "applciation": "This unit involves the skills and knowledge required to ensure the safety of transport activities.\n\nIt includes identifying features and applying chain of responsibility obligation in the Heavy Vehicle National Law (HVNL) or applicable state/territory law and regulations. It also includes identifying and reporting chain of responsibility risks.\n\n**Job roles**\n\nJob roles and titles vary across different sectors. Possible job titles relevant to this unit of competency, include but are not limited to:\n\n- administration worker\n- equipment worker\n- freight handler\n- intermodal terminal worker\n- loader and/or unloader of a heavy vehicle\n- loading manager for any goods in a heavy vehicle\n- logistics worker\n- mobile crane worker\n- picker and packer worker\n- receival and despatch worker\n- scheduler\n- specialised cargo handler\n- stevedore\n- storeperson\n- supply chain worker\n- warehouse worker\n\nTransport activities as defined by the HVNL or applicable state/territory law and regulations.\n\nWork is performed under close direction, generally within a team environment.\n\nNo licensing, legislative or certification requirements apply to this unit at the time of publication.",
+          "created_at": "2025-12-07T21:50:04.938328",
+          "epc": "| Elements | Performance criteria |\n| --- | --- |\n| Elements describe the essential outcomes. | Performance criteria describe the performance needed to demonstrate achievement of the element. |\n| 1 | **Identify**<br>**chain of responsibility features in the HVNL or applicable state/territory law and regulations** | **1.1** | Transport activities and parties in the chain of responsibility are identified |\n|  |  | **1.2** | Principle of shared responsibility obligations within chain of responsibility in the HVNL or applicable state/territory law and regulations are identified |\n|  |  | **1.3** | Primary duty of each party in the chain of responsibility as outlined in the HVNL or applicable state/territory law and regulations are explained |\n|  |  | **1.4** | So far as is reasonably practicable or reasonable steps, compliance with chain of responsibility as outlined in the HVNL or applicable state/territory law and regulations are explained |\n|  |  | **1.5** | Breaches and penalties for failure to comply with chain of responsibility as identified in the HVNL or applicable state/territory law and regulations are explained |\n| 2 | **Apply chain of responsibility obligations in the HVNL or applicable state/territory law and regulations** | **2.1** | Workplace policies, procedures and/or other documents relevant to transport activities as they apply to own job function are identified and explained |\n|  |  | **2.2** | Methods and requirements to facilitate and ensure management of speed and fatigue are explained in accordance with job functions and workplace procedures |\n|  |  | **2.3** | Methods to assess vehicle dimension and mass limits are explained in accordance with job functions and workplace procedures |\n|  |  | **2.4** | Methods to ensure loads are secured are explained in accordance with job functions and workplace procedures |\n|  |  | **2.5** | Heavy vehicles safety standards are identified in accordance with job functions and workplace procedures |\n|  |  | **2.6** | Transport activities hazards and risks are identified and assessed with control measures implemented and reported in accordance with job functions and workplace procedures |\n|  |  | **2.7** | Workplace procedures and industry practices for reporting transport activities risks are identified and followed |\n|  |  | **2.8** | Workplace documents relating to chain of responsibility are completed and processed to workplace requirements |",
+          "fs": "Foundation skills essential to performance are explicit in the performance criteria of this unit of competency.",
+          "id": 4223,
+          "ke": "Evidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria and include knowledge of:\n\n- actions required when possible risks of the transport activities are identified\n- consideration of external factors in managing speed and fatigue\n- function of driver and how they relate to transport activities, including level of influence and control\n- heavy vehicle work and rest requirements\n- impact of crossing legislative jurisdictions\n- methods, industry standards and requirements to ensure safety of transport activities including relation to how they relate to transport activities including:\n  - speed\n  - fatigue\n  - mass requirements\n  - dimension requirements\n  - loading requirements and load restraint\n  - vehicle standards\n- parties in the chain of responsibility and the concept of level of influence and control\n- potential consequences of non-compliance with the applicable heavy vehicle state/territory law and regulations\n- primary duty and executive duty obligations\n- principle of shared responsibility\n- risks and associated performance of the job functions in relation to safety of a heavy vehicle on a road\n- transport activities as defined by the Heavy Vehicle National Law (HVNL) or applicable state/territory law and regulations\n- what constitutes an unreasonable request\n- where to locate current information relating to heavy vehicle transport activities including:\n  - codes of practices\n  - fatigue-regulated heavy vehicle and definitions\n  - heavy vehicle standards\n  - securing loads, load placement and load restraint\n  - vehicle dimension and mass limits\n- workplace policies and procedures for own job function.",
+          "pe": "Evidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria on at least one occasion and includes:\n\n- applying workplace policies and procedures\n- assessing the likelihood and consequences of harm relating to own job function on a minimum of three occasions\n- completing safety documentation of identified transport activities of a heavy vehicle risk on a minimum of three occasions, each about a different type of risk\n- ensuring safety of transport activities on road\n- identifying risks associated with transport activities of own job function and at least two other job functions that could impact heavy vehicle safety on the road (directly or indirectly)\n- implementing relevant risk control measures relevant to the job function in accordance with workplace procedures on a minimum of three scenarios\n- reporting and recording observations and actions taken to address risks to the relevant person in accordance with workplace procedures on a minimum of three occasions.",
+          "qualificationLink": "single",
+          "unitCode": "TLIF0009",
+          "unit_identifier": "99cae8e2-294b-4edd-88a3-e0c26e1ae8f3"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2024-11-03T02:41:57.108Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2024-11-03T02:41:57.108Z",
+      "workflowId": "v7JZXoBYPW5E6Prf"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-07T21:55:37.451Z",
+  "versionCounter": 21,
+  "versionId": "fba0b862-a94d-4eb9-9dfc-3397283f61ef"
+}

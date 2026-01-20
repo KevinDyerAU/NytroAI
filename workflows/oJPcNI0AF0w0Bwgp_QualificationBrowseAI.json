@@ -1,0 +1,1954 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Kevin Dyer",
+    "autosaved": false,
+    "connections": {
+      "Code": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code1": {
+        "main": [
+          [
+            {
+              "index": 1,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code2": {
+        "main": [
+          [
+            {
+              "index": 2,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code3": {
+        "main": [
+          [
+            {
+              "index": 3,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code4": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "UOC Sections Supabase1",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Execute EPC Extract": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code3",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Execute FS Extract": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code1",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Execute KE Extract": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Execute PE Extract": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code2",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Extract Title": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "UOC Sections Supabase",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Get Req Counts": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Total Counts",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Get a row": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "If",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Scrape a url and get its content",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "Get Req Counts",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Information Extractor": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Extract Title",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code4",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Information Extractor",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAICHath": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Extract Title",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Scrape a url and get its content": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Information Extractor",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Total Counts": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "UOC Sections Supabase2",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "UOC Sections Supabase": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Execute KE Extract",
+              "type": "main"
+            },
+            {
+              "index": 0,
+              "node": "Execute FS Extract",
+              "type": "main"
+            },
+            {
+              "index": 0,
+              "node": "Execute PE Extract",
+              "type": "main"
+            },
+            {
+              "index": 0,
+              "node": "Execute EPC Extract",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Get a row",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-12-07T18:38:54.286Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "executeOnce": true,
+        "id": "6cd84ff8-836d-4926-9b83-8086cb9f215d",
+        "name": "UOC Sections Supabase",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "epc",
+                "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.ElementsAndPerformanceCriteria }}"
+              },
+              {
+                "fieldId": "fs",
+                "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.FoundationSkills }}"
+              },
+              {
+                "fieldId": "pe",
+                "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.PerformanceEvidence }}"
+              },
+              {
+                "fieldId": "ke",
+                "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.KnowledgeEvidence }}"
+              },
+              {
+                "fieldId": "ac",
+                "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.AssessmentConditions }}"
+              },
+              {
+                "fieldId": "applciation",
+                "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.Application }}"
+              },
+              {
+                "fieldId": "UOCpage",
+                "fieldValue": "={{ $('Scrape a url and get its content').item.json.data.markdown }}"
+              },
+              {
+                "fieldId": "Link",
+                "fieldValue": "={{ $('Webhook').item.json.body.originUrl }}"
+              },
+              {
+                "fieldId": "unitCode",
+                "fieldValue": "={{ $('Webhook').item.json.body.originUrl.substring(41,$('Webhook').item.json.body.originUrl.lastIndexOf('/'))}}"
+              },
+              {
+                "fieldId": "Type",
+                "fieldValue": "auto"
+              },
+              {
+                "fieldId": "Status",
+                "fieldValue": "auto"
+              },
+              {
+                "fieldId": "qualificationLink",
+                "fieldValue": "single"
+              },
+              {
+                "fieldId": "Title",
+                "fieldValue": "={{ $json.output.Title }}"
+              }
+            ]
+          },
+          "tableId": "UnitOfCompetency"
+        },
+        "position": [
+          1888,
+          208
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "697584fd-9a02-4527-9ae6-a8d89611ea78",
+        "name": "Information Extractor",
+        "parameters": {
+          "jsonSchemaExample": "{\n\n\"capturedTexts\": \n{\n\"UOCpage\": \n\"Unit of competency\\n|\\nShow history\\nno\\nCHCDIV001 Work with diverse people\\nUsage recommendation\\nCurrent\\n06/Aug/2015\\ninfo\\ninfo\\nRelease\\n1\\nexpand_more\\nCurrent\\n06/Aug/2015\\ndownload\\nDownload\\nUnit details\\nexpand_more\\nUnit of competency\\nModification history\\nRelease Comments\\n\\n\\nRelease 1\\n\\n \\n\\nThis version was released in CHC Community Services Training Package release 2.0 and meets the requirements of the 2012 Standards for Training Packages.\\n\\nMerged HLTHIR403C/CHCCS405C. Significant changes to the elements and performance criteria. New evidence requirements for assessment, including volume and frequency.\\n\\nApplication\\n\\nThis unit describes the skills and knowledge required to work respectfully with people from diverse social and cultural groups and situations, including Aboriginal and/or Torres Strait Islander people.\\n\\nThis unit applies to all workers.\\n\\nThe skills in this unit must be applied in accordance with Commonwealth and State/Territory legislation, Australian/New Zealand standards and industry codes of practice.\\n\\nElements and performance criteria\\nElement Performance criteria\\n\\n\\nElements define the essential outcomes\\n\\n \\n\\nPerformance criteria describe the performance needed to demonstrate achievement of the element\\n\\n\\n \\n\\n\\n1. Reflect on own perspectives\\n\\n \\n\\n1.1 Identify and reflect on own social and cultural perspectives and biases\\n\\n1.2 Work with awareness of own limitations in self and social awareness\\n\\n1.3 Use reflection to support own ability to work inclusively and with understanding of others\\n\\n1.4 Identify and act on ways to improve own self and social awareness\\n\\n\\n \\n\\n\\n2. Appreciate diversity and inclusiveness, and their benefits\\n\\n \\n\\n2.1 Value and respect diversity and inclusiveness across all areas of work\\n\\n2.2 Contribute to the development of work place and professional relationships based on appreciation of diversity and inclusiveness\\n\\n2.3 Use work practices that make environments safe for all\\n\\n\\n \\n\\n\\n3. Communicate with people from diverse backgrounds and situations\\n\\n \\n\\n3.1 Show respect for diversity in communication with all people\\n\\n3.2 Use verbal and non-verbal communication constructively to establish, develop and maintain effective relationships, mutual trust and confidence\\n\\n3.3 Where a language barrier exists, use effective strategies to communicate in the most efficient way possible\\n\\n3.4 Seek assistance from interpreters or other persons according to communication needs\\n\\n\\n \\n\\n\\n4. Promote understanding across diverse groups\\n\\n \\n\\n4.1 Identify issues that may cause communication misunderstandings or other difficulties\\n\\n4.2 Where difficulties or misunderstandings occur, consider the impact of social and cultural diversity\\n\\n4.3 Make an effort to sensitively resolve differences, taking account of diversity considerations\\n\\n4.4 Address any difficulties with appropriate people and seek assistance when required\\n\\nFoundation skills\\n\\nThe Foundation Skills describe those required skills (language, literacy, numeracy and employment skills) that are essential to performance.\\n\\n\\n\\n\\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\\n\\nUnit mapping information\\n\\nNo equivalent unit.\\n\\nAssessment requirements\\nModification history\\nRelease Comments\\n\\n\\nRelease 1\\n\\n \\n\\nThis version was released in CHC Community Services Training Package release 2.0 and meets the requirements of the 2012 Standards for Training Packages.\\n\\nMerged HLTHIR403C/CHCCS405C. Significant changes to the elements and performance criteria. New evidence requirements for assessment, including volume and frequency.\\n\\nPerformance evidence\\n\\nThe candidate must show evidence of the ability to complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the job role. There must be evidence that the candidate has:\\n\\nundertaken a structured process to reflect on own perspectives on diversity\\nrecognised and respected the needs of people from diverse social and cultural backgrounds in at least 3 different situations:\\nselected and used appropriate verbal and non verbal communication\\nrecognised situations where misunderstandings may arise from diversity and formed appropriate responses\\nKnowledge evidence\\n\\nThe candidate must be able to demonstrate essential knowledge required to effectively complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the work role. This includes knowledge of:\\n\\nconcepts of cultural awareness, cultural safety and cultural competence and how these impact different work roles\\nconcepts and definitions of diversity\\nown culture and the community attitudes, language, policies and structures of that culture and how they impact on different people and groups\\nfeatures of diversity in Australia and how this impacts different areas of work and life:\\npolitical\\nsocial\\neconomic\\ncultural\\nlegal and ethical considerations (international, national, state/territory, local) for working with diversity, how these impact individual workers, and the consequences of breaches:\\ndiscrimination:\\nage\\ndisability\\nracial\\nsex\\nhuman rights:\\nUniversal declaration of human rights\\nrelationship between human needs and human rights\\nframeworks, approaches and instruments used in the workplace\\nrights and responsibilities of workers, employers and clients, including appropriate action when rights are being infringed or responsibilities not being carried out\\nkey areas of diversity and their characteristics, including:\\nculture, race, ethnicity\\ndisability\\nreligious or spiritual beliefs\\ngender, including transgender\\nintersex\\ngenerational\\nsexual orientation/sexual identity - lesbian, gay, bisexual, heterosexual\\nkey aspects, and the diversity, of Australia’s Aboriginal and/or Torres Strait Islander cultures, including:\\nsocial, political and economic issues affecting Aboriginal and/or Torres Strait Islander people\\nown culture, western systems and structures and how these impact on Aboriginal and/or Torres Strait Islander people and their engagement with services\\npotential needs of marginalised groups, including:\\nprotective factors\\nphysical, mental and emotional health issues/care needs\\nconsideration of impacts of discrimination, trauma, exclusion and negative attitudes\\nresources that support individuals and organisations to embrace and respond to diversity\\nlanguage and cultural interpreters\\nimagery\\ninfluences and changing practices in Australia and their impact on the diverse communities that make up Australian society\\nimpact of diversity practices and experiences on personal behaviour, interpersonal relationships, perception and social expectations of others\\nAssessment conditions\\n\\nSkills must have been demonstrated in the workplace or in a simulated environment that reflects workplace conditions. Where simulation is used, it must reflect real working conditions by modelling industry operating conditions and contingencies, as well as, using suitable facilities, equipment and resources.\\n\\nAssessors must satisfy the Standards for Registered Training Organisations (RTOs) 2015/AQTF mandatory competency requirements for assessors.\",\n\"Application\": \n\"Application\\n\\nThis unit describes the skills and knowledge required to work respectfully with people from diverse social and cultural groups and situations, including Aboriginal and/or Torres Strait Islander people.\\n\\nThis unit applies to all workers.\\n\\nThe skills in this unit must be applied in accordance with Commonwealth and State/Territory legislation, Australian/New Zealand standards and industry codes of practice.\",\n\"ElementsAndPerformanceCriteria\": \n\"Elements and performance criteria\\nElement Performance criteria\\n\\n\\nElements define the essential outcomes\\n\\n \\n\\nPerformance criteria describe the performance needed to demonstrate achievement of the element\\n\\n\\n \\n\\n\\n1. Reflect on own perspectives\\n\\n \\n\\n1.1 Identify and reflect on own social and cultural perspectives and biases\\n\\n1.2 Work with awareness of own limitations in self and social awareness\\n\\n1.3 Use reflection to support own ability to work inclusively and with understanding of others\\n\\n1.4 Identify and act on ways to improve own self and social awareness\\n\\n\\n \\n\\n\\n2. Appreciate diversity and inclusiveness, and their benefits\\n\\n \\n\\n2.1 Value and respect diversity and inclusiveness across all areas of work\\n\\n2.2 Contribute to the development of work place and professional relationships based on appreciation of diversity and inclusiveness\\n\\n2.3 Use work practices that make environments safe for all\\n\\n\\n \\n\\n\\n3. Communicate with people from diverse backgrounds and situations\\n\\n \\n\\n3.1 Show respect for diversity in communication with all people\\n\\n3.2 Use verbal and non-verbal communication constructively to establish, develop and maintain effective relationships, mutual trust and confidence\\n\\n3.3 Where a language barrier exists, use effective strategies to communicate in the most efficient way possible\\n\\n3.4 Seek assistance from interpreters or other persons according to communication needs\\n\\n\\n \\n\\n\\n4. Promote understanding across diverse groups\\n\\n \\n\\n4.1 Identify issues that may cause communication misunderstandings or other difficulties\\n\\n4.2 Where difficulties or misunderstandings occur, consider the impact of social and cultural diversity\\n\\n4.3 Make an effort to sensitively resolve differences, taking account of diversity considerations\\n\\n4.4 Address any difficulties with appropriate people and seek assistance when required\",\n\"FoundationSkills\": \n\"Foundation skills\\n\\nThe Foundation Skills describe those required skills (language, literacy, numeracy and employment skills) that are essential to performance.\\n\\n\\n\\n\\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\",\n\"PerformanceEvidence\": \n\"Performance evidence\\n\\nThe candidate must show evidence of the ability to complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the job role. There must be evidence that the candidate has:\\n\\nundertaken a structured process to reflect on own perspectives on diversity\\nrecognised and respected the needs of people from diverse social and cultural backgrounds in at least 3 different situations:\\nselected and used appropriate verbal and non verbal communication\\nrecognised situations where misunderstandings may arise from diversity and formed appropriate responses\",\n\"KnowledgeEvidence\": \n\"Knowledge evidence\\n\\nThe candidate must be able to demonstrate essential knowledge required to effectively complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the work role. This includes knowledge of:\\n\\nconcepts of cultural awareness, cultural safety and cultural competence and how these impact different work roles\\nconcepts and definitions of diversity\\nown culture and the community attitudes, language, policies and structures of that culture and how they impact on different people and groups\\nfeatures of diversity in Australia and how this impacts different areas of work and life:\\npolitical\\nsocial\\neconomic\\ncultural\\nlegal and ethical considerations (international, national, state/territory, local) for working with diversity, how these impact individual workers, and the consequences of breaches:\\ndiscrimination:\\nage\\ndisability\\nracial\\nsex\\nhuman rights:\\nUniversal declaration of human rights\\nrelationship between human needs and human rights\\nframeworks, approaches and instruments used in the workplace\\nrights and responsibilities of workers, employers and clients, including appropriate action when rights are being infringed or responsibilities not being carried out\\nkey areas of diversity and their characteristics, including:\\nculture, race, ethnicity\\ndisability\\nreligious or spiritual beliefs\\ngender, including transgender\\nintersex\\ngenerational\\nsexual orientation/sexual identity - lesbian, gay, bisexual, heterosexual\\nkey aspects, and the diversity, of Australia’s Aboriginal and/or Torres Strait Islander cultures, including:\\nsocial, political and economic issues affecting Aboriginal and/or Torres Strait Islander people\\nown culture, western systems and structures and how these impact on Aboriginal and/or Torres Strait Islander people and their engagement with services\\npotential needs of marginalised groups, including:\\nprotective factors\\nphysical, mental and emotional health issues/care needs\\nconsideration of impacts of discrimination, trauma, exclusion and negative attitudes\\nresources that support individuals and organisations to embrace and respond to diversity\\nlanguage and cultural interpreters\\nimagery\\ninfluences and changing practices in Australia and their impact on the diverse communities that make up Australian society\\nimpact of diversity practices and experiences on personal behaviour, interpersonal relationships, perception and social expectations of others\",\n\"AssessmentConditions\": \n\"Assessment conditions\\n\\nSkills must have been demonstrated in the workplace or in a simulated environment that reflects workplace conditions. Where simulation is used, it must reflect real working conditions by modelling industry operating conditions and contingencies, as well as, using suitable facilities, equipment and resources.\\n\\nAssessors must satisfy the Standards for Registered Training Organisations (RTOs) 2015/AQTF mandatory competency requirements for assessors.\"\n}\n}",
+          "options": {
+            "systemPromptTemplate": "You are a highly specialized extraction algorithm.\n\nExtract only the explicitly relevant information from the provided text.\nDo not summarize, paraphrase, or correct any content.\nExtract the requested sections verbatim, preserving their original wording.\nIf an attribute's value is not found in the text, return an empty string for that attribute."
+          },
+          "schemaType": "fromJson",
+          "text": "={{ $json.data.markdown.toJsonString() }}"
+        },
+        "position": [
+          1088,
+          208
+        ],
+        "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "c0361d0f-710f-4534-9fe8-87810cda1efa",
+        "name": "OpenAI Chat Model",
+        "parameters": {
+          "model": "gpt-4.1",
+          "options": {}
+        },
+        "position": [
+          1056,
+          400
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "bd236ac9-a72d-4d07-8a31-d012cda304fa",
+        "name": "OpenAICHath",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1-mini"
+          },
+          "options": {}
+        },
+        "position": [
+          1568,
+          400
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "77c32d07-a084-46be-a0fa-fd9c5cc4c6a7",
+        "name": "Extract Title",
+        "parameters": {
+          "attributes": {
+            "attributes": [
+              {
+                "description": "uoc title",
+                "name": "Title"
+              }
+            ]
+          },
+          "options": {
+            "systemPromptTemplate": "You are an expert extraction algorithm.\nOnly extract relevant information from the text.\n\nExtract the title found after the Show history text and before Usage Recommendation\n\nIf you do not know the value of an attribute asked to extract, you may omit the attribute's value."
+          },
+          "text": "={{ $('Scrape a url and get its content').item.json.data.markdown }}"
+        },
+        "position": [
+          1472,
+          208
+        ],
+        "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "30d732ee-d316-4966-94e6-52d78ba022d5",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "browseai_qual_list"
+        },
+        "position": [
+          -336,
+          208
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "39093610-6422-4fd3-8ecb-44811bcfe1bc"
+      },
+      {
+        "credentials": {
+          "firecrawlApi": {
+            "id": "AaRv7xx3VFiC2d9K",
+            "name": "Firecrawl account"
+          }
+        },
+        "id": "57ac5a30-8dad-462d-9c9f-e7a15e3f952e",
+        "name": "Scrape a url and get its content",
+        "parameters": {
+          "operation": "scrape",
+          "requestOptions": {},
+          "scrapeOptions": {
+            "options": {
+              "formats": {
+                "format": [
+                  {}
+                ]
+              },
+              "headers": {}
+            }
+          },
+          "url": "={{ $('Webhook').item.json.body.originUrl }}"
+        },
+        "position": [
+          688,
+          208
+        ],
+        "type": "@mendable/n8n-nodes-firecrawl.firecrawl",
+        "typeVersion": 1
+      },
+      {
+        "id": "2a371a0d-e5dc-461e-8851-06cfbdc9e68e",
+        "name": "Execute KE Extract",
+        "parameters": {
+          "options": {},
+          "workflowId": {
+            "__rl": true,
+            "cachedResultName": "SmartKExtractAgent_v4",
+            "cachedResultUrl": "/workflow/v7JZXoBYPW5E6Prf",
+            "mode": "list",
+            "value": "v7JZXoBYPW5E6Prf"
+          },
+          "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "schema": [],
+            "value": {}
+          }
+        },
+        "position": [
+          2208,
+          -192
+        ],
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "8fbf9466-78ac-4e3b-a5b4-399ba1cec3e6",
+        "name": "Execute FS Extract",
+        "parameters": {
+          "options": {},
+          "workflowId": {
+            "__rl": true,
+            "cachedResultName": "SmartFSxtractAgent_v4",
+            "cachedResultUrl": "/workflow/Pko54vCSzneXmYXh",
+            "mode": "list",
+            "value": "Pko54vCSzneXmYXh"
+          },
+          "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "schema": [],
+            "value": {}
+          }
+        },
+        "position": [
+          2224,
+          48
+        ],
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "5dda43c8-a08e-410b-b80e-50fa16ce2fcd",
+        "name": "Execute PE Extract",
+        "parameters": {
+          "options": {},
+          "workflowId": {
+            "__rl": true,
+            "cachedResultName": "SmartPExtractAgent_v4",
+            "cachedResultUrl": "/workflow/ctSaIyfnAUMieJhQ",
+            "mode": "list",
+            "value": "ctSaIyfnAUMieJhQ"
+          },
+          "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "schema": [],
+            "value": {}
+          }
+        },
+        "position": [
+          2224,
+          320
+        ],
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "52e69603-2f4e-430a-ad7d-38a1ed84a5a8",
+        "name": "Execute EPC Extract",
+        "parameters": {
+          "options": {},
+          "workflowId": {
+            "__rl": true,
+            "cachedResultName": "SmartE_PCxtractAgent_v4",
+            "cachedResultUrl": "/workflow/5paJ07Jkf3RUACQs",
+            "mode": "list",
+            "value": "5paJ07Jkf3RUACQs"
+          },
+          "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "schema": [],
+            "value": {}
+          }
+        },
+        "position": [
+          2240,
+          576
+        ],
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "executeOnce": true,
+        "id": "f9e7c825-abf5-40be-8887-3516e61f3652",
+        "name": "UOC Sections Supabase1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "reqExtracted",
+                "fieldValue": "={{ true }}"
+              },
+              {
+                "fieldId": "keReqTotal",
+                "fieldValue": "={{ $('Code').item.json.count }}"
+              },
+              {
+                "fieldId": "peReqTotal",
+                "fieldValue": "={{ $('Code2').first().json.count }}"
+              },
+              {
+                "fieldId": "epcReqTotal",
+                "fieldValue": "={{ $('Code3').first().json.count }}"
+              },
+              {
+                "fieldId": "fsReqTotal",
+                "fieldValue": "={{ $('Code1').first().json.count }}"
+              },
+              {
+                "fieldId": "acReqTotal",
+                "fieldValue": "7"
+              },
+              {
+                "fieldId": "aiReqTotal",
+                "fieldValue": "1"
+              },
+              {
+                "fieldId": "reqTotal",
+                "fieldValue": "={{ $json.count + 7 + 1 }}"
+              },
+              {
+                "fieldId": "unitLink",
+                "fieldValue": "={{ $('Webhook').item.json.body.originUrl }}"
+              },
+              {
+                "fieldId": "unitCode",
+                "fieldValue": "={{ $('UOC Sections Supabase').item.json.unitCode }}"
+              }
+            ]
+          },
+          "tableId": "validation_summary"
+        },
+        "position": [
+          3808,
+          208
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "187077f8-4fdc-4eb7-b90b-01ca5e351088",
+        "name": "Merge",
+        "parameters": {
+          "numberInputs": 4
+        },
+        "position": [
+          3280,
+          176
+        ],
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2
+      },
+      {
+        "id": "78e2baf9-e004-4e18-abf4-99b6e38dcce9",
+        "name": "Code",
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+        },
+        "position": [
+          2720,
+          -192
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "055181ab-57fe-447b-b40b-2ba4013b455e",
+        "name": "Code1",
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+        },
+        "position": [
+          2720,
+          48
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "e0950295-09a4-4430-804d-54bb987116ff",
+        "name": "Code2",
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+        },
+        "position": [
+          2736,
+          320
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "11b0ff08-2045-4e99-b326-ef9e1e0ed1b2",
+        "name": "Code3",
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+        },
+        "position": [
+          2736,
+          576
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "98b2db90-c31c-430d-89a9-d96fe4a7396b",
+        "name": "Code4",
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+        },
+        "position": [
+          3552,
+          208
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "11562de0-b0d4-4f02-9833-d35689edb933",
+        "name": "Get a row",
+        "parameters": {
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "Link",
+                "keyValue": "={{ $json.body.originUrl }}"
+              }
+            ]
+          },
+          "operation": "get",
+          "tableId": "UnitOfCompetency"
+        },
+        "position": [
+          -64,
+          208
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "2f35e1d1-3a78-4032-a0f8-13dbeb38dbce",
+        "name": "If",
+        "parameters": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "ce5af248-7413-4024-96b5-dab31c6b5169",
+                "leftValue": "={{ $json.isNotEmpty() }}",
+                "operator": {
+                  "operation": "false",
+                  "singleValue": true,
+                  "type": "boolean"
+                },
+                "rightValue": ""
+              }
+            ],
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            }
+          },
+          "options": {}
+        },
+        "position": [
+          208,
+          224
+        ],
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2
+      },
+      {
+        "id": "3d6741f8-1c70-434e-adf3-2fc61d71369e",
+        "name": "Sticky Note",
+        "parameters": {
+          "color": 5,
+          "content": "##                      ONLY EXTRACT IF NOT EXISTS",
+          "height": 256,
+          "width": 528
+        },
+        "position": [
+          -96,
+          128
+        ],
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "executeOnce": true,
+        "id": "33982cbf-e272-495b-be96-4a3687cc76c9",
+        "name": "UOC Sections Supabase2",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "reqExtracted",
+                "fieldValue": "={{ true }}"
+              },
+              {
+                "fieldId": "keReqTotal",
+                "fieldValue": "={{ $('Get Req Counts').item.json.kecount }}"
+              },
+              {
+                "fieldId": "peReqTotal",
+                "fieldValue": "={{ $('Get Req Counts').item.json.pecount }}"
+              },
+              {
+                "fieldId": "epcReqTotal",
+                "fieldValue": "={{ $('Get Req Counts').item.json.epccount }}"
+              },
+              {
+                "fieldId": "fsReqTotal",
+                "fieldValue": "={{ $('Get Req Counts').item.json.fscount }}"
+              },
+              {
+                "fieldId": "acReqTotal",
+                "fieldValue": "7"
+              },
+              {
+                "fieldId": "aiReqTotal",
+                "fieldValue": "1"
+              },
+              {
+                "fieldId": "reqTotal",
+                "fieldValue": "={{ $json.total }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_summary"
+        },
+        "position": [
+          1280,
+          656
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "postgres": {
+            "id": "jkimYLj5JZa13Ude",
+            "name": "Supabase Nytro"
+          }
+        },
+        "id": "e81bb5d1-9769-4d26-b055-65a0b56617aa",
+        "name": "Get Req Counts",
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "SELECT\n  count(DISTINCT per.id) AS peCount,\n  count(DISTINCT epcr.id) AS epcCount,\n  count(DISTINCT ker.id) AS keCount,\n  count(DISTINCT fsr.id) AS fsCount\nFROM performance_evidence_requirements per\nJOIN elements_performance_criteria_requirements epcr\n  ON epcr.unit_url = per.unit_url\nJOIN knowledge_evidence_requirements ker\n  ON ker.unit_url = epcr.unit_url\nJOIN foundation_skills_requirements fsr\n  ON fsr.unit_url = per.unit_url\nWHERE fsr.unit_url = '{{ $json.Link }}'"
+        },
+        "position": [
+          704,
+          656
+        ],
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6
+      },
+      {
+        "id": "234486c7-3101-4d87-8678-6a20a3928c7d",
+        "name": "Total Counts",
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "574aad33-59e0-4b87-93c8-611ab05ce8d3",
+                "name": "total",
+                "type": "number",
+                "value": "={{ $json.pecount.toNumber() + $json.epccount.toNumber() + $json.kecount.toNumber() + $json.fscount.toNumber() + 8 }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "position": [
+          992,
+          656
+        ],
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4
+      }
+    ],
+    "updatedAt": "2025-12-07T18:38:54.286Z",
+    "versionId": "ae276587-97dd-461e-9e2c-590e307ffb98",
+    "workflowId": "oJPcNI0AF0w0Bwgp",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-12-07T18:38:54.359Z",
+        "event": "activated",
+        "id": 135,
+        "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "versionId": "ae276587-97dd-461e-9e2c-590e307ffb98",
+        "workflowId": "oJPcNI0AF0w0Bwgp"
+      }
+    ]
+  },
+  "activeVersionId": "ae276587-97dd-461e-9e2c-590e307ffb98",
+  "connections": {
+    "Code": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "index": 2,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "index": 3,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code4": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "UOC Sections Supabase1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Execute EPC Extract": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code3",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Execute FS Extract": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Execute KE Extract": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Execute PE Extract": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract Title": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "UOC Sections Supabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get Req Counts": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Total Counts",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Scrape a url and get its content",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Get Req Counts",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract Title",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code4",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Information Extractor",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAICHath": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Extract Title",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Scrape a url and get its content": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Information Extractor",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Total Counts": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "UOC Sections Supabase2",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "UOC Sections Supabase": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Execute KE Extract",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Execute FS Extract",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Execute PE Extract",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Execute EPC Extract",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get a row",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-12-07T18:37:37.013Z",
+  "description": null,
+  "id": "oJPcNI0AF0w0Bwgp",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "QualificationBrowseAI",
+  "nodes": [
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "6cd84ff8-836d-4926-9b83-8086cb9f215d",
+      "name": "UOC Sections Supabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "epc",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.ElementsAndPerformanceCriteria }}"
+            },
+            {
+              "fieldId": "fs",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.FoundationSkills }}"
+            },
+            {
+              "fieldId": "pe",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.PerformanceEvidence }}"
+            },
+            {
+              "fieldId": "ke",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.KnowledgeEvidence }}"
+            },
+            {
+              "fieldId": "ac",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.AssessmentConditions }}"
+            },
+            {
+              "fieldId": "applciation",
+              "fieldValue": "={{ $('Information Extractor').item.json.output.capturedTexts.Application }}"
+            },
+            {
+              "fieldId": "UOCpage",
+              "fieldValue": "={{ $('Scrape a url and get its content').item.json.data.markdown }}"
+            },
+            {
+              "fieldId": "Link",
+              "fieldValue": "={{ $('Webhook').item.json.body.originUrl }}"
+            },
+            {
+              "fieldId": "unitCode",
+              "fieldValue": "={{ $('Webhook').item.json.body.originUrl.substring(41,$('Webhook').item.json.body.originUrl.lastIndexOf('/'))}}"
+            },
+            {
+              "fieldId": "Type",
+              "fieldValue": "auto"
+            },
+            {
+              "fieldId": "Status",
+              "fieldValue": "auto"
+            },
+            {
+              "fieldId": "qualificationLink",
+              "fieldValue": "single"
+            },
+            {
+              "fieldId": "Title",
+              "fieldValue": "={{ $json.output.Title }}"
+            }
+          ]
+        },
+        "tableId": "UnitOfCompetency"
+      },
+      "position": [
+        1888,
+        208
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "697584fd-9a02-4527-9ae6-a8d89611ea78",
+      "name": "Information Extractor",
+      "parameters": {
+        "jsonSchemaExample": "{\n\n\"capturedTexts\": \n{\n\"UOCpage\": \n\"Unit of competency\\n|\\nShow history\\nno\\nCHCDIV001 Work with diverse people\\nUsage recommendation\\nCurrent\\n06/Aug/2015\\ninfo\\ninfo\\nRelease\\n1\\nexpand_more\\nCurrent\\n06/Aug/2015\\ndownload\\nDownload\\nUnit details\\nexpand_more\\nUnit of competency\\nModification history\\nRelease Comments\\n\\n\\nRelease 1\\n\\n \\n\\nThis version was released in CHC Community Services Training Package release 2.0 and meets the requirements of the 2012 Standards for Training Packages.\\n\\nMerged HLTHIR403C/CHCCS405C. Significant changes to the elements and performance criteria. New evidence requirements for assessment, including volume and frequency.\\n\\nApplication\\n\\nThis unit describes the skills and knowledge required to work respectfully with people from diverse social and cultural groups and situations, including Aboriginal and/or Torres Strait Islander people.\\n\\nThis unit applies to all workers.\\n\\nThe skills in this unit must be applied in accordance with Commonwealth and State/Territory legislation, Australian/New Zealand standards and industry codes of practice.\\n\\nElements and performance criteria\\nElement Performance criteria\\n\\n\\nElements define the essential outcomes\\n\\n \\n\\nPerformance criteria describe the performance needed to demonstrate achievement of the element\\n\\n\\n \\n\\n\\n1. Reflect on own perspectives\\n\\n \\n\\n1.1 Identify and reflect on own social and cultural perspectives and biases\\n\\n1.2 Work with awareness of own limitations in self and social awareness\\n\\n1.3 Use reflection to support own ability to work inclusively and with understanding of others\\n\\n1.4 Identify and act on ways to improve own self and social awareness\\n\\n\\n \\n\\n\\n2. Appreciate diversity and inclusiveness, and their benefits\\n\\n \\n\\n2.1 Value and respect diversity and inclusiveness across all areas of work\\n\\n2.2 Contribute to the development of work place and professional relationships based on appreciation of diversity and inclusiveness\\n\\n2.3 Use work practices that make environments safe for all\\n\\n\\n \\n\\n\\n3. Communicate with people from diverse backgrounds and situations\\n\\n \\n\\n3.1 Show respect for diversity in communication with all people\\n\\n3.2 Use verbal and non-verbal communication constructively to establish, develop and maintain effective relationships, mutual trust and confidence\\n\\n3.3 Where a language barrier exists, use effective strategies to communicate in the most efficient way possible\\n\\n3.4 Seek assistance from interpreters or other persons according to communication needs\\n\\n\\n \\n\\n\\n4. Promote understanding across diverse groups\\n\\n \\n\\n4.1 Identify issues that may cause communication misunderstandings or other difficulties\\n\\n4.2 Where difficulties or misunderstandings occur, consider the impact of social and cultural diversity\\n\\n4.3 Make an effort to sensitively resolve differences, taking account of diversity considerations\\n\\n4.4 Address any difficulties with appropriate people and seek assistance when required\\n\\nFoundation skills\\n\\nThe Foundation Skills describe those required skills (language, literacy, numeracy and employment skills) that are essential to performance.\\n\\n\\n\\n\\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\\n\\nUnit mapping information\\n\\nNo equivalent unit.\\n\\nAssessment requirements\\nModification history\\nRelease Comments\\n\\n\\nRelease 1\\n\\n \\n\\nThis version was released in CHC Community Services Training Package release 2.0 and meets the requirements of the 2012 Standards for Training Packages.\\n\\nMerged HLTHIR403C/CHCCS405C. Significant changes to the elements and performance criteria. New evidence requirements for assessment, including volume and frequency.\\n\\nPerformance evidence\\n\\nThe candidate must show evidence of the ability to complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the job role. There must be evidence that the candidate has:\\n\\nundertaken a structured process to reflect on own perspectives on diversity\\nrecognised and respected the needs of people from diverse social and cultural backgrounds in at least 3 different situations:\\nselected and used appropriate verbal and non verbal communication\\nrecognised situations where misunderstandings may arise from diversity and formed appropriate responses\\nKnowledge evidence\\n\\nThe candidate must be able to demonstrate essential knowledge required to effectively complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the work role. This includes knowledge of:\\n\\nconcepts of cultural awareness, cultural safety and cultural competence and how these impact different work roles\\nconcepts and definitions of diversity\\nown culture and the community attitudes, language, policies and structures of that culture and how they impact on different people and groups\\nfeatures of diversity in Australia and how this impacts different areas of work and life:\\npolitical\\nsocial\\neconomic\\ncultural\\nlegal and ethical considerations (international, national, state/territory, local) for working with diversity, how these impact individual workers, and the consequences of breaches:\\ndiscrimination:\\nage\\ndisability\\nracial\\nsex\\nhuman rights:\\nUniversal declaration of human rights\\nrelationship between human needs and human rights\\nframeworks, approaches and instruments used in the workplace\\nrights and responsibilities of workers, employers and clients, including appropriate action when rights are being infringed or responsibilities not being carried out\\nkey areas of diversity and their characteristics, including:\\nculture, race, ethnicity\\ndisability\\nreligious or spiritual beliefs\\ngender, including transgender\\nintersex\\ngenerational\\nsexual orientation/sexual identity - lesbian, gay, bisexual, heterosexual\\nkey aspects, and the diversity, of Australia’s Aboriginal and/or Torres Strait Islander cultures, including:\\nsocial, political and economic issues affecting Aboriginal and/or Torres Strait Islander people\\nown culture, western systems and structures and how these impact on Aboriginal and/or Torres Strait Islander people and their engagement with services\\npotential needs of marginalised groups, including:\\nprotective factors\\nphysical, mental and emotional health issues/care needs\\nconsideration of impacts of discrimination, trauma, exclusion and negative attitudes\\nresources that support individuals and organisations to embrace and respond to diversity\\nlanguage and cultural interpreters\\nimagery\\ninfluences and changing practices in Australia and their impact on the diverse communities that make up Australian society\\nimpact of diversity practices and experiences on personal behaviour, interpersonal relationships, perception and social expectations of others\\nAssessment conditions\\n\\nSkills must have been demonstrated in the workplace or in a simulated environment that reflects workplace conditions. Where simulation is used, it must reflect real working conditions by modelling industry operating conditions and contingencies, as well as, using suitable facilities, equipment and resources.\\n\\nAssessors must satisfy the Standards for Registered Training Organisations (RTOs) 2015/AQTF mandatory competency requirements for assessors.\",\n\"Application\": \n\"Application\\n\\nThis unit describes the skills and knowledge required to work respectfully with people from diverse social and cultural groups and situations, including Aboriginal and/or Torres Strait Islander people.\\n\\nThis unit applies to all workers.\\n\\nThe skills in this unit must be applied in accordance with Commonwealth and State/Territory legislation, Australian/New Zealand standards and industry codes of practice.\",\n\"ElementsAndPerformanceCriteria\": \n\"Elements and performance criteria\\nElement Performance criteria\\n\\n\\nElements define the essential outcomes\\n\\n \\n\\nPerformance criteria describe the performance needed to demonstrate achievement of the element\\n\\n\\n \\n\\n\\n1. Reflect on own perspectives\\n\\n \\n\\n1.1 Identify and reflect on own social and cultural perspectives and biases\\n\\n1.2 Work with awareness of own limitations in self and social awareness\\n\\n1.3 Use reflection to support own ability to work inclusively and with understanding of others\\n\\n1.4 Identify and act on ways to improve own self and social awareness\\n\\n\\n \\n\\n\\n2. Appreciate diversity and inclusiveness, and their benefits\\n\\n \\n\\n2.1 Value and respect diversity and inclusiveness across all areas of work\\n\\n2.2 Contribute to the development of work place and professional relationships based on appreciation of diversity and inclusiveness\\n\\n2.3 Use work practices that make environments safe for all\\n\\n\\n \\n\\n\\n3. Communicate with people from diverse backgrounds and situations\\n\\n \\n\\n3.1 Show respect for diversity in communication with all people\\n\\n3.2 Use verbal and non-verbal communication constructively to establish, develop and maintain effective relationships, mutual trust and confidence\\n\\n3.3 Where a language barrier exists, use effective strategies to communicate in the most efficient way possible\\n\\n3.4 Seek assistance from interpreters or other persons according to communication needs\\n\\n\\n \\n\\n\\n4. Promote understanding across diverse groups\\n\\n \\n\\n4.1 Identify issues that may cause communication misunderstandings or other difficulties\\n\\n4.2 Where difficulties or misunderstandings occur, consider the impact of social and cultural diversity\\n\\n4.3 Make an effort to sensitively resolve differences, taking account of diversity considerations\\n\\n4.4 Address any difficulties with appropriate people and seek assistance when required\",\n\"FoundationSkills\": \n\"Foundation skills\\n\\nThe Foundation Skills describe those required skills (language, literacy, numeracy and employment skills) that are essential to performance.\\n\\n\\n\\n\\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\",\n\"PerformanceEvidence\": \n\"Performance evidence\\n\\nThe candidate must show evidence of the ability to complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the job role. There must be evidence that the candidate has:\\n\\nundertaken a structured process to reflect on own perspectives on diversity\\nrecognised and respected the needs of people from diverse social and cultural backgrounds in at least 3 different situations:\\nselected and used appropriate verbal and non verbal communication\\nrecognised situations where misunderstandings may arise from diversity and formed appropriate responses\",\n\"KnowledgeEvidence\": \n\"Knowledge evidence\\n\\nThe candidate must be able to demonstrate essential knowledge required to effectively complete tasks outlined in elements and performance criteria of this unit, manage tasks and manage contingencies in the context of the work role. This includes knowledge of:\\n\\nconcepts of cultural awareness, cultural safety and cultural competence and how these impact different work roles\\nconcepts and definitions of diversity\\nown culture and the community attitudes, language, policies and structures of that culture and how they impact on different people and groups\\nfeatures of diversity in Australia and how this impacts different areas of work and life:\\npolitical\\nsocial\\neconomic\\ncultural\\nlegal and ethical considerations (international, national, state/territory, local) for working with diversity, how these impact individual workers, and the consequences of breaches:\\ndiscrimination:\\nage\\ndisability\\nracial\\nsex\\nhuman rights:\\nUniversal declaration of human rights\\nrelationship between human needs and human rights\\nframeworks, approaches and instruments used in the workplace\\nrights and responsibilities of workers, employers and clients, including appropriate action when rights are being infringed or responsibilities not being carried out\\nkey areas of diversity and their characteristics, including:\\nculture, race, ethnicity\\ndisability\\nreligious or spiritual beliefs\\ngender, including transgender\\nintersex\\ngenerational\\nsexual orientation/sexual identity - lesbian, gay, bisexual, heterosexual\\nkey aspects, and the diversity, of Australia’s Aboriginal and/or Torres Strait Islander cultures, including:\\nsocial, political and economic issues affecting Aboriginal and/or Torres Strait Islander people\\nown culture, western systems and structures and how these impact on Aboriginal and/or Torres Strait Islander people and their engagement with services\\npotential needs of marginalised groups, including:\\nprotective factors\\nphysical, mental and emotional health issues/care needs\\nconsideration of impacts of discrimination, trauma, exclusion and negative attitudes\\nresources that support individuals and organisations to embrace and respond to diversity\\nlanguage and cultural interpreters\\nimagery\\ninfluences and changing practices in Australia and their impact on the diverse communities that make up Australian society\\nimpact of diversity practices and experiences on personal behaviour, interpersonal relationships, perception and social expectations of others\",\n\"AssessmentConditions\": \n\"Assessment conditions\\n\\nSkills must have been demonstrated in the workplace or in a simulated environment that reflects workplace conditions. Where simulation is used, it must reflect real working conditions by modelling industry operating conditions and contingencies, as well as, using suitable facilities, equipment and resources.\\n\\nAssessors must satisfy the Standards for Registered Training Organisations (RTOs) 2015/AQTF mandatory competency requirements for assessors.\"\n}\n}",
+        "options": {
+          "systemPromptTemplate": "You are a highly specialized extraction algorithm.\n\nExtract only the explicitly relevant information from the provided text.\nDo not summarize, paraphrase, or correct any content.\nExtract the requested sections verbatim, preserving their original wording.\nIf an attribute's value is not found in the text, return an empty string for that attribute."
+        },
+        "schemaType": "fromJson",
+        "text": "={{ $json.data.markdown.toJsonString() }}"
+      },
+      "position": [
+        1088,
+        208
+      ],
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "c0361d0f-710f-4534-9fe8-87810cda1efa",
+      "name": "OpenAI Chat Model",
+      "parameters": {
+        "model": "gpt-4.1",
+        "options": {}
+      },
+      "position": [
+        1056,
+        400
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "bd236ac9-a72d-4d07-8a31-d012cda304fa",
+      "name": "OpenAICHath",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        1568,
+        400
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "77c32d07-a084-46be-a0fa-fd9c5cc4c6a7",
+      "name": "Extract Title",
+      "parameters": {
+        "attributes": {
+          "attributes": [
+            {
+              "description": "uoc title",
+              "name": "Title"
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "You are an expert extraction algorithm.\nOnly extract relevant information from the text.\n\nExtract the title found after the Show history text and before Usage Recommendation\n\nIf you do not know the value of an attribute asked to extract, you may omit the attribute's value."
+        },
+        "text": "={{ $('Scrape a url and get its content').item.json.data.markdown }}"
+      },
+      "position": [
+        1472,
+        208
+      ],
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "30d732ee-d316-4966-94e6-52d78ba022d5",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "browseai_qual_list"
+      },
+      "position": [
+        -336,
+        208
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "39093610-6422-4fd3-8ecb-44811bcfe1bc"
+    },
+    {
+      "credentials": {
+        "firecrawlApi": {
+          "id": "AaRv7xx3VFiC2d9K",
+          "name": "Firecrawl account"
+        }
+      },
+      "id": "57ac5a30-8dad-462d-9c9f-e7a15e3f952e",
+      "name": "Scrape a url and get its content",
+      "parameters": {
+        "operation": "scrape",
+        "requestOptions": {},
+        "scrapeOptions": {
+          "options": {
+            "formats": {
+              "format": [
+                {}
+              ]
+            },
+            "headers": {}
+          }
+        },
+        "url": "={{ $('Webhook').item.json.body.originUrl }}"
+      },
+      "position": [
+        688,
+        208
+      ],
+      "type": "@mendable/n8n-nodes-firecrawl.firecrawl",
+      "typeVersion": 1
+    },
+    {
+      "id": "2a371a0d-e5dc-461e-8851-06cfbdc9e68e",
+      "name": "Execute KE Extract",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "SmartKExtractAgent_v4",
+          "cachedResultUrl": "/workflow/v7JZXoBYPW5E6Prf",
+          "mode": "list",
+          "value": "v7JZXoBYPW5E6Prf"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        2208,
+        -192
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "8fbf9466-78ac-4e3b-a5b4-399ba1cec3e6",
+      "name": "Execute FS Extract",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "SmartFSxtractAgent_v4",
+          "cachedResultUrl": "/workflow/Pko54vCSzneXmYXh",
+          "mode": "list",
+          "value": "Pko54vCSzneXmYXh"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        2224,
+        48
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "5dda43c8-a08e-410b-b80e-50fa16ce2fcd",
+      "name": "Execute PE Extract",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "SmartPExtractAgent_v4",
+          "cachedResultUrl": "/workflow/ctSaIyfnAUMieJhQ",
+          "mode": "list",
+          "value": "ctSaIyfnAUMieJhQ"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        2224,
+        320
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "52e69603-2f4e-430a-ad7d-38a1ed84a5a8",
+      "name": "Execute EPC Extract",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "SmartE_PCxtractAgent_v4",
+          "cachedResultUrl": "/workflow/5paJ07Jkf3RUACQs",
+          "mode": "list",
+          "value": "5paJ07Jkf3RUACQs"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        }
+      },
+      "position": [
+        2240,
+        576
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "f9e7c825-abf5-40be-8887-3516e61f3652",
+      "name": "UOC Sections Supabase1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "reqExtracted",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "keReqTotal",
+              "fieldValue": "={{ $('Code').item.json.count }}"
+            },
+            {
+              "fieldId": "peReqTotal",
+              "fieldValue": "={{ $('Code2').first().json.count }}"
+            },
+            {
+              "fieldId": "epcReqTotal",
+              "fieldValue": "={{ $('Code3').first().json.count }}"
+            },
+            {
+              "fieldId": "fsReqTotal",
+              "fieldValue": "={{ $('Code1').first().json.count }}"
+            },
+            {
+              "fieldId": "acReqTotal",
+              "fieldValue": "7"
+            },
+            {
+              "fieldId": "aiReqTotal",
+              "fieldValue": "1"
+            },
+            {
+              "fieldId": "reqTotal",
+              "fieldValue": "={{ $json.count + 7 + 1 }}"
+            },
+            {
+              "fieldId": "unitLink",
+              "fieldValue": "={{ $('Webhook').item.json.body.originUrl }}"
+            },
+            {
+              "fieldId": "unitCode",
+              "fieldValue": "={{ $('UOC Sections Supabase').item.json.unitCode }}"
+            }
+          ]
+        },
+        "tableId": "validation_summary"
+      },
+      "position": [
+        3808,
+        208
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "187077f8-4fdc-4eb7-b90b-01ca5e351088",
+      "name": "Merge",
+      "parameters": {
+        "numberInputs": 4
+      },
+      "position": [
+        3280,
+        176
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "id": "78e2baf9-e004-4e18-abf4-99b6e38dcce9",
+      "name": "Code",
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+      },
+      "position": [
+        2720,
+        -192
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "055181ab-57fe-447b-b40b-2ba4013b455e",
+      "name": "Code1",
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+      },
+      "position": [
+        2720,
+        48
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "e0950295-09a4-4430-804d-54bb987116ff",
+      "name": "Code2",
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+      },
+      "position": [
+        2736,
+        320
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "11b0ff08-2045-4e99-b326-ef9e1e0ed1b2",
+      "name": "Code3",
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+      },
+      "position": [
+        2736,
+        576
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "98b2db90-c31c-430d-89a9-d96fe4a7396b",
+      "name": "Code4",
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called \nfor (const item of $input.all()) {\n  item.json.count = $input.all().length;\n}\n\nreturn $input.all();"
+      },
+      "position": [
+        3552,
+        208
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "11562de0-b0d4-4f02-9833-d35689edb933",
+      "name": "Get a row",
+      "parameters": {
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "Link",
+              "keyValue": "={{ $json.body.originUrl }}"
+            }
+          ]
+        },
+        "operation": "get",
+        "tableId": "UnitOfCompetency"
+      },
+      "position": [
+        -64,
+        208
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "2f35e1d1-3a78-4032-a0f8-13dbeb38dbce",
+      "name": "If",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ce5af248-7413-4024-96b5-dab31c6b5169",
+              "leftValue": "={{ $json.isNotEmpty() }}",
+              "operator": {
+                "operation": "false",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        208,
+        224
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "3d6741f8-1c70-434e-adf3-2fc61d71369e",
+      "name": "Sticky Note",
+      "parameters": {
+        "color": 5,
+        "content": "##                      ONLY EXTRACT IF NOT EXISTS",
+        "height": 256,
+        "width": 528
+      },
+      "position": [
+        -96,
+        128
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "33982cbf-e272-495b-be96-4a3687cc76c9",
+      "name": "UOC Sections Supabase2",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "reqExtracted",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "keReqTotal",
+              "fieldValue": "={{ $('Get Req Counts').item.json.kecount }}"
+            },
+            {
+              "fieldId": "peReqTotal",
+              "fieldValue": "={{ $('Get Req Counts').item.json.pecount }}"
+            },
+            {
+              "fieldId": "epcReqTotal",
+              "fieldValue": "={{ $('Get Req Counts').item.json.epccount }}"
+            },
+            {
+              "fieldId": "fsReqTotal",
+              "fieldValue": "={{ $('Get Req Counts').item.json.fscount }}"
+            },
+            {
+              "fieldId": "acReqTotal",
+              "fieldValue": "7"
+            },
+            {
+              "fieldId": "aiReqTotal",
+              "fieldValue": "1"
+            },
+            {
+              "fieldId": "reqTotal",
+              "fieldValue": "={{ $json.total }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_summary"
+      },
+      "position": [
+        1280,
+        656
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      },
+      "id": "e81bb5d1-9769-4d26-b055-65a0b56617aa",
+      "name": "Get Req Counts",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT\n  count(DISTINCT per.id) AS peCount,\n  count(DISTINCT epcr.id) AS epcCount,\n  count(DISTINCT ker.id) AS keCount,\n  count(DISTINCT fsr.id) AS fsCount\nFROM performance_evidence_requirements per\nJOIN elements_performance_criteria_requirements epcr\n  ON epcr.unit_url = per.unit_url\nJOIN knowledge_evidence_requirements ker\n  ON ker.unit_url = epcr.unit_url\nJOIN foundation_skills_requirements fsr\n  ON fsr.unit_url = per.unit_url\nWHERE fsr.unit_url = '{{ $json.Link }}'"
+      },
+      "position": [
+        704,
+        656
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6
+    },
+    {
+      "id": "234486c7-3101-4d87-8678-6a20a3928c7d",
+      "name": "Total Counts",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "574aad33-59e0-4b87-93c8-611ab05ce8d3",
+              "name": "total",
+              "type": "number",
+              "value": "={{ $json.pecount.toNumber() + $json.epccount.toNumber() + $json.kecount.toNumber() + $json.fscount.toNumber() + 8 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        992,
+        656
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "executionMode": "production",
+            "originUrl": "https://training.gov.au/training/details/TLIF0009/unitdetails",
+            "webhookUrl": "https://dfqxmjmggokneiuljkta.supabase.co/functions/v1/scrape-training-gov-au"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "103.133.52.24",
+            "cf-ipcountry": "AU",
+            "cf-ray": "9aa03c29ef4a574e-SYD",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "198",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "origin": "https://nytroai.netlify.app",
+            "priority": "u=1, i",
+            "referer": "https://nytroai.netlify.app/",
+            "render-proxy-ttl": "4",
+            "rndr-id": "c2d9cdec-711d-447e",
+            "sec-ch-ua": "\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "true-client-ip": "103.133.52.24",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "x-forwarded-for": "103.133.52.24, 162.158.168.144",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1765070788994578"
+          },
+          "params": {},
+          "query": {},
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/a332468b-d2ee-4e6a-bc35-df3bbc7ce775"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-12-07T18:37:37.015Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-12-07T18:37:37.015Z",
+      "workflowId": "oJPcNI0AF0w0Bwgp"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-07T18:38:54.285Z",
+  "versionCounter": 17,
+  "versionId": "ae276587-97dd-461e-9e2c-590e307ffb98"
+}
