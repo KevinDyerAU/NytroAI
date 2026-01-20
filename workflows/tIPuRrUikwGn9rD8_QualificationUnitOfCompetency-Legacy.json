@@ -1,0 +1,186 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "Split Out": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "SupabaseQualUOC",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Split Out",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2024-10-22T22:03:10.866Z",
+  "description": null,
+  "id": "tIPuRrUikwGn9rD8",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "QualificationUnitOfCompetency-Legacy",
+  "nodes": [
+    {
+      "id": "aae41b26-c25c-42de-96bd-5e13aa333985",
+      "name": "Split Out",
+      "parameters": {
+        "fieldToSplitOut": "body.task.capturedLists.unitList",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "position": [
+        688,
+        464
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "c62663a3-305a-4fe5-82c6-cc35fb0d767d",
+      "name": "SupabaseQualUOC",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "Title",
+              "fieldValue": "={{ $json['body.task.capturedLists.unitList'].title }}"
+            },
+            {
+              "fieldId": "Status",
+              "fieldValue": "={{ $json['body.task.capturedLists.unitList'].usage }}"
+            },
+            {
+              "fieldId": "Link",
+              "fieldValue": "={{ $json['body.task.capturedLists.unitList'].unitLink }}"
+            },
+            {
+              "fieldId": "Type",
+              "fieldValue": "={{ $json['body.task.capturedLists.unitList'].essential }}"
+            },
+            {
+              "fieldId": "qualificationLink",
+              "fieldValue": "={{ $json.body.task.inputParameters.originUrl }}"
+            },
+            {
+              "fieldId": "unitCode",
+              "fieldValue": "={{ $json['body.task.capturedLists.unitList'].code }}"
+            }
+          ]
+        },
+        "tableId": "UnitOfCompetency"
+      },
+      "position": [
+        912,
+        464
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "40c381aa-ed2b-4779-b906-5869124f3707",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "b26288ad-44af-4237-b902-1a0b2bc6ae65"
+      },
+      "position": [
+        464,
+        464
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "b26288ad-44af-4237-b902-1a0b2bc6ae65"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2024-10-22T22:03:10.870Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2024-10-22T22:03:10.870Z",
+      "workflowId": "tIPuRrUikwGn9rD8"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-07T18:31:46.221Z",
+  "versionCounter": 5,
+  "versionId": "fd11d2b5-b304-4f33-81a5-101abef2102f"
+}

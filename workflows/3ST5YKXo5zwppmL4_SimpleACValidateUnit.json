@@ -1,0 +1,1078 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "system migration",
+    "autosaved": false,
+    "connections": {
+      "ACValidationsSupabase": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Split Out",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Basic LLM Chain": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Embeddings OpenAI": {
+        "ai_embedding": [
+          [
+            {
+              "index": 0,
+              "node": "Pinecone Vector Store",
+              "type": "ai_embedding"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model2": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model3": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Pinecone Vector Store": {
+        "ai_tool": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_tool"
+            }
+          ]
+        ]
+      },
+      "Split Out": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "ACValidationsSupabase",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_outputParser"
+            }
+          ]
+        ]
+      },
+      "Update a row1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row1",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-11-28T18:15:14.136Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "f3c0355a-ca4c-49e5-9920-11cd782fa015",
+        "name": "ACValidationsSupabase",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "ac_point",
+                "fieldValue": "={{ $json.output.condition }}"
+              },
+              {
+                "fieldId": "status",
+                "fieldValue": "={{ $json.output.status }}"
+              },
+              {
+                "fieldId": "reasoning",
+                "fieldValue": "={{ $json.output.reasoning }}"
+              },
+              {
+                "fieldId": "valDetail_id",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+              },
+              {
+                "fieldId": "recommendation",
+                "fieldValue": "={{ $json.output.recommendation }}"
+              }
+            ]
+          },
+          "tableId": "assessment_conditions_validations"
+        },
+        "position": [
+          688,
+          32
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "6d566e31-4544-424a-8786-e37eff12345d",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "f68aa6e6-b58a-4f1d-bf83-d38cad35c92d"
+        },
+        "position": [
+          -992,
+          -128
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "f68aa6e6-b58a-4f1d-bf83-d38cad35c92d"
+      },
+      {
+        "id": "e59f4de1-f276-4bca-9759-273165d20909",
+        "name": "Basic LLM Chain",
+        "parameters": {
+          "messages": {
+            "messageValues": [
+              {
+                "message": "Rewrite the list of assessment conditions provided, ensuring that each point retains the original context, meaning, and any essential details. Use clear, simple language, adjusting verbs or words to simplify without losing meaning. Remove all unnecessary symbols, special characters, and formatting, such as newline characters, so the output is suitable for passing to an HTTP POST method. Return only a single string containing the updated conditions with each point separated by a space."
+              }
+            ]
+          },
+          "promptType": "define",
+          "text": "={{ $json.requirement }}"
+        },
+        "position": [
+          -608,
+          32
+        ],
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.4
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "b33a0dae-880a-44d1-ac41-661ba4ed5aa7",
+        "name": "OpenAI Chat Model1",
+        "parameters": {
+          "model": "gpt-4o",
+          "options": {}
+        },
+        "position": [
+          -656,
+          272
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1
+      },
+      {
+        "id": "94a3fe7c-6bb6-4781-98ea-e39055204816",
+        "name": "Split Out",
+        "parameters": {
+          "fieldToSplitOut": "output",
+          "include": "allOtherFields",
+          "options": {}
+        },
+        "position": [
+          384,
+          32
+        ],
+        "type": "n8n-nodes-base.splitOut",
+        "typeVersion": 1
+      },
+      {
+        "id": "b5086a0b-d40c-4b47-bbcd-0a787ed3c57b",
+        "name": "AI Agent",
+        "parameters": {
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "Using the provided Assessment Conditions, review the unit document to validate its alignment with each of the conditions below. Each response must strictly follow the JSON structure, with specific status indicators and recommendations if the condition is unmet.\n\nIf a condition is marked \"Not Met,\" provide detailed reasoning, including why the document fails to meet the condition and what specific issues need to be addressed.\n\nAssessment Conditions to Validate:\nAssessment Environment\n\nCheck: Verify if the document specifies whether skills should be demonstrated in a real or simulated workplace environment, and if it reflects real-world industry conditions.\nStatus: Indicate “Met” or “Not Met.”\nReasoning: For \"Not Met,\" explain why the condition fails, such as missing details about the environment, ambiguity about simulation standards, or lack of alignment with industry conditions.\nRecommendation: If \"Not Met,\" suggest improvements (e.g., clarifying the environment or industry conditions). Otherwise, state \"n/a\".\nNecessary Resources\n\nCheck: Ensure all required tools, equipment, and materials are explicitly listed.\nStatus: Mark “Met” or “Not Met.”\nReasoning: For \"Not Met,\" detail what resources are missing, if any resources are outdated or inadequate, or if there is a lack of specificity (e.g., not listing specific tools or industry-standard equipment).\nRecommendation: If \"Not Met,\" specify missing resources (e.g., industry-standard tools or technology). Otherwise, state \"n/a\".\nSupervision and Observation Requirements\n\nCheck: Confirm that a qualified assessor’s role in supervision is specified and whether third-party supervisors are allowed, including qualifications if applicable.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" explain the gaps, such as the absence of assessor qualifications, lack of clarity on third-party supervisor roles, or missing guidelines for assessor responsibilities.\nRecommendation: If \"Not Met,\" suggest including qualifications for assessors and third-party supervisors. Otherwise, state \"n/a\".\nSupplemental Evidence\n\nCheck: Confirm if additional evidence (e.g., third-party reports, journals) is required for competency.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" provide specific reasons, such as a lack of guidelines on required supplemental evidence or missing types of third-party reports.\nRecommendation: If \"Not Met,\" recommend guidelines for third-party evidence collection and validation. Otherwise, state \"n/a\".\nCompliance with Standards (ASQA, NQF)\n\nCheck: Validate alignment with ASQA, NQF, or other relevant standards.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" explain if specific standards are missing, if the document is outdated in regulatory compliance, or if it lacks required references to ASQA or NQF standards.\nRecommendation: If \"Not Met,\" suggest adding compliance references to relevant standards. Otherwise, state \"n/a\".\nQualification-Specific Requirements\n\nCheck: Ensure assessment conditions are tailored to the qualification (e.g., healthcare, construction).\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" describe the misalignment, such as general content that doesn’t meet qualification-specific needs, or if the document lacks consideration of industry-specific requirements.\nRecommendation: If \"Not Met,\" suggest adjustments for industry-specific needs. Otherwise, state \"n/a\".\n\nFeedback and Review Procedures\n\nCheck: Verify if there is a clear process for feedback and review.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" specify missing elements, such as lack of review timelines, absence of clear feedback protocols, or a lack of alignment with practical assessment timelines.\nRecommendation: If \"Not Met,\" suggest providing timelines or clear review guidelines. Otherwise, state \"n/a\".\n\n\nReturn in JSON Format:\nReturn the result in the following JSON structure, with specific reasoning and recommendations only when conditions are unmet. Avoid adding any extra information outside of this JSON structure.\n\n### Example JSON structure\n\"Assessment Environment\": \n    \"condition\": \"Assessment Environment\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether the condition is met or not based on the document.\",\n    \"recommendation\": \"Specific action to address any gap, if Not Met.\"\n  \n  \"Necessary Resources\": \n    \"condition\": \"Necessary Resources\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether resources are adequately listed.\",\n    \"recommendation\": \"Specific resources to add, if Not Met.\"\n  \n  \"Supervision and Observation Requirements\": \n    \"condition\": \"Supervision and Observation Requirements\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether supervision requirements are specified.\",\n    \"recommendation\": \"Suggestions for qualifications of assessors, if Not Met.\"\n  \n  \"Supplemental Evidence\": \n    \"condition\": \"Supplemental Evidence\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether additional evidence requirements are met.\",\n    \"recommendation\": \"Suggestions for evidence guidelines, if Not Met.\"\n  \n  \"Compliance with Standards\": \n    \"condition\": \"Compliance with Standards\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether document shows compliance.\",\n    \"recommendation\": \"Compliance additions, if Not Met.\"\n  \n  \"Qualification-Specific Requirements\": \n    \"condition\": \"Qualification-Specific Requirements\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of alignment with qualification specifics.\",\n    \"recommendation\": \"Suggestions for industry-specific requirements, if Not Met.\"\n  \n  \"Feedback and Review Procedures\": \n    \"condition\": \"Feedback and Review Procedures\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of feedback process clarity.\",\n    \"recommendation\": \"Suggestions for review guidelines, if Not Met.\"\n\nWhen asessing be very lenient, if the content is close enough to the requirement mark it as met. \n### Return only the structure do not provide any other recommendations.\n\n"
+          },
+          "promptType": "define",
+          "text": "={{ $json.text }}"
+        },
+        "position": [
+          -256,
+          32
+        ],
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.2
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "9894e792-a1ce-423b-90c7-a6e8ec4c8fcd",
+        "name": "OpenAI Chat Model2",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-3.5-turbo",
+            "mode": "list",
+            "value": "gpt-3.5-turbo"
+          },
+          "options": {}
+        },
+        "position": [
+          -400,
+          240
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "credentials": {
+          "pineconeApi": {
+            "id": "yelFxS1GAveaGbaN",
+            "name": "PineconeApi Starter"
+          }
+        },
+        "id": "5394551a-bd0f-4bed-a93f-4688a3eae6e9",
+        "name": "Pinecone Vector Store",
+        "parameters": {
+          "mode": "retrieve-as-tool",
+          "options": {
+            "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+          },
+          "pineconeIndex": {
+            "__rl": true,
+            "cachedResultName": "smartrto",
+            "mode": "list",
+            "value": "smartrto"
+          },
+          "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+        },
+        "position": [
+          -240,
+          288
+        ],
+        "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "32f477b2-fe80-497a-9467-a7f78eb5073d",
+        "name": "Embeddings OpenAI",
+        "parameters": {
+          "model": "text-embedding-ada-002",
+          "options": {}
+        },
+        "position": [
+          -256,
+          480
+        ],
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "1a511dfa-ec70-412a-9195-11fa79db5c73",
+        "name": "Structured Output Parser",
+        "parameters": {
+          "autoFix": true,
+          "jsonSchemaExample": "{\n  \"Assessment Environment\": {\n    \"condition\": \"Assessment Environment\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The skills are required to be demonstrated in a regulated children's education and care service in Australia, specifically stating real-world conditions.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Necessary Resources\": {\n    \"condition\": \"Necessary Resources\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The document lists necessary resources such as curriculum documentation, resources for creativity, information technology, and the National Quality Framework.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Supervision and Observation Requirements\": {\n    \"condition\": \"Supervision and Observation Requirements\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The document specifies that interactions with children must be supervised by an approved early childhood educator and includes assessor qualifications.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Supplemental Evidence\": {\n    \"condition\": \"Supplemental Evidence\",\n    \"status\": \"Met\",\n    \"reasoning\": \"Additional evidence such as third-party reports is required and must be supplemented by other evidence.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Compliance with Standards\": {\n    \"condition\": \"Compliance with Standards\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The document aligns with the Standards for Registered Training Organisations and the National Quality Framework.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Qualification-Specific Requirements\": {\n    \"condition\": \"Qualification-Specific Requirements\",\n    \"status\": \"Met\",\n    \"reasoning\": \"Conditions are specific to early childhood education, requiring demonstration in a regulated service with relevant frameworks.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Feedback and Review Procedures\": {\n    \"condition\": \"Feedback and Review Procedures\",\n    \"status\": \"Not Met\",\n    \"reasoning\": \"The document does not clearly outline the process for feedback and review.\",\n    \"recommendation\": \"Provide clear timelines and guidelines for feedback and review.\"\n  }\n}"
+        },
+        "position": [
+          48,
+          240
+        ],
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "3ebcb50a-e68f-4587-ae55-cd1d2828980d",
+        "name": "OpenAI Chat Model3",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1-mini"
+          },
+          "options": {}
+        },
+        "position": [
+          256,
+          432
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "95033068-77c0-4468-aa8d-0eb1425087cf",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          -1088,
+          48
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "5b2925d9-17ee-44cb-8e83-82443d68a89a",
+        "name": "Update a row",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "COMPLETE"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "matchType": "allFilters",
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          992,
+          32
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "be826c84-6d61-47e9-9ae5-c79ea77a27d3",
+        "name": "Update a row1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "PROCESSING"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "matchType": "allFilters",
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -848,
+          48
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2025-11-28T18:15:14.136Z",
+    "versionId": "f446bdd7-19ed-44df-a716-ac5c6a5ecaf0",
+    "workflowId": "3ST5YKXo5zwppmL4",
+    "workflowPublishHistory": []
+  },
+  "activeVersionId": "f446bdd7-19ed-44df-a716-ac5c6a5ecaf0",
+  "connections": {
+    "ACValidationsSupabase": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Split Out",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "ACValidationsSupabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row1",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-10-13T00:00:44.922Z",
+  "description": null,
+  "id": "3ST5YKXo5zwppmL4",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SimpleACValidateUnit",
+  "nodes": [
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "f3c0355a-ca4c-49e5-9920-11cd782fa015",
+      "name": "ACValidationsSupabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "ac_point",
+              "fieldValue": "={{ $json.output.condition }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.output.status }}"
+            },
+            {
+              "fieldId": "reasoning",
+              "fieldValue": "={{ $json.output.reasoning }}"
+            },
+            {
+              "fieldId": "valDetail_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+            },
+            {
+              "fieldId": "recommendation",
+              "fieldValue": "={{ $json.output.recommendation }}"
+            }
+          ]
+        },
+        "tableId": "assessment_conditions_validations"
+      },
+      "position": [
+        688,
+        32
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "6d566e31-4544-424a-8786-e37eff12345d",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "f68aa6e6-b58a-4f1d-bf83-d38cad35c92d"
+      },
+      "position": [
+        -992,
+        -128
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "f68aa6e6-b58a-4f1d-bf83-d38cad35c92d"
+    },
+    {
+      "id": "e59f4de1-f276-4bca-9759-273165d20909",
+      "name": "Basic LLM Chain",
+      "parameters": {
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Rewrite the list of assessment conditions provided, ensuring that each point retains the original context, meaning, and any essential details. Use clear, simple language, adjusting verbs or words to simplify without losing meaning. Remove all unnecessary symbols, special characters, and formatting, such as newline characters, so the output is suitable for passing to an HTTP POST method. Return only a single string containing the updated conditions with each point separated by a space."
+            }
+          ]
+        },
+        "promptType": "define",
+        "text": "={{ $json.requirement }}"
+      },
+      "position": [
+        -608,
+        32
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "b33a0dae-880a-44d1-ac41-661ba4ed5aa7",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {}
+      },
+      "position": [
+        -656,
+        272
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1
+    },
+    {
+      "id": "94a3fe7c-6bb6-4781-98ea-e39055204816",
+      "name": "Split Out",
+      "parameters": {
+        "fieldToSplitOut": "output",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "position": [
+        384,
+        32
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "id": "b5086a0b-d40c-4b47-bbcd-0a787ed3c57b",
+      "name": "AI Agent",
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Using the provided Assessment Conditions, review the unit document to validate its alignment with each of the conditions below. Each response must strictly follow the JSON structure, with specific status indicators and recommendations if the condition is unmet.\n\nIf a condition is marked \"Not Met,\" provide detailed reasoning, including why the document fails to meet the condition and what specific issues need to be addressed.\n\nAssessment Conditions to Validate:\nAssessment Environment\n\nCheck: Verify if the document specifies whether skills should be demonstrated in a real or simulated workplace environment, and if it reflects real-world industry conditions.\nStatus: Indicate “Met” or “Not Met.”\nReasoning: For \"Not Met,\" explain why the condition fails, such as missing details about the environment, ambiguity about simulation standards, or lack of alignment with industry conditions.\nRecommendation: If \"Not Met,\" suggest improvements (e.g., clarifying the environment or industry conditions). Otherwise, state \"n/a\".\nNecessary Resources\n\nCheck: Ensure all required tools, equipment, and materials are explicitly listed.\nStatus: Mark “Met” or “Not Met.”\nReasoning: For \"Not Met,\" detail what resources are missing, if any resources are outdated or inadequate, or if there is a lack of specificity (e.g., not listing specific tools or industry-standard equipment).\nRecommendation: If \"Not Met,\" specify missing resources (e.g., industry-standard tools or technology). Otherwise, state \"n/a\".\nSupervision and Observation Requirements\n\nCheck: Confirm that a qualified assessor’s role in supervision is specified and whether third-party supervisors are allowed, including qualifications if applicable.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" explain the gaps, such as the absence of assessor qualifications, lack of clarity on third-party supervisor roles, or missing guidelines for assessor responsibilities.\nRecommendation: If \"Not Met,\" suggest including qualifications for assessors and third-party supervisors. Otherwise, state \"n/a\".\nSupplemental Evidence\n\nCheck: Confirm if additional evidence (e.g., third-party reports, journals) is required for competency.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" provide specific reasons, such as a lack of guidelines on required supplemental evidence or missing types of third-party reports.\nRecommendation: If \"Not Met,\" recommend guidelines for third-party evidence collection and validation. Otherwise, state \"n/a\".\nCompliance with Standards (ASQA, NQF)\n\nCheck: Validate alignment with ASQA, NQF, or other relevant standards.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" explain if specific standards are missing, if the document is outdated in regulatory compliance, or if it lacks required references to ASQA or NQF standards.\nRecommendation: If \"Not Met,\" suggest adding compliance references to relevant standards. Otherwise, state \"n/a\".\nQualification-Specific Requirements\n\nCheck: Ensure assessment conditions are tailored to the qualification (e.g., healthcare, construction).\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" describe the misalignment, such as general content that doesn’t meet qualification-specific needs, or if the document lacks consideration of industry-specific requirements.\nRecommendation: If \"Not Met,\" suggest adjustments for industry-specific needs. Otherwise, state \"n/a\".\n\nFeedback and Review Procedures\n\nCheck: Verify if there is a clear process for feedback and review.\nStatus: “Met” or “Not Met.”\nReasoning: For \"Not Met,\" specify missing elements, such as lack of review timelines, absence of clear feedback protocols, or a lack of alignment with practical assessment timelines.\nRecommendation: If \"Not Met,\" suggest providing timelines or clear review guidelines. Otherwise, state \"n/a\".\n\n\nReturn in JSON Format:\nReturn the result in the following JSON structure, with specific reasoning and recommendations only when conditions are unmet. Avoid adding any extra information outside of this JSON structure.\n\n### Example JSON structure\n\"Assessment Environment\": \n    \"condition\": \"Assessment Environment\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether the condition is met or not based on the document.\",\n    \"recommendation\": \"Specific action to address any gap, if Not Met.\"\n  \n  \"Necessary Resources\": \n    \"condition\": \"Necessary Resources\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether resources are adequately listed.\",\n    \"recommendation\": \"Specific resources to add, if Not Met.\"\n  \n  \"Supervision and Observation Requirements\": \n    \"condition\": \"Supervision and Observation Requirements\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether supervision requirements are specified.\",\n    \"recommendation\": \"Suggestions for qualifications of assessors, if Not Met.\"\n  \n  \"Supplemental Evidence\": \n    \"condition\": \"Supplemental Evidence\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether additional evidence requirements are met.\",\n    \"recommendation\": \"Suggestions for evidence guidelines, if Not Met.\"\n  \n  \"Compliance with Standards\": \n    \"condition\": \"Compliance with Standards\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of whether document shows compliance.\",\n    \"recommendation\": \"Compliance additions, if Not Met.\"\n  \n  \"Qualification-Specific Requirements\": \n    \"condition\": \"Qualification-Specific Requirements\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of alignment with qualification specifics.\",\n    \"recommendation\": \"Suggestions for industry-specific requirements, if Not Met.\"\n  \n  \"Feedback and Review Procedures\": \n    \"condition\": \"Feedback and Review Procedures\"\n    \"status\": \"Met/Not Met\",\n    \"reasoning\": \"Explanation of feedback process clarity.\",\n    \"recommendation\": \"Suggestions for review guidelines, if Not Met.\"\n\nWhen asessing be very lenient, if the content is close enough to the requirement mark it as met. \n### Return only the structure do not provide any other recommendations.\n\n"
+        },
+        "promptType": "define",
+        "text": "={{ $json.text }}"
+      },
+      "position": [
+        -256,
+        32
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "9894e792-a1ce-423b-90c7-a6e8ec4c8fcd",
+      "name": "OpenAI Chat Model2",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-3.5-turbo",
+          "mode": "list",
+          "value": "gpt-3.5-turbo"
+        },
+        "options": {}
+      },
+      "position": [
+        -400,
+        240
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "5394551a-bd0f-4bed-a93f-4688a3eae6e9",
+      "name": "Pinecone Vector Store",
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "options": {
+          "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "smartrto",
+          "mode": "list",
+          "value": "smartrto"
+        },
+        "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+      },
+      "position": [
+        -240,
+        288
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "32f477b2-fe80-497a-9467-a7f78eb5073d",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "position": [
+        -256,
+        480
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "1a511dfa-ec70-412a-9195-11fa79db5c73",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{\n  \"Assessment Environment\": {\n    \"condition\": \"Assessment Environment\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The skills are required to be demonstrated in a regulated children's education and care service in Australia, specifically stating real-world conditions.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Necessary Resources\": {\n    \"condition\": \"Necessary Resources\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The document lists necessary resources such as curriculum documentation, resources for creativity, information technology, and the National Quality Framework.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Supervision and Observation Requirements\": {\n    \"condition\": \"Supervision and Observation Requirements\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The document specifies that interactions with children must be supervised by an approved early childhood educator and includes assessor qualifications.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Supplemental Evidence\": {\n    \"condition\": \"Supplemental Evidence\",\n    \"status\": \"Met\",\n    \"reasoning\": \"Additional evidence such as third-party reports is required and must be supplemented by other evidence.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Compliance with Standards\": {\n    \"condition\": \"Compliance with Standards\",\n    \"status\": \"Met\",\n    \"reasoning\": \"The document aligns with the Standards for Registered Training Organisations and the National Quality Framework.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Qualification-Specific Requirements\": {\n    \"condition\": \"Qualification-Specific Requirements\",\n    \"status\": \"Met\",\n    \"reasoning\": \"Conditions are specific to early childhood education, requiring demonstration in a regulated service with relevant frameworks.\",\n    \"recommendation\": \"n/a\"\n  },\n  \"Feedback and Review Procedures\": {\n    \"condition\": \"Feedback and Review Procedures\",\n    \"status\": \"Not Met\",\n    \"reasoning\": \"The document does not clearly outline the process for feedback and review.\",\n    \"recommendation\": \"Provide clear timelines and guidelines for feedback and review.\"\n  }\n}"
+      },
+      "position": [
+        48,
+        240
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "3ebcb50a-e68f-4587-ae55-cd1d2828980d",
+      "name": "OpenAI Chat Model3",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        256,
+        432
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "95033068-77c0-4468-aa8d-0eb1425087cf",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -1088,
+        48
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "5b2925d9-17ee-44cb-8e83-82443d68a89a",
+      "name": "Update a row",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "COMPLETE"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "matchType": "allFilters",
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        992,
+        32
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "be826c84-6d61-47e9-9ae5-c79ea77a27d3",
+      "name": "Update a row1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "PROCESSING"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "matchType": "allFilters",
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -848,
+        48
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "requirement": "Mandatory conditions for assessment include:\n\nA safe working or simulated environment\n\nAssessors of this unit must satisfy the assessor requirements in applicable vocational education and training legislation, frameworks and/or standards."
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "35.155.119.178",
+            "cf-ipcountry": "US",
+            "cf-ray": "993dc76d08d65ed8-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "260",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "6ab3a35e-9a73-4129",
+            "true-client-ip": "35.155.119.178",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "35.155.119.178, 172.68.242.25",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1761354047632901"
+          },
+          "params": {},
+          "query": {
+            "pineconeNamespace": "000/single/BSBXTW301/UnitOfCompetency/2025-10-24 06:01/",
+            "unitLink": "https://training.gov.au/training/details/BSBXTW301",
+            "validationDetailId": "294"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/f68aa6e6-b58a-4f1d-bf83-d38cad35c92d"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-13T00:00:44.925Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-13T00:00:44.925Z",
+      "workflowId": "3ST5YKXo5zwppmL4"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-15T02:21:50.000Z",
+  "versionCounter": 4,
+  "versionId": "f446bdd7-19ed-44df-a716-ac5c6a5ecaf0"
+}

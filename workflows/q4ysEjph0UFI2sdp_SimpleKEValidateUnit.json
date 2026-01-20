@@ -1,0 +1,972 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "system migration",
+    "autosaved": false,
+    "connections": {
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Supabase SAVE KE Val",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Embeddings OpenAI": {
+        "ai_embedding": [
+          [
+            {
+              "index": 0,
+              "node": "Pinecone Vector Store",
+              "type": "ai_embedding"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model2": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Pinecone Vector Store": {
+        "ai_tool": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_tool"
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_outputParser"
+            }
+          ]
+        ]
+      },
+      "Supabase SAVE KE Val": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Update a row1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row1",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-11-28T18:15:14.136Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "id": "5bf4f550-cd00-41b2-bea0-942bc6819c28",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "b01bebaf-81d5-48ca-8947-bb87d1834116"
+        },
+        "position": [
+          -1856,
+          -144
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "b01bebaf-81d5-48ca-8947-bb87d1834116"
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "22bbc08a-0bfe-417b-97c3-88329025a37a",
+        "name": "Supabase SAVE KE Val",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "mapped_questions",
+                "fieldValue": "={{ $json.output['Mapped Questions']['Question Number and title'] }}"
+              },
+              {
+                "fieldId": "valDetail_id",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+              },
+              {
+                "fieldId": "smart_question",
+                "fieldValue": "={{ $json.output['SMART Questions']['Question Text'] }}"
+              },
+              {
+                "fieldId": "ke_number",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+              },
+              {
+                "fieldId": "ke_requirement",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+              },
+              {
+                "fieldId": "requirementId",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+              },
+              {
+                "fieldId": "status",
+                "fieldValue": "={{ $json.output.status }}"
+              },
+              {
+                "fieldId": "unmappedContent",
+                "fieldValue": "={{ $json.output['Unmapped Questions'].Explanation }}"
+              },
+              {
+                "fieldId": "unmappedRecommendations",
+                "fieldValue": "={{ $json.output['Unmapped Questions'].Recommendations }}"
+              },
+              {
+                "fieldId": "benchmarkAnswer",
+                "fieldValue": "={{ $json.output['SMART Questions']['Benchmark Answer'] }}"
+              },
+              {
+                "fieldId": "docReferences",
+                "fieldValue": "={{ $json.output['Document and Pages'] }}"
+              }
+            ]
+          },
+          "tableId": "knowledge_evidence_validations"
+        },
+        "position": [
+          -496,
+          32
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "f7a8ae4e-ad19-46f5-8d37-1e3a90ef5411",
+        "name": "AI Agent",
+        "parameters": {
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "=You are tasked with gathering and validating information from the Document Store to create a JSON response mapping knowledge points to assessment questions. Follow these streamlined steps:\n\n1. Locate Matching Assessment Questions\n\n- Search the document(s) for assessment questions that directly align with the Knowledge Evidence Requirement.\n- For each relevant match, include:\n  - Page Number\n  - Document name\n  - Section name\n  - Question Number: The specific reference number (e.g., Question 1, Question 3).\n  - Exact Question Text: The full text of the question as written.\n- If multiple questions align, list all relevant matches using the same format.\n\n2. Mark Gaps (Unmapped Content) — Only if Necessary\n\n- Include \"Unmapped Content\" only if no questions fully align with the Knowledge Evidence Requirement.\n- If gaps exist:\n  - Status: Set to \"Not Met\" or \"Partially Met\".\n  - Explanation: Briefly explain why the requirement was not fully addressed.\n  - Recommendation: Suggest a question or adjustment that would address the gap.\n\n3. Generate High-Quality Assessment Questions and Benchmark Answers\n\nTo ensure questions are purposeful and well-formulated, generate a new question that address the entire Knowledge Evidence Requirement. The question should be designed based on the specific assessment purpose, using the appropriate verbs and phrasing as outlined in the table below.\n\nAssessment Categories and Guidelines:\n\nCategory: Concept Understanding\nPurpose: To assess understanding of core concepts, ideas, and reasoning.\nCommon Verbs: explain, describe, outline, summarise, discuss, identify, clarify\n\nCategory: Definitions & Terminology\nPurpose: To confirm understanding of key terms and vocabulary.\nCommon Verbs: define, identify, list, state, explain meaning of\n\nCategory: Processes & Procedures\nPurpose: To ensure learners can describe and explain relevant processes.\nCommon Verbs: describe, outline, explain, identify steps, summarise process\n\nCategory: Regulatory & Legislative\nPurpose: To verify awareness of laws, standards, and frameworks.\nCommon Verbs: identify, outline, describe, explain, summarise application of\n\nCategory: Safety and WHS\nPurpose: To ensure understanding of WHS obligations, hazards, and risks.\nCommon Verbs: explain, describe, outline, identify, discuss, summarise\n\nCategory: Environmental and Sustainability Awareness\nPurpose: To assess awareness of environmental responsibilities and sustainability principles.\nCommon Verbs: explain, describe, discuss, outline, identify, summarise\n\nCategory: Roles & Responsibilities\nPurpose: To confirm understanding of one's own role, duties, and limits.\nCommon Verbs: explain, describe, outline, identify, discuss, state responsibilities\n\nCategory: Workplace Policies and Documentation\nPurpose: To check knowledge of organisational documents, procedures, and reporting requirements.\nCommon Verbs: describe, explain, identify, summarise, outline, discuss purpose of documentation\n\nCategory: Problem Solving & Scenarios\nPurpose: To assess theoretical problem-solving and responses to scenarios.\nCommon Verbs: explain, describe, outline, discuss, identify steps, suggest approach\n\nCategory: Customer and Communication Knowledge\nPurpose: To evaluate knowledge of communication techniques and customer service expectations.\nCommon Verbs: describe, explain, outline, identify, discuss, summarise\n\nCategory: Quality and Continuous Improvement\nPurpose: To assess knowledge of quality assurance systems and methods of continuous improvement.\nCommon Verbs: explain, describe, discuss, outline, identify benefits, summarise methods\n\nCategory: Technology and Equipment Knowledge\nPurpose: To verify knowledge of workplace technology, tools, and equipment operation standards.\nCommon Verbs: describe, explain, identify, outline, discuss purpose, summarise features\n\nCategory: Cultural and Ethical Awareness\nPurpose: To confirm understanding of cultural diversity, ethics, inclusion, and respectful behaviour.\nCommon Verbs: describe, explain, discuss, identify, outline principles, summarise\n\nCategory: Industry Knowledge and Trends\nPurpose: To demonstrate knowledge of industry context, emerging trends, and standards.\nCommon Verbs: describe, explain, discuss, identify, summarise industry context\n\n- Generated Question: A question that addresses the entire Knowledge Evidence Requirement, using the appropriate category and verbs from the table. Also generate a second, multiple-choice question.\n- Benchmark Answer: Provide the expected learner response for the generated questions.\n\n4. Assign Status\n\n- For each Knowledge Evidence Requirement, it is mandatory to assign one of the following statuses:\n  - Met: Fully mapped to one or more questions.\n  - Partially Met: Some alignment exists, but gaps remain.\n  - Not Met: No matching questions were found.\n\nUpdated Output Format\n\n\n  \"Knowledge Evidence Requirement\": \"Insert the exact Knowledge Evidence Requirement here.\",\n  \"Status\": \"Met / Not Met / Partially Met\",\n  \"Document and Pages\": \"CHCECE056.pdf: Section1, Page 6, 7\",\n  \"Mapped Questions\": [\n    \n      \"Question Number\": 1,\n      \"Exact Question Text\": \"Insert the full question text here.\"\n    ,\n    \n      \"Question Number\": 3,\n      \"Exact Question Text\": \"Insert the full question text here.\"\n    \n  ],\n  \"Generated Question\": \n    \"Question Text\": \"Insert generated question here that addresses the full Knowledge Evidence Requirement, using the new guidelines.\",\n    \"Benchmark Answer\": \"Insert the benchmark answer here that fully meets the requirement.\"\n  ,\n  \"Unmapped Content\": [\n    \n      \"Knowledge Evidence Requirement\": \"Insert text of unmapped requirement here.\",\n      \"Explanation\": \"Brief explanation of why no relevant question aligns.\",\n      \"Recommendation\": \"Suggest a question that directly addresses the Knowledge Evidence Requirement.\"\n    \n  ]\n\n\nExample Output (Partially Met Scenario)\n\n\n  \"Knowledge Evidence Requirement\": \"Describe the purpose and components of the National Quality Framework (NQF).\",\n  \"Status\": \"Partially Met\",\n  \"Mapped Questions\": [\n    \n      \"Question Number\": 1,\n      \"Exact Question Text\": \"Explain the purpose of the National Quality Framework.\"\n    \n  ],\n  \"Generated Question\": \n    \"Question Text\": \"(Concept Understanding) Describe the key components of the National Quality Framework and explain their importance in education and care settings.\",\n    \"Benchmark Answer\": \"The NQF includes the National Law, Regulations, National Quality Standard, and learning frameworks. Its purpose is to ensure consistent, high-quality education and care for children across Australia.\"\n  ,\n  \"Unmapped Content\": [\n    \n      \"Knowledge Evidence Requirement\": \"Describe the components of the National Quality Framework.\",\n      \"Explanation\": \"The provided questions do not cover the 'components' aspect of the requirement.\",\n      \"Recommendation\": \"Create a question asking learners to identify and explain the components of the NQF.\"\n    \n  ]\n\n\nNote: When assessing, be very lenient. If the content is close enough to the requirement, mark it as met."
+          },
+          "promptType": "define",
+          "text": "={{ $json.requirement }}"
+        },
+        "position": [
+          -1088,
+          32
+        ],
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.2
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "debc822d-f306-4d49-8487-53f5c13924f3",
+        "name": "OpenAI Chat Model1",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-3.5-turbo",
+            "mode": "list",
+            "value": "gpt-3.5-turbo"
+          },
+          "options": {}
+        },
+        "position": [
+          -1264,
+          304
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "credentials": {
+          "pineconeApi": {
+            "id": "yelFxS1GAveaGbaN",
+            "name": "PineconeApi Starter"
+          }
+        },
+        "id": "c59f8d00-bbc6-473d-8893-cf4343b41ae3",
+        "name": "Pinecone Vector Store",
+        "parameters": {
+          "mode": "retrieve-as-tool",
+          "options": {
+            "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+          },
+          "pineconeIndex": {
+            "__rl": true,
+            "cachedResultName": "smartrto",
+            "mode": "list",
+            "value": "smartrto"
+          },
+          "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+        },
+        "position": [
+          -960,
+          256
+        ],
+        "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "cb4cbc33-e2bc-4b6d-8597-491a6dcba3e3",
+        "name": "Embeddings OpenAI",
+        "parameters": {
+          "model": "text-embedding-ada-002",
+          "options": {}
+        },
+        "position": [
+          -944,
+          448
+        ],
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "c863f0d6-bb43-4cd8-bcba-37e33a6b414c",
+        "name": "Structured Output Parser",
+        "parameters": {
+          "autoFix": true,
+          "jsonSchemaExample": "{  \"Knowledge Evidence Requirement\": \"Role characteristics, boundaries, and responsibilities for key job roles in children’s education and care in early childhood.\",  \"status\": \"Met\",  \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\",   \"Mapped Questions\":   {     \"Question Number and title\": \"The rights and responsibilities of your own role in children’s education and care\",      \"Reasoning\": \"This section outlines the specific rights and responsibilities tied to key job roles in early childhood education and care, directly meeting the requirement.\"    },  \"SMART Questions\":    {      \"Question Text\": \"What are the key responsibilities and boundaries you must adhere to in your role as an educator in early childhood education and care?\",      \"Benchmark Answer\": \"Key responsibilities include ensuring the safety and well-being of children, implementing educational activities, and maintaining communication with parents. Boundaries involve adhering to organizational policies, respecting personal and professional limits, and maintaining confidentiality.\"    }  ,\"Unmapped Questions\": { \"Explanation\": \"No relevant theoretical or assessment questions focusing specifically on personal presentation and uniform standards were found in the provided documents.\", \"Recommendations\": \"It is recommended to develop specific questions or training modules that address personal presentation and uniform standards, incorporating these into existing service policies and procedures training materials.\" }}"
+        },
+        "position": [
+          -672,
+          224
+        ],
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "c39e16c5-c70e-488c-a083-8368663d68d4",
+        "name": "OpenAI Chat Model2",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1-mini"
+          },
+          "options": {}
+        },
+        "position": [
+          -656,
+          528
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "3f4ab002-b5ad-4f0e-bd6c-0aba832980e4",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          -1824,
+          48
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "7fe69bf1-c0a1-440e-a3bf-33c607e10f15",
+        "name": "Update a row",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "COMPLETE"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -128,
+          32
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "3db6d21d-0f81-4f83-9ac7-ce463267787e",
+        "name": "Update a row1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "PROCESSING"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -1488,
+          48
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2025-11-28T18:15:14.136Z",
+    "versionId": "81576154-3f34-442e-97b8-499b654d70e0",
+    "workflowId": "q4ysEjph0UFI2sdp",
+    "workflowPublishHistory": []
+  },
+  "activeVersionId": "81576154-3f34-442e-97b8-499b654d70e0",
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Supabase SAVE KE Val",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Supabase SAVE KE Val": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row1",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-10-12T21:00:02.902Z",
+  "description": null,
+  "id": "q4ysEjph0UFI2sdp",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SimpleKEValidateUnit",
+  "nodes": [
+    {
+      "id": "5bf4f550-cd00-41b2-bea0-942bc6819c28",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "b01bebaf-81d5-48ca-8947-bb87d1834116"
+      },
+      "position": [
+        -1856,
+        -144
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "b01bebaf-81d5-48ca-8947-bb87d1834116"
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "22bbc08a-0bfe-417b-97c3-88329025a37a",
+      "name": "Supabase SAVE KE Val",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "mapped_questions",
+              "fieldValue": "={{ $json.output['Mapped Questions']['Question Number and title'] }}"
+            },
+            {
+              "fieldId": "valDetail_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+            },
+            {
+              "fieldId": "smart_question",
+              "fieldValue": "={{ $json.output['SMART Questions']['Question Text'] }}"
+            },
+            {
+              "fieldId": "ke_number",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+            },
+            {
+              "fieldId": "ke_requirement",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+            },
+            {
+              "fieldId": "requirementId",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.output.status }}"
+            },
+            {
+              "fieldId": "unmappedContent",
+              "fieldValue": "={{ $json.output['Unmapped Questions'].Explanation }}"
+            },
+            {
+              "fieldId": "unmappedRecommendations",
+              "fieldValue": "={{ $json.output['Unmapped Questions'].Recommendations }}"
+            },
+            {
+              "fieldId": "benchmarkAnswer",
+              "fieldValue": "={{ $json.output['SMART Questions']['Benchmark Answer'] }}"
+            },
+            {
+              "fieldId": "docReferences",
+              "fieldValue": "={{ $json.output['Document and Pages'] }}"
+            }
+          ]
+        },
+        "tableId": "knowledge_evidence_validations"
+      },
+      "position": [
+        -496,
+        32
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "f7a8ae4e-ad19-46f5-8d37-1e3a90ef5411",
+      "name": "AI Agent",
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are tasked with gathering and validating information from the Document Store to create a JSON response mapping knowledge points to assessment questions. Follow these streamlined steps:\n\n1. Locate Matching Assessment Questions\n\n- Search the document(s) for assessment questions that directly align with the Knowledge Evidence Requirement.\n- For each relevant match, include:\n  - Page Number\n  - Document name\n  - Section name\n  - Question Number: The specific reference number (e.g., Question 1, Question 3).\n  - Exact Question Text: The full text of the question as written.\n- If multiple questions align, list all relevant matches using the same format.\n\n2. Mark Gaps (Unmapped Content) — Only if Necessary\n\n- Include \"Unmapped Content\" only if no questions fully align with the Knowledge Evidence Requirement.\n- If gaps exist:\n  - Status: Set to \"Not Met\" or \"Partially Met\".\n  - Explanation: Briefly explain why the requirement was not fully addressed.\n  - Recommendation: Suggest a question or adjustment that would address the gap.\n\n3. Generate High-Quality Assessment Questions and Benchmark Answers\n\nTo ensure questions are purposeful and well-formulated, generate a new question that address the entire Knowledge Evidence Requirement. The question should be designed based on the specific assessment purpose, using the appropriate verbs and phrasing as outlined in the table below.\n\nAssessment Categories and Guidelines:\n\nCategory: Concept Understanding\nPurpose: To assess understanding of core concepts, ideas, and reasoning.\nCommon Verbs: explain, describe, outline, summarise, discuss, identify, clarify\n\nCategory: Definitions & Terminology\nPurpose: To confirm understanding of key terms and vocabulary.\nCommon Verbs: define, identify, list, state, explain meaning of\n\nCategory: Processes & Procedures\nPurpose: To ensure learners can describe and explain relevant processes.\nCommon Verbs: describe, outline, explain, identify steps, summarise process\n\nCategory: Regulatory & Legislative\nPurpose: To verify awareness of laws, standards, and frameworks.\nCommon Verbs: identify, outline, describe, explain, summarise application of\n\nCategory: Safety and WHS\nPurpose: To ensure understanding of WHS obligations, hazards, and risks.\nCommon Verbs: explain, describe, outline, identify, discuss, summarise\n\nCategory: Environmental and Sustainability Awareness\nPurpose: To assess awareness of environmental responsibilities and sustainability principles.\nCommon Verbs: explain, describe, discuss, outline, identify, summarise\n\nCategory: Roles & Responsibilities\nPurpose: To confirm understanding of one's own role, duties, and limits.\nCommon Verbs: explain, describe, outline, identify, discuss, state responsibilities\n\nCategory: Workplace Policies and Documentation\nPurpose: To check knowledge of organisational documents, procedures, and reporting requirements.\nCommon Verbs: describe, explain, identify, summarise, outline, discuss purpose of documentation\n\nCategory: Problem Solving & Scenarios\nPurpose: To assess theoretical problem-solving and responses to scenarios.\nCommon Verbs: explain, describe, outline, discuss, identify steps, suggest approach\n\nCategory: Customer and Communication Knowledge\nPurpose: To evaluate knowledge of communication techniques and customer service expectations.\nCommon Verbs: describe, explain, outline, identify, discuss, summarise\n\nCategory: Quality and Continuous Improvement\nPurpose: To assess knowledge of quality assurance systems and methods of continuous improvement.\nCommon Verbs: explain, describe, discuss, outline, identify benefits, summarise methods\n\nCategory: Technology and Equipment Knowledge\nPurpose: To verify knowledge of workplace technology, tools, and equipment operation standards.\nCommon Verbs: describe, explain, identify, outline, discuss purpose, summarise features\n\nCategory: Cultural and Ethical Awareness\nPurpose: To confirm understanding of cultural diversity, ethics, inclusion, and respectful behaviour.\nCommon Verbs: describe, explain, discuss, identify, outline principles, summarise\n\nCategory: Industry Knowledge and Trends\nPurpose: To demonstrate knowledge of industry context, emerging trends, and standards.\nCommon Verbs: describe, explain, discuss, identify, summarise industry context\n\n- Generated Question: A question that addresses the entire Knowledge Evidence Requirement, using the appropriate category and verbs from the table. Also generate a second, multiple-choice question.\n- Benchmark Answer: Provide the expected learner response for the generated questions.\n\n4. Assign Status\n\n- For each Knowledge Evidence Requirement, it is mandatory to assign one of the following statuses:\n  - Met: Fully mapped to one or more questions.\n  - Partially Met: Some alignment exists, but gaps remain.\n  - Not Met: No matching questions were found.\n\nUpdated Output Format\n\n\n  \"Knowledge Evidence Requirement\": \"Insert the exact Knowledge Evidence Requirement here.\",\n  \"Status\": \"Met / Not Met / Partially Met\",\n  \"Document and Pages\": \"CHCECE056.pdf: Section1, Page 6, 7\",\n  \"Mapped Questions\": [\n    \n      \"Question Number\": 1,\n      \"Exact Question Text\": \"Insert the full question text here.\"\n    ,\n    \n      \"Question Number\": 3,\n      \"Exact Question Text\": \"Insert the full question text here.\"\n    \n  ],\n  \"Generated Question\": \n    \"Question Text\": \"Insert generated question here that addresses the full Knowledge Evidence Requirement, using the new guidelines.\",\n    \"Benchmark Answer\": \"Insert the benchmark answer here that fully meets the requirement.\"\n  ,\n  \"Unmapped Content\": [\n    \n      \"Knowledge Evidence Requirement\": \"Insert text of unmapped requirement here.\",\n      \"Explanation\": \"Brief explanation of why no relevant question aligns.\",\n      \"Recommendation\": \"Suggest a question that directly addresses the Knowledge Evidence Requirement.\"\n    \n  ]\n\n\nExample Output (Partially Met Scenario)\n\n\n  \"Knowledge Evidence Requirement\": \"Describe the purpose and components of the National Quality Framework (NQF).\",\n  \"Status\": \"Partially Met\",\n  \"Mapped Questions\": [\n    \n      \"Question Number\": 1,\n      \"Exact Question Text\": \"Explain the purpose of the National Quality Framework.\"\n    \n  ],\n  \"Generated Question\": \n    \"Question Text\": \"(Concept Understanding) Describe the key components of the National Quality Framework and explain their importance in education and care settings.\",\n    \"Benchmark Answer\": \"The NQF includes the National Law, Regulations, National Quality Standard, and learning frameworks. Its purpose is to ensure consistent, high-quality education and care for children across Australia.\"\n  ,\n  \"Unmapped Content\": [\n    \n      \"Knowledge Evidence Requirement\": \"Describe the components of the National Quality Framework.\",\n      \"Explanation\": \"The provided questions do not cover the 'components' aspect of the requirement.\",\n      \"Recommendation\": \"Create a question asking learners to identify and explain the components of the NQF.\"\n    \n  ]\n\n\nNote: When assessing, be very lenient. If the content is close enough to the requirement, mark it as met."
+        },
+        "promptType": "define",
+        "text": "={{ $json.requirement }}"
+      },
+      "position": [
+        -1088,
+        32
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "debc822d-f306-4d49-8487-53f5c13924f3",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-3.5-turbo",
+          "mode": "list",
+          "value": "gpt-3.5-turbo"
+        },
+        "options": {}
+      },
+      "position": [
+        -1264,
+        304
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "c59f8d00-bbc6-473d-8893-cf4343b41ae3",
+      "name": "Pinecone Vector Store",
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "options": {
+          "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "smartrto",
+          "mode": "list",
+          "value": "smartrto"
+        },
+        "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+      },
+      "position": [
+        -960,
+        256
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "cb4cbc33-e2bc-4b6d-8597-491a6dcba3e3",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "position": [
+        -944,
+        448
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "c863f0d6-bb43-4cd8-bcba-37e33a6b414c",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{  \"Knowledge Evidence Requirement\": \"Role characteristics, boundaries, and responsibilities for key job roles in children’s education and care in early childhood.\",  \"status\": \"Met\",  \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\",   \"Mapped Questions\":   {     \"Question Number and title\": \"The rights and responsibilities of your own role in children’s education and care\",      \"Reasoning\": \"This section outlines the specific rights and responsibilities tied to key job roles in early childhood education and care, directly meeting the requirement.\"    },  \"SMART Questions\":    {      \"Question Text\": \"What are the key responsibilities and boundaries you must adhere to in your role as an educator in early childhood education and care?\",      \"Benchmark Answer\": \"Key responsibilities include ensuring the safety and well-being of children, implementing educational activities, and maintaining communication with parents. Boundaries involve adhering to organizational policies, respecting personal and professional limits, and maintaining confidentiality.\"    }  ,\"Unmapped Questions\": { \"Explanation\": \"No relevant theoretical or assessment questions focusing specifically on personal presentation and uniform standards were found in the provided documents.\", \"Recommendations\": \"It is recommended to develop specific questions or training modules that address personal presentation and uniform standards, incorporating these into existing service policies and procedures training materials.\" }}"
+      },
+      "position": [
+        -672,
+        224
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "c39e16c5-c70e-488c-a083-8368663d68d4",
+      "name": "OpenAI Chat Model2",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        -656,
+        528
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "3f4ab002-b5ad-4f0e-bd6c-0aba832980e4",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -1824,
+        48
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "7fe69bf1-c0a1-440e-a3bf-33c607e10f15",
+      "name": "Update a row",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "COMPLETE"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -128,
+        32
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "3db6d21d-0f81-4f83-9ac7-ce463267787e",
+      "name": "Update a row1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "PROCESSING"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -1488,
+        48
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "overrideConfig": {
+              "pineconeNamespace": "41497/SHB30416/SHBHCLS002/UNIT/"
+            },
+            "question": "work health and safety for providing hair colouring treatments, with particular emphasis on: using correct posture and adjusting height of client chair to avoid fatigue and injury"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "35.155.119.178",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "US",
+            "cf-ray": "902cea8be03b2f2b-PDX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "onrender.com",
+            "content-length": "267",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "17d804a2-794f-4bf3",
+            "true-client-ip": "35.155.119.178",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "35.155.119.178, 172.69.165.43",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1737018037216080"
+          },
+          "params": {},
+          "query": {
+            "ke_number": "KE 14.3",
+            "pineconeNamespace": "41497/SHB30416/SHBHCLS002/UNIT/",
+            "requirementID": "793",
+            "unitLink": "https://training.gov.au/training/details/SHBHCLS002",
+            "validationDetailId": "209"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/6f7fc653-660c-4ff5-9a2e-c319e511c81e"
+        }
+      }
+    ],
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "asessementcondition": null,
+          "asessementinstruction": null,
+          "created_at": "2025-11-06T08:37:28.215117+00:00",
+          "detid": 294,
+          "element": null,
+          "id": 961,
+          "namespace_code": "000/single/BSBXTW301/UnitOfCompetency/2025-10-24 06:01/",
+          "number": "KE 5",
+          "reqid": 1536,
+          "requirement": "key principles of cross-cultural communication and communication with individuals with special needs or disabilities",
+          "status": "READY",
+          "summary_id": null,
+          "type": "KE",
+          "unit_url": "https://training.gov.au/training/details/BSBXTW301/unitdetails",
+          "updated_at": null
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-12T21:00:02.905Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-12T21:00:02.905Z",
+      "workflowId": "q4ysEjph0UFI2sdp"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-13T18:37:49.000Z",
+  "versionCounter": 4,
+  "versionId": "81576154-3f34-442e-97b8-499b654d70e0"
+}

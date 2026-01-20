@@ -1,0 +1,679 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Kevin Dyer",
+    "autosaved": false,
+    "connections": {
+      "Build Gemini Request": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Call Gemini Smart Questions API",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Call Gemini Smart Questions API": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Extract Smart Questions",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Extract Smart Questions": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Respond to Webhook",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Fetch Smart Question Prompt": {
+        "main": [
+          [
+            {
+              "index": 1,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Fetch Validation Documents": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Prepare Smart Question Context",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Prepare Smart Question Context": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Build Gemini Request",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook - Smart Questions Input": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Fetch Validation Documents",
+              "type": "main"
+            },
+            {
+              "index": 0,
+              "node": "Fetch Smart Question Prompt",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-12-06T10:00:06.316Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "id": "dba9e7d3-f7f3-4d99-b20f-40aa72b4633f",
+        "name": "Webhook - Smart Questions Input",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {
+            "allowedOrigins": "*"
+          },
+          "path": "smart-questions",
+          "responseMode": "responseNode"
+        },
+        "position": [
+          -208,
+          112
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1.1,
+        "webhookId": "smart-questions-webhook"
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "postgres": {
+            "id": "jkimYLj5JZa13Ude",
+            "name": "Supabase Nytro"
+          }
+        },
+        "id": "fc08ca64-b94c-4043-b2d1-c65792d1bb33",
+        "name": "Fetch Validation Documents",
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_detail_id }}' ORDER BY created_at DESC"
+        },
+        "position": [
+          240,
+          0
+        ],
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.4
+      },
+      {
+        "credentials": {
+          "postgres": {
+            "id": "jkimYLj5JZa13Ude",
+            "name": "Supabase Nytro"
+          }
+        },
+        "id": "b4522c64-6196-49f7-83e5-284c9d9ee415",
+        "name": "Fetch Smart Question Prompt",
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "SELECT * FROM prompts WHERE prompt_type = 'smart_question' AND is_active = true AND is_default = true LIMIT 1"
+        },
+        "position": [
+          240,
+          208
+        ],
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.4
+      },
+      {
+        "id": "2afe1ed1-d255-48bc-916b-9dc95825d726",
+        "name": "Prepare Smart Question Context",
+        "parameters": {
+          "jsCode": "// Prepare context for smart question generation\n// This runs once for all items\nconst items = $input.all();\n\n// First item should be the webhook\nconst webhookItem = items[0];\nconst webhookBody = webhookItem.json.body || webhookItem.json;\n\nconsole.log('[Smart Question Context] Processing items:', items.length);\nconsole.log('[Smart Question Context] Webhook body received:', webhookBody);\n\nconst validationDetailId = webhookBody.validation_detail_id;\nconst validationResultId = webhookBody.validation_result_id;\nconst userGuidance = webhookBody.user_guidance || '';\nconst requirementText = webhookBody.requirement_text || '';\nconst existingSmartQuestion = webhookBody.existing_smart_question || '';\n\nif (!validationDetailId) {\n  console.error('[Smart Question Context] Full webhook data:', webhookItem.json);\n  throw new Error('validation_detail_id not found in webhook body');\n}\n\nconsole.log('[Smart Question Context] IDs extracted:', {\n  validationDetailId,\n  validationResultId\n});\n\n// Fetch documents from previous node\nconst documentsNode = $('Fetch Validation Documents').all();\nconst documents = documentsNode && documentsNode.length > 0 \n  ? documentsNode.map(item => item.json) \n  : [];\n\n// Fetch prompt template from previous node\nconst promptNode = $('Fetch Smart Question Prompt').all();\nconst promptTemplate = promptNode && promptNode.length > 0 \n  ? promptNode[0].json \n  : null;\n\n// Build document context\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name}`).join('\\n')}\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string - FOCUSED ON REQUIREMENT\nconst contextString = `\n**GENERATE SMART QUESTION FOR REQUIREMENT**\n────────────────────────────────────────────────────────────────────\n\n**REQUIREMENT TO ASSESS:**\n${requirementText}\n\n${existingSmartQuestion ? `**CURRENT QUESTION:**\n${existingSmartQuestion}\n\n**TASK:** Improve or replace this question.\n` : '**TASK:** Generate a new question for this requirement.'}\n\n${userGuidance ? `**USER GUIDANCE:**\n${userGuidance}\n` : ''}\n\n**INSTRUCTIONS:**\n1. Create ONE question that tests a learner's understanding of this requirement\n2. Provide the benchmark answer - what a competent learner should write\n3. The question should be clear, specific, and directly related to the requirement\n4. The benchmark answer should be concise but complete\n\n${documentContext}\n`;\n\n// Build full prompt\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are an expert assessment designer. Generate one SMART question and benchmark answer for a requirement.';\n\nconst promptText = promptTemplate?.prompt_text || \n  'Generate ONE smart question that tests understanding of this requirement, with the benchmark answer.';\n\nconst fullPrompt = `${contextString}\n\n${promptText}`;\n\nconsole.log('[Smart Question Context] Context prepared successfully');\n\n// Return array with single item for \"Run Once for All Items\" mode\nreturn [{\n  json: {\n    validation_detail_id: validationDetailId,\n    validation_result_id: validationResultId,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents,\n    prompt_template: promptTemplate,\n    user_guidance: userGuidance,\n    requirement_text: requirementText,\n    existing_smart_question: existingSmartQuestion\n  }\n}];"
+        },
+        "position": [
+          992,
+          80
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "1f588641-182a-4482-8eb2-0e39c56c9f38",
+        "name": "Build Gemini Request",
+        "parameters": {
+          "jsCode": "// Build Gemini request for smart question generation\nconst context = $input.item.json;\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\n// Build file parts from documents\nconst fileParts = documents\n  .filter(doc => doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build user prompt\nconst userPrompt = `Based on the attached documents, generate 5-10 intelligent, contextually relevant questions that help users discover and understand critical information within the validation context.\n\nEach question should:\n- Be answerable from the provided documents\n- Be relevant to validation assessment and evidence\n- Have a clear question type (factual, analytical, comparative, inferential, or application)\n- Include a difficulty level (basic, intermediate, or advanced)\n- Specify the focus area (assessment_criteria, evidence, compliance, structure, or findings)\n- List expected document sections where answers can be found\n- Include a rationale explaining why the question is important\n\nReturn the response as a JSON object with a 'questions' array containing the generated questions.`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: context.system_prompt\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,\n        {\n          text: userPrompt\n        }\n      ]\n    }\n  ],\ngenerationConfig: {\n  temperature: 0.8,\n  maxOutputTokens: 2048,  // ✅ Reduced from 4096 to prevent truncation\n  topP: 0.95,\n  topK: 40,\n  responseMimeType: \"application/json\",\n  responseSchema: context.prompt_template.output_schema\n}\n};\n\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest\n  }\n};",
+          "mode": "runOnceForEachItem"
+        },
+        "position": [
+          1376,
+          80
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "credentials": {
+          "googlePalmApi": {
+            "id": "NIZFWdmjDBYpgwmS",
+            "name": "Google Gemini(PaLM) Api account 2"
+          }
+        },
+        "id": "d5bb86a0-fa82-43c4-9ec0-08313f53b0bc",
+        "name": "Call Gemini Smart Questions API",
+        "parameters": {
+          "authentication": "predefinedCredentialType",
+          "jsonBody": "={{ $json.gemini_request }}",
+          "method": "POST",
+          "nodeCredentialType": "googlePalmApi",
+          "options": {
+            "timeout": 120000
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+        },
+        "position": [
+          1744,
+          80
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2
+      },
+      {
+        "id": "01aa8204-acaa-4088-b8c2-8770fd26388d",
+        "name": "Extract Smart Questions",
+        "parameters": {
+          "jsCode": "// Extract response from Gemini\nconst geminiResponse = $json.candidates?.[0]?.content?.parts?.[0]?.text;\n\nif (!geminiResponse) {\n  throw new Error('No response received from Gemini API');\n}\n\n// Check if response was truncated\nconst finishReason = $json.candidates?.[0]?.finishReason;\nif (finishReason === 'MAX_TOKENS') {\n  console.warn('[Extract Smart Question] Response was truncated due to max tokens!');\n}\n\n// Parse JSON response - NEW STRUCTURE: { question, benchmark_answer }\nlet parsedResponse;\ntry {\n  // Try to parse the response\n  parsedResponse = typeof geminiResponse === 'string' ? JSON.parse(geminiResponse) : geminiResponse;\n  console.log('[Extract Smart Question] Parsed response:', parsedResponse);\n} catch (e) {\n  console.error('[Extract Smart Question] Failed to parse Gemini response:', e);\n  console.error('[Extract Smart Question] Raw response:', geminiResponse.substring(0, 500));\n  \n  // Fallback to empty response\n  parsedResponse = { \n    question: 'Failed to generate question - please try again',\n    benchmark_answer: 'No answer generated'\n  };\n}\n\n// Get context from previous node\nconst contextNode = $('Prepare Smart Question Context').first();\nconst validationDetailId = contextNode.json.validation_detail_id;\nconst validationResultId = contextNode.json.validation_result_id;\n\n// Validate we got a question and answer\nif (!parsedResponse.question || !parsedResponse.benchmark_answer) {\n  console.error('[Extract Smart Question] Missing required fields:', parsedResponse);\n  throw new Error('Invalid response from Gemini - missing question or benchmark_answer');\n}\n\nconsole.log('[Extract Smart Question] Successfully extracted:', {\n  validationDetailId,\n  validationResultId,\n  hasQuestion: !!parsedResponse.question,\n  hasBenchmark: !!parsedResponse.benchmark_answer,\n  wasTruncated: finishReason === 'MAX_TOKENS'\n});\n\n// Wrap in array format for frontend compatibility\n// Frontend expects: { questions: [{ question, rationale }] }\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    validation_result_id: validationResultId,\n    questions: [{\n      question: parsedResponse.question,\n      rationale: parsedResponse.benchmark_answer,  // Map benchmark_answer to rationale for frontend\n      question_type: 'smart_question',\n      difficulty_level: 'intermediate',\n      focus_area: 'requirement_understanding'\n    }],\n    summary: 'Smart question generated for requirement',\n    response_timestamp: new Date().toISOString(),\n    was_truncated: finishReason === 'MAX_TOKENS'\n  }\n};",
+          "mode": "runOnceForEachItem"
+        },
+        "position": [
+          2064,
+          80
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "a26e2828-0458-4b6e-b757-e6a95f61d32c",
+        "name": "Respond to Webhook",
+        "parameters": {
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                },
+                {
+                  "name": "Access-Control-Allow-Methods",
+                  "value": "POST, OPTIONS"
+                },
+                {
+                  "name": "Access-Control-Allow-Headers",
+                  "value": "Content-Type"
+                }
+              ]
+            }
+          }
+        },
+        "position": [
+          2464,
+          80
+        ],
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "3111dd0e-38c3-479f-ad8d-ded37470268b",
+        "name": "Merge",
+        "parameters": {},
+        "position": [
+          688,
+          80
+        ],
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2
+      }
+    ],
+    "updatedAt": "2025-12-06T10:00:06.316Z",
+    "versionId": "ce761593-4afc-4175-9d87-9723c852fe00",
+    "workflowId": "5ghIs7M63BT9PvNB",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-12-06T10:00:06.371Z",
+        "event": "activated",
+        "id": 107,
+        "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "versionId": "ce761593-4afc-4175-9d87-9723c852fe00",
+        "workflowId": "5ghIs7M63BT9PvNB"
+      }
+    ]
+  },
+  "activeVersionId": "ce761593-4afc-4175-9d87-9723c852fe00",
+  "connections": {
+    "Build Gemini Request": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call Gemini Smart Questions API",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Call Gemini Smart Questions API": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract Smart Questions",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract Smart Questions": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Respond to Webhook",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Smart Question Prompt": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Documents": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Prepare Smart Question Context",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Smart Question Context": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Build Gemini Request",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook - Smart Questions Input": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Fetch Validation Documents",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Fetch Smart Question Prompt",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-11-27T20:37:47.602Z",
+  "description": null,
+  "id": "5ghIs7M63BT9PvNB",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "AI Smart Question Generator - Validation Context",
+  "nodes": [
+    {
+      "id": "dba9e7d3-f7f3-4d99-b20f-40aa72b4633f",
+      "name": "Webhook - Smart Questions Input",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {
+          "allowedOrigins": "*"
+        },
+        "path": "smart-questions",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        -208,
+        112
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "webhookId": "smart-questions-webhook"
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      },
+      "id": "fc08ca64-b94c-4043-b2d1-c65792d1bb33",
+      "name": "Fetch Validation Documents",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_detail_id }}' ORDER BY created_at DESC"
+      },
+      "position": [
+        240,
+        0
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      },
+      "id": "b4522c64-6196-49f7-83e5-284c9d9ee415",
+      "name": "Fetch Smart Question Prompt",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM prompts WHERE prompt_type = 'smart_question' AND is_active = true AND is_default = true LIMIT 1"
+      },
+      "position": [
+        240,
+        208
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4
+    },
+    {
+      "id": "2afe1ed1-d255-48bc-916b-9dc95825d726",
+      "name": "Prepare Smart Question Context",
+      "parameters": {
+        "jsCode": "// Prepare context for smart question generation\n// This runs once for all items\nconst items = $input.all();\n\n// First item should be the webhook\nconst webhookItem = items[0];\nconst webhookBody = webhookItem.json.body || webhookItem.json;\n\nconsole.log('[Smart Question Context] Processing items:', items.length);\nconsole.log('[Smart Question Context] Webhook body received:', webhookBody);\n\nconst validationDetailId = webhookBody.validation_detail_id;\nconst validationResultId = webhookBody.validation_result_id;\nconst userGuidance = webhookBody.user_guidance || '';\nconst requirementText = webhookBody.requirement_text || '';\nconst existingSmartQuestion = webhookBody.existing_smart_question || '';\n\nif (!validationDetailId) {\n  console.error('[Smart Question Context] Full webhook data:', webhookItem.json);\n  throw new Error('validation_detail_id not found in webhook body');\n}\n\nconsole.log('[Smart Question Context] IDs extracted:', {\n  validationDetailId,\n  validationResultId\n});\n\n// Fetch documents from previous node\nconst documentsNode = $('Fetch Validation Documents').all();\nconst documents = documentsNode && documentsNode.length > 0 \n  ? documentsNode.map(item => item.json) \n  : [];\n\n// Fetch prompt template from previous node\nconst promptNode = $('Fetch Smart Question Prompt').all();\nconst promptTemplate = promptNode && promptNode.length > 0 \n  ? promptNode[0].json \n  : null;\n\n// Build document context\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name}`).join('\\n')}\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string - FOCUSED ON REQUIREMENT\nconst contextString = `\n**GENERATE SMART QUESTION FOR REQUIREMENT**\n────────────────────────────────────────────────────────────────────\n\n**REQUIREMENT TO ASSESS:**\n${requirementText}\n\n${existingSmartQuestion ? `**CURRENT QUESTION:**\n${existingSmartQuestion}\n\n**TASK:** Improve or replace this question.\n` : '**TASK:** Generate a new question for this requirement.'}\n\n${userGuidance ? `**USER GUIDANCE:**\n${userGuidance}\n` : ''}\n\n**INSTRUCTIONS:**\n1. Create ONE question that tests a learner's understanding of this requirement\n2. Provide the benchmark answer - what a competent learner should write\n3. The question should be clear, specific, and directly related to the requirement\n4. The benchmark answer should be concise but complete\n\n${documentContext}\n`;\n\n// Build full prompt\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are an expert assessment designer. Generate one SMART question and benchmark answer for a requirement.';\n\nconst promptText = promptTemplate?.prompt_text || \n  'Generate ONE smart question that tests understanding of this requirement, with the benchmark answer.';\n\nconst fullPrompt = `${contextString}\n\n${promptText}`;\n\nconsole.log('[Smart Question Context] Context prepared successfully');\n\n// Return array with single item for \"Run Once for All Items\" mode\nreturn [{\n  json: {\n    validation_detail_id: validationDetailId,\n    validation_result_id: validationResultId,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents,\n    prompt_template: promptTemplate,\n    user_guidance: userGuidance,\n    requirement_text: requirementText,\n    existing_smart_question: existingSmartQuestion\n  }\n}];"
+      },
+      "position": [
+        992,
+        80
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "1f588641-182a-4482-8eb2-0e39c56c9f38",
+      "name": "Build Gemini Request",
+      "parameters": {
+        "jsCode": "// Build Gemini request for smart question generation\nconst context = $input.item.json;\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\n// Build file parts from documents\nconst fileParts = documents\n  .filter(doc => doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build user prompt\nconst userPrompt = `Based on the attached documents, generate 5-10 intelligent, contextually relevant questions that help users discover and understand critical information within the validation context.\n\nEach question should:\n- Be answerable from the provided documents\n- Be relevant to validation assessment and evidence\n- Have a clear question type (factual, analytical, comparative, inferential, or application)\n- Include a difficulty level (basic, intermediate, or advanced)\n- Specify the focus area (assessment_criteria, evidence, compliance, structure, or findings)\n- List expected document sections where answers can be found\n- Include a rationale explaining why the question is important\n\nReturn the response as a JSON object with a 'questions' array containing the generated questions.`;\n\n// Build Gemini request\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: context.system_prompt\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,\n        {\n          text: userPrompt\n        }\n      ]\n    }\n  ],\ngenerationConfig: {\n  temperature: 0.8,\n  maxOutputTokens: 2048,  // ✅ Reduced from 4096 to prevent truncation\n  topP: 0.95,\n  topK: 40,\n  responseMimeType: \"application/json\",\n  responseSchema: context.prompt_template.output_schema\n}\n};\n\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest\n  }\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        1376,
+        80
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "d5bb86a0-fa82-43c4-9ec0-08313f53b0bc",
+      "name": "Call Gemini Smart Questions API",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "jsonBody": "={{ $json.gemini_request }}",
+        "method": "POST",
+        "nodeCredentialType": "googlePalmApi",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+      },
+      "position": [
+        1744,
+        80
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "01aa8204-acaa-4088-b8c2-8770fd26388d",
+      "name": "Extract Smart Questions",
+      "parameters": {
+        "jsCode": "// Extract response from Gemini\nconst geminiResponse = $json.candidates?.[0]?.content?.parts?.[0]?.text;\n\nif (!geminiResponse) {\n  throw new Error('No response received from Gemini API');\n}\n\n// Check if response was truncated\nconst finishReason = $json.candidates?.[0]?.finishReason;\nif (finishReason === 'MAX_TOKENS') {\n  console.warn('[Extract Smart Question] Response was truncated due to max tokens!');\n}\n\n// Parse JSON response - NEW STRUCTURE: { question, benchmark_answer }\nlet parsedResponse;\ntry {\n  // Try to parse the response\n  parsedResponse = typeof geminiResponse === 'string' ? JSON.parse(geminiResponse) : geminiResponse;\n  console.log('[Extract Smart Question] Parsed response:', parsedResponse);\n} catch (e) {\n  console.error('[Extract Smart Question] Failed to parse Gemini response:', e);\n  console.error('[Extract Smart Question] Raw response:', geminiResponse.substring(0, 500));\n  \n  // Fallback to empty response\n  parsedResponse = { \n    question: 'Failed to generate question - please try again',\n    benchmark_answer: 'No answer generated'\n  };\n}\n\n// Get context from previous node\nconst contextNode = $('Prepare Smart Question Context').first();\nconst validationDetailId = contextNode.json.validation_detail_id;\nconst validationResultId = contextNode.json.validation_result_id;\n\n// Validate we got a question and answer\nif (!parsedResponse.question || !parsedResponse.benchmark_answer) {\n  console.error('[Extract Smart Question] Missing required fields:', parsedResponse);\n  throw new Error('Invalid response from Gemini - missing question or benchmark_answer');\n}\n\nconsole.log('[Extract Smart Question] Successfully extracted:', {\n  validationDetailId,\n  validationResultId,\n  hasQuestion: !!parsedResponse.question,\n  hasBenchmark: !!parsedResponse.benchmark_answer,\n  wasTruncated: finishReason === 'MAX_TOKENS'\n});\n\n// Wrap in array format for frontend compatibility\n// Frontend expects: { questions: [{ question, rationale }] }\nreturn {\n  json: {\n    validation_detail_id: validationDetailId,\n    validation_result_id: validationResultId,\n    questions: [{\n      question: parsedResponse.question,\n      rationale: parsedResponse.benchmark_answer,  // Map benchmark_answer to rationale for frontend\n      question_type: 'smart_question',\n      difficulty_level: 'intermediate',\n      focus_area: 'requirement_understanding'\n    }],\n    summary: 'Smart question generated for requirement',\n    response_timestamp: new Date().toISOString(),\n    was_truncated: finishReason === 'MAX_TOKENS'\n  }\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        2064,
+        80
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "a26e2828-0458-4b6e-b757-e6a95f61d32c",
+      "name": "Respond to Webhook",
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "position": [
+        2464,
+        80
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "3111dd0e-38c3-479f-ad8d-ded37470268b",
+      "name": "Merge",
+      "parameters": {},
+      "position": [
+        688,
+        80
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    }
+  ],
+  "pinData": {
+    "Webhook - Smart Questions Input": [
+      {
+        "json": {
+          "body": {
+            "existing_smart_question": "What are the potential consequences of not reporting a safety malfunction in the workplace?",
+            "requirement_text": "reporting identified problems, faults or malfunctions in accordance with relevant legislation and workplace policies and procedures",
+            "user_guidance": "",
+            "validation_detail_id": 754,
+            "validation_result_id": 2351
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "*",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "13.57.226.39",
+            "cf-ipcountry": "US",
+            "cf-ray": "9a9ad275dbabfae3-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "348",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "98b7d453-3696-421b",
+            "true-client-ip": "13.57.226.39",
+            "user-agent": "Deno/2.1.4 (variant; SupabaseEdgeRuntime/1.69.25)",
+            "x-forwarded-for": "13.57.226.39, 162.158.163.32",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1765014029857930"
+          },
+          "params": {},
+          "query": {},
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/smart-questions"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-11-27T20:37:47.605Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-11-27T20:37:47.605Z",
+      "workflowId": "5ghIs7M63BT9PvNB"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-06T10:00:06.315Z",
+  "versionCounter": 25,
+  "versionId": "ce761593-4afc-4175-9d87-9723c852fe00"
+}

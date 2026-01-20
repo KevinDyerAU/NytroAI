@@ -1,0 +1,1538 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "system migration",
+    "autosaved": false,
+    "connections": {
+      "Clear and Insert Pinecone Vector Store1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Get many files",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Create a row": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Clear and Insert Pinecone Vector Store1",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Default Data Loader": {
+        "ai_document": [
+          [
+            {
+              "index": 0,
+              "node": "Load Pinecone Vector Store",
+              "type": "ai_document"
+            }
+          ]
+        ]
+      },
+      "Default Data Loader2": {
+        "ai_document": [
+          [
+            {
+              "index": 0,
+              "node": "Clear and Insert Pinecone Vector Store1",
+              "type": "ai_document"
+            }
+          ]
+        ]
+      },
+      "Embeddings OpenAI": {
+        "ai_embedding": [
+          [
+            {
+              "index": 0,
+              "node": "Load Pinecone Vector Store",
+              "type": "ai_embedding"
+            }
+          ]
+        ]
+      },
+      "Embeddings OpenAI2": {
+        "ai_embedding": [
+          [
+            {
+              "index": 0,
+              "node": "Clear and Insert Pinecone Vector Store1",
+              "type": "ai_embedding"
+            }
+          ]
+        ]
+      },
+      "Get a row": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Create a row",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Get many files": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Loop Over Items",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Load Pinecone Vector Store": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Loop Over Items",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Loop Over Items": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Supabase",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "ReplaceRenameCode",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Recursive Character Text Splitter": {
+        "ai_textSplitter": [
+          [
+            {
+              "index": 0,
+              "node": "Default Data Loader",
+              "type": "ai_textSplitter"
+            }
+          ]
+        ]
+      },
+      "Recursive Character Text Splitter2": {
+        "ai_textSplitter": [
+          [
+            {
+              "index": 0,
+              "node": "Default Data Loader2",
+              "type": "ai_textSplitter"
+            }
+          ]
+        ]
+      },
+      "ReplaceRenameCode": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "UnstructuredIO Extract",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Supabase": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Execute Workflow",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Supabase Select File Content": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Load Pinecone Vector Store",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "UnstructuredIO Extract": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Supabase Select File Content",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "Supabase1",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Get a row",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-11-28T18:15:14.136Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "id": "07d4fbb3-f114-40a4-a937-d35ee86e6a80",
+        "name": "Loop Over Items",
+        "parameters": {
+          "options": {}
+        },
+        "position": [
+          2576,
+          464
+        ],
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3
+      },
+      {
+        "id": "3b4efc75-9476-44c7-839a-ea2fcec14c10",
+        "name": "Default Data Loader2",
+        "parameters": {
+          "jsonData": "{{ }}",
+          "jsonMode": "expressionData",
+          "options": {}
+        },
+        "position": [
+          2032,
+          688
+        ],
+        "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+        "typeVersion": 1
+      },
+      {
+        "id": "70854140-8024-4572-9fb6-5fe1b3b727e8",
+        "name": "Recursive Character Text Splitter2",
+        "parameters": {
+          "chunkOverlap": 100,
+          "options": {}
+        },
+        "position": [
+          1968,
+          816
+        ],
+        "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "66166827-ad13-4a95-bdff-9084e475bd30",
+        "name": "Embeddings OpenAI2",
+        "parameters": {
+          "model": "text-embedding-3-small",
+          "options": {
+            "dimensions": 512
+          }
+        },
+        "position": [
+          1728,
+          688
+        ],
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+        "typeVersion": 1
+      },
+      {
+        "id": "ec867761-9b4b-4aa2-8035-b21347afff26",
+        "name": "ReplaceRenameCode",
+        "parameters": {
+          "jsCode": "return $('Loop Over Items').item.json;\n// var item = $input.item.json.Key;\n// const lastDotIndex = item.lastIndexOf(\".\");\n// return item.substring(0, lastDotIndex + 1) + \"json\";",
+          "mode": "runOnceForEachItem"
+        },
+        "position": [
+          2784,
+          480
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "8a635b8a-32ca-44ba-be80-9887f8e940be",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "df87caee-851a-4e8d-a5b9-af82bc549dc6"
+        },
+        "position": [
+          336,
+          464
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "df87caee-851a-4e8d-a5b9-af82bc549dc6"
+      },
+      {
+        "credentials": {
+          "pineconeApi": {
+            "id": "yelFxS1GAveaGbaN",
+            "name": "PineconeApi Starter"
+          }
+        },
+        "id": "8c4e5fda-647f-46e2-ab91-46d3eed3e987",
+        "name": "Clear and Insert Pinecone Vector Store1",
+        "parameters": {
+          "mode": "insert",
+          "options": {
+            "clearNamespace": true,
+            "pineconeNamespace": "={{ $('Webhook').item.json.body.pineconeNamespace }}"
+          },
+          "pineconeIndex": {
+            "__rl": true,
+            "cachedResultName": "omnim8",
+            "mode": "list",
+            "value": "omnim8"
+          }
+        },
+        "position": [
+          1920,
+          464
+        ],
+        "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+        "typeVersion": 1
+      },
+      {
+        "alwaysOutputData": false,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "executeOnce": true,
+        "id": "1cbf7ff8-71bc-46f6-9a0b-7b05f511561c",
+        "name": "Supabase",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "docExtracted",
+                "fieldValue": "={{ true }}"
+              },
+              {
+                "fieldId": "extractStatus",
+                "fieldValue": "Success"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('Create a row').item.json.id }}"
+              }
+            ]
+          },
+          "matchType": "allFilters",
+          "operation": "update",
+          "tableId": "validation_detail"
+        },
+        "position": [
+          2912,
+          240
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "7c2c5669-9d9a-42cd-a5b6-6f72c438784e",
+        "name": "UnstructuredIO Extract",
+        "onError": "continueErrorOutput",
+        "parameters": {
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "s3Path",
+                "value": "={{ \"s3://smartrtobucket/\".concat($json.Key)}}"
+              }
+            ]
+          },
+          "method": "POST",
+          "options": {},
+          "sendBody": true,
+          "url": "https://fastunstructpostgres.onrender.com/process"
+        },
+        "position": [
+          3056,
+          480
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "b6cc3ab9-a781-499c-8bfb-8a6638c3ea83",
+        "name": "Supabase Select File Content",
+        "parameters": {
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "url",
+                "keyValue": "={{ \"s3://smartrtobucket/\".concat($('Loop Over Items').item.json.Key)}}"
+              }
+            ]
+          },
+          "operation": "get",
+          "tableId": "elements"
+        },
+        "position": [
+          3408,
+          464
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "7c5a01f8-9115-4b68-bc26-f5a6647bab8d",
+        "name": "Default Data Loader",
+        "parameters": {
+          "jsonData": "={{ $json.text }} [document_name {{ $json.filename }}] [page_number {{ $json.page_number }}]",
+          "jsonMode": "expressionData",
+          "options": {
+            "metadata": {
+              "metadataValues": [
+                {
+                  "name": "filename",
+                  "value": "={{ $json.filename }}"
+                },
+                {
+                  "name": "page_number",
+                  "value": "={{ $json.page_number }}"
+                }
+              ]
+            }
+          }
+        },
+        "position": [
+          3760,
+          992
+        ],
+        "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "fcefc223-5905-4f8c-a00b-c8dee5ec6277",
+        "name": "Embeddings OpenAI",
+        "parameters": {
+          "options": {
+            "dimensions": 512
+          }
+        },
+        "position": [
+          3408,
+          1008
+        ],
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "80fc31b1-de78-42dd-8234-e6957580238f",
+        "name": "Recursive Character Text Splitter",
+        "parameters": {
+          "chunkOverlap": 200,
+          "options": {}
+        },
+        "position": [
+          3600,
+          1152
+        ],
+        "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "pineconeApi": {
+            "id": "yelFxS1GAveaGbaN",
+            "name": "PineconeApi Starter"
+          }
+        },
+        "id": "d5e5dd77-e742-4b4b-a812-a9566d623caf",
+        "name": "Load Pinecone Vector Store",
+        "parameters": {
+          "mode": "insert",
+          "options": {
+            "pineconeNamespace": "={{$('Webhook').first().json.body.pineconeNamespace}}"
+          },
+          "pineconeIndex": {
+            "__rl": true,
+            "cachedResultName": "omnim8",
+            "mode": "list",
+            "value": "omnim8"
+          }
+        },
+        "position": [
+          3664,
+          704
+        ],
+        "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+        "typeVersion": 1
+      },
+      {
+        "alwaysOutputData": false,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "executeOnce": true,
+        "id": "21d923fb-a44b-45cf-b565-355b308da5ab",
+        "name": "Supabase1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "docExtracted",
+                "fieldValue": "={{ false }}"
+              },
+              {
+                "fieldId": "extractStatus",
+                "fieldValue": "Error"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('Create a row').item.json.id }}"
+              }
+            ]
+          },
+          "matchType": "allFilters",
+          "operation": "update",
+          "tableId": "validation_detail"
+        },
+        "position": [
+          3312,
+          704
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "aws": {
+            "id": "23ic4X9iVqVbjWe9",
+            "name": "AWS account"
+          }
+        },
+        "id": "c80d82b0-adfd-458c-a61f-e17d1b8a9a68",
+        "name": "Get many files",
+        "parameters": {
+          "bucketName": "smartrtobucket",
+          "operation": "getAll",
+          "options": {
+            "folderKey": "={{ $('Webhook').item.json.body.s3Path.substring(20,$('Webhook').item.json.body.s3Path.length) }}"
+          },
+          "returnAll": true
+        },
+        "position": [
+          2288,
+          464
+        ],
+        "type": "n8n-nodes-base.awsS3",
+        "typeVersion": 2
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "e1a33f52-9710-4921-8022-ed4dd55af4ee",
+        "name": "Get a row",
+        "parameters": {
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "unitLink",
+                "keyValue": "={{ $json.body.unitLink }}"
+              }
+            ]
+          },
+          "operation": "get",
+          "tableId": "validation_summary"
+        },
+        "position": [
+          656,
+          464
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "8e59d9ef-af26-4aea-9a76-cabc32a85b8c",
+        "name": "Create a row",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "summary_id",
+                "fieldValue": "={{ $json.id }}"
+              },
+              {
+                "fieldId": "namespace_code",
+                "fieldValue": "={{ $('Webhook').item.json.body.pineconeNamespace }}"
+              },
+              {
+                "fieldId": "validationType",
+                "fieldValue": "={{ $('Webhook').item.json.body.validationType }}"
+              }
+            ]
+          },
+          "tableId": "validation_detail"
+        },
+        "position": [
+          1104,
+          464
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "7c1cc2b9-791f-4a5b-b564-fab5645fbeeb",
+        "name": "Execute Workflow",
+        "parameters": {
+          "options": {},
+          "workflowId": {
+            "__rl": true,
+            "cachedResultName": "setupValidationProcessingLog",
+            "mode": "list",
+            "value": "TKCHYi64wYAKRVr9"
+          },
+          "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
+            "mappingMode": "defineBelow",
+            "matchingColumns": [
+              "validationDetail_ID"
+            ],
+            "schema": [
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "validationDetail_ID",
+                "id": "validationDetail_ID",
+                "removed": false,
+                "required": false,
+                "type": "number"
+              }
+            ],
+            "value": {
+              "validationDetail_ID": "={{ $('Create a row').item.json.id }}"
+            }
+          }
+        },
+        "position": [
+          3120,
+          240
+        ],
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2
+      }
+    ],
+    "updatedAt": "2025-11-28T18:15:14.136Z",
+    "versionId": "9cb0448d-aa06-46c5-a9cf-e6f1655f9e83",
+    "workflowId": "uilqMCFewYvUv42M",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-11-15T00:42:41.000Z",
+        "event": "activated",
+        "id": 10,
+        "userId": null,
+        "versionId": "9cb0448d-aa06-46c5-a9cf-e6f1655f9e83",
+        "workflowId": "uilqMCFewYvUv42M"
+      }
+    ]
+  },
+  "activeVersionId": "9cb0448d-aa06-46c5-a9cf-e6f1655f9e83",
+  "connections": {
+    "Clear and Insert Pinecone Vector Store1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get many files",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Clear and Insert Pinecone Vector Store1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "index": 0,
+            "node": "Load Pinecone Vector Store",
+            "type": "ai_document"
+          }
+        ]
+      ]
+    },
+    "Default Data Loader2": {
+      "ai_document": [
+        [
+          {
+            "index": 0,
+            "node": "Clear and Insert Pinecone Vector Store1",
+            "type": "ai_document"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Load Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI2": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Clear and Insert Pinecone Vector Store1",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Create a row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Get many files": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Items",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Load Pinecone Vector Store": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Loop Over Items",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Supabase",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "ReplaceRenameCode",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "index": 0,
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter"
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter2": {
+      "ai_textSplitter": [
+        [
+          {
+            "index": 0,
+            "node": "Default Data Loader2",
+            "type": "ai_textSplitter"
+          }
+        ]
+      ]
+    },
+    "ReplaceRenameCode": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "UnstructuredIO Extract",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Supabase": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Execute Workflow",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Supabase Select File Content": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Load Pinecone Vector Store",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "UnstructuredIO Extract": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Supabase Select File Content",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Supabase1",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Get a row",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-10-30T02:17:14.080Z",
+  "description": null,
+  "id": "uilqMCFewYvUv42M",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SimpleDocProcessEmbed",
+  "nodes": [
+    {
+      "id": "07d4fbb3-f114-40a4-a937-d35ee86e6a80",
+      "name": "Loop Over Items",
+      "parameters": {
+        "options": {}
+      },
+      "position": [
+        2576,
+        464
+      ],
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3
+    },
+    {
+      "id": "3b4efc75-9476-44c7-839a-ea2fcec14c10",
+      "name": "Default Data Loader2",
+      "parameters": {
+        "jsonData": "{{ }}",
+        "jsonMode": "expressionData",
+        "options": {}
+      },
+      "position": [
+        2032,
+        688
+      ],
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1
+    },
+    {
+      "id": "70854140-8024-4572-9fb6-5fe1b3b727e8",
+      "name": "Recursive Character Text Splitter2",
+      "parameters": {
+        "chunkOverlap": 100,
+        "options": {}
+      },
+      "position": [
+        1968,
+        816
+      ],
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "66166827-ad13-4a95-bdff-9084e475bd30",
+      "name": "Embeddings OpenAI2",
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {
+          "dimensions": 512
+        }
+      },
+      "position": [
+        1728,
+        688
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1
+    },
+    {
+      "id": "ec867761-9b4b-4aa2-8035-b21347afff26",
+      "name": "ReplaceRenameCode",
+      "parameters": {
+        "jsCode": "return $('Loop Over Items').item.json;\n// var item = $input.item.json.Key;\n// const lastDotIndex = item.lastIndexOf(\".\");\n// return item.substring(0, lastDotIndex + 1) + \"json\";",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        2784,
+        480
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "8a635b8a-32ca-44ba-be80-9887f8e940be",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "df87caee-851a-4e8d-a5b9-af82bc549dc6"
+      },
+      "position": [
+        336,
+        464
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "df87caee-851a-4e8d-a5b9-af82bc549dc6"
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "8c4e5fda-647f-46e2-ab91-46d3eed3e987",
+      "name": "Clear and Insert Pinecone Vector Store1",
+      "parameters": {
+        "mode": "insert",
+        "options": {
+          "clearNamespace": true,
+          "pineconeNamespace": "={{ $('Webhook').item.json.body.pineconeNamespace }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "omnim8",
+          "mode": "list",
+          "value": "omnim8"
+        }
+      },
+      "position": [
+        1920,
+        464
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1
+    },
+    {
+      "alwaysOutputData": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "1cbf7ff8-71bc-46f6-9a0b-7b05f511561c",
+      "name": "Supabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Success"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('Create a row').item.json.id }}"
+            }
+          ]
+        },
+        "matchType": "allFilters",
+        "operation": "update",
+        "tableId": "validation_detail"
+      },
+      "position": [
+        2912,
+        240
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "7c2c5669-9d9a-42cd-a5b6-6f72c438784e",
+      "name": "UnstructuredIO Extract",
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "s3Path",
+              "value": "={{ \"s3://smartrtobucket/\".concat($json.Key)}}"
+            }
+          ]
+        },
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "url": "https://fastunstructpostgres.onrender.com/process"
+      },
+      "position": [
+        3056,
+        480
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "b6cc3ab9-a781-499c-8bfb-8a6638c3ea83",
+      "name": "Supabase Select File Content",
+      "parameters": {
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "url",
+              "keyValue": "={{ \"s3://smartrtobucket/\".concat($('Loop Over Items').item.json.Key)}}"
+            }
+          ]
+        },
+        "operation": "get",
+        "tableId": "elements"
+      },
+      "position": [
+        3408,
+        464
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "7c5a01f8-9115-4b68-bc26-f5a6647bab8d",
+      "name": "Default Data Loader",
+      "parameters": {
+        "jsonData": "={{ $json.text }} [document_name {{ $json.filename }}] [page_number {{ $json.page_number }}]",
+        "jsonMode": "expressionData",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "filename",
+                "value": "={{ $json.filename }}"
+              },
+              {
+                "name": "page_number",
+                "value": "={{ $json.page_number }}"
+              }
+            ]
+          }
+        }
+      },
+      "position": [
+        3760,
+        992
+      ],
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "fcefc223-5905-4f8c-a00b-c8dee5ec6277",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "options": {
+          "dimensions": 512
+        }
+      },
+      "position": [
+        3408,
+        1008
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "80fc31b1-de78-42dd-8234-e6957580238f",
+      "name": "Recursive Character Text Splitter",
+      "parameters": {
+        "chunkOverlap": 200,
+        "options": {}
+      },
+      "position": [
+        3600,
+        1152
+      ],
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "d5e5dd77-e742-4b4b-a812-a9566d623caf",
+      "name": "Load Pinecone Vector Store",
+      "parameters": {
+        "mode": "insert",
+        "options": {
+          "pineconeNamespace": "={{$('Webhook').first().json.body.pineconeNamespace}}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "omnim8",
+          "mode": "list",
+          "value": "omnim8"
+        }
+      },
+      "position": [
+        3664,
+        704
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1
+    },
+    {
+      "alwaysOutputData": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "21d923fb-a44b-45cf-b565-355b308da5ab",
+      "name": "Supabase1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "docExtracted",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "extractStatus",
+              "fieldValue": "Error"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('Create a row').item.json.id }}"
+            }
+          ]
+        },
+        "matchType": "allFilters",
+        "operation": "update",
+        "tableId": "validation_detail"
+      },
+      "position": [
+        3312,
+        704
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "aws": {
+          "id": "23ic4X9iVqVbjWe9",
+          "name": "AWS account"
+        }
+      },
+      "id": "c80d82b0-adfd-458c-a61f-e17d1b8a9a68",
+      "name": "Get many files",
+      "parameters": {
+        "bucketName": "smartrtobucket",
+        "operation": "getAll",
+        "options": {
+          "folderKey": "={{ $('Webhook').item.json.body.s3Path.substring(20,$('Webhook').item.json.body.s3Path.length) }}"
+        },
+        "returnAll": true
+      },
+      "position": [
+        2288,
+        464
+      ],
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "e1a33f52-9710-4921-8022-ed4dd55af4ee",
+      "name": "Get a row",
+      "parameters": {
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "unitLink",
+              "keyValue": "={{ $json.body.unitLink }}"
+            }
+          ]
+        },
+        "operation": "get",
+        "tableId": "validation_summary"
+      },
+      "position": [
+        656,
+        464
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "8e59d9ef-af26-4aea-9a76-cabc32a85b8c",
+      "name": "Create a row",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "summary_id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "namespace_code",
+              "fieldValue": "={{ $('Webhook').item.json.body.pineconeNamespace }}"
+            },
+            {
+              "fieldId": "validationType",
+              "fieldValue": "={{ $('Webhook').item.json.body.validationType }}"
+            }
+          ]
+        },
+        "tableId": "validation_detail"
+      },
+      "position": [
+        1104,
+        464
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "7c1cc2b9-791f-4a5b-b564-fab5645fbeeb",
+      "name": "Execute Workflow",
+      "parameters": {
+        "options": {},
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "setupValidationProcessingLog",
+          "mode": "list",
+          "value": "TKCHYi64wYAKRVr9"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "validationDetail_ID"
+          ],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "validationDetail_ID",
+              "id": "validationDetail_ID",
+              "removed": false,
+              "required": false,
+              "type": "number"
+            }
+          ],
+          "value": {
+            "validationDetail_ID": "={{ $('Create a row').item.json.id }}"
+          }
+        }
+      },
+      "position": [
+        3120,
+        240
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "files": [
+              {
+                "name": "TLIF0025 AT2.pdf",
+                "url": "https://smartrtobucket.s3.ap-southeast-2.amazonaws.com/7148/TLIF0025/UnitOfCompetency/2025-11-14T19-45-57/TLIF0025 AT2.pdf"
+              },
+              {
+                "name": "AT3.pdf",
+                "url": "https://smartrtobucket.s3.ap-southeast-2.amazonaws.com/7148/TLIF0025/UnitOfCompetency/2025-11-14T19-45-57/AT3.pdf"
+              },
+              {
+                "name": "TLIF0025 AT1.pdf",
+                "url": "https://smartrtobucket.s3.ap-southeast-2.amazonaws.com/7148/TLIF0025/UnitOfCompetency/2025-11-14T19-45-57/TLIF0025 AT1.pdf"
+              }
+            ],
+            "pineconeNamespace": "7148/TLIF0025/UnitOfCompetency/2025-11-14T19-45-57",
+            "s3Path": "s3://smartrtobucket/7148/TLIF0025/UnitOfCompetency/2025-11-14T19-45-57/",
+            "unitLink": "https://training.gov.au/training/details/TLIF0025/unitdetails",
+            "validationType": "UnitOfCompetency"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "185.253.163.126",
+            "cf-ipcountry": "US",
+            "cf-ray": "99e9033f2ae60c4e-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "737",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "origin": "https://8550c6c2cc1e4c0e8212eb921300ad8e-069c0f58865a49ce9c37af345.fly.dev",
+            "priority": "u=1, i",
+            "referer": "https://8550c6c2cc1e4c0e8212eb921300ad8e-069c0f58865a49ce9c37af345.fly.dev/",
+            "render-proxy-ttl": "4",
+            "rndr-id": "76ffa0ca-da90-4f78",
+            "sec-ch-ua": "\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "true-client-ip": "185.253.163.126",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "x-forwarded-for": "185.253.163.126, 162.158.162.138",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1763149562872548"
+          },
+          "params": {},
+          "query": {},
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/df87caee-851a-4e8d-a5b9-af82bc549dc6"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-30T02:17:14.083Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-30T02:17:14.083Z",
+      "workflowId": "uilqMCFewYvUv42M"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-15T00:42:41.000Z",
+  "versionCounter": 5,
+  "versionId": "9cb0448d-aa06-46c5-a9cf-e6f1655f9e83"
+}

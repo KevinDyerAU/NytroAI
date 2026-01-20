@@ -1,0 +1,660 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Kevin Dyer",
+    "autosaved": false,
+    "connections": {
+      "Basic LLM Chain": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Code in JavaScript",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "PCSaveSupabase",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "PCSaveSupabase": {
+        "main": [
+          []
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "ai_outputParser"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Basic LLM Chain",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-12-07T21:25:46.073Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "736ff4b2-7a80-432c-bae4-3a5b0b48438a",
+        "name": "PCSaveSupabase",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "unit_url",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+              },
+              {
+                "fieldId": "performance_criteria",
+                "fieldValue": "={{ $json.text }}"
+              },
+              {
+                "fieldId": "epc_number",
+                "fieldValue": "=Performance Criterion - {{ $json.pcNumber }}"
+              },
+              {
+                "fieldId": "element",
+                "fieldValue": "=Element {{ $json.element }} - {{ $json.elementTitle }}"
+              }
+            ]
+          },
+          "tableId": "elements_performance_criteria_requirements"
+        },
+        "position": [
+          720,
+          80
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "98292e93-9261-43d4-bb37-bea29951e22c",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "59608793-8732-4768-8f83-5edf56513906"
+        },
+        "position": [
+          -1008,
+          368
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "fc1cbe37-cb16-408f-bdce-4f58403fa6b0"
+      },
+      {
+        "id": "a3a5fdd3-d4a2-42be-97fa-040b1f5540c0",
+        "name": "Basic LLM Chain",
+        "parameters": {
+          "batching": {},
+          "hasOutputParser": true,
+          "messages": {
+            "messageValues": [
+              {
+                "message": "This AI is designed to only output information in JSON format without exception. This AI can only output JSON and will never output any other text.  When asked to correct itself, this AI will only output the corrected JSON and never any other text.  Instructions: Identify the \"Elements and Performance Criteria\": Use the provided text content and locate the section detailing \"Elements and Performance Criteria.\"  Extract Data in Original Form:  For each Element, extract the title and assign it to the field \"Element n\" where n represents the number in the Element title. For each Performance Criterion associated with an Element, assign its text to a field named \"Performance Criterion n.m\" where n represents the Element number and m the specific Performance Criterion number under that Element. Populate JSON Fields:  Set \"ElementPerformanceCriteriaDescription\" to: \"Elements describe the essential outcomes. Performance criteria describe the performance needed to demonstrate achievement of the element.\" Populate \"extractedPoints\" as an array containing each \"Element\" and \"Performance Criterion\" pairing as separate objects. Repeat the Element field for each Performance Criterion associated with that Element. Preserve all original text; avoid summarizing or paraphrasing."
+              }
+            ]
+          },
+          "promptType": "define",
+          "text": "=Here is the content to review: \n\n{{ $json.epc }}"
+        },
+        "position": [
+          -400,
+          80
+        ],
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.7
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "608de9d0-2b49-432e-b0ad-0f59be531a05",
+        "name": "OpenAI Chat Model",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-4o",
+            "mode": "list",
+            "value": "gpt-4o"
+          },
+          "options": {}
+        },
+        "position": [
+          -576,
+          288
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "d96e8f46-fd4a-41f6-996a-528a838f0ea9",
+        "name": "Structured Output Parser",
+        "parameters": {
+          "autoFix": true,
+          "inputSchema": "{\n  \"extractedPoints\": [\n    {\n      \"id\": \"PC 1.1\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.1\",\n      \"text\": \"Legislation and workplace procedures for dealing with incidents, hazards and emergencies are identified and followed\"\n    },\n    {\n      \"id\": \"PC 1.2\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.2\",\n      \"text\": \"Legislation and workplace procedures for WHS/OHS and related work instructions for controlling risks in a workplace are followed\"\n    },\n    {\n      \"id\": \"PC 1.3\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.3\",\n      \"text\": \"External hazards to the workplace are identified and appropriate actions taken\"\n    },\n    {\n      \"id\": \"PC 1.4\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.4\",\n      \"text\": \"Hazards in the workplace are identified and appropriate actions taken to report them and to minimise or eliminate risk to personnel, workplace and the environment\"\n    },\n    {\n      \"id\": \"PC 1.5\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.5\",\n      \"text\": \"Hygiene practices, health and wellbeing for self and others is implemented, monitored and reported\"\n    },\n    {\n      \"id\": \"PC 1.6\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.6\",\n      \"text\": \"Procedures necessary for entry into restricted areas requiring permits are known\"\n    },\n    {\n      \"id\": \"PC 1.7\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.7\",\n      \"text\": \"Personal protection equipment (PPE) is checked and correctly used in accordance with safety practices and procedures\"\n    },\n    {\n      \"id\": \"PC 1.8\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.8\",\n      \"text\": \"Containers and goods coding, markings and emergency information panels are identified and understood\"\n    },\n    {\n      \"id\": \"PC 2.1\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.1\",\n      \"text\": \"WHS/OHS issues and identified safety hazards are raised with designated personnel in accordance with relevant WHS/OHS legislation and workplace procedures\"\n    },\n    {\n      \"id\": \"PC 2.2\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.2\",\n      \"text\": \"Contributions to managing WHS/OHS in the workplace are made in accordance with relevant legislation and workplace procedures\"\n    },\n    {\n      \"id\": \"PC 2.3\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.3\",\n      \"text\": \"Assigned housekeeping duties are conducted in accordance with workplace procedures\"\n    },\n    {\n      \"id\": \"PC 2.4\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.4\",\n      \"text\": \"WHS/OHS records are completed and maintained in accordance with relevant legislation and workplace procedures\"\n    }\n  ]\n}",
+          "schemaType": "manual"
+        },
+        "position": [
+          -240,
+          256
+        ],
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "eaeb97e4-af04-4823-a877-8ad0eed2248b",
+        "name": "OpenAI Chat Model1",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-4o",
+            "mode": "list",
+            "value": "gpt-4o"
+          },
+          "options": {}
+        },
+        "position": [
+          -304,
+          480
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "alwaysOutputData": true,
+        "id": "ccd3a040-be86-4023-b792-2aeb4fca32d7",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          -1008,
+          112
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "9093b2d6-7ac9-41d4-a1c4-4ba3096bcf99",
+        "name": "Code in JavaScript",
+        "parameters": {
+          "jsCode": "const input = $input.first().json;\nconst extractedPoints = input.output?.extractedPoints || [];\nconst results = [];\n\nfor (const point of extractedPoints) {\n  let element = '';\n  let elementTitle = '';\n  let pcNumber = '';\n  let pcText = '';\n  \n  for (const [key, value] of Object.entries(point)) {\n    if (key.startsWith('Element')) {\n      element = key.replace('Element ', '');\n      elementTitle = value;\n    } else if (key.startsWith('Performance Criterion')) {\n      pcNumber = key.replace('Performance Criterion ', '');\n      pcText = value;\n    }\n  }\n  \n  if (element && pcNumber) {\n    results.push({\n      json: {\n        id: `PC ${pcNumber}`,\n        element: element,\n        elementTitle: elementTitle,\n        pcNumber: pcNumber,\n        text: pcText\n      }\n    });\n  }\n}\n\nreturn results;"
+        },
+        "position": [
+          192,
+          80
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      }
+    ],
+    "updatedAt": "2025-12-07T21:25:46.073Z",
+    "versionId": "3aba95e1-3827-4049-83c2-4d4765d0b3a9",
+    "workflowId": "5paJ07Jkf3RUACQs",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2025-12-07T21:25:46.139Z",
+        "event": "activated",
+        "id": 146,
+        "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "versionId": "3aba95e1-3827-4049-83c2-4d4765d0b3a9",
+        "workflowId": "5paJ07Jkf3RUACQs"
+      }
+    ]
+  },
+  "activeVersionId": "3aba95e1-3827-4049-83c2-4d4765d0b3a9",
+  "connections": {
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Code in JavaScript",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "PCSaveSupabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "PCSaveSupabase": {
+      "main": [
+        []
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Basic LLM Chain",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2024-11-03T00:53:24.397Z",
+  "description": null,
+  "id": "5paJ07Jkf3RUACQs",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SmartE_PCxtractAgent_v4",
+  "nodes": [
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "736ff4b2-7a80-432c-bae4-3a5b0b48438a",
+      "name": "PCSaveSupabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "unit_url",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.Link }}"
+            },
+            {
+              "fieldId": "performance_criteria",
+              "fieldValue": "={{ $json.text }}"
+            },
+            {
+              "fieldId": "epc_number",
+              "fieldValue": "=Performance Criterion - {{ $json.pcNumber }}"
+            },
+            {
+              "fieldId": "element",
+              "fieldValue": "=Element {{ $json.element }} - {{ $json.elementTitle }}"
+            }
+          ]
+        },
+        "tableId": "elements_performance_criteria_requirements"
+      },
+      "position": [
+        720,
+        80
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "98292e93-9261-43d4-bb37-bea29951e22c",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "59608793-8732-4768-8f83-5edf56513906"
+      },
+      "position": [
+        -1008,
+        368
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "fc1cbe37-cb16-408f-bdce-4f58403fa6b0"
+    },
+    {
+      "id": "a3a5fdd3-d4a2-42be-97fa-040b1f5540c0",
+      "name": "Basic LLM Chain",
+      "parameters": {
+        "batching": {},
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "This AI is designed to only output information in JSON format without exception. This AI can only output JSON and will never output any other text.  When asked to correct itself, this AI will only output the corrected JSON and never any other text.  Instructions: Identify the \"Elements and Performance Criteria\": Use the provided text content and locate the section detailing \"Elements and Performance Criteria.\"  Extract Data in Original Form:  For each Element, extract the title and assign it to the field \"Element n\" where n represents the number in the Element title. For each Performance Criterion associated with an Element, assign its text to a field named \"Performance Criterion n.m\" where n represents the Element number and m the specific Performance Criterion number under that Element. Populate JSON Fields:  Set \"ElementPerformanceCriteriaDescription\" to: \"Elements describe the essential outcomes. Performance criteria describe the performance needed to demonstrate achievement of the element.\" Populate \"extractedPoints\" as an array containing each \"Element\" and \"Performance Criterion\" pairing as separate objects. Repeat the Element field for each Performance Criterion associated with that Element. Preserve all original text; avoid summarizing or paraphrasing."
+            }
+          ]
+        },
+        "promptType": "define",
+        "text": "=Here is the content to review: \n\n{{ $json.epc }}"
+      },
+      "position": [
+        -400,
+        80
+      ],
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "608de9d0-2b49-432e-b0ad-0f59be531a05",
+      "name": "OpenAI Chat Model",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        -576,
+        288
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "d96e8f46-fd4a-41f6-996a-528a838f0ea9",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "inputSchema": "{\n  \"extractedPoints\": [\n    {\n      \"id\": \"PC 1.1\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.1\",\n      \"text\": \"Legislation and workplace procedures for dealing with incidents, hazards and emergencies are identified and followed\"\n    },\n    {\n      \"id\": \"PC 1.2\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.2\",\n      \"text\": \"Legislation and workplace procedures for WHS/OHS and related work instructions for controlling risks in a workplace are followed\"\n    },\n    {\n      \"id\": \"PC 1.3\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.3\",\n      \"text\": \"External hazards to the workplace are identified and appropriate actions taken\"\n    },\n    {\n      \"id\": \"PC 1.4\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.4\",\n      \"text\": \"Hazards in the workplace are identified and appropriate actions taken to report them and to minimise or eliminate risk to personnel, workplace and the environment\"\n    },\n    {\n      \"id\": \"PC 1.5\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.5\",\n      \"text\": \"Hygiene practices, health and wellbeing for self and others is implemented, monitored and reported\"\n    },\n    {\n      \"id\": \"PC 1.6\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.6\",\n      \"text\": \"Procedures necessary for entry into restricted areas requiring permits are known\"\n    },\n    {\n      \"id\": \"PC 1.7\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.7\",\n      \"text\": \"Personal protection equipment (PPE) is checked and correctly used in accordance with safety practices and procedures\"\n    },\n    {\n      \"id\": \"PC 1.8\",\n      \"element\": \"1\",\n      \"elementTitle\": \"Follow workplace procedures for hazard identification and risk control\",\n      \"pcNumber\": \"1.8\",\n      \"text\": \"Containers and goods coding, markings and emergency information panels are identified and understood\"\n    },\n    {\n      \"id\": \"PC 2.1\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.1\",\n      \"text\": \"WHS/OHS issues and identified safety hazards are raised with designated personnel in accordance with relevant WHS/OHS legislation and workplace procedures\"\n    },\n    {\n      \"id\": \"PC 2.2\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.2\",\n      \"text\": \"Contributions to managing WHS/OHS in the workplace are made in accordance with relevant legislation and workplace procedures\"\n    },\n    {\n      \"id\": \"PC 2.3\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.3\",\n      \"text\": \"Assigned housekeeping duties are conducted in accordance with workplace procedures\"\n    },\n    {\n      \"id\": \"PC 2.4\",\n      \"element\": \"2\",\n      \"elementTitle\": \"Contribute to WHS/OHS compliance\",\n      \"pcNumber\": \"2.4\",\n      \"text\": \"WHS/OHS records are completed and maintained in accordance with relevant legislation and workplace procedures\"\n    }\n  ]\n}",
+        "schemaType": "manual"
+      },
+      "position": [
+        -240,
+        256
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "eaeb97e4-af04-4823-a877-8ad0eed2248b",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        -304,
+        480
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "alwaysOutputData": true,
+      "id": "ccd3a040-be86-4023-b792-2aeb4fca32d7",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -1008,
+        112
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "9093b2d6-7ac9-41d4-a1c4-4ba3096bcf99",
+      "name": "Code in JavaScript",
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst extractedPoints = input.output?.extractedPoints || [];\nconst results = [];\n\nfor (const point of extractedPoints) {\n  let element = '';\n  let elementTitle = '';\n  let pcNumber = '';\n  let pcText = '';\n  \n  for (const [key, value] of Object.entries(point)) {\n    if (key.startsWith('Element')) {\n      element = key.replace('Element ', '');\n      elementTitle = value;\n    } else if (key.startsWith('Performance Criterion')) {\n      pcNumber = key.replace('Performance Criterion ', '');\n      pcText = value;\n    }\n  }\n  \n  if (element && pcNumber) {\n    results.push({\n      json: {\n        id: `PC ${pcNumber}`,\n        element: element,\n        elementTitle: elementTitle,\n        pcNumber: pcNumber,\n        text: pcText\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "position": [
+        192,
+        80
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "content": "|     |     |\n| --- | --- |\n| **Elements**<br>Elements describe the essential outcomes. | **Performance Criteria**<br>Performance criteria describe the performance needed to demonstrate achievement of the element. |\n| 1\\. Identify individual work tasks within a team | 1.1 Identify own responsibilities according to organisational policies and procedures<br>1.2 Identify own role and task requirements within team <br>1.3 Articulate team structure and roles of other team members<br>1.4 Plan and prioritise own tasks according to given time frames and team requirements |\n| 2\\. Contribute effectively to team goals | 2.1 Identify team goals and own responsibilities relevant to achieving team goals<br>2.2 Contribute ideas and information in team planning discussions<br>2.3 Share knowledge and skills with team members to enable effective teamwork and seek or offer support as required |\n| 3\\. Work effectively with team members | 3.1 Communicate clearly and respectfully with team members, considering the needs of those from diverse backgrounds and roles<br>3.2 Collaborate effectively with team members, including those who are working remotely on workplace issues<br>3.3 Seek and provide assistance and feedback to team members where appropriate |\n| 4\\. Communicate effectively with team leaders | 4.1 Receive and confirm understanding of task instructions or directions<br>4.2 Communicate personal commitments in a timely manner<br>4.3 Identify and report any issues preventing the completion of workplace tasks, according to organisational requirements<br>4.4 Seek and act upon feedback to improve personal performance and/or behaviour |"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "35.86.18.137",
+            "cf-ipcountry": "US",
+            "cf-ray": "993dc9aefdd869d7-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "1668",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "01e97211-b94b-4298",
+            "true-client-ip": "35.86.18.137",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "35.86.18.137, 172.68.164.12",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1761354140105902"
+          },
+          "params": {},
+          "query": {
+            "unitLink": "https://training.gov.au/training/details/BSBXTW301/unitdetails"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/59608793-8732-4768-8f83-5edf56513906"
+        }
+      }
+    ],
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "Link": "https://training.gov.au/training/details/TLIF0005/unitdetails",
+          "Status": "auto",
+          "Title": "Apply a fatigue risk management system",
+          "Type": "auto",
+          "UOCpage": "error\n\n# Unit of competency\n\n\\|\n\nShow history\n\nyes\n\nno\n\n**TLIF0005** Apply a fatigue risk management system\n\nUsage recommendation\n\nCurrent\n\n17/May/2017First released\n\nRelease\n\nCurrent Release\n\n1expand\\_more\n\n- 1done\n\ncurrent\n\n17/May/2017Release Date\n\ndownload Download\n\n- downloadDownload unit as pdf\n- downloadDownload unit as word\n- downloadDownload unit files as a zip\n- linkAccess CVIG\n\nUnit details expand\\_more\n\n- Unit details\ndone\n- Qualifications\n\n- Skill sets\n\n- Accredited courses\n\n- Summary\n\n- Find RTOs\n\n\n### **Unit of competency**\n\n## Modification history\n\n**Release 1.** This is the first release of this unit of competency in the TLI Transport and Logistics Training Package.\n\n## Application\n\nThis unit of competency involves the skills and knowledge required for heavy vehicle drivers to manage fatigue and to work safely within the Transport and Logistics industry.\n\nIt includes applying fatigue risk management strategies, identifying and acting on signs of fatigue, operating within a fatigue risk management system, planning and navigating trips, updating and maintaining records, complying with work and rest limits, and implementing appropriate strategies to minimise fatigue during work activities.\n\nWork is performed under some supervision as a single operator and/or within a team environment.\n\nLegislative and regulatory requirements are applicable to this unit. The primary legislative requirement of this unit of competency is the Heavy Vehicle National Law (HVNL).\n\nBeing awarded this unit of competency is a necessary requirement to operate under National Heavy Vehicle Regulator (NHVR) Fatigue Management Accreditation but is only one of the criteria. Prospective applicants should check with the NHVR before undertaking training and/or assessment.\n\n## Pre-requisite unit\n\nNot applicable\n\n## Competency field\n\nF – Safety Management\n\n## Unit sector\n\nNot applicable.\n\n## Elements and performance criteria\n\n| Elements | Performance criteria |\n| --- | --- |\n| Elements describe the essential outcomes. | Performance criteria describe the performance needed to demonstrate achievement of the element. |\n| 1 | **Identify and manage fatigue risk in the road transport sector** | **1.1** | Potential causes and symptoms of fatigue are identified and action is taken to minimise their effects in accordance with workplace procedures |\n| 1.2 | Fatigue symptoms are recognised and necessary steps are taken in accordance with workplace procedures, to ensure that effective work capability and alertness are maintained |\n| 1.3 | Own and others’ fitness to drive is monitored and assessed in accordance with workplace procedures, and appropriate action is taken as required |\n| 1.4 | Factors that increase the risk of fatigue related incidents are managed |\n| 1.5 | Counter measures and relevant workplace practices in combating fatigue are adopted and applied |\n| 1.6 | Health and wellbeing choices are identified that ensure driver fitness to safely perform workplace duties |\n| 2 | **Operate within a road transport fatigue risk management system** | **2.1** | HVNL legal requirements, liabilities and responsibilities for effective fatigue management within the workplace are identified, interpreted and complied with |\n| 2.2 | Relevant regulations related to driving heavy vehicle offences, and fatigue duty of care are identified and applied in accordance with legislation |\n| 2.3 | Heavy vehicle driver regulations and workplace procedures for fatigue risk management, wellbeing, and fitness for work are identified and applied |\n| 2.4 | Relevant workplace induction into the road transport fatigue risk management system is completed |\n| 2.5 | Workplace fatigue management strategies are identified and implemented to minimise driver fatigue |\n| 2.6 | Workplace requirements and responsibilities for fatigue risk management are identified and applied |\n| 2.7 | Relevant documentation is carried while in a heavy vehicle |\n| 2.8 | Legal exemptions for fatigue compliance are identified and applied |\n| 2.9 | Concerns related to strategies to address fatigue and associated workplace risks are communicated to relevant personnel |\n| 3 | **Plan and navigate a heavy vehicle trip** | **3.1** | Heavy vehicle driver trips are planned, communicated and implemented and potential fatigue hazards are planned for in accordance with workplace procedures |\n| 3.2 | Rest and work periods are identified to match heavy vehicle driver fitness and trip conditions |\n| 3.3 | Legal requirements as they relate to fatigue management are complied with when changes in schedules, trip conditions and operational requirements are required |\n| 3.4 | Deviations made to proposed trip plan prior to departure are communicated with relevant personnel in accordance with workplace procedures |\n| 3.5 | Deviations made to proposed trip plan while on route are communicated with relevant personnel in accordance with workplace procedures |\n| 4 | **Comply with work and rest hours** | **4.1** | Work and rest options available to heavy vehicle drivers are identified and applied in accordance with workplace procedures and HVNL |\n| 4.2 | Relevant work hours including standard, solo and two-up arrangements and long/night hours are complied with in accordance with workplace procedures and HVNL |\n| 4.3 | Suitable and minimum rest breaks are complied with in accordance with workplace procedures and fatigue management regulations |\n| 4.4 | Information is identified and relevant actions are taken to prevent non-compliance with fatigue management procedures while working in standard hours and within an accredited fatigue risk management system |\n| 4.5 | Rest and work periods are counted in accordance with the HVNL |\n| 5 | **Update and maintain records** | **5.1** | Heavy vehicle regulatory requirements relating to work diary, records and work duties are applied |\n| 5.2 | Requirements of work diary/records are determined as they relate to heavy vehicle driver duties |\n| 5.3 | Trip information is gathered in a timely manner and accurately entered into work diary/record in accordance with regulatory requirements and workplace procedures |\n| 5.4 | Information entered into work diary/records is accurately and legibly maintained in accordance with regulatory requirements and workplace procedures |\n| 5.5 | Work diary/records are recorded after each work and rest change in accordance with HVNL |\n| 5.6 | Corrections are accurately and legibly entered into work diary/records in accordance with workplace procedures and regulations |\n| 5.7 | Work diary/records are stored in an accessible location in accordance with workplace procedures |\n| 5.8 | Penalties relating to heavy vehicle drivers for failing to record information or making false or misleading entries in work diary/records are identified |\n| 5.9 | Records are submitted within regulated timeframes to relevant personnel |\n| 5.10 | Requirements while operating under an exemption notice are recorded and maintained |\n| 5.11 | Work diary/record/equipment malfunctions are recorded in accordance with regulations and workplace procedures, and are reported to relevant personnel |\n\n## Foundation skills\n\nFoundation skills essential to performance are explicit in the performance criteria of this unit of competency.\n\n## Range of conditions\n\nRange is restricted to essential operating conditions and any other variables essential to the work environment.\n\nNon-essential conditions may be found in the Companion Volume Implementation Guide.\n\n### **Assessment requirements**\n\n## Modification history\n\n**Release 1.** This is the first release of this unit of competency in the TLI Transport and Logistics Training Package.\n\n## Performance evidence\n\n|     |\n| --- |\n| Evidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria on at least one occasion and include: |\n| - applying relevant work health and safety (WHS)/occupational health and safety (OHS) legislation<br>- applying relevant workplace policies and procedures<br>- applying strategies to address signs and symptoms of heavy vehicle driver fatigue <br>- applying workplace fatigue risk management policies and procedures<br>- communicating unplanned events and deviations to relevant personnel<br>- complying with Heavy Vehicle National Law (HVNL) fatigue requirements<br>- complying with trip work and rest requirements<br>- counting work and rest time accurately<br>- identifying and acting on fatigue risk factors as a heavy vehicle driver<br>- implementing risk mitigation control measures<br>- planning and navigating a heavy vehicle trip<br>- preparing and maintaining heavy vehicle driver work diaries/records and relevant documentation in accordance with workplace procedures<br>- providing feedback on compliance in a fatigue risk management system<br>- reading and interpreting heavy vehicle driver fatigue management workplace policies and procedures <br>- recognising breaches of fatigue management strategies and taking appropriate action in accordance with fatigue risk management system<br>- recording equipment malfunctions in work diary and/or workplace records in accordance with workplace procedures <br>- recording in work diary and/or workplace records in accordance with workplace procedures. |\n\n## Knowledge evidence\n\n|     |\n| --- |\n| Evidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria and include knowledge of: |\n| - consequences of fatigue risk management non-compliance <br>- fatigue management hierarchy of risk control<br>- fatigue management workplace policies and procedures <br>- HVNL exemption notices or permits related to fatigue<br>- obligations and requirements of periodic audits of fatigue management documentation/records<br>- organisation nominated record keeper<br>- principal obligations relating to fatigue management in HVNL, including:<br>  - consideration of traffic conditions in managing speed and fatigue<br>  - fatigue, work and rest times<br>- record keeping responsibilities and compliance obligations <br>- relevant WHS/OHS regulation as it relates to fatigue<br>- risks, hazards and consequences created by fatigue in the workplace<br>- strategies of fatigue management and evaluating own fitness for work, inclusive of sleep disorders<br>- symptoms and strategies relevant to heavy vehicle driving fatigue management <br>- workplace fatigue risk management program<br>- workplace procedures as they relate to duty of care, fatigue non-compliance, and fatigue regulations penalties as they apply to a heavy vehicle driver. |\n\n## Assessment conditions\n\nRegistered Training Organisations (RTOs) are required to be approved by the National Heavy Vehicle Regulator (NHVR) to deliver and assess this unit for NHVR accreditation purposes.\n\nAs a minimum, assessors must satisfy applicable regulatory requirements, which include requirements in the _Standards for Registered Training Organisations_ current at the time of assessment.\n\nAs a minimum, assessment must satisfy applicable regulatory requirements, which include requirements in the _Standards for Registered Training Organisations_ current at the time of assessment.\n\nAssessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.\n\nAssessment must occur in workplace operational situations. Where this is not appropriate, assessment must occur in simulated workplace operational situations that reflect workplace conditions.\n\n**Resources for assessment must include access to:**\n\n- a range of relevant exercises, case studies and/or other simulations\n- relevant and appropriate materials, tools, equipment and personal protective equipment currently used in industry\n- applicable documentation including workplace procedures, regulations, codes of practice and operation manuals.\n\n## Qualifications that include this unit\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 2 (15 records with 10 per page)\n\n|     |     |     |     |     |\n| --- | --- | --- | --- | --- |\n| Code<br>[TLI20118](https://training.gov.au/training/details/TLI20118) | Title<br>Certificate II in Road Transport Terminal Operations | Usage recommendation<br>Superseded | Release<br>1-2 | Essential<br>Elective |\n| Code<br>[TLI20219](https://training.gov.au/training/details/TLI20219) | Title<br>Certificate II in Road Transport Terminal Operations | Usage recommendation<br>Superseded | Release<br>1-2 | Essential<br>Elective |\n| Code<br>[TLI20221](https://training.gov.au/training/details/TLI20221) | Title<br>Certificate II in Road Transport Terminal Operations | Usage recommendation<br>Current | Release<br>1-3 | Essential<br>Elective |\n| Code<br>[TLI21216](https://training.gov.au/training/details/TLI21216) | Title<br>Certificate II in Driving Operations | Usage recommendation<br>Superseded | Release<br>2-4 | Essential<br>Elective |\n| Code<br>[TLI21221](https://training.gov.au/training/details/TLI21221) | Title<br>Certificate II in Driving Operations | Usage recommendation<br>Current | Release<br>1-2 | Essential<br>Elective |\n| Code<br>[TLI31216](https://training.gov.au/training/details/TLI31216) | Title<br>Certificate III in Driving Operations | Usage recommendation<br>Superseded | Release<br>2-6 | Essential<br>Elective |\n| Code<br>[TLI31221](https://training.gov.au/training/details/TLI31221) | Title<br>Certificate III in Driving Operations | Usage recommendation<br>Superseded | Release<br>1-2 | Essential<br>Elective |\n| Code<br>[TLI31222](https://training.gov.au/training/details/TLI31222) | Title<br>Certificate III in Driving Operations | Usage recommendation<br>Current | Release<br>1-5 | Essential<br>Elective |\n| Code<br>[TLI40118](https://training.gov.au/training/details/TLI40118) | Title<br>Certificate IV in Transport Scheduling | Usage recommendation<br>Superseded | Release<br>1-4 | Essential<br>Elective |\n| Code<br>[TLI40119](https://training.gov.au/training/details/TLI40119) | Title<br>Certificate IV in Driving Operations | Usage recommendation<br>Superseded | Release<br>1-2 | Essential<br>Elective |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n## Skill sets that include this unit\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 1 (1 records with 10 per page)\n\n|     |     |     |     |\n| --- | --- | --- | --- |\n| Code<br>[TLISS00233](https://training.gov.au/training/details/TLISS00233) | Title<br>Heavy Vehicle Driver Training Skill Set | Usage recommendation<br>Current | Release<br>1 |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n## Accredited courses that include this unit\n\n|     |\n| --- |\n| There are no records to show |\n\n## Mapping\n\n|     |\n| --- |\n| There are no records to show |\n\n## Releases\n\n[swap\\_horiz Advanced compare](https://training.gov.au/training/compare?trainingType=4&fromRelease=dfc788c6-8b0d-4188-ab39-569469a03311)\n\n|     |     |     |\n| --- | --- | --- |\n| Compare<br>Select 1 (This release) | Release<br>**1 (This release)**<br>current | Release date<br>17/May/2017 |\n\n## Training packages that include this unit\n\n|     |     |     |\n| --- | --- | --- |\n| Code<br>[TLI](https://training.gov.au/training/details/TLI) | Title<br>Transport and Logistics Training Package | Release<br>3.0-16.0 |\n\n## Classifications\n\n|     |     |     |\n| --- | --- | --- |\n| Scheme<br>ASCED Module/Unit of Competency Field of Education Identifier | Code<br>089901 | Classification value<br>Purchasing, Warehousing And Distribution |\n\n## Companion volumes\n\n|     |     |     |     |     |\n| --- | --- | --- | --- | --- |\n| Title<br>[TLI Release 15.0 Companion Volume part 01 of 10 (Implementation Guide)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/d0fc508d-529b-4701-b582-ff97fac3379c.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 02 of 10 (Implementation Guide) (ATTACHMENT D)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/07164930-c3ea-4c2e-ac8a-f57bb699aecd.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 03 of 10 (Implementation Guide) (ATTACHMENT E)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/0618afa6-5204-49a1-92dc-2c3ecf85d3e7.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 04 of 10 (Implementation Guide) (ATTACHMENT F - TLIA-TLIB)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/34c16687-865a-4fb4-b3b2-48965067b811.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 05 of 10 (Implementation Guide) (ATTACHMENT F - TLIC-TLID)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/1d0ea5e5-dd4e-43aa-8aec-d9da407c0a87.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 06 of 10 (Implementation Guide) (ATTACHMENT F - TLIE-TLIK)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/7a87cc35-601e-4ae9-a573-75f135cbfa14.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 07 of 10 (Implementation Guide) (ATTACHMENT F - TLILIC)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/22efb31d-97c0-4d45-af55-8f2975743b3e.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 08 of 10 (Implementation Guide) (ATTACHMENT F - TLIL-TLIP)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/79077c28-7708-4e0d-b535-82ff280c609c.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 09 of 10 (Implementation Guide) (ATACHMENT F - TLIR-TLIX)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a7a5d101-eb10-4d5c-b987-9c3dc0605d0a.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume part 10 of 10 (Implementation Guide) (ATTACHMENT G-H)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/f9198fe9-7e7e-45dc-b1ec-cc23f26203a5.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 15.0 Companion Volume V0.1 (Mapping Attachments A-C)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/3292280d-38ff-49cb-ad31-c9ba9204d708.xlsx) | Filetype<br>xlsx | Status<br>Current | Created date<br>19/Aug/2024 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 01 of 10 (Implementation Guide)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/67c52b97-c4d2-4ac1-92c9-77fcc8fe07e2.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 02 of 10 (Implementation Guide) (ATTACHMENT D)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/7fdfbb1e-80d0-4c31-a05c-ac980196be2a.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 03 of 10 (Implementation Guide) (ATTACHMENT E)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a13fc46e-c860-4fd3-90b0-f843568eaf92.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 04 of 10 (Implementation Guide) (ATTACHMENT F - TLIA-TLIB)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/180c062d-0c3c-4e96-b096-91ca762a1931.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 05 of 10 (Implementation Guide) (ATTACHMENT F - TLIC-TLID)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/9508922f-9187-4c44-813b-f74149a75e06.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 06 of 10 (Implementation Guide) (ATTACHMENT F - TLIE-TLIK)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/d352a607-0c76-41fe-a22a-7dc00efc1b20.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 07 of 10 (Implementation Guide) (ATTACHMENT F - TLILIC)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/128ab84e-0abb-4342-b8b7-15db83abad62.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 08 of 10 (Implementation Guide) (ATTACHMENT F - TLIL-TLIP)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a40b2c22-6231-4bdb-bfb6-fde93d63b07b.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 09 of 10 (Implementation Guide) (ATACHMENT F - TLIR-TLIX)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/91a81f45-85c6-4262-b97b-2b07ecbbe24e.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume part 10 of 10 (Implementation Guide) (ATTACHMENT G-H)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/241fad7f-2c1d-49c4-85fa-56581d9088c7.pdf) | Filetype<br>pdf | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n| Title<br>[TLI Release 16.0 Companion Volume V0.1 (Mapping Attachments A-C)](https://training.gov.au/api/files/org/17a128dc-007f-4762-b9ad-483a056f1803/a126b9b8-41b8-432b-8442-7685f2a56600.xlsx) | Filetype<br>xlsx | Status<br>Current | Created date<br>23/Sep/2025 | Release<br>1 |\n\n## Find RTOs\n\nRTOs approved to deliver and/or assess this unit.\n\nResults per page\n\n10expand\\_more\n\n- 10done\n- 20\n- 50\n- 100\n\nSearchsearch\n\ntuneFilter0\n\ndownload Export\n\n- downloadExport as CSV\n- downloadExport as Excel\n\nPage 1 of 14 (139 records with 10 per page)\n\n|     |     |     |     |     |     |     |     |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| Code<br>[31459](https://training.gov.au/organisation/details/31459) | Legal name<br>BLAST MANAGEMENT INTERNATIONAL PTY LTD | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>03/Jun/2022 | Scope end date<br>04/Jun/2031 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[40609](https://training.gov.au/organisation/details/40609) | Legal name<br>Wozzel Pty Ltd as Trustee for the W. S Burrows Family Settlement No. 1 Trust | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>14/Jul/2022 | Scope end date<br>21/Feb/2032 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[0577](https://training.gov.au/organisation/details/0577) | Legal name<br>Logging Investigation and Training Association Inc | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>21/Feb/2022 | Scope end date<br>30/Mar/2027 | Delivery notification<br>- NSW<br>  <br>- VIC<br>  <br>- QLD<br>  <br>- SA<br>  <br>- WA<br>  <br>- TAS<br>  <br>- NT<br>  <br>- ACT<br>  <br>INTERNATIONAL |\n| Code<br>[91141](https://training.gov.au/organisation/details/91141) | Legal name<br>Health & Safety Advisory Service Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>19/Sep/2022 | Scope end date<br>20/Dec/2025 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[32238](https://training.gov.au/organisation/details/32238) | Legal name<br>Queensland Training and Development Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>13/Oct/2022 | Scope end date<br>30/May/2029 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[45677](https://training.gov.au/organisation/details/45677) | Legal name<br>OZY RTO TRAINING & CONSULTANCY PTY LTD | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>17/Feb/2022 | Scope end date<br>16/Mar/2030 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[41469](https://training.gov.au/organisation/details/41469) | Legal name<br>VICTORIAN INSTITUTE OF APPLIED LEARNING PTY LTD | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>10/Nov/2022 | Scope end date<br>04/Apr/2030 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[21258](https://training.gov.au/organisation/details/21258) | Legal name<br>Deacon-Stewart Specialist Training Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>08/Feb/2022 | Scope end date<br>06/Mar/2032 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[41356](https://training.gov.au/organisation/details/41356) | Legal name<br>Servitium Group Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>06/Sep/2021 | Scope end date<br>06/Dec/2029 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n| Code<br>[6372](https://training.gov.au/organisation/details/6372) | Legal name<br>Institute of Training and Further Education Pty Ltd | RTO status<br>Current | Scope<br>Explicit | Extent<br>Deliver and assess | Scope start date<br>25/Aug/2021 | Scope end date<br>31/Mar/2026 | Delivery notification<br>[NATIONAL](https://training.gov.au/training/details/TLIF0005/unitdetails#)NSW \\| VIC \\| QLD \\| SA \\| WA \\| TAS \\| NT \\| ACT<br>INTERNATIONAL |\n\nItems per page\n\n10expand\\_more\n\n- 5\n- 10done\n- 15\n\n[arrow\\_upwardarrow\\_upwardBack to top](https://training.gov.au/training/details/TLIF0005/unitdetails#content)\n\ncontact\\_supportcontact\\_supportHelp",
+          "ac": "Registered Training Organisations (RTOs) are required to be approved by the National Heavy Vehicle Regulator (NHVR) to deliver and assess this unit for NHVR accreditation purposes.\n\nAs a minimum, assessors must satisfy applicable regulatory requirements, which include requirements in the _Standards for Registered Training Organisations_ current at the time of assessment.\n\nAs a minimum, assessment must satisfy applicable regulatory requirements, which include requirements in the _Standards for Registered Training Organisations_ current at the time of assessment.\n\nAssessment processes and techniques must be appropriate to the language, literacy and numeracy requirements of the work being performed and the needs of the candidate.\n\nAssessment must occur in workplace operational situations. Where this is not appropriate, assessment must occur in simulated workplace operational situations that reflect workplace conditions.\n\n**Resources for assessment must include access to:**\n\n- a range of relevant exercises, case studies and/or other simulations\n- relevant and appropriate materials, tools, equipment and personal protective equipment currently used in industry\n- applicable documentation including workplace procedures, regulations, codes of practice and operation manuals.",
+          "applciation": "This unit of competency involves the skills and knowledge required for heavy vehicle drivers to manage fatigue and to work safely within the Transport and Logistics industry.\n\nIt includes applying fatigue risk management strategies, identifying and acting on signs of fatigue, operating within a fatigue risk management system, planning and navigating trips, updating and maintaining records, complying with work and rest limits, and implementing appropriate strategies to minimise fatigue during work activities.\n\nWork is performed under some supervision as a single operator and/or within a team environment.\n\nLegislative and regulatory requirements are applicable to this unit. The primary legislative requirement of this unit of competency is the Heavy Vehicle National Law (HVNL).\n\nBeing awarded this unit of competency is a necessary requirement to operate under National Heavy Vehicle Regulator (NHVR) Fatigue Management Accreditation but is only one of the criteria. Prospective applicants should check with the NHVR before undertaking training and/or assessment.",
+          "created_at": "2025-12-06T17:53:09.376005",
+          "epc": "| Elements | Performance criteria |\n| --- | --- |\n| Elements describe the essential outcomes. | Performance criteria describe the performance needed to demonstrate achievement of the element. |\n| 1 | **Identify and manage fatigue risk in the road transport sector** | **1.1** | Potential causes and symptoms of fatigue are identified and action is taken to minimise their effects in accordance with workplace procedures |\n| 1.2 | Fatigue symptoms are recognised and necessary steps are taken in accordance with workplace procedures, to ensure that effective work capability and alertness are maintained |\n| 1.3 | Own and others’ fitness to drive is monitored and assessed in accordance with workplace procedures, and appropriate action is taken as required |\n| 1.4 | Factors that increase the risk of fatigue related incidents are managed |\n| 1.5 | Counter measures and relevant workplace practices in combating fatigue are adopted and applied |\n| 1.6 | Health and wellbeing choices are identified that ensure driver fitness to safely perform workplace duties |\n| 2 | **Operate within a road transport fatigue risk management system** | **2.1** | HVNL legal requirements, liabilities and responsibilities for effective fatigue management within the workplace are identified, interpreted and complied with |\n| 2.2 | Relevant regulations related to driving heavy vehicle offences, and fatigue duty of care are identified and applied in accordance with legislation |\n| 2.3 | Heavy vehicle driver regulations and workplace procedures for fatigue risk management, wellbeing, and fitness for work are identified and applied |\n| 2.4 | Relevant workplace induction into the road transport fatigue risk management system is completed |\n| 2.5 | Workplace fatigue management strategies are identified and implemented to minimise driver fatigue |\n| 2.6 | Workplace requirements and responsibilities for fatigue risk management are identified and applied |\n| 2.7 | Relevant documentation is carried while in a heavy vehicle |\n| 2.8 | Legal exemptions for fatigue compliance are identified and applied |\n| 2.9 | Concerns related to strategies to address fatigue and associated workplace risks are communicated to relevant personnel |\n| 3 | **Plan and navigate a heavy vehicle trip** | **3.1** | Heavy vehicle driver trips are planned, communicated and implemented and potential fatigue hazards are planned for in accordance with workplace procedures |\n| 3.2 | Rest and work periods are identified to match heavy vehicle driver fitness and trip conditions |\n| 3.3 | Legal requirements as they relate to fatigue management are complied with when changes in schedules, trip conditions and operational requirements are required |\n| 3.4 | Deviations made to proposed trip plan prior to departure are communicated with relevant personnel in accordance with workplace procedures |\n| 3.5 | Deviations made to proposed trip plan while on route are communicated with relevant personnel in accordance with workplace procedures |\n| 4 | **Comply with work and rest hours** | **4.1** | Work and rest options available to heavy vehicle drivers are identified and applied in accordance with workplace procedures and HVNL |\n| 4.2 | Relevant work hours including standard, solo and two-up arrangements and long/night hours are complied with in accordance with workplace procedures and HVNL |\n| 4.3 | Suitable and minimum rest breaks are complied with in accordance with workplace procedures and fatigue management regulations |\n| 4.4 | Information is identified and relevant actions are taken to prevent non-compliance with fatigue management procedures while working in standard hours and within an accredited fatigue risk management system |\n| 4.5 | Rest and work periods are counted in accordance with the HVNL |\n| 5 | **Update and maintain records** | **5.1** | Heavy vehicle regulatory requirements relating to work diary, records and work duties are applied |\n| 5.2 | Requirements of work diary/records are determined as they relate to heavy vehicle driver duties |\n| 5.3 | Trip information is gathered in a timely manner and accurately entered into work diary/record in accordance with regulatory requirements and workplace procedures |\n| 5.4 | Information entered into work diary/records is accurately and legibly maintained in accordance with regulatory requirements and workplace procedures |\n| 5.5 | Work diary/records are recorded after each work and rest change in accordance with HVNL |\n| 5.6 | Corrections are accurately and legibly entered into work diary/records in accordance with workplace procedures and regulations |\n| 5.7 | Work diary/records are stored in an accessible location in accordance with workplace procedures |\n| 5.8 | Penalties relating to heavy vehicle drivers for failing to record information or making false or misleading entries in work diary/records are identified |\n| 5.9 | Records are submitted within regulated timeframes to relevant personnel |\n| 5.10 | Requirements while operating under an exemption notice are recorded and maintained |\n| 5.11 | Work diary/record/equipment malfunctions are recorded in accordance with regulations and workplace procedures, and are reported to relevant personnel |",
+          "fs": "Foundation skills essential to performance are explicit in the performance criteria of this unit of competency.",
+          "id": 4220,
+          "ke": "|     |\n| --- |\n| Evidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria and include knowledge of: |\n| - consequences of fatigue risk management non-compliance <br>- fatigue management hierarchy of risk control<br>- fatigue management workplace policies and procedures <br>- HVNL exemption notices or permits related to fatigue<br>- obligations and requirements of periodic audits of fatigue management documentation/records<br>- organisation nominated record keeper<br>- principal obligations relating to fatigue management in HVNL, including:<br>  - consideration of traffic conditions in managing speed and fatigue<br>  - fatigue, work and rest times<br>- record keeping responsibilities and compliance obligations <br>- relevant WHS/OHS regulation as it relates to fatigue<br>- risks, hazards and consequences created by fatigue in the workplace<br>- strategies of fatigue management and evaluating own fitness for work, inclusive of sleep disorders<br>- symptoms and strategies relevant to heavy vehicle driving fatigue management <br>- workplace fatigue risk management program<br>- workplace procedures as they relate to duty of care, fatigue non-compliance, and fatigue regulations penalties as they apply to a heavy vehicle driver. |",
+          "pe": "|     |\n| --- |\n| Evidence required to demonstrate competence in this unit must be relevant to and satisfy all of the requirements of the elements and performance criteria on at least one occasion and include: |\n| - applying relevant work health and safety (WHS)/occupational health and safety (OHS) legislation<br>- applying relevant workplace policies and procedures<br>- applying strategies to address signs and symptoms of heavy vehicle driver fatigue <br>- applying workplace fatigue risk management policies and procedures<br>- communicating unplanned events and deviations to relevant personnel<br>- complying with Heavy Vehicle National Law (HVNL) fatigue requirements<br>- complying with trip work and rest requirements<br>- counting work and rest time accurately<br>- identifying and acting on fatigue risk factors as a heavy vehicle driver<br>- implementing risk mitigation control measures<br>- planning and navigating a heavy vehicle trip<br>- preparing and maintaining heavy vehicle driver work diaries/records and relevant documentation in accordance with workplace procedures<br>- providing feedback on compliance in a fatigue risk management system<br>- reading and interpreting heavy vehicle driver fatigue management workplace policies and procedures <br>- recognising breaches of fatigue management strategies and taking appropriate action in accordance with fatigue risk management system<br>- recording equipment malfunctions in work diary and/or workplace records in accordance with workplace procedures <br>- recording in work diary and/or workplace records in accordance with workplace procedures. |",
+          "qualificationLink": "single",
+          "unitCode": "TLIF0005",
+          "unit_identifier": "f1e249a5-d013-4a76-a95c-6bf92996ad2e"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2024-11-03T00:53:24.400Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2024-11-03T00:53:24.400Z",
+      "workflowId": "5paJ07Jkf3RUACQs"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-12-07T21:25:46.072Z",
+  "versionCounter": 17,
+  "versionId": "3aba95e1-3827-4049-83c2-4d4765d0b3a9"
+}

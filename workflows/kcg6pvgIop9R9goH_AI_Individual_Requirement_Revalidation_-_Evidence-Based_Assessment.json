@@ -1,0 +1,836 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "Kevin Dyer",
+    "autosaved": false,
+    "connections": {
+      "Build Gemini Request": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Call Gemini Revalidation API",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Call Gemini Revalidation API": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Extract Revalidation Result",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Extract Revalidation Result": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Fetch Requirement Prompt by Type": {
+        "main": [
+          [
+            {
+              "index": 1,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Fetch Validation Documents": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Merge",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Prepare Revalidation Context",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Prepare Revalidation Context": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Build Gemini Request",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Update a row": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Respond to Webhook",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook - Revalidate Requirement Input": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Fetch Validation Documents",
+              "type": "main"
+            },
+            {
+              "index": 0,
+              "node": "Fetch Requirement Prompt by Type",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2026-01-19T07:54:08.795Z",
+    "description": "",
+    "name": "Version 1ea66bb2",
+    "nodes": [
+      {
+        "id": "1c7aa5fc-75d4-49c7-a00f-3d833049552a",
+        "name": "Webhook - Revalidate Requirement Input",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {
+            "allowedOrigins": "*"
+          },
+          "path": "revalidate-requirement",
+          "responseMode": "responseNode"
+        },
+        "position": [
+          -1136,
+          0
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1.1,
+        "webhookId": "revalidate-requirement-webhook"
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "postgres": {
+            "id": "jkimYLj5JZa13Ude",
+            "name": "Supabase Nytro"
+          }
+        },
+        "id": "d7a534b5-4354-48ba-ab90-bd812c0d09f9",
+        "name": "Fetch Validation Documents",
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_result.validation_detail_id }}' ORDER BY created_at DESC"
+        },
+        "position": [
+          -544,
+          -192
+        ],
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.4
+      },
+      {
+        "credentials": {
+          "postgres": {
+            "id": "jkimYLj5JZa13Ude",
+            "name": "Supabase Nytro"
+          }
+        },
+        "id": "8e480c1b-5461-429e-85a6-ed68b59a1c28",
+        "name": "Fetch Requirement Prompt by Type",
+        "parameters": {
+          "operation": "executeQuery",
+          "options": {},
+          "query": "SELECT * FROM prompts \nWHERE prompt_type = 'validation'\n  AND requirement_type = '{{ $json.body.validation_result.requirement_type }}'\n  AND document_type = '{{ $json.body.document_type || \"unit\" }}'\n  AND is_active = true\n  AND is_default = true\nLIMIT 1"
+        },
+        "position": [
+          -544,
+          112
+        ],
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.4
+      },
+      {
+        "id": "30b9956c-4caf-4183-bb57-0a03c17f0d80",
+        "name": "Prepare Revalidation Context",
+        "parameters": {
+          "jsCode": "// Prepare context for requirement revalidation\nconst webhookBody = $('Webhook - Revalidate Requirement Input').first().json.body;\n\n// Extract validation result from webhook\nconst validationResult = webhookBody.validation_result;\n\nif (!validationResult) {\n  throw new Error('validation_result not found in webhook body');\n}\n\nconst validationDetailId = validationResult.validation_detail_id;\nconst requirementId = validationResult.id;\nconst requirementText = validationResult.requirement_text;\nconst requirementType = validationResult.requirement_type || 'general';\nconst documentType = validationResult.document_type || 'unit';\n\n// Safely fetch documents with fallback\nconst documentsNode = $('Fetch Validation Documents').all();\nconst documents = documentsNode && documentsNode.length > 0 \n  ? documentsNode.map(item => item.json)\n  : [];\n\n// Safely fetch prompt template with fallback\nconst promptNode = $('Fetch Requirement Prompt by Type').all();\nconst promptTemplate = promptNode && promptNode.length > 0 \n  ? promptNode[0].json \n  : null;\n\n// Build document context\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string\nconst contextString = `\n**VALIDATION CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${validationDetailId}\nRequirement ID: ${requirementId}\nRequirement Number: ${validationResult.requirement_number || 'N/A'}\nRequirement Type: ${requirementType}\nDocument Type: ${documentType}\nDocument Count: ${documents.length}\n────────────────────────────────────────────────────────────────────\n\n**REQUIREMENT TO VALIDATE**:\n${requirementText}\n\n**CURRENT STATUS**: ${validationResult.status}\n**CURRENT REASONING**: ${validationResult.reasoning}\n`;\n\n// Build full prompt with context\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are an expert RTO assessment validator. Validate requirements against document evidence.';\n\nconst promptText = promptTemplate?.prompt_text || \n  'Validate whether this requirement is met based on the evidence in the documents.';\n\n// ✅ USE PROMPT TEMPLATE AS-IS - DON'T OVERRIDE WITH GENERIC ENDING\nconst fullPrompt = `${systemPrompt}\n\n${contextString}\n\n${documentContext}\n\n${promptText}`;\n\n// Return single item with proper data\nreturn [{\n  json: {\n    validation_detail_id: validationDetailId,\n    requirement_id: requirementId,\n    requirement_number: validationResult.requirement_number,\n    requirement_text: requirementText,\n    requirement_type: requirementType,\n    document_type: documentType,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents,\n    prompt_template: promptTemplate\n  }\n}];"
+        },
+        "position": [
+          464,
+          -16
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "5d810879-ad32-447f-8b25-2b2bd71d16da",
+        "name": "Build Gemini Request",
+        "parameters": {
+          "jsCode": "// Build Gemini request for requirement revalidation\n// Uses prompt template from database + adds session context + CONSTRAINS output length\nconst context = $input.item.json;\nconst promptTemplate = context.prompt_template;\n\n// Safety checks\nif (!context.requirement_text) {\n  throw new Error('No requirement text found in context');\n}\n\nif (!promptTemplate) {\n  throw new Error('No prompt template found. Ensure \"Fetch Requirement Prompt by Type\" node executed successfully.');\n}\n\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\nif (!documents || documents.length === 0) {\n  throw new Error('No documents found. Ensure documents are uploaded and metadata is populated.');\n}\n\n// Build session context (matching validate workflow)\nconst sessionContext = `\n**REVALIDATION SESSION CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${context.validation_detail_id}\nRequirement ID: ${context.requirement_id}\nRequirement Number: ${context.requirement_number || 'N/A'}\nRequirement Type: ${context.requirement_type}\nDocument Type: ${context.document_type}\nDocument Count: ${documents.length}\n────────────────────────────────────────────────────────────────────\n\n**DOCUMENTS FOR THIS VALIDATION** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Assessment Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n\n**IMPORTANT INSTRUCTIONS**:\n1. This is a requirement revalidation\n2. Only consider the documents provided in this validation session\n3. All citations MUST reference documents with specific page numbers\n4. Be concise - avoid repetition and keep responses focused\n5. CRITICAL: If information is not found, simply state \"Not found in documents\" - DO NOT repeat the same statement multiple times\n\n────────────────────────────────────────────────────────────────────\n`;\n\n// Replace template variables in prompt_text (from database template)\nlet promptText = promptTemplate.prompt_text || 'Validate the following requirement.';\npromptText = promptText\n  .replace(/{{requirement_number}}/g, context.requirement_number || 'N/A')\n  .replace(/{{requirement_text}}/g, context.requirement_text || '')\n  .replace(/{{requirement_type}}/g, context.requirement_type || '')\n  .replace(/{{unit_code}}/g, context.unit_code || '')\n  .replace(/{{document_type}}/g, context.document_type || 'unit');\n\n// Build file parts from documents\nconst fileParts = documents\n  .filter(doc => doc && doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build complete prompt with session context + template prompt\nconst fullPrompt = `${sessionContext}\\n\\n${promptText}`;\n\n// ✅ CRITICAL: Use schema from database and add field length constraints\nconst baseSchema = promptTemplate.output_schema || {\n  type: \"object\",\n  properties: {},\n  required: [\"requirement_number\", \"requirement_text\", \"status\", \"reasoning\"]\n};\n\n// Clone and enhance with length constraints (avoid mutation)\nconst constrainedSchema = JSON.parse(JSON.stringify(baseSchema));\n\n// Add length descriptions to existing fields (don't replace the schema)\nif (constrainedSchema.properties.reasoning) {\n  constrainedSchema.properties.reasoning.description = \"Concise reasoning (max 300 words). If not found, state 'Not found in documents' once only.\";\n}\nif (constrainedSchema.properties.mapped_content) {\n  constrainedSchema.properties.mapped_content.description = \"Brief description of where requirement is addressed (max 200 words). Use 'N/A' if not found.\";\n}\nif (constrainedSchema.properties.unmapped_content) {\n  constrainedSchema.properties.unmapped_content.description = \"Brief description of what is missing (max 200 words). Use 'N/A' if fully addressed. DO NOT repeat the same text.\";\n}\nif (constrainedSchema.properties.doc_references) {\n  constrainedSchema.properties.doc_references.description = \"Specific document citations with page numbers (max 150 words). Format: 'Document.pdf, page X'\";\n}\nif (constrainedSchema.properties.recommendations) {\n  constrainedSchema.properties.recommendations.description = \"Actionable recommendations (max 200 words). Use 'None' if not applicable.\";\n}\n\n// Build Gemini request using template data with constraints\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: (promptTemplate.system_instruction || 'You are an expert RTO assessment validator.') + \n            '\\n\\nIMPORTANT: Be concise and avoid repetition. If information is not found, state it once clearly without repeating.'\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,\n        {\n          text: fullPrompt\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0.2,  // Lower temperature for more focused output\n    maxOutputTokens: 4096,  // Reduced to prevent runaway responses\n    topP: 0.9,  // More focused sampling\n    topK: 20,   // Reduced for consistency\n    responseMimeType: \"application/json\",\n    responseSchema: constrainedSchema  // ✅ Now uses database schema with smart_question\n  }\n};\n\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    requirement_id: context.requirement_id,\n    requirement_number: context.requirement_number,\n    requirement_text: context.requirement_text,\n    requirement_type: context.requirement_type,\n    document_type: context.document_type,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest,\n    prompt_used: fullPrompt,\n    session_context: sessionContext,\n    prompt_template_used: promptTemplate.name // For debugging\n  }\n};",
+          "mode": "runOnceForEachItem"
+        },
+        "position": [
+          896,
+          -16
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "credentials": {
+          "googlePalmApi": {
+            "id": "NIZFWdmjDBYpgwmS",
+            "name": "Google Gemini(PaLM) Api account 2"
+          }
+        },
+        "id": "13805701-be8f-4e8e-9fef-a1af5f5cead0",
+        "name": "Call Gemini Revalidation API",
+        "parameters": {
+          "authentication": "predefinedCredentialType",
+          "jsonBody": "={{ $json.gemini_request }}",
+          "method": "POST",
+          "nodeCredentialType": "googlePalmApi",
+          "options": {
+            "timeout": 120000
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+        },
+        "position": [
+          1216,
+          -16
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2
+      },
+      {
+        "id": "a2784dde-873c-40a9-803f-b673379e93ba",
+        "name": "Extract Revalidation Result",
+        "parameters": {
+          "jsCode": "// Extract response from Gemini\nconst geminiResponse = $json.candidates?.[0]?.content?.parts?.[0]?.text;\n\nif (!geminiResponse) {\n  throw new Error('No response received from Gemini API');\n}\n\n// Get webhook data with correct path\nconst webhookBody = $('Webhook - Revalidate Requirement Input').first().json.body;\nconst validationResult = webhookBody.validation_result;\n\n// Parse JSON response\nlet parsedResponse;\ntry {\n  parsedResponse = typeof geminiResponse === 'string' ? JSON.parse(geminiResponse) : geminiResponse;\n} catch (e) {\n  console.error('Failed to parse Gemini response:', e.message);\n  parsedResponse = { \n    requirement_number: validationResult.requirement_number,\n    requirement_text: validationResult.requirement_text,\n    status: 'Not Met',\n    reasoning: 'Error parsing validation response: ' + e.message,\n    confidence_score: 0,\n    raw_response: geminiResponse.substring(0, 500) // First 500 chars for debugging\n  };\n}\n\n// Map Gemini response to validation_results table structure\nreturn {\n  json: {\n    // IDs and metadata\n    id: validationResult.id,\n    validation_detail_id: validationResult.validation_detail_id,\n    requirement_number: parsedResponse.requirement_number || validationResult.requirement_number,\n    requirement_text: parsedResponse.requirement_text || validationResult.requirement_text,\n    requirement_type: validationResult.requirement_type,\n    document_type: validationResult.document_type || 'unit',\n    \n    // Validation results (matching database schema)\n    status: parsedResponse.status || 'not-met', // Convert to lowercase with hyphens for DB\n    reasoning: parsedResponse.reasoning || '',\n    mapped_content: parsedResponse.mapped_content || '',\n    mapped_questions: parsedResponse.mapped_questions || '',\n    doc_references: parsedResponse.doc_references || '',\n    document_references: parsedResponse.doc_references || null, // Duplicate for compatibility\n    \n    // Smart questions and benchmark answers (if provided)\n    smart_question: parsedResponse.smart_question || parsedResponse.smart_questions || '',\n    benchmark_answer: parsedResponse.benchmark_answer || '',\n    \n    // Additional fields\n    recommendations: parsedResponse.recommendations || '',\n    citations: Array.isArray(parsedResponse.citations) \n      ? JSON.stringify(parsedResponse.citations) \n      : parsedResponse.citations || '[]',\n    \n    // Confidence and metadata\n    confidence_score: parsedResponse.confidence_score || 0,\n    \n    // Timestamps\n    updated_at: new Date().toISOString(),\n    \n    // Store original data for comparison (optional fields)\n    _comparison: {\n      original_status: validationResult.status,\n      original_reasoning: validationResult.reasoning,\n      new_status: parsedResponse.status,\n      changed: validationResult.status !== parsedResponse.status\n    }\n  }\n};",
+          "mode": "runOnceForEachItem"
+        },
+        "position": [
+          1616,
+          -16
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "id": "b4b91e8a-8902-495c-bacf-1afe54edadbf",
+        "name": "Respond to Webhook",
+        "parameters": {
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                },
+                {
+                  "name": "Access-Control-Allow-Methods",
+                  "value": "POST, OPTIONS"
+                },
+                {
+                  "name": "Access-Control-Allow-Headers",
+                  "value": "Content-Type"
+                }
+              ]
+            }
+          }
+        },
+        "position": [
+          2384,
+          -16
+        ],
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1
+      },
+      {
+        "id": "f91210d8-fddc-4839-bf01-5f939f0d350c",
+        "name": "Merge",
+        "parameters": {},
+        "position": [
+          112,
+          -16
+        ],
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2
+      },
+      {
+        "alwaysOutputData": true,
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "c3e6e52b-9c2c-4b22-936d-d501c2299f9f",
+        "name": "Update a row",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "={{ $json.status }}"
+              },
+              {
+                "fieldId": "reasoning",
+                "fieldValue": "={{ $json.reasoning }}"
+              },
+              {
+                "fieldId": "mapped_content",
+                "fieldValue": "={{ $json.mapped_content }}"
+              },
+              {
+                "fieldId": "citations",
+                "fieldValue": "={{ $json.citations }}"
+              },
+              {
+                "fieldId": "smart_questions",
+                "fieldValue": "={{ $json.smart_question }}"
+              },
+              {
+                "fieldId": "benchmark_answer",
+                "fieldValue": "={{ $json.benchmark_answer }}"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('Webhook - Revalidate Requirement Input').first().json.body.validation_result.id }}"
+              }
+            ]
+          },
+          "operation": "update",
+          "tableId": "validation_results"
+        },
+        "position": [
+          1984,
+          -16
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2026-01-19T07:54:11.000Z",
+    "versionId": "1ea66bb2-d9b3-46ee-9c4b-c7a928c812b2",
+    "workflowId": "kcg6pvgIop9R9goH",
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-01-19T07:54:11.830Z",
+        "event": "activated",
+        "id": 170,
+        "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "versionId": "1ea66bb2-d9b3-46ee-9c4b-c7a928c812b2",
+        "workflowId": "kcg6pvgIop9R9goH"
+      }
+    ]
+  },
+  "activeVersionId": "1ea66bb2-d9b3-46ee-9c4b-c7a928c812b2",
+  "connections": {
+    "Build Gemini Request": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Call Gemini Revalidation API",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Call Gemini Revalidation API": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract Revalidation Result",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Extract Revalidation Result": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Requirement Prompt by Type": {
+      "main": [
+        [
+          {
+            "index": 1,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Fetch Validation Documents": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Merge",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Prepare Revalidation Context",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Prepare Revalidation Context": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Build Gemini Request",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Respond to Webhook",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook - Revalidate Requirement Input": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Fetch Validation Documents",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Fetch Requirement Prompt by Type",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-11-27T20:37:22.753Z",
+  "description": null,
+  "id": "kcg6pvgIop9R9goH",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "AI Individual Requirement Revalidation - Evidence-Based Assessment",
+  "nodes": [
+    {
+      "id": "1c7aa5fc-75d4-49c7-a00f-3d833049552a",
+      "name": "Webhook - Revalidate Requirement Input",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {
+          "allowedOrigins": "*"
+        },
+        "path": "revalidate-requirement",
+        "responseMode": "responseNode"
+      },
+      "position": [
+        -1136,
+        0
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "webhookId": "revalidate-requirement-webhook"
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      },
+      "id": "d7a534b5-4354-48ba-ab90-bd812c0d09f9",
+      "name": "Fetch Validation Documents",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM documents WHERE validation_detail_id = '{{ $json.body.validation_result.validation_detail_id }}' ORDER BY created_at DESC"
+      },
+      "position": [
+        -544,
+        -192
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4
+    },
+    {
+      "credentials": {
+        "postgres": {
+          "id": "jkimYLj5JZa13Ude",
+          "name": "Supabase Nytro"
+        }
+      },
+      "id": "8e480c1b-5461-429e-85a6-ed68b59a1c28",
+      "name": "Fetch Requirement Prompt by Type",
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {},
+        "query": "SELECT * FROM prompts \nWHERE prompt_type = 'validation'\n  AND requirement_type = '{{ $json.body.validation_result.requirement_type }}'\n  AND document_type = '{{ $json.body.document_type || \"unit\" }}'\n  AND is_active = true\n  AND is_default = true\nLIMIT 1"
+      },
+      "position": [
+        -544,
+        112
+      ],
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4
+    },
+    {
+      "id": "30b9956c-4caf-4183-bb57-0a03c17f0d80",
+      "name": "Prepare Revalidation Context",
+      "parameters": {
+        "jsCode": "// Prepare context for requirement revalidation\nconst webhookBody = $('Webhook - Revalidate Requirement Input').first().json.body;\n\n// Extract validation result from webhook\nconst validationResult = webhookBody.validation_result;\n\nif (!validationResult) {\n  throw new Error('validation_result not found in webhook body');\n}\n\nconst validationDetailId = validationResult.validation_detail_id;\nconst requirementId = validationResult.id;\nconst requirementText = validationResult.requirement_text;\nconst requirementType = validationResult.requirement_type || 'general';\nconst documentType = validationResult.document_type || 'unit';\n\n// Safely fetch documents with fallback\nconst documentsNode = $('Fetch Validation Documents').all();\nconst documents = documentsNode && documentsNode.length > 0 \n  ? documentsNode.map(item => item.json)\n  : [];\n\n// Safely fetch prompt template with fallback\nconst promptNode = $('Fetch Requirement Prompt by Type').all();\nconst promptTemplate = promptNode && promptNode.length > 0 \n  ? promptNode[0].json \n  : null;\n\n// Build document context\nlet documentContext = '';\nif (Array.isArray(documents) && documents.length > 0) {\n  documentContext = `\n**AVAILABLE DOCUMENTS** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n`;\n} else {\n  documentContext = '\\n**NOTE**: No documents are available for this validation.';\n}\n\n// Build context string\nconst contextString = `\n**VALIDATION CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${validationDetailId}\nRequirement ID: ${requirementId}\nRequirement Number: ${validationResult.requirement_number || 'N/A'}\nRequirement Type: ${requirementType}\nDocument Type: ${documentType}\nDocument Count: ${documents.length}\n────────────────────────────────────────────────────────────────────\n\n**REQUIREMENT TO VALIDATE**:\n${requirementText}\n\n**CURRENT STATUS**: ${validationResult.status}\n**CURRENT REASONING**: ${validationResult.reasoning}\n`;\n\n// Build full prompt with context\nconst systemPrompt = promptTemplate?.system_instruction || \n  'You are an expert RTO assessment validator. Validate requirements against document evidence.';\n\nconst promptText = promptTemplate?.prompt_text || \n  'Validate whether this requirement is met based on the evidence in the documents.';\n\n// ✅ USE PROMPT TEMPLATE AS-IS - DON'T OVERRIDE WITH GENERIC ENDING\nconst fullPrompt = `${systemPrompt}\n\n${contextString}\n\n${documentContext}\n\n${promptText}`;\n\n// Return single item with proper data\nreturn [{\n  json: {\n    validation_detail_id: validationDetailId,\n    requirement_id: requirementId,\n    requirement_number: validationResult.requirement_number,\n    requirement_text: requirementText,\n    requirement_type: requirementType,\n    document_type: documentType,\n    system_prompt: systemPrompt,\n    full_prompt: fullPrompt,\n    documents: documents,\n    prompt_template: promptTemplate\n  }\n}];"
+      },
+      "position": [
+        464,
+        -16
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "5d810879-ad32-447f-8b25-2b2bd71d16da",
+      "name": "Build Gemini Request",
+      "parameters": {
+        "jsCode": "// Build Gemini request for requirement revalidation\n// Uses prompt template from database + adds session context + CONSTRAINS output length\nconst context = $input.item.json;\nconst promptTemplate = context.prompt_template;\n\n// Safety checks\nif (!context.requirement_text) {\n  throw new Error('No requirement text found in context');\n}\n\nif (!promptTemplate) {\n  throw new Error('No prompt template found. Ensure \"Fetch Requirement Prompt by Type\" node executed successfully.');\n}\n\nconst documents = Array.isArray(context.documents) \n  ? context.documents \n  : (context.documents ? [context.documents] : []);\n\nif (!documents || documents.length === 0) {\n  throw new Error('No documents found. Ensure documents are uploaded and metadata is populated.');\n}\n\n// Build session context (matching validate workflow)\nconst sessionContext = `\n**REVALIDATION SESSION CONTEXT**\n────────────────────────────────────────────────────────────────────\nValidation Detail ID: ${context.validation_detail_id}\nRequirement ID: ${context.requirement_id}\nRequirement Number: ${context.requirement_number || 'N/A'}\nRequirement Type: ${context.requirement_type}\nDocument Type: ${context.document_type}\nDocument Count: ${documents.length}\n────────────────────────────────────────────────────────────────────\n\n**DOCUMENTS FOR THIS VALIDATION** (${documents.length} files):\n${documents.map((d, i) => `${i + 1}. ${d.file_name} (${d.document_type || 'Assessment Document'})\n   - Uploaded: ${new Date(d.created_at).toLocaleString()}\n   - Storage Path: ${d.storage_path}\n   - Gemini URI: ${d.gemini_file_uri}`).join('\\n')}\n\n**IMPORTANT INSTRUCTIONS**:\n1. This is a requirement revalidation\n2. Only consider the documents provided in this validation session\n3. All citations MUST reference documents with specific page numbers\n4. Be concise - avoid repetition and keep responses focused\n5. CRITICAL: If information is not found, simply state \"Not found in documents\" - DO NOT repeat the same statement multiple times\n\n────────────────────────────────────────────────────────────────────\n`;\n\n// Replace template variables in prompt_text (from database template)\nlet promptText = promptTemplate.prompt_text || 'Validate the following requirement.';\npromptText = promptText\n  .replace(/{{requirement_number}}/g, context.requirement_number || 'N/A')\n  .replace(/{{requirement_text}}/g, context.requirement_text || '')\n  .replace(/{{requirement_type}}/g, context.requirement_type || '')\n  .replace(/{{unit_code}}/g, context.unit_code || '')\n  .replace(/{{document_type}}/g, context.document_type || 'unit');\n\n// Build file parts from documents\nconst fileParts = documents\n  .filter(doc => doc && doc.gemini_file_uri)\n  .map(doc => ({\n    fileData: {\n      mimeType: doc.mime_type || 'application/pdf',\n      fileUri: doc.gemini_file_uri\n    }\n  }));\n\n// Build complete prompt with session context + template prompt\nconst fullPrompt = `${sessionContext}\\n\\n${promptText}`;\n\n// ✅ CRITICAL: Use schema from database and add field length constraints\nconst baseSchema = promptTemplate.output_schema || {\n  type: \"object\",\n  properties: {},\n  required: [\"requirement_number\", \"requirement_text\", \"status\", \"reasoning\"]\n};\n\n// Clone and enhance with length constraints (avoid mutation)\nconst constrainedSchema = JSON.parse(JSON.stringify(baseSchema));\n\n// Add length descriptions to existing fields (don't replace the schema)\nif (constrainedSchema.properties.reasoning) {\n  constrainedSchema.properties.reasoning.description = \"Concise reasoning (max 300 words). If not found, state 'Not found in documents' once only.\";\n}\nif (constrainedSchema.properties.mapped_content) {\n  constrainedSchema.properties.mapped_content.description = \"Brief description of where requirement is addressed (max 200 words). Use 'N/A' if not found.\";\n}\nif (constrainedSchema.properties.unmapped_content) {\n  constrainedSchema.properties.unmapped_content.description = \"Brief description of what is missing (max 200 words). Use 'N/A' if fully addressed. DO NOT repeat the same text.\";\n}\nif (constrainedSchema.properties.doc_references) {\n  constrainedSchema.properties.doc_references.description = \"Specific document citations with page numbers (max 150 words). Format: 'Document.pdf, page X'\";\n}\nif (constrainedSchema.properties.recommendations) {\n  constrainedSchema.properties.recommendations.description = \"Actionable recommendations (max 200 words). Use 'None' if not applicable.\";\n}\n\n// Build Gemini request using template data with constraints\nconst geminiRequest = {\n  systemInstruction: {\n    parts: [{\n      text: (promptTemplate.system_instruction || 'You are an expert RTO assessment validator.') + \n            '\\n\\nIMPORTANT: Be concise and avoid repetition. If information is not found, state it once clearly without repeating.'\n    }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        ...fileParts,\n        {\n          text: fullPrompt\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0.2,  // Lower temperature for more focused output\n    maxOutputTokens: 4096,  // Reduced to prevent runaway responses\n    topP: 0.9,  // More focused sampling\n    topK: 20,   // Reduced for consistency\n    responseMimeType: \"application/json\",\n    responseSchema: constrainedSchema  // ✅ Now uses database schema with smart_question\n  }\n};\n\nreturn {\n  json: {\n    validation_detail_id: context.validation_detail_id,\n    requirement_id: context.requirement_id,\n    requirement_number: context.requirement_number,\n    requirement_text: context.requirement_text,\n    requirement_type: context.requirement_type,\n    document_type: context.document_type,\n    documents_available: fileParts.length > 0,\n    document_count: fileParts.length,\n    gemini_request: geminiRequest,\n    prompt_used: fullPrompt,\n    session_context: sessionContext,\n    prompt_template_used: promptTemplate.name // For debugging\n  }\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        896,
+        -16
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "credentials": {
+        "googlePalmApi": {
+          "id": "NIZFWdmjDBYpgwmS",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "id": "13805701-be8f-4e8e-9fef-a1af5f5cead0",
+      "name": "Call Gemini Revalidation API",
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "jsonBody": "={{ $json.gemini_request }}",
+        "method": "POST",
+        "nodeCredentialType": "googlePalmApi",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+      },
+      "position": [
+        1216,
+        -16
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "a2784dde-873c-40a9-803f-b673379e93ba",
+      "name": "Extract Revalidation Result",
+      "parameters": {
+        "jsCode": "// Extract response from Gemini\nconst geminiResponse = $json.candidates?.[0]?.content?.parts?.[0]?.text;\n\nif (!geminiResponse) {\n  throw new Error('No response received from Gemini API');\n}\n\n// Get webhook data with correct path\nconst webhookBody = $('Webhook - Revalidate Requirement Input').first().json.body;\nconst validationResult = webhookBody.validation_result;\n\n// Parse JSON response\nlet parsedResponse;\ntry {\n  parsedResponse = typeof geminiResponse === 'string' ? JSON.parse(geminiResponse) : geminiResponse;\n} catch (e) {\n  console.error('Failed to parse Gemini response:', e.message);\n  parsedResponse = { \n    requirement_number: validationResult.requirement_number,\n    requirement_text: validationResult.requirement_text,\n    status: 'Not Met',\n    reasoning: 'Error parsing validation response: ' + e.message,\n    confidence_score: 0,\n    raw_response: geminiResponse.substring(0, 500) // First 500 chars for debugging\n  };\n}\n\n// Map Gemini response to validation_results table structure\nreturn {\n  json: {\n    // IDs and metadata\n    id: validationResult.id,\n    validation_detail_id: validationResult.validation_detail_id,\n    requirement_number: parsedResponse.requirement_number || validationResult.requirement_number,\n    requirement_text: parsedResponse.requirement_text || validationResult.requirement_text,\n    requirement_type: validationResult.requirement_type,\n    document_type: validationResult.document_type || 'unit',\n    \n    // Validation results (matching database schema)\n    status: parsedResponse.status || 'not-met', // Convert to lowercase with hyphens for DB\n    reasoning: parsedResponse.reasoning || '',\n    mapped_content: parsedResponse.mapped_content || '',\n    mapped_questions: parsedResponse.mapped_questions || '',\n    doc_references: parsedResponse.doc_references || '',\n    document_references: parsedResponse.doc_references || null, // Duplicate for compatibility\n    \n    // Smart questions and benchmark answers (if provided)\n    smart_question: parsedResponse.smart_question || parsedResponse.smart_questions || '',\n    benchmark_answer: parsedResponse.benchmark_answer || '',\n    \n    // Additional fields\n    recommendations: parsedResponse.recommendations || '',\n    citations: Array.isArray(parsedResponse.citations) \n      ? JSON.stringify(parsedResponse.citations) \n      : parsedResponse.citations || '[]',\n    \n    // Confidence and metadata\n    confidence_score: parsedResponse.confidence_score || 0,\n    \n    // Timestamps\n    updated_at: new Date().toISOString(),\n    \n    // Store original data for comparison (optional fields)\n    _comparison: {\n      original_status: validationResult.status,\n      original_reasoning: validationResult.reasoning,\n      new_status: parsedResponse.status,\n      changed: validationResult.status !== parsedResponse.status\n    }\n  }\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "position": [
+        1616,
+        -16
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "id": "b4b91e8a-8902-495c-bacf-1afe54edadbf",
+      "name": "Respond to Webhook",
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "position": [
+        2384,
+        -16
+      ],
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "f91210d8-fddc-4839-bf01-5f939f0d350c",
+      "name": "Merge",
+      "parameters": {},
+      "position": [
+        112,
+        -16
+      ],
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2
+    },
+    {
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "c3e6e52b-9c2c-4b22-936d-d501c2299f9f",
+      "name": "Update a row",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "reasoning",
+              "fieldValue": "={{ $json.reasoning }}"
+            },
+            {
+              "fieldId": "mapped_content",
+              "fieldValue": "={{ $json.mapped_content }}"
+            },
+            {
+              "fieldId": "citations",
+              "fieldValue": "={{ $json.citations }}"
+            },
+            {
+              "fieldId": "smart_questions",
+              "fieldValue": "={{ $json.smart_question }}"
+            },
+            {
+              "fieldId": "benchmark_answer",
+              "fieldValue": "={{ $json.benchmark_answer }}"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('Webhook - Revalidate Requirement Input').first().json.body.validation_result.id }}"
+            }
+          ]
+        },
+        "operation": "update",
+        "tableId": "validation_results"
+      },
+      "position": [
+        1984,
+        -16
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Webhook - Revalidate Requirement Input": [
+      {
+        "json": {
+          "body": {
+            "validation_result": {
+              "benchmark_answer": "The learner accurately records any deviations from the planned trip schedule, including changes in rest stop locations or durations, and explains the actions taken to mitigate the impact of these deviations on driver fatigue, such as adjusting the schedule to incorporate additional rest breaks or modifying the route to avoid delays. The learner also updates the trip plan to reflect these changes and communicates them to relevant personnel.",
+              "citations": "[]",
+              "created_at": "2026-01-19T04:38:57.778664",
+              "doc_references": "",
+              "document_references": null,
+              "document_type": "unit",
+              "id": "4787",
+              "mapped_content": "The practical assessment (AT3) requires the learner to plan a trip considering fatigue management requirements, which indirectly touches on the monitoring aspect. However, there is no direct assessment of reviewing the effectiveness of these strategies. The knowledge questions in AT1 and short answer questions in AT2 assess knowledge of fatigue management but do not require practical demonstration of monitoring and reviewing effectiveness.",
+              "mapped_questions": "The practical assessment (AT3) requires the learner to plan a trip considering fatigue management requirements, which indirectly touches on the monitoring aspect. However, there is no direct assessment of reviewing the effectiveness of these strategies. The knowledge questions in AT1 and short answer questions in AT2 assess knowledge of fatigue management but do not require practical demonstration of monitoring and reviewing effectiveness.",
+              "reasoning": "The assessment partially covers the monitoring and reviewing of fatigue risk management strategies. While the practical assessment (AT3) requires the learner to plan a trip considering fatigue management, it doesn't explicitly require them to monitor and review the effectiveness of these strategies after implementation or during the trip. The assessment focuses more on planning and compliance than on the ongoing evaluation of the strategies' effectiveness.",
+              "recommendations": "To fully meet this requirement, include a task in AT3 that requires the learner to monitor and review the effectiveness of the fatigue management strategies during the trip and document any adjustments made based on real-time conditions. This could involve a post-trip review where the learner reflects on the effectiveness of the planned strategies and identifies areas for improvement.",
+              "requirement_number": "Performance Criterion - 1.11",
+              "requirement_text": "Training is provided to develop and enhance heavy vehicle driver workplace fatigue risk management strategies",
+              "requirement_type": "elements_performance_criteria",
+              "smart_question": "During a planned heavy vehicle trip, document any deviations from the planned fatigue management strategies (e.g., changes in rest stops, unexpected delays) and explain how these deviations were managed to maintain compliance with fatigue management requirements.",
+              "smart_questions": "During a planned heavy vehicle trip, document any deviations from the planned fatigue management strategies (e.g., changes in rest stops, unexpected delays) and explain how these deviations were managed to maintain compliance with fatigue management requirements.",
+              "status": "partial",
+              "table_source": "validation_results",
+              "type": "elements_performance_criteria",
+              "updated_at": "2026-01-19T04:38:57.778664",
+              "validation_detail_id": 801
+            },
+            "validation_result_id": "4787"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "*",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "54.153.141.26",
+            "cf-ipcountry": "AU",
+            "cf-ray": "9c043163be1c572f-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "3434",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "7ed10e9d-34d4-4ead",
+            "true-client-ip": "54.153.141.26",
+            "user-agent": "Deno/2.1.4 (variant; SupabaseEdgeRuntime/1.69.25)",
+            "x-forwarded-for": "54.153.141.26, 162.158.163.233",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1768803277482371"
+          },
+          "params": {},
+          "query": {},
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/revalidate-requirement"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-11-27T20:37:22.756Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-11-27T20:37:22.756Z",
+      "workflowId": "kcg6pvgIop9R9goH"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-19T07:54:08.794Z",
+  "versionCounter": 31,
+  "versionId": "1ea66bb2-d9b3-46ee-9c4b-c7a928c812b2"
+}

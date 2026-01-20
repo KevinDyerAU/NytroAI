@@ -1,0 +1,971 @@
+{
+  "active": true,
+  "activeVersion": {
+    "authors": "system migration",
+    "autosaved": false,
+    "connections": {
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "CreateFSAssessSupabase",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "CreateFSAssessSupabase": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Embeddings OpenAI": {
+        "ai_embedding": [
+          [
+            {
+              "index": 0,
+              "node": "Pinecone Vector Store",
+              "type": "ai_embedding"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model2": {
+        "ai_languageModel": [
+          [
+            {
+              "index": 0,
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel"
+            }
+          ]
+        ]
+      },
+      "Pinecone Vector Store": {
+        "ai_tool": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_tool"
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "ai_outputParser"
+            }
+          ]
+        ]
+      },
+      "Update a row1": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "AI Agent",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          []
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Update a row1",
+              "type": "main"
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2025-11-28T18:15:14.136Z",
+    "description": null,
+    "name": null,
+    "nodes": [
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "33ca8465-a664-4611-b064-3fc103eaf1a6",
+        "name": "CreateFSAssessSupabase",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "mapped_questions",
+                "fieldValue": "={{ $json.output['Mapped Questions']['Question Number and Title'] + \" - \" + $json.output['Mapped Questions'].Reasoning}}"
+              },
+              {
+                "fieldId": "valDetail_id",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+              },
+              {
+                "fieldId": "fs_number",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+              },
+              {
+                "fieldId": "fs_requirement",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+              },
+              {
+                "fieldId": "requirementId",
+                "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+              },
+              {
+                "fieldId": "smart_question",
+                "fieldValue": "={{ $json.output['SMART Questions']['Question Text'] }}"
+              },
+              {
+                "fieldId": "status",
+                "fieldValue": "={{ $json.output.status }}"
+              },
+              {
+                "fieldId": "benchmarkAnswer",
+                "fieldValue": "={{ $json.output['SMART Questions']['Benchmark Answer'] }}"
+              },
+              {
+                "fieldId": "unmappedContent",
+                "fieldValue": "={{ $json.output['Unmapped Content'].Explanation }}"
+              },
+              {
+                "fieldId": "unmappedRecommendations",
+                "fieldValue": "={{ $json.output['Unmapped Content'].Recommendations }}"
+              },
+              {
+                "fieldId": "docReferences",
+                "fieldValue": "={{ $json.output['Document and Pages'] }}"
+              }
+            ]
+          },
+          "tableId": "foundation_skills_validations"
+        },
+        "position": [
+          -768,
+          64
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "id": "c03c92b7-c2b6-407d-aabf-ee844736b36d",
+        "name": "Webhook",
+        "parameters": {
+          "httpMethod": "POST",
+          "options": {},
+          "path": "ad861d0d-91e1-49a1-8c57-1c7c07e4b59d"
+        },
+        "position": [
+          -2144,
+          336
+        ],
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "webhookId": "ad861d0d-91e1-49a1-8c57-1c7c07e4b59d"
+      },
+      {
+        "id": "01f7a6e1-edd8-4053-84fe-1a0299fceadd",
+        "name": "AI Agent",
+        "parameters": {
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "=Your task is to gather all required information and documents for validation from the Document Store, perform the validation, and return a JSON response. To ensure an efficient and reliable assessment of training documents for Foundation Skills, please follow the streamlined process below:\n\n\n### Steps to Review and Validate Training Documents:\n\n1. **Break Down Skills:**\n   - Identify specific behaviors or abilities within each foundation skill (e.g., communication, problem-solving, teamwork).\n   - Clearly describe each behavior or ability that should be demonstrated.\n\n2. **Ensure Real-World Relevance:**\n   - Verify that tasks reflect real-world scenarios where the foundation skill would be applied.\n   - Confirm that each task is practically relevant to employability skills.\n\n3. **Check for Skill Integration:**\n   - Ensure foundation skills are embedded within other assessment tasks, not assessed separately.\n   - Example: Literacy skills assessed within a reading/writing task or problem-solving within a practical scenario.\n\n4. **Boundaries Around the Process:**\n   - **Integration with Other Skills:** Foundation skills should be assessed alongside performance tasks.\n   - **Alignment with Unit Requirements:** Ensure skills align with unit competency requirements.\n   - **Avoid Redundancy:** Assess skills naturally within tasks, avoiding unnecessary duplication.\n   - **Consistency Across Units:** Apply a consistent assessment approach across similar units.\n\n5. **Methods:**\n   - Assess how foundation skills are integrated into tasks such as performance, group projects, workplace interactions, written tasks, numeracy tasks, and scenarios requiring communication or teamwork.\n\n6. **Focus:**\n   - Evaluate how effectively students apply language, literacy, numeracy, and employability skills in practical tasks.\n\n7. **Map Foundation Skill to Questions:**\n   - Map each foundation skill to relevant question numbers from the assessment.\n   - Note page number and document name and section name.\n   - Extract the exact question text and any sub-points.\n\n8. **Generate a SMART Questions and Benchmark Answer**:\n   - Create a SMART questions for the criterion, condense the Smart Questions into short, clear, and direct questions that still meet the knowledge criteria. Avoid unnecessary wording and ensure each question targets one requirement only.\n   - Create concise and accurate benchmark answer that fully meet both the Smart Question and the knowledge criteria. Each answer must be written in plain English and directly address the question. Avoid unnecessary wording or repetition.\n\n9. ** Clearly Mark Unmapped Content.**\n  - If no match is found, state \"Not Met\" and provide a brief explanation.\n  - Provide recommendations\n\n### JSON Structure for Results:\n\n   \"Foundation Skill Requirement\": \"Description of the Foundation Skill Requirement being mapped.\",\n    \"status\": \"Met\",\n    \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\", \n  \"Mapped Questions\": [\n    \"Document Name\": \"Name of the document where the question appears.\",\n    \"Section Name\": \"Name of the section where the question appears.\",\n    \"Question Number and Title\": \"Text of the mapped question addressing the requirement.\",\n    \"Page Number\": \"Page number(s) in the document.\",\n      \n      \"Reasoning\": \"Explanation of how the mapped question directly meets the requirement, referencing relevant content.\"\n\n  ],\n  \"SMART Question\": [\n      \"Question Text\": \"Specific, Measurable, Achievable, Relevant, and Time-bound (SMART) question.\",\n      \"Benchmark Answer\": \"Defined expected response for the SMART question.\"\n  ]\n\"Unmapped Questions\": \n  [    \n     \"Explanation\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\n     \"Recommendations\": \"Include detailed procedures for identifying and implementing personalized safety measures.\"\n  ]\n\n\n### Additional Notes:\n\nWhen asessing be very lenient, if the content is close enough to the requirement mark it as met. \n\n- **Unmapped Content:** If no relevant tasks, questions, or observations align with requirements, indicate \"Not Met\" or \"Partially Met\" and provide a brief explanation. It is critical that you only provide unmapped content if no relevant items are found.\n- **Mapped Questions:** Ensure each mapped item includes the exact task/question name, page number(s), document name, and a brief explanation of alignment with performance criteria.It is critical that you only provide mapped questions if no relevant items are found.\n\nBy following these steps, you can effectively assess and validate the training documents for the integration and evaluation of Foundation Skills."
+          },
+          "promptType": "define",
+          "text": "={{ $json.requirement }}"
+        },
+        "position": [
+          -1296,
+          64
+        ],
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.2
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "bba8f09e-68db-4002-9d93-e5f1bff02d63",
+        "name": "OpenAI Chat Model1",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "cachedResultName": "gpt-3.5-turbo",
+            "mode": "list",
+            "value": "gpt-3.5-turbo"
+          },
+          "options": {}
+        },
+        "position": [
+          -1472,
+          288
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "credentials": {
+          "pineconeApi": {
+            "id": "yelFxS1GAveaGbaN",
+            "name": "PineconeApi Starter"
+          }
+        },
+        "id": "d5f6c1a6-e3b9-4c69-91ce-58c62f3c8fe7",
+        "name": "Pinecone Vector Store",
+        "parameters": {
+          "mode": "retrieve-as-tool",
+          "options": {
+            "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+          },
+          "pineconeIndex": {
+            "__rl": true,
+            "cachedResultName": "smartrto",
+            "mode": "list",
+            "value": "smartrto"
+          },
+          "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+        },
+        "position": [
+          -1248,
+          352
+        ],
+        "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "910e010d-69f8-4e3f-be4d-8a3549211ff9",
+        "name": "Embeddings OpenAI",
+        "parameters": {
+          "model": "text-embedding-ada-002",
+          "options": {}
+        },
+        "position": [
+          -1200,
+          608
+        ],
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "aeebd36b-bd81-4567-81bc-b390392dde0e",
+        "name": "Structured Output Parser",
+        "parameters": {
+          "autoFix": true,
+          "jsonSchemaExample": "{  \"Foundation Skill Requirement\": \"Reading skills interpret information on the National Quality Framework.\",  \"status\": \"Met\", \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\",    \"Mapped Questions\":    {      \"Question Number and Title\": \"Question 3: Answer the following questions in relation to the National Quality Framework (NQF).\",     \"Reasoning\": \"This question requires students to interpret and explain the purpose of the National Quality Framework (NQF), demonstrating their reading and comprehension skills related to this framework.\"    } ,  \"SMART Questions\":    {      \n  \"Question Text\": \"What is the primary purpose of the National Quality Framework, and how does it relate to service standards in education and care settings? Provide specific examples from the NQF.\",      \"Benchmark Answer\": \"The primary purpose of the National Quality Framework (NQF) is to ensure children receive quality education and care in a safe, healthy, and supportive environment. It establishes standards and regulations for services to follow. Examples include guidelines for children's health and safety, learning outcomes, and educator qualifications.\"    },\n \"Unmapped Content\": \n   { \n     \"Explanation\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\n     \"Recommendations\": \"Include detailed procedures for identifying and implementing personalized safety measures.\"\n   } }"
+        },
+        "position": [
+          -752,
+          336
+        ],
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3
+      },
+      {
+        "credentials": {
+          "openAiApi": {
+            "id": "F3fJ2WILchdegSmA",
+            "name": "OpenAi account"
+          }
+        },
+        "id": "3ab1ab14-af16-4e4e-b954-37ef34314efe",
+        "name": "OpenAI Chat Model2",
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1-mini"
+          },
+          "options": {}
+        },
+        "position": [
+          -896,
+          528
+        ],
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2
+      },
+      {
+        "id": "912c0924-0717-4b24-a03b-9954dc23ae74",
+        "name": "When Executed by Another Workflow",
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          -1840,
+          64
+        ],
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "82c01729-3ffa-4211-8147-ecbece3a71d6",
+        "name": "Update a row",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "COMPLETE"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "matchType": "allFilters",
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -432,
+          64
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      },
+      {
+        "credentials": {
+          "supabaseApi": {
+            "id": "6ZjoNeve5UWvaUfY",
+            "name": "Supabase account"
+          }
+        },
+        "id": "046059f0-54c7-461c-8360-df5694464730",
+        "name": "Update a row1",
+        "parameters": {
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "status",
+                "fieldValue": "PROCESSING"
+              }
+            ]
+          },
+          "filters": {
+            "conditions": [
+              {
+                "condition": "eq",
+                "keyName": "id",
+                "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+              }
+            ]
+          },
+          "matchType": "allFilters",
+          "operation": "update",
+          "tableId": "validation_processing_log"
+        },
+        "position": [
+          -1584,
+          64
+        ],
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1
+      }
+    ],
+    "updatedAt": "2025-11-28T18:15:14.136Z",
+    "versionId": "132a6d67-6582-4be5-bfec-38bffcd560a3",
+    "workflowId": "f3uUM0dGtwCTuS7h",
+    "workflowPublishHistory": []
+  },
+  "activeVersionId": "132a6d67-6582-4be5-bfec-38bffcd560a3",
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "CreateFSAssessSupabase",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "CreateFSAssessSupabase": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Update a row1",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-10-12T22:32:24.874Z",
+  "description": null,
+  "id": "f3uUM0dGtwCTuS7h",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "SimpleFSValidateUnit",
+  "nodes": [
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "33ca8465-a664-4611-b064-3fc103eaf1a6",
+      "name": "CreateFSAssessSupabase",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "mapped_questions",
+              "fieldValue": "={{ $json.output['Mapped Questions']['Question Number and Title'] + \" - \" + $json.output['Mapped Questions'].Reasoning}}"
+            },
+            {
+              "fieldId": "valDetail_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.detid }}"
+            },
+            {
+              "fieldId": "fs_number",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.number }}"
+            },
+            {
+              "fieldId": "fs_requirement",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.requirement }}"
+            },
+            {
+              "fieldId": "requirementId",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.reqid }}"
+            },
+            {
+              "fieldId": "smart_question",
+              "fieldValue": "={{ $json.output['SMART Questions']['Question Text'] }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.output.status }}"
+            },
+            {
+              "fieldId": "benchmarkAnswer",
+              "fieldValue": "={{ $json.output['SMART Questions']['Benchmark Answer'] }}"
+            },
+            {
+              "fieldId": "unmappedContent",
+              "fieldValue": "={{ $json.output['Unmapped Content'].Explanation }}"
+            },
+            {
+              "fieldId": "unmappedRecommendations",
+              "fieldValue": "={{ $json.output['Unmapped Content'].Recommendations }}"
+            },
+            {
+              "fieldId": "docReferences",
+              "fieldValue": "={{ $json.output['Document and Pages'] }}"
+            }
+          ]
+        },
+        "tableId": "foundation_skills_validations"
+      },
+      "position": [
+        -768,
+        64
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "c03c92b7-c2b6-407d-aabf-ee844736b36d",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "ad861d0d-91e1-49a1-8c57-1c7c07e4b59d"
+      },
+      "position": [
+        -2144,
+        336
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "ad861d0d-91e1-49a1-8c57-1c7c07e4b59d"
+    },
+    {
+      "id": "01f7a6e1-edd8-4053-84fe-1a0299fceadd",
+      "name": "AI Agent",
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Your task is to gather all required information and documents for validation from the Document Store, perform the validation, and return a JSON response. To ensure an efficient and reliable assessment of training documents for Foundation Skills, please follow the streamlined process below:\n\n\n### Steps to Review and Validate Training Documents:\n\n1. **Break Down Skills:**\n   - Identify specific behaviors or abilities within each foundation skill (e.g., communication, problem-solving, teamwork).\n   - Clearly describe each behavior or ability that should be demonstrated.\n\n2. **Ensure Real-World Relevance:**\n   - Verify that tasks reflect real-world scenarios where the foundation skill would be applied.\n   - Confirm that each task is practically relevant to employability skills.\n\n3. **Check for Skill Integration:**\n   - Ensure foundation skills are embedded within other assessment tasks, not assessed separately.\n   - Example: Literacy skills assessed within a reading/writing task or problem-solving within a practical scenario.\n\n4. **Boundaries Around the Process:**\n   - **Integration with Other Skills:** Foundation skills should be assessed alongside performance tasks.\n   - **Alignment with Unit Requirements:** Ensure skills align with unit competency requirements.\n   - **Avoid Redundancy:** Assess skills naturally within tasks, avoiding unnecessary duplication.\n   - **Consistency Across Units:** Apply a consistent assessment approach across similar units.\n\n5. **Methods:**\n   - Assess how foundation skills are integrated into tasks such as performance, group projects, workplace interactions, written tasks, numeracy tasks, and scenarios requiring communication or teamwork.\n\n6. **Focus:**\n   - Evaluate how effectively students apply language, literacy, numeracy, and employability skills in practical tasks.\n\n7. **Map Foundation Skill to Questions:**\n   - Map each foundation skill to relevant question numbers from the assessment.\n   - Note page number and document name and section name.\n   - Extract the exact question text and any sub-points.\n\n8. **Generate a SMART Questions and Benchmark Answer**:\n   - Create a SMART questions for the criterion, condense the Smart Questions into short, clear, and direct questions that still meet the knowledge criteria. Avoid unnecessary wording and ensure each question targets one requirement only.\n   - Create concise and accurate benchmark answer that fully meet both the Smart Question and the knowledge criteria. Each answer must be written in plain English and directly address the question. Avoid unnecessary wording or repetition.\n\n9. ** Clearly Mark Unmapped Content.**\n  - If no match is found, state \"Not Met\" and provide a brief explanation.\n  - Provide recommendations\n\n### JSON Structure for Results:\n\n   \"Foundation Skill Requirement\": \"Description of the Foundation Skill Requirement being mapped.\",\n    \"status\": \"Met\",\n    \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\", \n  \"Mapped Questions\": [\n    \"Document Name\": \"Name of the document where the question appears.\",\n    \"Section Name\": \"Name of the section where the question appears.\",\n    \"Question Number and Title\": \"Text of the mapped question addressing the requirement.\",\n    \"Page Number\": \"Page number(s) in the document.\",\n      \n      \"Reasoning\": \"Explanation of how the mapped question directly meets the requirement, referencing relevant content.\"\n\n  ],\n  \"SMART Question\": [\n      \"Question Text\": \"Specific, Measurable, Achievable, Relevant, and Time-bound (SMART) question.\",\n      \"Benchmark Answer\": \"Defined expected response for the SMART question.\"\n  ]\n\"Unmapped Questions\": \n  [    \n     \"Explanation\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\n     \"Recommendations\": \"Include detailed procedures for identifying and implementing personalized safety measures.\"\n  ]\n\n\n### Additional Notes:\n\nWhen asessing be very lenient, if the content is close enough to the requirement mark it as met. \n\n- **Unmapped Content:** If no relevant tasks, questions, or observations align with requirements, indicate \"Not Met\" or \"Partially Met\" and provide a brief explanation. It is critical that you only provide unmapped content if no relevant items are found.\n- **Mapped Questions:** Ensure each mapped item includes the exact task/question name, page number(s), document name, and a brief explanation of alignment with performance criteria.It is critical that you only provide mapped questions if no relevant items are found.\n\nBy following these steps, you can effectively assess and validate the training documents for the integration and evaluation of Foundation Skills."
+        },
+        "promptType": "define",
+        "text": "={{ $json.requirement }}"
+      },
+      "position": [
+        -1296,
+        64
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "bba8f09e-68db-4002-9d93-e5f1bff02d63",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-3.5-turbo",
+          "mode": "list",
+          "value": "gpt-3.5-turbo"
+        },
+        "options": {}
+      },
+      "position": [
+        -1472,
+        288
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "d5f6c1a6-e3b9-4c69-91ce-58c62f3c8fe7",
+      "name": "Pinecone Vector Store",
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "options": {
+          "pineconeNamespace": "={{ $('When Executed by Another Workflow').item.json.namespace_code }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "smartrto",
+          "mode": "list",
+          "value": "smartrto"
+        },
+        "toolDescription": "Use this function to answer user questions about Knowledge Evidence. It contains the RTO Documents  that relate to the Unit Of Competency that needs to be validated."
+      },
+      "position": [
+        -1248,
+        352
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "910e010d-69f8-4e3f-be4d-8a3549211ff9",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "position": [
+        -1200,
+        608
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "aeebd36b-bd81-4567-81bc-b390392dde0e",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{  \"Foundation Skill Requirement\": \"Reading skills interpret information on the National Quality Framework.\",  \"status\": \"Met\", \"Document and Pages\": \"CHCECE056.pdf: Page 6, 7\",    \"Mapped Questions\":    {      \"Question Number and Title\": \"Question 3: Answer the following questions in relation to the National Quality Framework (NQF).\",     \"Reasoning\": \"This question requires students to interpret and explain the purpose of the National Quality Framework (NQF), demonstrating their reading and comprehension skills related to this framework.\"    } ,  \"SMART Questions\":    {      \n  \"Question Text\": \"What is the primary purpose of the National Quality Framework, and how does it relate to service standards in education and care settings? Provide specific examples from the NQF.\",      \"Benchmark Answer\": \"The primary purpose of the National Quality Framework (NQF) is to ensure children receive quality education and care in a safe, healthy, and supportive environment. It establishes standards and regulations for services to follow. Examples include guidelines for children's health and safety, learning outcomes, and educator qualifications.\"    },\n \"Unmapped Content\": \n   { \n     \"Explanation\": \"The documents do not cover specific personal precautions tailored to individual needs.\",\n     \"Recommendations\": \"Include detailed procedures for identifying and implementing personalized safety measures.\"\n   } }"
+      },
+      "position": [
+        -752,
+        336
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "3ab1ab14-af16-4e4e-b954-37ef34314efe",
+      "name": "OpenAI Chat Model2",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        -896,
+        528
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "912c0924-0717-4b24-a03b-9954dc23ae74",
+      "name": "When Executed by Another Workflow",
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        -1840,
+        64
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "82c01729-3ffa-4211-8147-ecbece3a71d6",
+      "name": "Update a row",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "COMPLETE"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "matchType": "allFilters",
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -432,
+        64
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "id": "046059f0-54c7-461c-8360-df5694464730",
+      "name": "Update a row1",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "PROCESSING"
+            }
+          ]
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "id",
+              "keyValue": "={{ $('When Executed by Another Workflow').item.json.id }}"
+            }
+          ]
+        },
+        "matchType": "allFilters",
+        "operation": "update",
+        "tableId": "validation_processing_log"
+      },
+      "position": [
+        -1584,
+        64
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "requirement": " Get the work done - Plans and implements routine tasks and workload making limited decisions on sequencing, timing and collaboration, seeking assistance in setting priorities"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "44.232.244.93",
+            "cf-ipcountry": "US",
+            "cf-ray": "993e01d88cef6e09-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-length": "193",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "8f66c679-1729-4776",
+            "true-client-ip": "44.232.244.93",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "44.232.244.93, 172.70.208.87",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1761356440505732"
+          },
+          "params": {},
+          "query": {
+            "fs_number": "Skill Description 2.1 ",
+            "pineconeNamespace": "000/single/BSBXTW301/UnitOfCompetency/2025-10-24 06:01/",
+            "requirementID": "233",
+            "unitLink": "https://training.gov.au/training/details/BSBXTW301/unitdetails",
+            "validationDetailId": "294"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/ad861d0d-91e1-49a1-8c57-1c7c07e4b59d"
+        }
+      }
+    ],
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "asessementcondition": null,
+          "asessementinstruction": null,
+          "created_at": "2025-11-15T00:43:18.651792+00:00",
+          "detid": 301,
+          "element": null,
+          "id": 2611,
+          "namespace_code": "41497/TLIF0025/UnitOfCompetency/2025-11-14T21-31-05",
+          "number": "Skill Description",
+          "reqid": 260,
+          "requirement": "Foundation skills essential to performance are explicit in the performance criteria of this unit of competency.",
+          "status": "READY",
+          "summary_id": null,
+          "type": "FS",
+          "unit_url": "https://training.gov.au/training/details/TLIF0025/unitdetails",
+          "updated_at": null
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2025-10-12T22:32:24.878Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2025-10-12T22:32:24.878Z",
+      "workflowId": "f3uUM0dGtwCTuS7h"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-11-15T02:08:22.000Z",
+  "versionCounter": 4,
+  "versionId": "132a6d67-6582-4be5-bfec-38bffcd560a3"
+}

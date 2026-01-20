@@ -1,0 +1,524 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "If",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "index": 0,
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding"
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Stop and Error",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Supabase SAVE StudentValidation",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "index": 0,
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel"
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_tool"
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "ai_outputParser"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "AI Agent",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2024-12-07T08:33:48.879Z",
+  "description": null,
+  "id": "N59SAm5CQu5QJrUm",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "PreMarkingValidation",
+  "nodes": [
+    {
+      "id": "402a4b96-f607-4344-b57e-820388ccd4f7",
+      "name": "Webhook",
+      "parameters": {
+        "httpMethod": "POST",
+        "options": {},
+        "path": "4d1b0e2d-cda1-4e88-bb25-bdb9f363e55c"
+      },
+      "position": [
+        -1376,
+        48
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "4d1b0e2d-cda1-4e88-bb25-bdb9f363e55c"
+    },
+    {
+      "credentials": {
+        "supabaseApi": {
+          "id": "6ZjoNeve5UWvaUfY",
+          "name": "Supabase account"
+        }
+      },
+      "executeOnce": true,
+      "id": "cc95ea5e-4429-4bba-979f-79ef3aeb1ab5",
+      "name": "Supabase SAVE StudentValidation",
+      "parameters": {
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "vbf_id",
+              "fieldValue": "={{ $('Webhook').item.json.query.vbf_id }}"
+            },
+            {
+              "fieldId": "unit",
+              "fieldValue": "={{ $json.output.unit }}"
+            },
+            {
+              "fieldId": "qualification",
+              "fieldValue": "={{ $json.output.qualification }}"
+            },
+            {
+              "fieldId": "assessment_number_or_name",
+              "fieldValue": "={{ $json.output.assessment_number_or_name }}"
+            },
+            {
+              "fieldId": "student_name",
+              "fieldValue": "={{ $json.output.student_name }}"
+            },
+            {
+              "fieldId": "date_of_activity",
+              "fieldValue": "={{ $json.output.date_of_activity }}"
+            },
+            {
+              "fieldId": "assessment_type",
+              "fieldValue": "={{ $json.output.assessment_type }}"
+            },
+            {
+              "fieldId": "taskId",
+              "fieldValue": "={{ $json.output.responses[0].task_id }}"
+            },
+            {
+              "fieldId": "student_response",
+              "fieldValue": "={{ $json.output.responses[0].student_response }}"
+            },
+            {
+              "fieldId": "accuracy_check",
+              "fieldValue": "={{ $json.output.automated_review.accuracy_check }}"
+            },
+            {
+              "fieldId": "evidence_check",
+              "fieldValue": "={{ $json.output.automated_review.evidence_check }}"
+            },
+            {
+              "fieldId": "benchmark_comparison",
+              "fieldValue": "={{ $json.output.automated_review.benchmark_comparison }}"
+            },
+            {
+              "fieldId": "overall_commentary",
+              "fieldValue": "={{ $json.output.responses[0].overall_commentary }}"
+            },
+            {
+              "fieldId": "feedback_summary",
+              "fieldValue": "={{ $json.output.responses[0].answer_feedback.summary }}"
+            },
+            {
+              "fieldId": "missing_details",
+              "fieldValue": "={{ $json.output.responses[0].answer_feedback.focus_areas.missing_details }}"
+            },
+            {
+              "fieldId": "suggestions_for_study",
+              "fieldValue": "={{ $json.output.responses[0].answer_feedback.focus_areas.suggestions_for_study }}"
+            },
+            {
+              "fieldId": "improvement_guidance",
+              "fieldValue": "={{ $json.output.responses[0].answer_feedback.focus_areas.improvement_guidance }}"
+            },
+            {
+              "fieldId": "result",
+              "fieldValue": "={{ $json.output.responses[0].result }}"
+            },
+            {
+              "fieldId": "benchmark_answer",
+              "fieldValue": "={{ $json.output.responses[0].benchmark_answer }}"
+            }
+          ]
+        },
+        "tableId": "premarking_validation"
+      },
+      "position": [
+        -80,
+        144
+      ],
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1
+    },
+    {
+      "id": "b29d2530-0f43-43c9-b455-fd378bcd2246",
+      "name": "If",
+      "parameters": {
+        "conditions": {
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "ec5f8614-36f3-44c9-a4ec-008d50d6e78f",
+              "leftValue": "={{ $json.output.responses[0].result }}",
+              "operator": {
+                "operation": "empty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "ab269406-6c7e-4d0d-a6c5-2c579deee38c",
+              "leftValue": "={{ $json.output.responses[0].result }}",
+              "operator": {
+                "operation": "notExists",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "position": [
+        -320,
+        32
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "5c112158-5c19-4142-9fda-4c65b8842796",
+      "name": "Stop and Error",
+      "parameters": {
+        "errorMessage": "NO RESULT"
+      },
+      "position": [
+        -112,
+        -128
+      ],
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1
+    },
+    {
+      "id": "0c06b4a1-c782-4c57-989b-96308553f8ac",
+      "name": "AI Agent",
+      "parameters": {
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Retrieve all Assessment Questions and Tasks from the document store.\n\nReview and assess the student assessment document by following these steps:\n\n1. **Review Each Student Response:**\n   - Compare the student's response to the benchmark/model answers provided.\n   - Mark the answer as \"Correct\", \"Incorrect\", or \"Partially Correct\".\n\n2. **Provide Detailed Feedback:**\n   - If correct, acknowledge accuracy and confirm understanding.\n   - If improvement is needed, identify issues, reference specific resources, give actionable steps, and encourage reflection on workplace scenarios.\n   - The overall_commentary must be given in the first person context, this is mandatory.\n\n3. **Review Sub-questions/Requirements:**\n   - Ensure all sub-questions or requirements are addressed.\n   - Include elements like reflection, self-assessment, and workplace applications.\n\n4. **Maintain a Friendly Tone:**\n   - Highlight positive aspects.\n   - Guide improvements supportively.\n\n5. **Use JSON Format:**\n   - Structure feedback and assessment in the provided JSON format.\n   - Include all necessary fields and ensure completeness.\n\n**Example JSON:**\n\n  \"unit\": \"Organisational Understanding and Learning Needs\",\n  \"qualification\": \"Practical Qualifications in Logistics and Operations\",\n  \"assessment_number_or_name\": \"TLIL0007-AT2\",\n  \"student_name\": \"Bryan Tedford\",\n  \"date_of_activity\": \"2025-01-31\",\n  \"assessment_type\": \"Questions\",\n  \"responses\": \n    \n      \"task_id\": \"Q21\",\n      \"benchmark_answer\": \"this is where the benchmark answer goes\"\n      \"student_response\": \"Familiarised with organisational structure through internal portal and discussions with HR, helped understand career paths and training opportunities.\",\n      \"result\": \"Partially Correct\",\n      \"answer_feedback\": \n        \"summary\": \"The response is a good start but lacks detail in explaining how this understanding guided learning and network establishment.\",\n        \"focus_areas\": \n          \"missing_details\": \"Explanation of personal learning needs identification and network establishment is missing.\",\n          \"suggestions_for_study\": \"Review internal resources and company policies for comprehensive understanding.\",\n          \"improvement_guidance\": \"Consider how training opportunities influenced personal development and networking.\"\n        ,\n        \"feedback_tone\": \"Friendly and Encouraging\"\n      ,\n      \"overall_commentary\": \"Hi Bryan, you need to expand on how understanding the organizational structure has directly impacted personal learning and networking.\"\n    \n  ,\n  \"automated_review\": \n    \"accuracy_check\": \"Response needs completion for full accuracy.\",\n    \"evidence_check\": \"Evidence provided is insufficient.\",\n    \"benchmark_comparison\": \"Response partially aligns but lacks depth.\",\n    \"are_additional_guidelines_followed\": true\n  \n\n\nReturn only the JSON structure and nothing else."
+        },
+        "promptType": "define",
+        "text": "=Please validate the following question/task: {{ $json.body.question }}"
+      },
+      "position": [
+        -928,
+        48
+      ],
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "d0d38ec1-1c55-4d27-a57f-b53112b95c92",
+      "name": "OpenAI Chat Model1",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "options": {}
+      },
+      "position": [
+        -1136,
+        416
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "pineconeApi": {
+          "id": "yelFxS1GAveaGbaN",
+          "name": "PineconeApi Starter"
+        }
+      },
+      "id": "697a349e-deaa-4f8a-a211-016a68843d3b",
+      "name": "Pinecone Vector Store",
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "options": {
+          "pineconeNamespace": "={{ $json.query.pineconeNamespace }}"
+        },
+        "pineconeIndex": {
+          "__rl": true,
+          "cachedResultName": "smartrto",
+          "mode": "list",
+          "value": "smartrto"
+        },
+        "toolDescription": "Use this function to answer user questions about the student assessment document . It contains the student assessment  Documents that needs to be validated."
+      },
+      "position": [
+        -896,
+        352
+      ],
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "b0190c50-f0e9-4a34-ab74-0ab3025cc493",
+      "name": "Embeddings OpenAI",
+      "parameters": {
+        "model": "text-embedding-ada-002",
+        "options": {}
+      },
+      "position": [
+        -944,
+        544
+      ],
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "fa8f65a4-dc7d-4165-b9ca-40cfda8ca554",
+      "name": "Structured Output Parser",
+      "parameters": {
+        "autoFix": true,
+        "jsonSchemaExample": "{\n  \"unit\": \"Organisational Understanding and Learning Needs\",\n  \"qualification\": \"Practical Qualifications in Logistics and Operations\",\n  \"assessment_number_or_name\": \"TLIL0007-AT2\",\n  \"student_name\": \"Bryan Tedford\",\n  \"date_of_activity\": \"2025-01-31\",\n  \"assessment_type\": \"Questions\",\n  \"responses\": [\n    {\n      \"task_id\": \"Q21\",\n      \"benchmark_answer\": \"Familiarised with the organisational structure through our internal portal and discussions with HR, which helped me understand the various career paths and training opportunities available. Recognising my need to improve my skills, I consulted with my supervisor to seek their advice.\",\n      \"student_response\": \"Familiarised with organisational structure through internal portal and discussions with HR, helped understand career paths and training opportunities.\",\n      \"result\": \"Partially Correct\",\n      \"answer_feedback\": {\n        \"summary\": \"The response is a good start but lacks detail in explaining how this understanding guided learning and network establishment.\",\n        \"focus_areas\": {\n          \"missing_details\": \"Explanation of personal learning needs identification and network establishment is missing.\",\n          \"suggestions_for_study\": \"Review internal resources and company policies for comprehensive understanding.\",\n          \"improvement_guidance\": \"Consider how training opportunities influenced personal development and networking.\"\n        },\n        \"feedback_tone\": \"Friendly and Encouraging\"\n      },\n      \"overall_commentary\": \"Bryan needs to expand on how understanding the organizational structure has directly impacted personal learning and networking.\"\n    }\n  ],\n  \"automated_review\": {\n    \"accuracy_check\": \"Response needs completion for full accuracy.\",\n    \"evidence_check\": \"Evidence provided is insufficient.\",\n    \"benchmark_comparison\": \"Response partially aligns but lacks depth.\",\n    \"are_additional_guidelines_followed\": true\n  }\n}"
+      },
+      "position": [
+        -528,
+        352
+      ],
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3
+    },
+    {
+      "credentials": {
+        "openAiApi": {
+          "id": "F3fJ2WILchdegSmA",
+          "name": "OpenAi account"
+        }
+      },
+      "id": "2b0760b1-542d-4bba-8cf2-dc2b2ddba965",
+      "name": "OpenAI Chat Model2",
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "position": [
+        -320,
+        560
+      ],
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "body": {
+            "overrideConfig": {
+              "pineconeNamespace": "7148/TLI30321/TLIL0007/PreMarking/BryanTedford 1234/"
+            },
+            "question": "Can you give an example of how you follow your workplace’s codes of conduct?"
+          },
+          "executionMode": "production",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "35.155.119.178",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "US",
+            "cf-ray": "90c49c4b54562f29-PDX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "onrender.com",
+            "content-length": "187",
+            "content-type": "application/json",
+            "host": "n8n-gtoa.onrender.com",
+            "render-proxy-ttl": "4",
+            "rndr-id": "0d59640a-2e05-4901",
+            "true-client-ip": "35.155.119.178",
+            "user-agent": "superblocks restapi",
+            "x-forwarded-for": "35.155.119.178, 162.158.163.246",
+            "x-forwarded-proto": "https",
+            "x-request-start": "1738608667504335"
+          },
+          "params": {},
+          "query": {
+            "pineconeNamespace": "7148/TLI30321/TLIL0007/PreMarking/BryanTedford 1234/",
+            "vbf_id": "7"
+          },
+          "webhookUrl": "https://n8n-gtoa.onrender.com/webhook/4d1b0e2d-cda1-4e88-bb25-bdb9f363e55c"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "createdAt": "2024-12-07T08:33:48.883Z",
+      "project": {
+        "createdAt": "2024-10-22T21:15:58.126Z",
+        "creatorId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+        "description": null,
+        "icon": null,
+        "id": "l4KvHHgKuODqlMQC",
+        "name": "Kevin Dyer <kdyer1000@gmail.com>",
+        "projectRelations": [
+          {
+            "createdAt": "2024-10-22T21:15:58.126Z",
+            "projectId": "l4KvHHgKuODqlMQC",
+            "updatedAt": "2024-10-22T21:15:58.126Z",
+            "user": {
+              "createdAt": "2024-10-22T21:15:57.570Z",
+              "disabled": false,
+              "email": "kdyer1000@gmail.com",
+              "firstName": "Kevin",
+              "id": "ce4bc9dd-417b-4637-a89e-1ea49435b48d",
+              "isPending": false,
+              "lastActiveAt": "2026-01-19",
+              "lastName": "Dyer",
+              "mfaEnabled": false,
+              "personalizationAnswers": {
+                "personalization_survey_n8n_version": "1.64.0",
+                "personalization_survey_submitted_at": "2024-10-22T21:38:04.796Z",
+                "version": "v4"
+              },
+              "settings": {
+                "dismissedCallouts": {
+                  "ragStarterCallout": true
+                },
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "4MQL5umSvDprkDtp",
+                "isOnboarded": true,
+                "npsSurvey": {
+                  "lastShownAt": 1768798709616,
+                  "responded": true
+                },
+                "userActivated": true,
+                "userActivatedAt": 1729653350737
+              },
+              "updatedAt": "2026-01-20T02:03:46.000Z"
+            },
+            "userId": "ce4bc9dd-417b-4637-a89e-1ea49435b48d"
+          }
+        ],
+        "type": "personal",
+        "updatedAt": "2024-10-22T21:37:59.985Z"
+      },
+      "projectId": "l4KvHHgKuODqlMQC",
+      "role": "workflow:owner",
+      "updatedAt": "2024-12-07T08:33:48.883Z",
+      "workflowId": "N59SAm5CQu5QJrUm"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-20T17:42:17.000Z",
+  "versionCounter": 1,
+  "versionId": "7ab48ea5-5bbe-4373-a217-6a84c118888f"
+}
