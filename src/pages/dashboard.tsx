@@ -14,6 +14,7 @@ import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance
 import { PromptMaintenanceNew as PromptMaintenance } from '../components/maintenance/PromptMaintenanceNew';
 import { SubscriptionsAdmin } from '../components/maintenance/SubscriptionsAdmin';
 import { TechRoadmap } from '../components/maintenance/TechRoadmap';
+import { NytroStrategyRoadmap } from '../components/maintenance/NytroStrategyRoadmap';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
@@ -200,6 +201,13 @@ export function DashboardPage() {
           <div className="space-y-4">
             {backButton}
             <TechRoadmap />
+          </div>
+        );
+      case 'strategy':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <NytroStrategyRoadmap />
           </div>
         );
       default:
