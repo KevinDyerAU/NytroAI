@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Building2, BookOpen, CheckSquare, Zap, MessageSquare, CreditCard } from 'lucide-react';
+import { ChevronRight, Building2, BookOpen, CheckSquare, Zap, MessageSquare, CreditCard, Map } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -57,6 +57,13 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
       description: 'Monitor paid service subscriptions including Render, Supabase, Google, and Netlify',
       icon: <CreditCard className="w-8 h-8" />,
       color: 'bg-violet-50 border-violet-200',
+    },
+    {
+      id: 'roadmap',
+      title: 'Tech Roadmap',
+      description: 'View planned features, integrations, and infrastructure updates for 2026',
+      icon: <Map className="w-8 h-8" />,
+      color: 'bg-cyan-50 border-cyan-200',
     },
   ];
 
