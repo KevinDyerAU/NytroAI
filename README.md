@@ -1,28 +1,32 @@
 # NytroAI: AI-Powered RTO Assessment Validation
 
-**AI-powered RTO assessment validation using Gemini 2.0 for maximum accuracy and compliance.**
+**AI-powered RTO assessment validation with multi-provider support for maximum accuracy, compliance, and data sovereignty.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
-[![n8n](https://img.shields.io/badge/n8n-EA4B71?logo=n8n&logoColor=white)](https://n8n.io)
+[![Azure](https://img.shields.io/badge/Azure_AI-0078D4?logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/en-au/products/ai-services/)
 [![Gemini](https://img.shields.io/badge/Gemini_2.0-4285F4?logo=google&logoColor=white)](https://ai.google.dev/gemini-api)
+[![n8n](https://img.shields.io/badge/n8n-EA4B71?logo=n8n&logoColor=white)](https://n8n.io)
 
 ---
 
 ## 1. Overview
 
-NytroAI validates RTO (Registered Training Organisation) assessment documents against unit requirements using Google's Gemini 2.0 API. The system validates **each requirement individually** for maximum accuracy, with comprehensive citations and smart question generation.
+NytroAI validates RTO (Registered Training Organisation) assessment documents against unit requirements using AI-powered analysis. The system supports **multiple AI providers** (Azure OpenAI and Google Gemini) with a simple environment variable toggle, enabling Australian data sovereignty compliance.
 
-This new, simplified architecture significantly reduces complexity and operational costs while enhancing validation accuracy. By leveraging the large context window of Google's Gemini 2.0 Flash model, the system eliminates the need for complex embedding and vector database pipelines, resulting in a more efficient, cost-effective, and reliable solution.
+The system validates **each requirement individually** for maximum accuracy, with comprehensive citations and smart question generation. The architecture supports both direct Edge Function execution and n8n workflow orchestration, allowing you to choose the best approach for your needs.
 
 ### Key Features
 
+- ✅ **Multi-provider AI support** - Switch between Azure OpenAI and Google Gemini via environment variable
+- ✅ **Australian data sovereignty** - Azure AI services available in Australia East region
 - ✅ **Individual requirement validation** - One requirement at a time for maximum accuracy
 - ✅ **Session context isolation** - Prevents cross-contamination between validations
 - ✅ **Rich citations** - Document names, page numbers, and excerpts
 - ✅ **Smart questions** - AI-generated questions for gaps
 - ✅ **Multi-document support** - Validates across multiple PDFs
 - ✅ **Real-time progress tracking** - See validation status as it runs
+- ✅ **Flexible orchestration** - Direct Edge Function execution or n8n workflow
 - ✅ **Database-driven prompts** - Easy to update and version
 - ✅ **Comprehensive Error Handling** - All external calls protected with error handlers
 
@@ -161,12 +165,12 @@ The modernized NytroAI architecture uses a **separation of concerns** approach w
 | Component | Service | Region/Location |
 |-----------|---------|------------------|
 | **Frontend** | Netlify | Australian CDN Edge |
-| **Workflow Engine** | AWS Fargate + n8n | Sydney (ap-southeast-2) |
+| **Workflow Engine** | n8n (optional) | Render / AWS Fargate |
 | **Database** | Supabase PostgreSQL | Cloud |
 | **File Storage** | Supabase Storage | Cloud |
 | **Edge Functions** | Supabase Edge Functions | Cloud |
-| **AI Processing** | Google Gemini 2.0 Flash | Cloud |
-| **Security** | AWS WAF + ALB | Sydney (ap-southeast-2) |
+| **AI Processing (Azure)** | Azure OpenAI + Document Intelligence | Australia East |
+| **AI Processing (Google)** | Google Gemini 2.0 Flash | Cloud |
 
 ### Architecture Comparison
 
@@ -270,8 +274,10 @@ This ensures that each validation is an **isolated, stateless operation**, preve
 
 - Node.js 18+
 - Supabase account
-- n8n instance (self-hosted or cloud)
-- Gemini API key ([get one here](https://aistudio.google.com/app/apikey))
+- **Choose ONE AI Provider:**
+  - **Azure (Recommended for Australian data sovereignty):** Azure OpenAI + Document Intelligence resources
+  - **Google:** Gemini API key ([get one here](https://aistudio.google.com/app/apikey))
+- n8n instance (optional - only needed if using `ORCHESTRATION_MODE=n8n`)
 
 ### 1. Clone Repository
 
@@ -293,13 +299,41 @@ supabase link --project-ref your-project-ref
 supabase db push
 
 # Deploy edge functions
+supabase functions deploy trigger-validation-unified
 supabase functions deploy get-requirements
+```
 
-# Set secrets
+### 3. Configure AI Provider
+
+#### Option A: Azure AI (Recommended for Australian Data Sovereignty)
+
+```bash
+# Set provider selection
+supabase secrets set AI_PROVIDER=azure
+supabase secrets set ORCHESTRATION_MODE=direct
+
+# Set Azure OpenAI credentials
+supabase secrets set AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+supabase secrets set AZURE_OPENAI_KEY=your_azure_openai_key
+supabase secrets set AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+
+# Set Azure Document Intelligence credentials
+supabase secrets set AZURE_DOC_INTEL_ENDPOINT=https://your-resource.cognitiveservices.azure.com
+supabase secrets set AZURE_DOC_INTEL_KEY=your_doc_intel_key
+```
+
+#### Option B: Google Gemini (with n8n orchestration)
+
+```bash
+# Set provider selection
+supabase secrets set AI_PROVIDER=google
+supabase secrets set ORCHESTRATION_MODE=n8n
+
+# Set Gemini credentials
 supabase secrets set GEMINI_API_KEY=your_gemini_api_key
 ```
 
-### 3. Set Up n8n
+### 4. Set Up n8n (Optional - only for Google + n8n mode)
 
 ```bash
 # Import workflows
@@ -311,13 +345,9 @@ supabase secrets set GEMINI_API_KEY=your_gemini_api_key
 # 1. Postgres (Supabase database connection string)
 # 2. HTTP Header Auth (Supabase anon key)
 # 3. Google Gemini API (API key)
-
-# Set environment variables
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_TIER=free  # or 'paid'
 ```
 
-### 4. Set Up Frontend
+### 5. Set Up Frontend
 
 ```bash
 # Install dependencies
@@ -325,7 +355,7 @@ npm install
 
 # Configure environment
 cp .env.local.example .env.local
-# Edit .env.local with your Supabase and n8n URLs
+# Edit .env.local with your Supabase URLs
 
 # Run development server
 npm run dev
@@ -347,18 +377,109 @@ npm run dev
 
 ---
 
-## 10. References
+## 10. AI Provider Configuration
+
+NytroAI supports multiple AI providers with a simple environment variable toggle. This enables Australian data sovereignty compliance while maintaining flexibility.
+
+### Environment Variables
+
+#### Provider Selection
+
+| Variable | Values | Default | Description |
+|----------|--------|---------|-------------|
+| `AI_PROVIDER` | `azure`, `google` | `google` | Select the AI provider for validation |
+| `ORCHESTRATION_MODE` | `direct`, `n8n` | `direct` | Select orchestration mode |
+
+#### Azure Configuration (when `AI_PROVIDER=azure`)
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | `https://nytroai-openai.openai.azure.com` |
+| `AZURE_OPENAI_KEY` | Azure OpenAI API key | `abc123...` |
+| `AZURE_OPENAI_DEPLOYMENT` | Model deployment name | `gpt-4o-mini` |
+| `AZURE_DOC_INTEL_ENDPOINT` | Document Intelligence endpoint | `https://nytroai-docintel.cognitiveservices.azure.com` |
+| `AZURE_DOC_INTEL_KEY` | Document Intelligence API key | `xyz789...` |
+
+#### Google Configuration (when `AI_PROVIDER=google`)
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `GEMINI_API_KEY` | Google Gemini API key | `AIza...` |
+
+#### Supabase Configuration (always required)
+
+| Variable | Description |
+|----------|-------------|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `SUPABASE_DB_URL` | Direct database connection URL |
+
+### Routing Logic
+
+The `trigger-validation-unified` Edge Function routes requests based on environment variables:
+
+| AI_PROVIDER | ORCHESTRATION_MODE | Behavior |
+|-------------|-------------------|----------|
+| `google` | `n8n` | Calls n8n webhook (existing behavior) |
+| `google` | `direct` | Direct Gemini validation (no n8n) |
+| `azure` | any | Direct Azure validation (no n8n needed) |
+
+### Switching Providers
+
+#### To Switch to Azure
+
+1. Provision Azure resources (Document Intelligence + OpenAI in Australia East)
+2. Set environment variables in Supabase Secrets:
+   ```bash
+   supabase secrets set AI_PROVIDER=azure
+   supabase secrets set ORCHESTRATION_MODE=direct
+   supabase secrets set AZURE_OPENAI_ENDPOINT=<your-endpoint>
+   supabase secrets set AZURE_OPENAI_KEY=<your-key>
+   supabase secrets set AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+   supabase secrets set AZURE_DOC_INTEL_ENDPOINT=<your-endpoint>
+   supabase secrets set AZURE_DOC_INTEL_KEY=<your-key>
+   ```
+3. Redeploy Edge Functions
+
+#### To Revert to Google/n8n
+
+1. Set environment variables:
+   ```bash
+   supabase secrets set AI_PROVIDER=google
+   supabase secrets set ORCHESTRATION_MODE=n8n
+   ```
+2. Redeploy Edge Functions
+
+### Azure Data Sovereignty
+
+When using Azure AI services, all data processing occurs within the **Australia East** region:
+
+| Service | Region | Data Location |
+|---------|--------|---------------|
+| Azure OpenAI | Australia East | Sydney, Australia |
+| Azure Document Intelligence | Australia East | Sydney, Australia |
+
+This ensures compliance with Australian data sovereignty requirements.
+
+---
+
+## 11. References
 
 [1] Google AI. "Gemini 2.0 Flash API Documentation." [https://ai.google.dev/docs](https://ai.google.dev/docs)
 
 [2] Supabase. "Supabase Documentation." [https://supabase.com/docs](https://supabase.com/docs)
+
+[3] Microsoft Azure. "Azure OpenAI Service Documentation." [https://learn.microsoft.com/en-us/azure/ai-services/openai/](https://learn.microsoft.com/en-us/azure/ai-services/openai/)
+
+[4] Microsoft Azure. "Azure Document Intelligence Documentation." [https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/)
 
 [3] n8n. "n8n Documentation." [https://docs.n8n.io/](https://docs.n8n.io/)
 
 
 ---
 
-## 11. TODO / Roadmap
+## 12. TODO / Roadmap
 
 This section outlines the planned enhancements and infrastructure improvements for the NytroAI project.
 
@@ -366,10 +487,11 @@ This section outlines the planned enhancements and infrastructure improvements f
 
 | Priority | Task | Description | Status |
 |----------|------|-------------|--------|
-| **High** | Migrate n8n to AWS Fargate | Migrate the self-hosted n8n instance to AWS Fargate (Sydney region) for Australian data sovereignty. Fargate provides serverless container execution without managing servers. | ⬜ Not Started |
-| **High** | Implement Amazon Bedrock | Integrate Amazon Bedrock as the primary LLM provider to ensure all AI processing occurs within Australian data centers. | ⬜ Not Started |
-| **Medium** | RDS for PostgreSQL | Migrate the n8n database to Amazon RDS for PostgreSQL with Multi-AZ deployment for high availability. | ⬜ Not Started |
-| **Medium** | AWS WAF Integration | Implement AWS Web Application Firewall (WAF) to protect the n8n instance from common web exploits. | ⬜ Not Started |
+| **High** | Azure AI Integration | Integrate Azure OpenAI and Document Intelligence for Australian data sovereignty. | ✅ Complete |
+| **High** | Multi-Provider Support | Add environment variable toggle to switch between Azure and Google AI providers. | ✅ Complete |
+| **Medium** | Direct Edge Function Execution | Enable validation without n8n dependency for simpler deployments. | ✅ Complete |
+| **Low** | Migrate n8n to AWS Fargate | Optional: Migrate n8n to AWS Fargate if continued use is needed. | ⬜ Not Started |
+| **Low** | Implement Amazon Bedrock | Optional: Add Bedrock as third AI provider option. | ⬜ Not Started |
 
 ### Technical Implementation
 
