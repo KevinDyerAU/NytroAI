@@ -311,16 +311,16 @@ jobs:
           echo "✅ Azure OpenAI Endpoint: $ENDPOINT"
           echo "✅ Credentials retrieved successfully"
       
-      - name: 🚀 Deploy GPT-4o Model
+      - name: 🚀 Deploy GPT-4o-mini Model
         id: gpt-deployment
         run: |
           set -e  # Exit on error
           
-          echo "Deploying GPT-4o model to Australia East..."
+          echo "Deploying GPT-4o-mini model to Australia East..."
           
-          DEPLOYMENT_NAME="gpt-4o"
-          MODEL_NAME="gpt-4o"
-          MODEL_VERSION="2024-11-20"
+          DEPLOYMENT_NAME="gpt-4o-mini"
+          MODEL_NAME="gpt-4o-mini"
+          MODEL_VERSION="2024-07-18"
           
           echo "Deployment: $DEPLOYMENT_NAME"
           echo "Model: $MODEL_NAME (version: $MODEL_VERSION)"
@@ -333,7 +333,7 @@ jobs:
             --query "[?name=='$DEPLOYMENT_NAME'].name" -o tsv 2>/dev/null || echo "")
           
           if [ -n "$DEPLOYMENT_EXISTS" ]; then
-            echo "⚠️  GPT-4o deployment already exists"
+            echo "⚠️  GPT-4o-mini deployment already exists"
             
             # Check deployment status
             DEPLOYMENT_STATE=$(az cognitiveservices account deployment show \
@@ -351,10 +351,10 @@ jobs:
               exit 1
             fi
             
-            echo "✅ Using existing GPT-4o deployment"
+            echo "✅ Using existing GPT-4o-mini deployment"
           else
-            echo "Creating GPT-4o deployment (Global Standard in Australia East)..."
-            echo "Note: GPT-4o is available in Australia East for data sovereignty compliance"
+            echo "Creating GPT-4o-mini deployment (Global Standard in Australia East)..."
+            echo "Note: GPT-4o-mini is available in Australia East for data sovereignty compliance"
             
             # Deploy with retry logic
             MAX_RETRIES=3
@@ -371,7 +371,7 @@ jobs:
                 --sku-capacity ${{ github.event.inputs.openai_deployment_capacity }} \
                 --sku-name Standard; then
                 
-                echo "✅ GPT-4o model deployed successfully in Australia East"
+                echo "✅ GPT-4o-mini model deployed successfully in Australia East"
                 echo "✅ Data sovereignty: All processing occurs in Australian region"
                 break
               else
@@ -380,7 +380,7 @@ jobs:
                   echo "⚠️  Deployment failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
                   sleep 15
                 else
-                  echo "❌ ERROR: Failed to deploy GPT-4o after $MAX_RETRIES attempts"
+                  echo "❌ ERROR: Failed to deploy GPT-4o-mini after $MAX_RETRIES attempts"
                   echo ""
                   echo "Possible issues:"
                   echo "1. Model not available in Australia East (check region support)"
@@ -389,7 +389,7 @@ jobs:
                   echo ""
                   echo "Troubleshooting:"
                   echo "- Check Azure Portal for detailed error messages"
-                  echo "- Verify GPT-4o availability in Australia East"
+                  echo "- Verify GPT-4o-mini availability in Australia East"
                   echo "- Request quota increase if needed"
                   exit 1
                 fi
@@ -422,7 +422,7 @@ jobs:
           fi
           
           echo "deployment_name=$DEPLOYMENT_NAME" >> $GITHUB_OUTPUT
-          echo "✅ GPT-4o deployment complete"
+          echo "✅ GPT-4o-mini deployment complete"
       
       - name: 📊 Generate Summary
         run: |
@@ -435,7 +435,7 @@ jobs:
           echo "| Resource Group | \`${{ env.AZURE_RESOURCE_GROUP }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Document Intelligence | \`${{ env.DOC_INTEL_NAME }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Azure OpenAI | \`${{ env.OPENAI_NAME }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| GPT-4o Deployment | \`${{ steps.gpt-deployment.outputs.deployment_name }}\` | - | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| GPT-4o-mini Deployment | \`${{ steps.gpt-deployment.outputs.deployment_name }}\` | - | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔑 Credentials for Supabase Secrets" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
