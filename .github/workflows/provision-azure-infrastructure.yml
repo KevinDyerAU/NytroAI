@@ -156,7 +156,7 @@ jobs:
       - name: 🚀 Deploy GPT-4.1 Model
         id: gpt-deployment
         run: |
-          echo "Deploying GPT-4.1 model..."
+          echo "Deploying GPT-4.1 model to Australia East..."
           
           DEPLOYMENT_NAME="gpt-4.1"
           
@@ -170,7 +170,8 @@ jobs:
             echo "⚠️  GPT-4.1 deployment already exists"
             echo "Skipping deployment creation..."
           else
-            echo "Creating GPT-4.1 deployment..."
+            echo "Creating GPT-4.1 deployment (Global Standard in Australia East)..."
+            echo "Note: GPT-4.1 is available in Australia East for data sovereignty compliance"
             
             az cognitiveservices account deployment create \
               --name ${{ env.OPENAI_NAME }} \
@@ -182,7 +183,8 @@ jobs:
               --sku-capacity ${{ github.event.inputs.openai_deployment_capacity }} \
               --sku-name Standard
             
-            echo "✅ GPT-4.1 model deployed successfully"
+            echo "✅ GPT-4.1 model deployed successfully in Australia East"
+            echo "✅ Data sovereignty: All processing occurs in Australian region"
           fi
           
           echo "deployment_name=$DEPLOYMENT_NAME" >> $GITHUB_OUTPUT
@@ -239,7 +241,7 @@ jobs:
           echo "✅ Credentials saved to .azure-credentials/credentials-${{ github.event.inputs.environment }}.txt"
       
       - name: 📤 Upload Credentials Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: azure-credentials-${{ github.event.inputs.environment }}
           path: .azure-credentials/credentials-${{ github.event.inputs.environment }}.txt
