@@ -48,25 +48,70 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       
-      - name: 📦 Create Resource Group
+      - name: 📦 Create or Update Resource Group
         run: |
-          echo "Creating resource group: ${{ env.AZURE_RESOURCE_GROUP }}"
+          echo "Checking resource group: ${{ env.AZURE_RESOURCE_GROUP }}"
           
-          az group create \
-            --name ${{ env.AZURE_RESOURCE_GROUP }} \
-            --location ${{ env.LOCATION }} \
-            --tags \
-              Environment=${{ github.event.inputs.environment }} \
-              Project=NytroAI \
-              ManagedBy=GitHubActions \
-              CreatedAt=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          
-          echo "✅ Resource group created"
+          # Check if resource group exists
+          if az group show --name ${{ env.AZURE_RESOURCE_GROUP }} 2>/dev/null; then
+            echo "⚠️  Resource group already exists"
+            
+            # Get existing location
+            EXISTING_LOCATION=$(az group show \
+              --name ${{ env.AZURE_RESOURCE_GROUP }} \
+              --query location -o tsv)
+            
+            echo "📍 Existing location: $EXISTING_LOCATION"
+            echo "📍 Target location: ${{ env.LOCATION }}"
+            
+            # Check if location matches
+            if [ "$EXISTING_LOCATION" != "${{ env.LOCATION }}" ]; then
+              echo "❌ ERROR: Resource group exists in different location ($EXISTING_LOCATION)"
+              echo "❌ Cannot change resource group location after creation"
+              echo ""
+              echo "Options:"
+              echo "1. Use existing location: $EXISTING_LOCATION"
+              echo "2. Delete resource group and recreate (WARNING: destroys all resources)"
+              echo "3. Use a different resource group name"
+              echo ""
+              echo "To proceed with existing location, update LOCATION env var to: $EXISTING_LOCATION"
+              exit 1
+            fi
+            
+            # Update tags on existing resource group
+            echo "Updating tags on existing resource group..."
+            az group update \
+              --name ${{ env.AZURE_RESOURCE_GROUP }} \
+              --tags \
+                Environment=${{ github.event.inputs.environment }} \
+                Project=NytroAI \
+                ManagedBy=GitHubActions \
+                LastUpdated=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            
+            echo "✅ Resource group tags updated"
+          else
+            echo "Creating new resource group: ${{ env.AZURE_RESOURCE_GROUP }}"
+            
+            az group create \
+              --name ${{ env.AZURE_RESOURCE_GROUP }} \
+              --location ${{ env.LOCATION }} \
+              --tags \
+                Environment=${{ github.event.inputs.environment }} \
+                Project=NytroAI \
+                ManagedBy=GitHubActions \
+                CreatedAt=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            
+            echo "✅ Resource group created successfully"
+          fi
       
       - name: 📄 Provision Document Intelligence
         id: doc-intel
         run: |
+          set -e  # Exit on error
+          
           echo "Provisioning Document Intelligence: ${{ env.DOC_INTEL_NAME }}"
+          echo "Location: ${{ env.LOCATION }}"
+          echo "SKU: ${{ github.event.inputs.doc_intel_sku }}"
           
           # Check if resource already exists
           if az cognitiveservices account show \
@@ -75,43 +120,101 @@ jobs:
             2>/dev/null; then
             
             echo "⚠️  Document Intelligence resource already exists"
-            echo "Retrieving existing resource details..."
+            
+            # Check provisioning state
+            PROVISIONING_STATE=$(az cognitiveservices account show \
+              --name ${{ env.DOC_INTEL_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --query properties.provisioningState -o tsv)
+            
+            echo "Provisioning state: $PROVISIONING_STATE"
+            
+            if [ "$PROVISIONING_STATE" != "Succeeded" ]; then
+              echo "❌ ERROR: Resource exists but is not in Succeeded state"
+              echo "Current state: $PROVISIONING_STATE"
+              echo "Please check the Azure Portal or delete the resource and retry"
+              exit 1
+            fi
+            
+            echo "✅ Using existing Document Intelligence resource"
           else
             echo "Creating new Document Intelligence resource..."
             
-            az cognitiveservices account create \
-              --name ${{ env.DOC_INTEL_NAME }} \
-              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-              --kind FormRecognizer \
-              --sku ${{ github.event.inputs.doc_intel_sku }} \
-              --location ${{ env.LOCATION }} \
-              --custom-domain ${{ env.DOC_INTEL_NAME }} \
-              --yes
+            # Create with retry logic
+            MAX_RETRIES=3
+            RETRY_COUNT=0
             
-            echo "✅ Document Intelligence resource created"
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if az cognitiveservices account create \
+                --name ${{ env.DOC_INTEL_NAME }} \
+                --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+                --kind FormRecognizer \
+                --sku ${{ github.event.inputs.doc_intel_sku }} \
+                --location ${{ env.LOCATION }} \
+                --custom-domain ${{ env.DOC_INTEL_NAME }} \
+                --yes; then
+                
+                echo "✅ Document Intelligence resource created successfully"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  echo "⚠️  Creation failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+                  sleep 10
+                else
+                  echo "❌ ERROR: Failed to create Document Intelligence after $MAX_RETRIES attempts"
+                  exit 1
+                fi
+              fi
+            done
           fi
           
-          # Get endpoint and key
-          ENDPOINT=$(az cognitiveservices account show \
-            --name ${{ env.DOC_INTEL_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --query properties.endpoint -o tsv)
+          # Get endpoint and key with retry
+          echo "Retrieving credentials..."
+          
+          for i in {1..5}; do
+            ENDPOINT=$(az cognitiveservices account show \
+              --name ${{ env.DOC_INTEL_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --query properties.endpoint -o tsv 2>/dev/null || echo "")
+            
+            if [ -n "$ENDPOINT" ]; then
+              break
+            fi
+            
+            echo "Waiting for endpoint to be available (attempt $i/5)..."
+            sleep 5
+          done
+          
+          if [ -z "$ENDPOINT" ]; then
+            echo "❌ ERROR: Failed to retrieve endpoint"
+            exit 1
+          fi
           
           KEY=$(az cognitiveservices account keys list \
             --name ${{ env.DOC_INTEL_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --query key1 -o tsv)
           
+          if [ -z "$KEY" ]; then
+            echo "❌ ERROR: Failed to retrieve API key"
+            exit 1
+          fi
+          
           # Set outputs for later steps
           echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
           echo "key=$KEY" >> $GITHUB_OUTPUT
           
-          echo "📋 Document Intelligence Endpoint: $ENDPOINT"
+          echo "✅ Document Intelligence Endpoint: $ENDPOINT"
+          echo "✅ Credentials retrieved successfully"
       
       - name: 🤖 Provision Azure OpenAI
         id: openai
         run: |
+          set -e  # Exit on error
+          
           echo "Provisioning Azure OpenAI: ${{ env.OPENAI_NAME }}"
+          echo "Location: ${{ env.LOCATION }}"
           
           # Check if resource already exists
           if az cognitiveservices account show \
@@ -120,74 +223,206 @@ jobs:
             2>/dev/null; then
             
             echo "⚠️  Azure OpenAI resource already exists"
-            echo "Retrieving existing resource details..."
+            
+            # Check provisioning state
+            PROVISIONING_STATE=$(az cognitiveservices account show \
+              --name ${{ env.OPENAI_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --query properties.provisioningState -o tsv)
+            
+            echo "Provisioning state: $PROVISIONING_STATE"
+            
+            if [ "$PROVISIONING_STATE" != "Succeeded" ]; then
+              echo "❌ ERROR: Resource exists but is not in Succeeded state"
+              echo "Current state: $PROVISIONING_STATE"
+              echo "Please check the Azure Portal or delete the resource and retry"
+              exit 1
+            fi
+            
+            echo "✅ Using existing Azure OpenAI resource"
           else
             echo "Creating new Azure OpenAI resource..."
             
-            az cognitiveservices account create \
-              --name ${{ env.OPENAI_NAME }} \
-              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-              --kind OpenAI \
-              --sku S0 \
-              --location ${{ env.LOCATION }} \
-              --custom-domain ${{ env.OPENAI_NAME }} \
-              --yes
+            # Create with retry logic
+            MAX_RETRIES=3
+            RETRY_COUNT=0
             
-            echo "✅ Azure OpenAI resource created"
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if az cognitiveservices account create \
+                --name ${{ env.OPENAI_NAME }} \
+                --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+                --kind OpenAI \
+                --sku S0 \
+                --location ${{ env.LOCATION }} \
+                --custom-domain ${{ env.OPENAI_NAME }} \
+                --yes; then
+                
+                echo "✅ Azure OpenAI resource created successfully"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  echo "⚠️  Creation failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+                  sleep 10
+                else
+                  echo "❌ ERROR: Failed to create Azure OpenAI after $MAX_RETRIES attempts"
+                  exit 1
+                fi
+              fi
+            done
           fi
           
-          # Get endpoint and key
-          ENDPOINT=$(az cognitiveservices account show \
-            --name ${{ env.OPENAI_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --query properties.endpoint -o tsv)
+          # Get endpoint and key with retry
+          echo "Retrieving credentials..."
+          
+          for i in {1..5}; do
+            ENDPOINT=$(az cognitiveservices account show \
+              --name ${{ env.OPENAI_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --query properties.endpoint -o tsv 2>/dev/null || echo "")
+            
+            if [ -n "$ENDPOINT" ]; then
+              break
+            fi
+            
+            echo "Waiting for endpoint to be available (attempt $i/5)..."
+            sleep 5
+          done
+          
+          if [ -z "$ENDPOINT" ]; then
+            echo "❌ ERROR: Failed to retrieve endpoint"
+            exit 1
+          fi
           
           KEY=$(az cognitiveservices account keys list \
             --name ${{ env.OPENAI_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --query key1 -o tsv)
           
+          if [ -z "$KEY" ]; then
+            echo "❌ ERROR: Failed to retrieve API key"
+            exit 1
+          fi
+          
           # Set outputs
           echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
           echo "key=$KEY" >> $GITHUB_OUTPUT
           
-          echo "📋 Azure OpenAI Endpoint: $ENDPOINT"
+          echo "✅ Azure OpenAI Endpoint: $ENDPOINT"
+          echo "✅ Credentials retrieved successfully"
       
       - name: 🚀 Deploy GPT-4.1 Model
         id: gpt-deployment
         run: |
+          set -e  # Exit on error
+          
           echo "Deploying GPT-4.1 model to Australia East..."
           
           DEPLOYMENT_NAME="gpt-4.1"
+          MODEL_NAME="gpt-4"
+          MODEL_VERSION="0125-preview"
+          
+          echo "Deployment: $DEPLOYMENT_NAME"
+          echo "Model: $MODEL_NAME (version: $MODEL_VERSION)"
+          echo "Capacity: ${{ github.event.inputs.openai_deployment_capacity }}K tokens/min"
           
           # Check if deployment already exists
           DEPLOYMENT_EXISTS=$(az cognitiveservices account deployment list \
             --name ${{ env.OPENAI_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --query "[?name=='$DEPLOYMENT_NAME'].name" -o tsv)
+            --query "[?name=='$DEPLOYMENT_NAME'].name" -o tsv 2>/dev/null || echo "")
           
           if [ -n "$DEPLOYMENT_EXISTS" ]; then
             echo "⚠️  GPT-4.1 deployment already exists"
-            echo "Skipping deployment creation..."
+            
+            # Check deployment status
+            DEPLOYMENT_STATE=$(az cognitiveservices account deployment show \
+              --name ${{ env.OPENAI_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --deployment-name $DEPLOYMENT_NAME \
+              --query properties.provisioningState -o tsv 2>/dev/null || echo "Unknown")
+            
+            echo "Deployment state: $DEPLOYMENT_STATE"
+            
+            if [ "$DEPLOYMENT_STATE" != "Succeeded" ]; then
+              echo "❌ ERROR: Deployment exists but is not in Succeeded state"
+              echo "Current state: $DEPLOYMENT_STATE"
+              echo "Please check the Azure Portal or delete the deployment and retry"
+              exit 1
+            fi
+            
+            echo "✅ Using existing GPT-4.1 deployment"
           else
             echo "Creating GPT-4.1 deployment (Global Standard in Australia East)..."
             echo "Note: GPT-4.1 is available in Australia East for data sovereignty compliance"
             
-            az cognitiveservices account deployment create \
-              --name ${{ env.OPENAI_NAME }} \
-              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-              --deployment-name $DEPLOYMENT_NAME \
-              --model-name gpt-4 \
-              --model-version "0125-preview" \
-              --model-format OpenAI \
-              --sku-capacity ${{ github.event.inputs.openai_deployment_capacity }} \
-              --sku-name Standard
+            # Deploy with retry logic
+            MAX_RETRIES=3
+            RETRY_COUNT=0
             
-            echo "✅ GPT-4.1 model deployed successfully in Australia East"
-            echo "✅ Data sovereignty: All processing occurs in Australian region"
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if az cognitiveservices account deployment create \
+                --name ${{ env.OPENAI_NAME }} \
+                --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+                --deployment-name $DEPLOYMENT_NAME \
+                --model-name $MODEL_NAME \
+                --model-version $MODEL_VERSION \
+                --model-format OpenAI \
+                --sku-capacity ${{ github.event.inputs.openai_deployment_capacity }} \
+                --sku-name Standard; then
+                
+                echo "✅ GPT-4.1 model deployed successfully in Australia East"
+                echo "✅ Data sovereignty: All processing occurs in Australian region"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  echo "⚠️  Deployment failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+                  sleep 15
+                else
+                  echo "❌ ERROR: Failed to deploy GPT-4.1 after $MAX_RETRIES attempts"
+                  echo ""
+                  echo "Possible issues:"
+                  echo "1. Model not available in Australia East (check region support)"
+                  echo "2. Quota exceeded (check Azure OpenAI quota limits)"
+                  echo "3. Capacity not available (try lower capacity value)"
+                  echo ""
+                  echo "Troubleshooting:"
+                  echo "- Check Azure Portal for detailed error messages"
+                  echo "- Verify GPT-4.1 availability in Australia East"
+                  echo "- Request quota increase if needed"
+                  exit 1
+                fi
+              fi
+            done
+            
+            # Wait for deployment to be ready
+            echo "Waiting for deployment to be ready..."
+            for i in {1..12}; do
+              DEPLOYMENT_STATE=$(az cognitiveservices account deployment show \
+                --name ${{ env.OPENAI_NAME }} \
+                --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+                --deployment-name $DEPLOYMENT_NAME \
+                --query properties.provisioningState -o tsv 2>/dev/null || echo "Unknown")
+              
+              echo "Deployment state: $DEPLOYMENT_STATE (check $i/12)"
+              
+              if [ "$DEPLOYMENT_STATE" = "Succeeded" ]; then
+                echo "✅ Deployment is ready"
+                break
+              fi
+              
+              if [ $i -eq 12 ]; then
+                echo "⚠️  Warning: Deployment may still be provisioning"
+                echo "Current state: $DEPLOYMENT_STATE"
+              fi
+              
+              sleep 10
+            done
           fi
           
           echo "deployment_name=$DEPLOYMENT_NAME" >> $GITHUB_OUTPUT
+          echo "✅ GPT-4.1 deployment complete"
       
       - name: 📊 Generate Summary
         run: |
