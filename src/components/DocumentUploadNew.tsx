@@ -247,21 +247,23 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit }: DocumentUp
         throw new Error('No documents were successfully uploaded');
       }
 
-      // Kick off validation asynchronously (fire and forget)
+      // Kick off validation asynchronously using unified trigger
+      // This supports both Azure and Google providers based on environment config
       toast.info('Starting AI validation...');
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
       // Start validation in background - don't wait for completion
-      fetch(`${supabaseUrl}/functions/v1/validate-assessment`, {
+      // Uses trigger-validation-unified which routes to Azure or Google based on config
+      fetch(`${supabaseUrl}/functions/v1/trigger-validation-unified`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
         body: JSON.stringify({
-          documentId: documentIds[0],
+          validationDetailId: documentIds[0],
           unitCode: selectedUnit.code,
           validationType: 'full_validation',
         }),
