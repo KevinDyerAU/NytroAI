@@ -2,60 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { CreditCard, Settings as SettingsIcon } from 'lucide-react';
-import { fetchRTOById } from '../types/rto';
 import { AICreditsPage } from './AICreditsPage';
 
 interface SettingsProps {
-  selectedRTOId: string;
+  selectedRTOId?: string;
   onCreditsAdded?: () => void;
-}
-
-interface RTO {
-  id: string | number;
-  code: string;
-  name: string;
-  legalname?: string;
 }
 
 export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
   const [activeTab, setActiveTab] = useState('general');
-  const [currentRTO, setCurrentRTO] = useState<RTO | null>(null);
-  const [isLoadingRTO, setIsLoadingRTO] = useState(false);
-
-  useEffect(() => {
-    const loadRTODetails = async () => {
-      if (!selectedRTOId) {
-        console.log('[Settings] No RTO ID provided');
-        setCurrentRTO(null);
-        return;
-      }
-
-      setIsLoadingRTO(true);
-      try {
-        console.log('[Settings] Fetching RTO details for ID:', selectedRTOId);
-        const rtoData = await fetchRTOById(selectedRTOId);
-        if (rtoData) {
-          console.log('[Settings] RTO details loaded:', { code: rtoData.code, legalname: rtoData.legalname });
-          setCurrentRTO({
-            id: rtoData.id,
-            code: rtoData.code,
-            name: rtoData.legalname || rtoData.code,
-            legalname: rtoData.legalname,
-          });
-        } else {
-          console.warn('[Settings] No RTO data found for ID:', selectedRTOId);
-          setCurrentRTO(null);
-        }
-      } catch (error) {
-        console.error('[Settings] Error loading RTO details:', error instanceof Error ? error.message : String(error));
-        setCurrentRTO(null);
-      } finally {
-        setIsLoadingRTO(false);
-      }
-    };
-
-    loadRTODetails();
-  }, [selectedRTOId]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -78,31 +33,11 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
             </TabsTrigger>
             <TabsTrigger value="purchase" className="flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
-              Purchase AI Credits
+              Purchase Credits
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="general">
-            <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft mb-8">
-              <h2 className="text-lg font-poppins font-semibold text-[#1e293b] mb-4">
-                Current RTO
-              </h2>
-              {isLoadingRTO ? (
-                <p className="text-[#64748b] animate-pulse">Loading RTO details...</p>
-              ) : currentRTO ? (
-                <div className="space-y-2">
-                  <p className="text-[#64748b]">
-                    <span className="font-semibold">Code:</span> {currentRTO.code}
-                  </p>
-                  <p className="text-[#64748b]">
-                    <span className="font-semibold">Name:</span> {currentRTO.name}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[#ef4444]">No RTO selected</p>
-              )}
-            </Card>
-
             <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
               <h3 className="text-lg font-poppins font-semibold text-[#1e293b] mb-6">
                 About Credits
@@ -118,7 +53,7 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
                   <p>
                     <span className="font-semibold text-[#1e293b]">Default Allocation:</span>
                     <br />
-                    New RTOs receive 10 credits by default.
+                    New accounts receive 10 credits by default.
                   </p>
                   <p>
                     <span className="font-semibold text-[#1e293b]">Usage:</span>
@@ -137,7 +72,7 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
                   <p>
                     <span className="font-semibold text-[#1e293b]">Default Allocation:</span>
                     <br />
-                    New RTOs receive 100 credits by default.
+                    New accounts receive 100 credits by default.
                   </p>
                   <p>
                     <span className="font-semibold text-[#1e293b]">Usage:</span>
@@ -156,7 +91,7 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
           </TabsContent>
 
           <TabsContent value="purchase">
-            <AICreditsPage selectedRTOId={selectedRTOId} onCreditsAdded={onCreditsAdded} />
+            <AICreditsPage onCreditsAdded={onCreditsAdded} />
           </TabsContent>
         </Tabs>
       </div>

@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  CreditCard, 
-  Server, 
-  Database, 
-  Cloud, 
-  Globe, 
+import {
+  CreditCard,
+  Server,
+  Database,
+  Cloud,
+  Globe,
   Brain,
   TrendingUp,
   DollarSign,
@@ -143,11 +143,11 @@ export function SubscriptionsAdmin() {
               <CreditCard className="w-6 h-6" />
             </div>
             <h1 className="text-3xl font-poppins font-bold text-[#1e293b]">
-              Subscriptions & Costs
+              Nytro Subscriptions & Platform Costs
             </h1>
           </div>
           <p className="text-[#64748b] text-lg ml-14">
-            Monitor and manage paid service subscriptions for NytroAI platform
+            Monitor and manage Nytro platform subscriptions and third-party service costs
           </p>
         </div>
 
@@ -206,7 +206,7 @@ export function SubscriptionsAdmin() {
           <div>
             <p className="text-sm font-semibold text-amber-800">Usage-Based Billing Notice</p>
             <p className="text-sm text-amber-700">
-              Several services (Render, Supabase, Google Cloud) have usage-based components. Actual costs may vary 
+              Several services (Render, Supabase, Google Cloud) have usage-based components. Actual costs may vary
               based on API calls, compute time, storage, and data transfer. Monitor usage dashboards regularly.
             </p>
           </div>
@@ -215,13 +215,13 @@ export function SubscriptionsAdmin() {
         {/* Subscription Cards Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {subscriptions.map((subscription) => (
-            <Card 
+            <Card
               key={subscription.id}
               className="bg-white border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
             >
               {/* Gradient Header Bar */}
               <div className={`h-2 bg-gradient-to-r ${subscription.gradient}`} />
-              
+
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
@@ -246,13 +246,13 @@ export function SubscriptionsAdmin() {
 
               <CardContent className="pt-0">
                 <p className="text-sm text-[#475569] mb-4">{subscription.description}</p>
-                
+
                 {/* Services List */}
                 <div className="mb-4">
                   <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">Services Included</p>
                   <div className="flex flex-wrap gap-2">
                     {subscription.services.map((service, idx) => (
-                      <span 
+                      <span
                         key={idx}
                         className="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 border border-slate-200"
                       >
@@ -308,8 +308,8 @@ export function SubscriptionsAdmin() {
             <div>
               <h3 className="font-semibold text-[#1e293b] mb-1">Billing Cycle Notes</h3>
               <p className="text-sm text-[#64748b]">
-                Most services bill at the start of each month. Usage-based charges are typically calculated and billed 
-                at the end of each billing period. Keep track of usage dashboards to avoid unexpected charges. 
+                Most services bill at the start of each month. Usage-based charges are typically calculated and billed
+                at the end of each billing period. Keep track of usage dashboards to avoid unexpected charges.
                 Consider setting up billing alerts on each platform.
               </p>
             </div>

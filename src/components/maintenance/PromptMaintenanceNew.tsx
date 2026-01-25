@@ -39,21 +39,42 @@ interface Prompt {
   updated_at: string;
 }
 
-const PROMPT_TYPES = ['validation', 'smart_question', 'report', 'summary'];
+const PROMPT_TYPES = ['validation', 'smart_question', 'report', 'summary', 'chat', 'requirement_revalidation'];
 const REQUIREMENT_TYPES = [
   'knowledge_evidence',
   'performance_evidence',
   'foundation_skills',
   'elements_performance_criteria',
   'assessment_conditions',
+  'assessment_instructions',
+  'general',
   'all'
 ];
-const DOCUMENT_TYPES = ['unit', 'learner_guide', 'both'];
+const DOCUMENT_TYPES = ['unit', 'learner_guide', 'both', 'all'];
+
+// Filter options
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Status' },
+  { value: 'active', label: 'Active Only' },
+  { value: 'inactive', label: 'Inactive Only' },
+];
+const DEFAULT_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'default', label: 'Default Only' },
+  { value: 'not_default', label: 'Non-Default Only' },
+];
 
 export function PromptMaintenanceNew() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter states
+  const [filterPromptType, setFilterPromptType] = useState<string>('all');
+  const [filterRequirementType, setFilterRequirementType] = useState<string>('all');
+  const [filterDocumentType, setFilterDocumentType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterDefault, setFilterDefault] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
   const [showForm, setShowForm] = useState(false);
@@ -165,13 +186,49 @@ export function PromptMaintenanceNew() {
     setIsLoading(true);
     try {
       if (editingId) {
-        const { error } = await supabase
+        // When updating, instead of modifying the existing prompt:
+        // 1. Set the old prompt to non-default
+        // 2. Create a new prompt with the updated text as the new default
+
+        // First, set the old prompt to non-default (keep it for history)
+        const { error: updateOldError } = await supabase
           .from('prompts')
-          .update(formData)
+          .update({ is_default: false })
           .eq('id', editingId);
-        if (error) throw error;
-        toast.success('Prompt updated successfully');
+
+        if (updateOldError) throw updateOldError;
+
+        // Increment version number
+        const currentVersion = formData.version || 'v1.0';
+        const versionMatch = currentVersion.match(/v?(\d+)\.?(\d*)/);
+        let newVersion = 'v1.1';
+        if (versionMatch) {
+          const major = parseInt(versionMatch[1]);
+          const minor = parseInt(versionMatch[2] || '0') + 1;
+          newVersion = `v${major}.${minor}`;
+        }
+
+        // Create new prompt with updated content as the new default
+        const newPromptData = {
+          ...formData,
+          version: newVersion,
+          is_default: true, // New version becomes the default
+          is_active: true,
+        };
+        // Remove id from the data so Supabase generates a new one
+        delete (newPromptData as any).id;
+        delete (newPromptData as any).created_at;
+        delete (newPromptData as any).updated_at;
+
+        const { error: insertError } = await supabase
+          .from('prompts')
+          .insert([newPromptData]);
+
+        if (insertError) throw insertError;
+
+        toast.success(`New prompt version ${newVersion} created as default. Previous version preserved.`);
       } else {
+        // Creating new prompt
         const { error } = await supabase.from('prompts').insert([formData]);
         if (error) throw error;
         toast.success('Prompt created successfully');
@@ -231,7 +288,7 @@ export function PromptMaintenanceNew() {
   const getDuplicates = () => {
     const activeByKey: Record<string, number> = {};
     const defaultByKey: Record<string, number> = {};
-    
+
     prompts.forEach((prompt) => {
       const key = `${prompt.prompt_type}|${prompt.requirement_type}|${prompt.document_type}`;
       if (prompt.is_active) {
@@ -241,21 +298,44 @@ export function PromptMaintenanceNew() {
         defaultByKey[key] = (defaultByKey[key] || 0) + 1;
       }
     });
-    
+
     const duplicateActive = Object.entries(activeByKey).filter(([_, count]) => count > 1).map(([key]) => key);
     const duplicateDefault = Object.entries(defaultByKey).filter(([_, count]) => count > 1).map(([key]) => key);
-    
+
     return { duplicateActive, duplicateDefault };
   };
 
   const { duplicateActive, duplicateDefault } = getDuplicates();
 
-  const filteredPrompts = prompts.filter(p =>
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.prompt_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.requirement_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.document_type?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPrompts = prompts.filter(p => {
+    // Text search
+    const matchesSearch = !searchTerm ||
+      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.prompt_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.requirement_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.document_type?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Prompt type filter
+    const matchesPromptType = filterPromptType === 'all' || p.prompt_type === filterPromptType;
+
+    // Requirement type filter
+    const matchesRequirementType = filterRequirementType === 'all' || p.requirement_type === filterRequirementType;
+
+    // Document type filter
+    const matchesDocumentType = filterDocumentType === 'all' || p.document_type === filterDocumentType;
+
+    // Status filter
+    const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'active' && p.is_active) ||
+      (filterStatus === 'inactive' && !p.is_active);
+
+    // Default filter
+    const matchesDefault = filterDefault === 'all' ||
+      (filterDefault === 'default' && p.is_default) ||
+      (filterDefault === 'not_default' && !p.is_default);
+
+    return matchesSearch && matchesPromptType && matchesRequirementType && matchesDocumentType && matchesStatus && matchesDefault;
+  });
 
   const paginatedPrompts = filteredPrompts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPages = Math.ceil(filteredPrompts.length / pageSize);
@@ -306,17 +386,126 @@ export function PromptMaintenanceNew() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 mb-4">
-            <Search className="w-5 h-5 text-[#64748b]" />
-            <Input
-              placeholder="Search by name, prompt type, requirement type, or document type..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="border border-[#dbeafe] bg-white"
-            />
+          {/* Search and Filter Bar */}
+          <div className="space-y-4 mb-6">
+            {/* Search */}
+            <div className="flex items-center gap-3">
+              <Search className="w-5 h-5 text-[#64748b]" />
+              <Input
+                placeholder="Search by name, prompt type, requirement type, or document type..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="border border-[#dbeafe] bg-white"
+              />
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <span className="text-sm font-medium text-gray-600">Filters:</span>
+
+              {/* Prompt Type Filter */}
+              <Select value={filterPromptType} onValueChange={(value) => { setFilterPromptType(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[160px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Prompt Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {PROMPT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Requirement Type Filter */}
+              <Select value={filterRequirementType} onValueChange={(value) => { setFilterRequirementType(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[180px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Requirement Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Requirements</SelectItem>
+                  {REQUIREMENT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Document Type Filter */}
+              <Select value={filterDocumentType} onValueChange={(value) => { setFilterDocumentType(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[150px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Document Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Documents</SelectItem>
+                  {DOCUMENT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Status Filter */}
+              <Select value={filterStatus} onValueChange={(value) => { setFilterStatus(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[130px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Default Filter */}
+              <Select value={filterDefault} onValueChange={(value) => { setFilterDefault(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[140px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Default" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEFAULT_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Clear Filters Button */}
+              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFilterPromptType('all');
+                    setFilterRequirementType('all');
+                    setFilterDocumentType('all');
+                    setFilterStatus('all');
+                    setFilterDefault('all');
+                    setCurrentPage(1);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+
+            {/* Results count */}
+            <div className="text-sm text-gray-500">
+              Showing {filteredPrompts.length} of {prompts.length} prompts
+              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || searchTerm) && (
+                <span className="ml-2 text-blue-600">(filtered)</span>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -428,9 +617,14 @@ export function PromptMaintenanceNew() {
 
       {showForm && (
         <Card className="border border-[#dbeafe] bg-white p-6">
-          <h3 className="text-xl font-semibold mb-4">
-            {editingId ? 'Edit Prompt' : 'Create New Prompt'}
+          <h3 className="text-xl font-semibold mb-2">
+            {editingId ? 'Create New Prompt Version' : 'Create New Prompt'}
           </h3>
+          {editingId && (
+            <p className="text-sm text-amber-600 bg-amber-50 p-2 rounded mb-4">
+              ℹ️ Saving will create a new version of this prompt and set it as the default. The previous version will be preserved.
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -565,7 +759,7 @@ export function PromptMaintenanceNew() {
                 disabled={isLoading}
                 className="bg-[#10b981] hover:bg-[#059669]"
               >
-                {isLoading ? 'Saving...' : editingId ? 'Update' : 'Create'}
+                {isLoading ? 'Saving...' : editingId ? 'Save as New Version' : 'Create'}
               </Button>
             </div>
           </form>

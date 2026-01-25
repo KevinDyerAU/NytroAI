@@ -1,0 +1,258 @@
+name: Provision Azure Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to provision (dev/staging/production )'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      
+      doc_intel_sku:
+        description: 'Document Intelligence SKU (F0=Free, S0=Standard)'
+        required: true
+        default: 'S0'
+        type: choice
+        options:
+          - F0
+          - S0
+      
+      openai_deployment_capacity:
+        description: 'OpenAI deployment capacity (tokens per minute / 1000)'
+        required: true
+        default: '10'
+        type: string
+
+env:
+  AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  LOCATION: australiaeast
+  DOC_INTEL_NAME: nytroai-docintel-${{ github.event.inputs.environment }}
+  OPENAI_NAME: nytroai-openai-${{ github.event.inputs.environment }}
+
+jobs:
+  provision:
+    name: Provision Azure Resources
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: 📦 Create Resource Group
+        run: |
+          echo "Creating resource group: ${{ env.AZURE_RESOURCE_GROUP }}"
+          
+          az group create \
+            --name ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location ${{ env.LOCATION }} \
+            --tags \
+              Environment=${{ github.event.inputs.environment }} \
+              Project=NytroAI \
+              ManagedBy=GitHubActions \
+              CreatedAt=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          echo "✅ Resource group created"
+      
+      - name: 📄 Provision Document Intelligence
+        id: doc-intel
+        run: |
+          echo "Provisioning Document Intelligence: ${{ env.DOC_INTEL_NAME }}"
+          
+          # Check if resource already exists
+          if az cognitiveservices account show \
+            --name ${{ env.DOC_INTEL_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            2>/dev/null; then
+            
+            echo "⚠️  Document Intelligence resource already exists"
+            echo "Retrieving existing resource details..."
+          else
+            echo "Creating new Document Intelligence resource..."
+            
+            az cognitiveservices account create \
+              --name ${{ env.DOC_INTEL_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --kind FormRecognizer \
+              --sku ${{ github.event.inputs.doc_intel_sku }} \
+              --location ${{ env.LOCATION }} \
+              --custom-domain ${{ env.DOC_INTEL_NAME }} \
+              --yes
+            
+            echo "✅ Document Intelligence resource created"
+          fi
+          
+          # Get endpoint and key
+          ENDPOINT=$(az cognitiveservices account show \
+            --name ${{ env.DOC_INTEL_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.endpoint -o tsv)
+          
+          KEY=$(az cognitiveservices account keys list \
+            --name ${{ env.DOC_INTEL_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query key1 -o tsv)
+          
+          # Set outputs for later steps
+          echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+          
+          echo "📋 Document Intelligence Endpoint: $ENDPOINT"
+      
+      - name: 🤖 Provision Azure OpenAI
+        id: openai
+        run: |
+          echo "Provisioning Azure OpenAI: ${{ env.OPENAI_NAME }}"
+          
+          # Check if resource already exists
+          if az cognitiveservices account show \
+            --name ${{ env.OPENAI_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            2>/dev/null; then
+            
+            echo "⚠️  Azure OpenAI resource already exists"
+            echo "Retrieving existing resource details..."
+          else
+            echo "Creating new Azure OpenAI resource..."
+            
+            az cognitiveservices account create \
+              --name ${{ env.OPENAI_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --kind OpenAI \
+              --sku S0 \
+              --location ${{ env.LOCATION }} \
+              --custom-domain ${{ env.OPENAI_NAME }} \
+              --yes
+            
+            echo "✅ Azure OpenAI resource created"
+          fi
+          
+          # Get endpoint and key
+          ENDPOINT=$(az cognitiveservices account show \
+            --name ${{ env.OPENAI_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.endpoint -o tsv)
+          
+          KEY=$(az cognitiveservices account keys list \
+            --name ${{ env.OPENAI_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query key1 -o tsv)
+          
+          # Set outputs
+          echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+          
+          echo "📋 Azure OpenAI Endpoint: $ENDPOINT"
+      
+      - name: 🚀 Deploy GPT-4.1 Model
+        id: gpt-deployment
+        run: |
+          echo "Deploying GPT-4.1 model..."
+          
+          DEPLOYMENT_NAME="gpt-4.1"
+          
+          # Check if deployment already exists
+          DEPLOYMENT_EXISTS=$(az cognitiveservices account deployment list \
+            --name ${{ env.OPENAI_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "[?name=='$DEPLOYMENT_NAME'].name" -o tsv)
+          
+          if [ -n "$DEPLOYMENT_EXISTS" ]; then
+            echo "⚠️  GPT-4.1 deployment already exists"
+            echo "Skipping deployment creation..."
+          else
+            echo "Creating GPT-4.1 deployment..."
+            
+            az cognitiveservices account deployment create \
+              --name ${{ env.OPENAI_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --deployment-name $DEPLOYMENT_NAME \
+              --model-name gpt-4 \
+              --model-version "0125-preview" \
+              --model-format OpenAI \
+              --sku-capacity ${{ github.event.inputs.openai_deployment_capacity }} \
+              --sku-name Standard
+            
+            echo "✅ GPT-4.1 model deployed successfully"
+          fi
+          
+          echo "deployment_name=$DEPLOYMENT_NAME" >> $GITHUB_OUTPUT
+      
+      - name: 📊 Generate Summary
+        run: |
+          echo "## ✅ Azure Infrastructure Provisioned Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Resources Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource Type | Resource Name | Location | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------------|---------------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource Group | \`${{ env.AZURE_RESOURCE_GROUP }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Document Intelligence | \`${{ env.DOC_INTEL_NAME }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Azure OpenAI | \`${{ env.OPENAI_NAME }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| GPT-4.1 Deployment | \`${{ steps.gpt-deployment.outputs.deployment_name }}\` | - | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔑 Credentials for Supabase Secrets" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Add these to your Supabase project secrets:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "AZURE_DOC_INTEL_ENDPOINT=${{ steps.doc-intel.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "AZURE_DOC_INTEL_KEY=${{ steps.doc-intel.outputs.key }}" >> $GITHUB_STEP_SUMMARY
+          echo "AZURE_OPENAI_ENDPOINT=${{ steps.openai.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "AZURE_OPENAI_KEY=${{ steps.openai.outputs.key }}" >> $GITHUB_STEP_SUMMARY
+          echo "AZURE_OPENAI_DEPLOYMENT=${{ steps.gpt-deployment.outputs.deployment_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Copy the credentials above" >> $GITHUB_STEP_SUMMARY
+          echo "2. Go to Supabase Dashboard → Project Settings → Edge Functions" >> $GITHUB_STEP_SUMMARY
+          echo "3. Add each secret using the 'Add secret' button" >> $GITHUB_STEP_SUMMARY
+          echo "4. Deploy your updated Edge Functions" >> $GITHUB_STEP_SUMMARY
+          echo "5. Test the integration" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 💾 Save Credentials to File
+        run: |
+          mkdir -p .azure-credentials
+          
+          cat > .azure-credentials/credentials-${{ github.event.inputs.environment }}.txt << EOF
+          # Azure Credentials for NytroAI - ${{ github.event.inputs.environment }}
+          # Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          # DO NOT COMMIT THIS FILE TO GIT
+          
+          AZURE_DOC_INTEL_ENDPOINT=${{ steps.doc-intel.outputs.endpoint }}
+          AZURE_DOC_INTEL_KEY=${{ steps.doc-intel.outputs.key }}
+          AZURE_OPENAI_ENDPOINT=${{ steps.openai.outputs.endpoint }}
+          AZURE_OPENAI_KEY=${{ steps.openai.outputs.key }}
+          AZURE_OPENAI_DEPLOYMENT=${{ steps.gpt-deployment.outputs.deployment_name }}
+          EOF
+          
+          echo "✅ Credentials saved to .azure-credentials/credentials-${{ github.event.inputs.environment }}.txt"
+      
+      - name: 📤 Upload Credentials Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: azure-credentials-${{ github.event.inputs.environment }}
+          path: .azure-credentials/credentials-${{ github.event.inputs.environment }}.txt
+          retention-days: 7
+      
+      - name: 🎉 Provisioning Complete
+        run: |
+          echo "============================================"
+          echo "✅ Azure infrastructure provisioned successfully!"
+          echo "============================================"
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Location: ${{ env.LOCATION }}"
+          echo ""
+          echo "Next: Add credentials to Supabase Secrets"
+          echo "============================================"

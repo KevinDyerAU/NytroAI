@@ -1,99 +1,102 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Cpu, Check, Zap, Sparkles } from 'lucide-react';
-import { getRTOById, getAICredits } from '../types/rto';
+import { Input } from './ui/input';
+import { Check, Tag, X, Loader2, Mail, FileText } from 'lucide-react';
 import { getStripe } from '../lib/stripe';
-import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 interface AICreditsPageProps {
-  selectedRTOId: string;
   onCreditsAdded?: () => void;
 }
 
-interface CreditPackage {
-  id: string;
-  name: string;
-  credits?: number;
-  price?: number;
-  priceLabel?: string;
-  popular?: boolean;
-  description: string;
-  isEnquiry?: boolean;
-}
+const UNIT_PRICE_AUD = 180;
 
-const creditPackages: CreditPackage[] = [
-  {
-    id: 'core',
-    name: 'Core',
-    price: 1500,
-    priceLabel: 'month',
-    description: 'Get started with the essentials. Core gives you the key compliance and validation tools you need to manage and maintain standards with confidence.',
-    credits: 5000,
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 4500,
-    priceLabel: 'month',
-    popular: true,
-    description: 'Built for growth. Pro unlocks advanced automation, analytics, and integrations to streamline and elevate performance across your organisation.',
-    credits: 20000,
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    description: 'Designed for scale. Enterprise delivers complete customisation, dedicated support, and enterprise-grade control for large, multi-site or complex operations.',
-    isEnquiry: true,
-  },
-];
-
-export function AICreditsPage({ selectedRTOId, onCreditsAdded }: AICreditsPageProps) {
+export function AICreditsPage({ onCreditsAdded }: AICreditsPageProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [currentCredits, setCurrentCredits] = useState({ current: 0, total: 0 });
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoError, setPromoError] = useState('');
+  const [promoDiscount, setPromoDiscount] = useState<{ percent?: number; amount?: number } | null>(null);
 
-  const currentRTO = getRTOById(selectedRTOId);
-
-  useEffect(() => {
-    loadCredits();
-  }, [selectedRTOId]);
-
-  const loadCredits = async () => {
-    if (!currentRTO?.code) return;
-    
-    try {
-      const credits = await getAICredits(currentRTO.code);
-      setCurrentCredits(credits);
-    } catch (error) {
-      console.error('Error loading AI credits:', error);
-    }
-  };
-
-  const handlePurchase = async (pkg: CreditPackage) => {
-    if (!currentRTO?.code) {
-      toast.error('Please select an RTO first');
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) {
+      setPromoError('Please enter a promo code');
       return;
     }
 
-    setIsLoading(true);
-    setSelectedPackage(pkg.id);
+    setPromoValidating(true);
+    setPromoError('');
 
     try {
-      // Get current URL for success/cancel redirects
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/validate-promo-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({ promoCode: promoCode.trim().toUpperCase() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.valid) {
+        setPromoError(data.error || 'Invalid promo code');
+        setPromoApplied(false);
+        setPromoDiscount(null);
+      } else {
+        setPromoApplied(true);
+        setPromoDiscount(data.discount);
+        toast.success(`Promo code applied! ${data.discount.percent ? `${data.discount.percent}% off` : `$${data.discount.amount} off`}`);
+      }
+    } catch (error) {
+      console.error('Error validating promo code:', error);
+      setPromoError('Failed to validate promo code');
+    } finally {
+      setPromoValidating(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setPromoCode('');
+    setPromoApplied(false);
+    setPromoDiscount(null);
+    setPromoError('');
+  };
+
+  const getDiscountedPrice = (originalPrice: number) => {
+    if (!promoDiscount) return originalPrice;
+    if (promoDiscount.percent) {
+      return originalPrice * (1 - promoDiscount.percent / 100);
+    }
+    if (promoDiscount.amount) {
+      return Math.max(0, originalPrice - promoDiscount.amount);
+    }
+    return originalPrice;
+  };
+
+  const totalPrice = UNIT_PRICE_AUD * quantity;
+  const discountedTotal = getDiscountedPrice(totalPrice);
+
+  const handlePurchase = async () => {
+    setIsLoading(true);
+
+    try {
       const currentUrl = window.location.origin;
-      const successUrl = `${currentUrl}/settings?tab=purchase&success=true&package=${pkg.id}`;
+      const successUrl = `${currentUrl}/settings?tab=purchase&success=true&quantity=${quantity}`;
       const cancelUrl = `${currentUrl}/settings?tab=purchase&canceled=true`;
 
-      // Call Supabase Edge Function to create Stripe Checkout session
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseAnonKey) {
-        toast.error('Supabase configuration missing. Please check environment variables.');
+        toast.error('Configuration missing. Please check environment variables.');
         setIsLoading(false);
-        setSelectedPackage(null);
         return;
       }
 
@@ -104,28 +107,20 @@ export function AICreditsPage({ selectedRTOId, onCreditsAdded }: AICreditsPagePr
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
         body: JSON.stringify({
-          packageId: pkg.id,
-          rtoCode: currentRTO.code,
-          credits: pkg.credits,
-          price: pkg.price,
+          productType: 'unit',
+          quantity,
+          unitPrice: UNIT_PRICE_AUD,
           successUrl,
           cancelUrl,
+          promoCode: promoApplied ? promoCode.trim().toUpperCase() : undefined,
         }),
       });
 
       let responseData;
       try {
-        // Clone the response to safely read the body without stream conflicts
-        try {
-          responseData = await response.clone().json();
-        } catch (cloneError) {
-          // Fallback: if cloning fails, try reading directly
-          console.warn('Clone json() failed, attempting direct read:', cloneError);
-          responseData = await response.json();
-        }
-      } catch (jsonError) {
-        console.error('Failed to parse checkout response:', jsonError);
-        throw new Error(`Failed to parse checkout response: ${jsonError.message}`);
+        responseData = await response.clone().json();
+      } catch (cloneError) {
+        responseData = await response.json();
       }
 
       if (!response.ok) {
@@ -134,7 +129,6 @@ export function AICreditsPage({ selectedRTOId, onCreditsAdded }: AICreditsPagePr
 
       const { sessionId, url } = responseData;
 
-      // Redirect to Stripe Checkout
       const stripe = await getStripe();
       if (stripe && sessionId) {
         const { error } = await stripe.redirectToCheckout({ sessionId });
@@ -143,7 +137,6 @@ export function AICreditsPage({ selectedRTOId, onCreditsAdded }: AICreditsPagePr
           toast.error(error.message || 'Failed to redirect to checkout');
         }
       } else if (url) {
-        // Fallback: direct redirect to checkout URL
         window.location.href = url;
       } else {
         throw new Error('No checkout session URL received');
@@ -152,267 +145,211 @@ export function AICreditsPage({ selectedRTOId, onCreditsAdded }: AICreditsPagePr
     } catch (error) {
       console.error('Error processing purchase:', error);
       toast.error(
-        error instanceof Error 
-          ? error.message 
+        error instanceof Error
+          ? error.message
           : 'Failed to process purchase. Please try again.'
       );
       setIsLoading(false);
-      setSelectedPackage(null);
     }
   };
 
-  // Check for success/cancel query parameters on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const canceled = urlParams.get('canceled');
-    const packageId = urlParams.get('package');
+    const qty = urlParams.get('quantity');
 
     if (success === 'true') {
-      const pkg = creditPackages.find(p => p.id === packageId);
       toast.success(
-        `Payment successful! ${pkg ? pkg.credits.toLocaleString() : ''} AI credits will be added to your account shortly.`
+        `Payment successful! Your ${qty || ''} unit${Number(qty) > 1 ? 's' : ''} will be activated shortly.`
       );
       onCreditsAdded?.();
-      loadCredits();
-      // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
     } else if (canceled === 'true') {
       toast.info('Payment was canceled. No charges were made.');
-      // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
   return (
     <div className="min-h-screen w-full bg-[#f8f9fb] p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-10">
           <h1 className="text-3xl font-poppins font-bold text-[#1e293b] mb-2">
-            Purchase AI Credits
+            Purchase Units
           </h1>
           <p className="text-[#64748b]">
-            Boost your AI capabilities with additional credits for smart questions and validations
+            Purchase individual units at $180 AUD each
           </p>
         </div>
 
-        {/* Current Balance */}
-        <Card className="border border-[#dbeafe] bg-gradient-to-br from-purple-50 to-blue-50 p-6 shadow-soft mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-white rounded-full p-3 shadow-md">
-                <Cpu className="w-8 h-8 text-[#8b5cf6]" />
-              </div>
-              <div>
-                <h2 className="text-lg font-poppins font-semibold text-[#1e293b]">
-                  Current AI Credits
-                </h2>
-                <p className="text-sm text-[#64748b]">
-                  {currentRTO?.name || 'No RTO selected'}
-                </p>
-              </div>
+        {/* Single Unit Purchase Card */}
+        <Card className="border-2 border-[#8b5cf6] bg-gradient-to-br from-purple-50 to-white p-8 shadow-soft mb-8">
+          <div className="flex items-start gap-6">
+            <div className="bg-[#8b5cf6] rounded-xl p-4">
+              <FileText className="w-8 h-8 text-white" />
             </div>
-            <div className="text-right">
-              <div className="text-4xl font-bold text-[#8b5cf6]">
-                {currentCredits.current.toLocaleString()}
-              </div>
-              <div className="text-sm text-[#64748b]">
-                of {currentCredits.total.toLocaleString()} total
-              </div>
-            </div>
-          </div>
-        </Card>
 
-        {/* Subscription Tiers */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {creditPackages.map((pkg) => (
-            <Card
-              key={pkg.id}
-              className={`border-2 ${
-                pkg.popular
-                  ? 'border-[#8b5cf6] bg-gradient-to-br from-purple-50 to-white'
-                  : 'border-[#dbeafe] bg-white'
-              } p-6 shadow-soft relative hover:shadow-lg transition-shadow`}
-            >
-              {pkg.popular && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-[#8b5cf6] text-white px-4 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" />
-                    Most Popular
+            <div className="flex-1">
+              <h2 className="text-2xl font-poppins font-bold text-[#1e293b] mb-2">
+                Unit Purchase
+              </h2>
+              <p className="text-[#64748b] mb-6">
+                Each unit costs <span className="font-bold text-[#8b5cf6]">$180 AUD</span>. Select the number of units you need.
+              </p>
+
+              {/* Quantity Selector */}
+              <div className="flex items-center gap-4 mb-6">
+                <span className="text-[#1e293b] font-medium">Quantity:</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={quantity <= 1}
+                    className="w-10 h-10 p-0"
+                  >
+                    -
+                  </Button>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-20 text-center border-[#dbeafe]"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-10 h-10 p-0"
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+
+              {/* Promo Code Section */}
+              <div className="bg-white/50 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Tag className="w-5 h-5 text-[#64748b]" />
+                  <span className="text-sm font-medium text-[#1e293b]">Promo code:</span>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        placeholder="Enter code"
+                        value={promoCode}
+                        onChange={(e) => {
+                          setPromoCode(e.target.value.toUpperCase());
+                          setPromoError('');
+                        }}
+                        disabled={promoApplied}
+                        className={`w-40 uppercase ${promoApplied ? 'bg-green-50 border-green-300' : ''} ${promoError ? 'border-red-300' : ''}`}
+                      />
+                      {promoApplied && (
+                        <button
+                          onClick={handleRemovePromo}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-red-500 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {!promoApplied && (
+                      <Button
+                        onClick={handleApplyPromo}
+                        disabled={promoValidating || !promoCode.trim()}
+                        variant="outline"
+                        size="sm"
+                        className="border-[#8b5cf6] text-[#8b5cf6] hover:bg-[#8b5cf6] hover:text-white"
+                      >
+                        {promoValidating ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Apply'
+                        )}
+                      </Button>
+                    )}
+
+                    {promoApplied && (
+                      <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                        <Check className="w-4 h-4" />
+                        {promoDiscount?.percent ? `${promoDiscount.percent}% off` : `$${promoDiscount?.amount} off`}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
 
-              <div className="text-center mb-6 mt-2">
-                <h3 className="text-2xl font-poppins font-bold text-[#1e293b] mb-4">
-                  {pkg.name}
-                </h3>
-                <p className="text-sm text-[#64748b] mb-6 min-h-[80px]">{pkg.description}</p>
-                
-                {pkg.isEnquiry ? (
-                  <div className="mb-6">
-                    <div className="text-2xl font-bold text-[#1e293b]">
-                      Enquire for pricing
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-4">
-                      <div className="text-4xl font-bold text-[#1e293b]">
-                        ${pkg.price?.toLocaleString()}
-                      </div>
-                      <div className="text-sm text-[#64748b] mt-1">{pkg.priceLabel}</div>
-                    </div>
-
-                    {pkg.credits && (
-                      <div className="bg-[#f1f5f9] rounded-lg p-3 mb-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <Zap className="w-5 h-5 text-[#8b5cf6]" />
-                          <span className="text-2xl font-bold text-[#1e293b]">
-                            {pkg.credits.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="text-xs text-[#64748b] mt-1">AI Credits / month</div>
-                      </div>
-                    )}
-                  </>
+                {promoError && (
+                  <p className="text-sm text-red-500 mt-2">{promoError}</p>
                 )}
               </div>
 
+              {/* Total */}
+              <div className="flex items-center justify-between mb-6 p-4 bg-[#f1f5f9] rounded-lg">
+                <span className="text-lg font-medium text-[#1e293b]">Total:</span>
+                <div className="text-right">
+                  {promoApplied && promoDiscount && (
+                    <div className="text-sm text-[#94a3b8] line-through">
+                      ${totalPrice.toLocaleString()} AUD
+                    </div>
+                  )}
+                  <div className="text-2xl font-bold text-[#8b5cf6]">
+                    ${discountedTotal.toLocaleString()} AUD
+                  </div>
+                </div>
+              </div>
+
+              {/* Purchase Button */}
               <Button
-                onClick={() => pkg.isEnquiry ? window.location.href = 'mailto:sales@nytro.ai' : handlePurchase(pkg)}
-                disabled={!pkg.isEnquiry && (isLoading || !currentRTO)}
-                className={`w-full ${
-                  pkg.popular
-                    ? 'bg-[#8b5cf6] hover:bg-[#7c3aed]'
-                    : 'bg-[#60a5fa] hover:bg-[#3b82f6]'
-                } text-white font-poppins font-semibold shadow-md`}
+                onClick={handlePurchase}
+                disabled={isLoading}
+                className="w-full bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-poppins font-semibold py-3 h-auto text-lg"
               >
-                {!pkg.isEnquiry && isLoading && selectedPackage === pkg.id ? (
-                  'Processing...'
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Processing...
+                  </>
                 ) : (
                   <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Get Started
+                    <Check className="w-5 h-5 mr-2" />
+                    Purchase Now
                   </>
                 )}
               </Button>
-            </Card>
-          ))}
-        </div>
-
-        {/* Features & Benefits */}
-        <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-          <h3 className="text-lg font-poppins font-semibold text-[#1e293b] mb-6">
-            What You Can Do With AI Credits
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <div className="bg-[#dcfce7] rounded-full p-2">
-                  <Check className="w-5 h-5 text-[#16a34a]" />
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-[#1e293b] mb-1">
-                  Generate Smart Questions
-                </h4>
-                <p className="text-sm text-[#64748b]">
-                  Automatically create intelligent assessment questions based on unit requirements
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <div className="bg-[#dcfce7] rounded-full p-2">
-                  <Check className="w-5 h-5 text-[#16a34a]" />
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-[#1e293b] mb-1">
-                  Redo Validations
-                </h4>
-                <p className="text-sm text-[#64748b]">
-                  Re-run validation processes with improved AI analysis
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <div className="bg-[#dcfce7] rounded-full p-2">
-                  <Check className="w-5 h-5 text-[#16a34a]" />
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-[#1e293b] mb-1">
-                  AI-Powered Chat
-                </h4>
-                <p className="text-sm text-[#64748b]">
-                  Get intelligent responses about your documents and assessments
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <div className="bg-[#dcfce7] rounded-full p-2">
-                  <Check className="w-5 h-5 text-[#16a34a]" />
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-[#1e293b] mb-1">
-                  Document Analysis
-                </h4>
-                <p className="text-sm text-[#64748b]">
-                  Deep analysis of uploaded documents with AI insights
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <div className="bg-[#dcfce7] rounded-full p-2">
-                  <Check className="w-5 h-5 text-[#16a34a]" />
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-[#1e293b] mb-1">
-                  Compliance Checking
-                </h4>
-                <p className="text-sm text-[#64748b]">
-                  Automated compliance verification against standards
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <div className="bg-[#dcfce7] rounded-full p-2">
-                  <Check className="w-5 h-5 text-[#16a34a]" />
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-[#1e293b] mb-1">
-                  Priority Processing
-                </h4>
-                <p className="text-sm text-[#64748b]">
-                  Faster processing times for all AI-powered features
-                </p>
-              </div>
             </div>
           </div>
         </Card>
 
-        {/* Payment Info */}
+        {/* Subscription Section */}
+        <Card className="border border-[#dbeafe] bg-white p-8 shadow-soft">
+          <div className="text-center">
+            <h3 className="text-xl font-poppins font-bold text-[#1e293b] mb-3">
+              Need a Subscription?
+            </h3>
+            <p className="text-[#64748b] mb-6 max-w-lg mx-auto">
+              Contact us for significant discounts on subscription plans. We offer flexible packages
+              tailored to your organisation's needs with volume pricing and dedicated support.
+            </p>
+            <Button
+              onClick={() => window.location.href = 'mailto:sales@nytro.ai?subject=Subscription Enquiry'}
+              variant="outline"
+              className="border-[#3b82f6] text-[#3b82f6] hover:bg-[#3b82f6] hover:text-white"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Contact Us for Subscription Pricing
+            </Button>
+          </div>
+        </Card>
+
+        {/* Footer Info */}
         <div className="mt-8 text-center text-sm text-[#64748b]">
-          <p>
-            Secure payment processing powered by Stripe. All transactions are encrypted and secure.
-          </p>
-          <p className="mt-2">
-            Credits never expire and can be used across all features.
-          </p>
+          <p>Secure payment powered by Stripe • All prices in AUD</p>
         </div>
       </div>
     </div>

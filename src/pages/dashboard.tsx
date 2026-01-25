@@ -7,9 +7,6 @@ import { DocumentUploadAdapterSimplified as DocumentUpload } from '../components
 import { ResultsExplorer_v2 as ResultsExplorer } from '../components/ResultsExplorer_v2';
 import { Settings } from '../components/Settings';
 import { MaintenanceHub } from '../components/maintenance/MaintenanceHub';
-import { RTOMaintenance } from '../components/maintenance/RTOMaintenance';
-import { QualificationsMaintenance } from '../components/maintenance/QualificationsMaintenance';
-import { UnitOfCompetencyMaintenance } from '../components/maintenance/UnitOfCompetencyMaintenance';
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
 import { PromptMaintenanceNew as PromptMaintenance } from '../components/maintenance/PromptMaintenanceNew';
 import { SubscriptionsAdmin } from '../components/maintenance/SubscriptionsAdmin';
@@ -149,32 +146,11 @@ export function DashboardPage() {
         onClick={() => setMaintenanceModule('hub')}
         className="px-4 py-2 bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#1e293b] font-semibold rounded transition-colors"
       >
-        ← Back to Maintenance Hub
+        ← Back to Administration
       </button>
     );
 
     switch (maintenanceModule) {
-      case 'rto':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <RTOMaintenance />
-          </div>
-        );
-      case 'qualifications':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <QualificationsMaintenance />
-          </div>
-        );
-      case 'units':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <UnitOfCompetencyMaintenance />
-          </div>
-        );
       case 'credits':
         return (
           <div className="space-y-4">
