@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Building2, BookOpen, CheckSquare, Zap, MessageSquare, CreditCard, Map } from 'lucide-react';
+import { ChevronRight, Zap, MessageSquare, CreditCard, Map } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -17,30 +17,9 @@ interface MaintenanceHubProps {
 export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
   const modules: MaintenanceModule[] = [
     {
-      id: 'rto',
-      title: 'RTO Management',
-      description: 'Manage Registered Training Organizations with full CRUD operations and cascading delete',
-      icon: <Building2 className="w-8 h-8" />,
-      color: 'bg-blue-50 border-blue-200',
-    },
-    {
-      id: 'qualifications',
-      title: 'Qualifications',
-      description: 'Manage qualifications linked to RTOs with foreign key relationships',
-      icon: <BookOpen className="w-8 h-8" />,
-      color: 'bg-purple-50 border-purple-200',
-    },
-    {
-      id: 'units',
-      title: 'Units of Competency',
-      description: 'Manage units of competency with assessment and competency details',
-      icon: <CheckSquare className="w-8 h-8" />,
-      color: 'bg-green-50 border-green-200',
-    },
-    {
       id: 'credits',
       title: 'Credits Management',
-      description: 'Manage AI and validation credits for each RTO',
+      description: 'Manage AI and validation credits for accounts and promo codes',
       icon: <Zap className="w-8 h-8" />,
       color: 'bg-yellow-50 border-yellow-200',
     },
@@ -53,8 +32,8 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
     },
     {
       id: 'subscriptions',
-      title: 'Subscriptions & Costs',
-      description: 'Monitor paid service subscriptions including Render, Supabase, Google, and Netlify',
+      title: 'Nytro Subscriptions & Platform Costs',
+      description: 'Monitor Nytro platform subscriptions and paid service costs including Render, Supabase, Google, and Netlify',
       icon: <CreditCard className="w-8 h-8" />,
       color: 'bg-violet-50 border-violet-200',
     },
@@ -71,11 +50,11 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
     <div className="min-h-screen bg-[#f8f9fb] p-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-12">
-          <h1 className="text-4xl font-poppins font-bold text-[#1e293b] mb-2">Data Maintenance</h1>
-          <p className="text-[#64748b] text-lg">Manage core entities and relationships in the system</p>
+          <h1 className="text-4xl font-poppins font-bold text-[#1e293b] mb-2">Administration</h1>
+          <p className="text-[#64748b] text-lg">Manage system settings, credits, and platform operations</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {modules.map((module) => (
             <Card
               key={module.id}
