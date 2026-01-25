@@ -311,15 +311,14 @@ jobs:
           echo "✅ Azure OpenAI Endpoint: $ENDPOINT"
           echo "✅ Credentials retrieved successfully"
       
-      - name: 🚀 Deploy GPT-4.1 Model
+      - name: 🚀 Deploy GPT-4o Model
         id: gpt-deployment
         run: |
           set -e  # Exit on error
           
-          echo "Deploying GPT-4.1 model to Australia East..."
+          echo "Deploying GPT-4o model to Australia East..."
           
-          DEPLOYMENT_NAME="gpt-4.1"
-          # After (GPT-4o - works perfectly)
+          DEPLOYMENT_NAME="gpt-4o"
           MODEL_NAME="gpt-4o"
           MODEL_VERSION="2024-11-20"
           
@@ -334,7 +333,7 @@ jobs:
             --query "[?name=='$DEPLOYMENT_NAME'].name" -o tsv 2>/dev/null || echo "")
           
           if [ -n "$DEPLOYMENT_EXISTS" ]; then
-            echo "⚠️  GPT-4.1 deployment already exists"
+            echo "⚠️  GPT-4o deployment already exists"
             
             # Check deployment status
             DEPLOYMENT_STATE=$(az cognitiveservices account deployment show \
@@ -352,10 +351,10 @@ jobs:
               exit 1
             fi
             
-            echo "✅ Using existing GPT-4.1 deployment"
+            echo "✅ Using existing GPT-4o deployment"
           else
-            echo "Creating GPT-4.1 deployment (Global Standard in Australia East)..."
-            echo "Note: GPT-4.1 is available in Australia East for data sovereignty compliance"
+            echo "Creating GPT-4o deployment (Global Standard in Australia East)..."
+            echo "Note: GPT-4o is available in Australia East for data sovereignty compliance"
             
             # Deploy with retry logic
             MAX_RETRIES=3
@@ -372,7 +371,7 @@ jobs:
                 --sku-capacity ${{ github.event.inputs.openai_deployment_capacity }} \
                 --sku-name Standard; then
                 
-                echo "✅ GPT-4.1 model deployed successfully in Australia East"
+                echo "✅ GPT-4o model deployed successfully in Australia East"
                 echo "✅ Data sovereignty: All processing occurs in Australian region"
                 break
               else
@@ -381,7 +380,7 @@ jobs:
                   echo "⚠️  Deployment failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
                   sleep 15
                 else
-                  echo "❌ ERROR: Failed to deploy GPT-4.1 after $MAX_RETRIES attempts"
+                  echo "❌ ERROR: Failed to deploy GPT-4o after $MAX_RETRIES attempts"
                   echo ""
                   echo "Possible issues:"
                   echo "1. Model not available in Australia East (check region support)"
@@ -390,7 +389,7 @@ jobs:
                   echo ""
                   echo "Troubleshooting:"
                   echo "- Check Azure Portal for detailed error messages"
-                  echo "- Verify GPT-4.1 availability in Australia East"
+                  echo "- Verify GPT-4o availability in Australia East"
                   echo "- Request quota increase if needed"
                   exit 1
                 fi
@@ -423,7 +422,7 @@ jobs:
           fi
           
           echo "deployment_name=$DEPLOYMENT_NAME" >> $GITHUB_OUTPUT
-          echo "✅ GPT-4.1 deployment complete"
+          echo "✅ GPT-4o deployment complete"
       
       - name: 📊 Generate Summary
         run: |
@@ -436,7 +435,7 @@ jobs:
           echo "| Resource Group | \`${{ env.AZURE_RESOURCE_GROUP }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Document Intelligence | \`${{ env.DOC_INTEL_NAME }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Azure OpenAI | \`${{ env.OPENAI_NAME }}\` | ${{ env.LOCATION }} | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| GPT-4.1 Deployment | \`${{ steps.gpt-deployment.outputs.deployment_name }}\` | - | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| GPT-4o Deployment | \`${{ steps.gpt-deployment.outputs.deployment_name }}\` | - | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔑 Credentials for Supabase Secrets" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
