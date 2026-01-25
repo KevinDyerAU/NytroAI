@@ -319,8 +319,8 @@ jobs:
           echo "Deploying GPT-4.1 model to Australia East..."
           
           DEPLOYMENT_NAME="gpt-4.1"
-          MODEL_NAME="gpt-4"
-          MODEL_VERSION="0125-preview"
+          MODEL_NAME="gpt-4.1"
+          MODEL_VERSION="2025-04-14"
           
           echo "Deployment: $DEPLOYMENT_NAME"
           echo "Model: $MODEL_NAME (version: $MODEL_VERSION)"
