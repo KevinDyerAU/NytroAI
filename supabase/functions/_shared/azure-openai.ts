@@ -8,7 +8,7 @@
  * - AI_PROVIDER: 'azure' | 'google' (default: 'google')
  * - AZURE_OPENAI_ENDPOINT: Azure OpenAI endpoint URL
  * - AZURE_OPENAI_KEY: Azure OpenAI API key
- * - AZURE_OPENAI_DEPLOYMENT: Deployment name (e.g., 'gpt-4o-mini')
+ * - AZURE_OPENAI_DEPLOYMENT: Deployment name (e.g., 'gpt-4-1-mini')
  */
 
 export interface AzureOpenAIConfig {
@@ -213,7 +213,7 @@ export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
 export function createDefaultAzureOpenAIClient() {
   const endpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
   const apiKey = Deno.env.get('AZURE_OPENAI_KEY');
-  const deploymentName = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') || 'gpt-4o-mini';
+  const deploymentName = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') || 'gpt-4-1-mini';
 
   if (!endpoint || !apiKey) {
     throw new Error('Missing Azure OpenAI configuration. Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY environment variables.');
