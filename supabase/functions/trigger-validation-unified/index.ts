@@ -621,13 +621,13 @@ Return a JSON response with:
           citations: Array.isArray(validationResult.citations || validationResult.doc_references)
             ? JSON.stringify(validationResult.citations || validationResult.doc_references)
             : (validationResult.citations || validationResult.doc_references || ''),
-          smart_questions: validationResult.smart_question || validationResult.smart_task || validationResult.assessment_question || '',
+          smart_questions: validationResult.practical_workplace_task || validationResult.practical_task || validationResult.smart_question || validationResult.smart_task || validationResult.assessment_question || '',
           benchmark_answer: validationResult.benchmark_answer || validationResult.model_answer || '',
           requirement_type: requirement.type,
           requirement_number: requirement.number || '',
           requirement_text: requirement.text || '',
           document_type: documentType,
-          recommendations: validationResult.recommendations || validationResult.improvement_suggestions || ''
+          recommendations: validationResult.unmapped_content || validationResult.recommendations || validationResult.improvement_suggestions || ''
         };
 
         // Insert into validation_results

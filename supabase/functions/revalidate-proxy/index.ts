@@ -275,9 +275,9 @@ IMPORTANT: You MUST return a JSON object with this exact structure:
   "reasoning": "detailed explanation here",
   "mapped_content": "specific evidence from documents",
   "citations": ["document reference 1", "document reference 2"],
-  "smart_task": "A practical task or observation that assesses this requirement",
+  "practical_workplace_task": "A practical task or observation that assesses this requirement",
   "benchmark_answer": "Expected observable behavior for competent performance",
-  "recommendations": "improvement suggestions if not fully met"
+  "unmapped_content": "What's missing if not fully met, or N/A if Met"
 }
 
 ALL fields are required. If a field doesn't apply, use an empty string "" or empty array [].`;
@@ -325,11 +325,18 @@ ALL fields are required. If a field doesn't apply, use an empty string "" or emp
     mappedContent = ''; // Clear mapped_content since we moved it to citations
   }
 
-  // Extract smart_task and benchmark_answer - handle both flat and nested formats
+  // Extract smart_task/practical_task and benchmark_answer - handle both flat and nested formats
+  // For Performance Evidence/Elements: AI returns practical_workplace_task
+  // For Knowledge Evidence: AI returns smart_task or smart_question
+  // Both map to the same database field: smart_questions
   let smartQuestions = '';
   let benchmarkAnswer = '';
 
-  const smartTaskField = normalizedResult.smart_task || normalizedResult.smart_question || normalizedResult.assessment_question;
+  const smartTaskField = normalizedResult.practical_workplace_task ||
+    normalizedResult.practical_task ||
+    normalizedResult.smart_task ||
+    normalizedResult.smart_question ||
+    normalizedResult.assessment_question;
   if (smartTaskField) {
     if (typeof smartTaskField === 'object' && !Array.isArray(smartTaskField)) {
       // AI returned nested object like { "Task Text": "...", "Benchmark Answer": "..." }
@@ -360,7 +367,11 @@ ALL fields are required. If a field doesn't apply, use an empty string "" or emp
   }
 
   // Handle recommendations - extract text if it's an object
-  let recommendations = normalizedResult.recommendations || normalizedResult.improvement_suggestions || normalizedResult.unmapped_content || '';
+  // For PE/EPC: unmapped_content maps to recommendations
+  // For KE: recommendations or improvement_suggestions
+  let recommendations = normalizedResult.unmapped_content ||
+    normalizedResult.recommendations ||
+    normalizedResult.improvement_suggestions || '';
   if (typeof recommendations === 'object' && !Array.isArray(recommendations)) {
     recommendations = recommendations.text || recommendations.content || '';
   }
