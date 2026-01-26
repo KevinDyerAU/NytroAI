@@ -88,7 +88,7 @@ export function DashboardPage() {
     }
   }, [currentView, updateUrlState]);
 
-  // Handler for setting validation ID (used when double-clicking a validation)
+  // Handler for setting validation ID (used when clicking a validation)
   const setSelectedValidationId = useCallback((id: string | null) => {
     updateUrlState({ validationId: id });
   }, [updateUrlState]);
@@ -117,9 +117,8 @@ export function DashboardPage() {
     loadRTOs();
   }, []);
 
-  const handleValidationDoubleClick = useCallback((validation: ValidationRecord) => {
-    // Always navigate to Results Explorer when double-clicking a validation
-    // Set both view and validationId in a single URL update
+  const handleValidationClick = useCallback((validation: ValidationRecord) => {
+    // Navigates to Results Explorer when clicking a validation
     updateUrlState({ view: 'results', validationId: validation.id.toString() });
   }, [updateUrlState]);
 
@@ -206,7 +205,7 @@ export function DashboardPage() {
       case 'dashboard':
         return (
           <Dashboard
-            onValidationDoubleClick={handleValidationDoubleClick}
+            onValidationClick={handleValidationClick}
             selectedRTOId={selectedRTOId}
             selectedRTOCode={user?.rto_code || null}
             creditsRefreshTrigger={creditsRefreshTrigger}
@@ -233,7 +232,7 @@ export function DashboardPage() {
       default:
         return (
           <Dashboard
-            onValidationDoubleClick={handleValidationDoubleClick}
+            onValidationClick={handleValidationClick}
             selectedRTOId={selectedRTOId}
             creditsRefreshTrigger={creditsRefreshTrigger}
           />

@@ -31,14 +31,14 @@ interface ValidationStatus {
 }
 
 interface Dashboard_v3Props {
-  onValidationDoubleClick?: (validation: ValidationRecord) => void;
+  onValidationClick?: (validation: ValidationRecord) => void;
   selectedRTOId: string;
   selectedRTOCode?: string | null;
   creditsRefreshTrigger?: number;
 }
 
 export function Dashboard_v3({
-  onValidationDoubleClick,
+  onValidationClick,
   selectedRTOId,
   selectedRTOCode = null,
   creditsRefreshTrigger = 0,
@@ -62,7 +62,7 @@ export function Dashboard_v3({
   const [isInitialLoad, setIsInitialLoad] = useState(persistedState.isInitialLoad !== false); // Only true on first visit
   const [currentPage, setCurrentPage] = useState(persistedState.currentPage || 1);
   const itemsPerPage = 20;
-  
+
 
   // Save state to sessionStorage when it changes
   useEffect(() => {
@@ -120,7 +120,7 @@ export function Dashboard_v3({
       try {
         const data = await getActiveValidationsByRTO(rtoCode);
         setValidations(data);
-        
+
         if (isInitial && isInitialLoad) {
           setIsInitialLoad(false);
         }
@@ -139,7 +139,7 @@ export function Dashboard_v3({
     };
 
     loadActiveValidations(true);
-    const subscription = supabase.channel('validation_detail_changes').on('postgres_changes', {event: '*', schema: 'public', table: 'validation_detail'}, () => loadActiveValidations(false)).subscribe();
+    const subscription = supabase.channel('validation_detail_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'validation_detail' }, () => loadActiveValidations(false)).subscribe();
 
     // Poll every 5 seconds as a fallback (real-time subscription handles most updates)
     const interval = setInterval(() => loadActiveValidations(false), 5000);
@@ -153,12 +153,12 @@ export function Dashboard_v3({
   // Calculate local metrics (for internal use)
   const localMetrics = useMemo(() => {
     const total = validations.length;
-    const completed = validations.filter(v => 
-      v.extract_status === 'Completed' || 
+    const completed = validations.filter(v =>
+      v.extract_status === 'Completed' ||
       (v.num_of_req > 0 && v.completed_count === v.num_of_req)
     ).length;
-    const inProgress = validations.filter(v => 
-      v.extract_status === 'ProcessingInBackground' || 
+    const inProgress = validations.filter(v =>
+      v.extract_status === 'ProcessingInBackground' ||
       v.extract_status === 'DocumentProcessing'
     ).length;
     const failed = validations.filter(v => v.extract_status === 'Failed').length;
@@ -364,22 +364,22 @@ export function Dashboard_v3({
             paginatedValidations.map((validation) => {
               // Calculate progress percentage
               const progress = Math.min(100, Math.round(validation.validation_progress || 0));
-              
+
               // Determine which stages are complete based on extract_status and validation_status
               const extractStatus = validation.extract_status || 'Pending';
               const validationStatus = validation.validation_status || 'Pending';
-              
+
               // REQ: Requirements stage - complete when extraction has started or completed
               const reqComplete = extractStatus !== 'Pending';
-              
+
               // DOC: Document processing - complete when extraction is completed
-              const docComplete = extractStatus === 'Completed' || 
-                                  validationStatus === 'In Progress' || 
-                                  validationStatus === 'Finalised';
-              
+              const docComplete = extractStatus === 'Completed' ||
+                validationStatus === 'In Progress' ||
+                validationStatus === 'Finalised';
+
               // REV: Under Review - complete when validation has results (completed_count > 0 or progress > 0)
               const revComplete = (validation.completed_count || 0) > 0 || progress > 0 || validationStatus === 'Finalised';
-              
+
               // REP: Report - complete only when validation_status is Finalised (report generated)
               const repComplete = validationStatus === 'Finalised';
 
@@ -405,11 +405,11 @@ export function Dashboard_v3({
 
               // Status indicator component with tooltip
               const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
-                <div 
+                <div
                   className="flex items-center gap-1.5 px-3 py-1 bg-[#f1f5f9] rounded-full cursor-help"
                   title={tooltip}
                 >
-                  <div 
+                  <div
                     className={`w-2 h-2 rounded-full ${isComplete ? 'bg-[#22c55e]' : 'bg-[#cbd5e1]'}`}
                   />
                   <span className="text-xs font-medium text-[#64748b]">{label}</span>
@@ -420,8 +420,8 @@ export function Dashboard_v3({
                 <div
                   key={validation.id}
                   className="p-4 border-l-4 border-l-[#3b82f6] bg-white border border-[#e2e8f0] rounded-lg hover:shadow-md transition-all cursor-pointer"
-                  onDoubleClick={() => onValidationDoubleClick?.(validation as any)}
-                  title="Double-click to view validation results in Results Explorer"
+                  onClick={() => onValidationClick?.(validation as any)}
+                  title="Click to view validation results in Results Explorer"
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     {/* Left side: Unit Code, Type, Date - fixed width */}
@@ -441,7 +441,7 @@ export function Dashboard_v3({
                         <span className="text-xs md:text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
                       </div>
                       {expiryStatus === 'expired' && (
-                        <div 
+                        <div
                           className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
                           title="This validation is older than 48 hours. AI features are disabled."
                         >
@@ -450,7 +450,7 @@ export function Dashboard_v3({
                         </div>
                       )}
                       {expiryStatus === 'expiring' && (
-                        <div 
+                        <div
                           className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
                           title="Less than 12 hours remaining before AI features are disabled."
                         >
@@ -463,7 +463,7 @@ export function Dashboard_v3({
                     {/* Progress Bar - fixed width for alignment */}
                     <div className="w-[180px] hidden md:block flex-shrink-0">
                       <div className="h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-[#3b82f6] rounded-full transition-all duration-300"
                           style={{ width: `${stageProgress}%` }}
                         />
@@ -472,24 +472,24 @@ export function Dashboard_v3({
 
                     {/* Right side: Status Indicators */}
                     <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-                      <StatusPill 
-                        label="REQ" 
-                        isComplete={reqComplete} 
+                      <StatusPill
+                        label="REQ"
+                        isComplete={reqComplete}
                         tooltip={reqComplete ? 'Requirements: Extraction started' : 'Requirements: Waiting to start'}
                       />
-                      <StatusPill 
-                        label="DOC" 
-                        isComplete={docComplete} 
+                      <StatusPill
+                        label="DOC"
+                        isComplete={docComplete}
                         tooltip={docComplete ? 'Documents: Processing complete' : 'Documents: Processing in progress'}
                       />
-                      <StatusPill 
-                        label="REV" 
-                        isComplete={revComplete} 
+                      <StatusPill
+                        label="REV"
+                        isComplete={revComplete}
                         tooltip={revComplete ? 'Review: Validation results available' : 'Review: Validation in progress'}
                       />
-                      <StatusPill 
-                        label="REP" 
-                        isComplete={repComplete} 
+                      <StatusPill
+                        label="REP"
+                        isComplete={repComplete}
                         tooltip={repComplete ? 'Report: Generated and finalised' : 'Report: Not yet generated'}
                       />
                     </div>
