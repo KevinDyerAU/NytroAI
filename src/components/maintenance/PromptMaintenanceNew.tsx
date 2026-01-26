@@ -18,7 +18,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
-import { Trash2, Edit, Plus, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Edit, Plus, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Prompt {
@@ -565,19 +565,8 @@ export function PromptMaintenanceNew() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleEdit(prompt)}
-                          disabled
-                          className="opacity-50 cursor-not-allowed"
                         >
                           <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(prompt.id)}
-                          disabled
-                          className="text-red-600 hover:text-red-700 opacity-50 cursor-not-allowed"
-                        >
-                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </td>
