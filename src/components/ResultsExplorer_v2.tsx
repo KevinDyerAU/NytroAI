@@ -91,9 +91,10 @@ export function ResultsExplorer_v2({
   // Read filter state from URL
   const urlSearchTerm = searchParams.get('search') || '';
   const urlStatusFilter = searchParams.get('status') || 'all';
+  const urlTypeFilter = searchParams.get('type') || 'all';
 
   // Update URL params helper
-  const updateFilterParams = useCallback((updates: { search?: string; status?: string }) => {
+  const updateFilterParams = useCallback((updates: { search?: string; status?: string; type?: string }) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
 
@@ -113,6 +114,14 @@ export function ResultsExplorer_v2({
         }
       }
 
+      if (updates.type !== undefined) {
+        if (updates.type === 'all') {
+          newParams.delete('type');
+        } else {
+          newParams.set('type', updates.type);
+        }
+      }
+
       return newParams;
     }, { replace: true }); // Use replace to avoid cluttering history with filter changes
   }, [setSearchParams]);
@@ -120,6 +129,7 @@ export function ResultsExplorer_v2({
   // Use URL values for filters
   const searchTerm = urlSearchTerm;
   const statusFilter = urlStatusFilter;
+  const typeFilter = urlTypeFilter;
 
   // Setters that update URL
   const setSearchTerm = useCallback((value: string) => {
@@ -128,6 +138,10 @@ export function ResultsExplorer_v2({
 
   const setStatusFilter = useCallback((value: string) => {
     updateFilterParams({ status: value });
+  }, [updateFilterParams]);
+
+  const setTypeFilter = useCallback((value: string) => {
+    updateFilterParams({ type: value });
   }, [updateFilterParams]);
 
   // State management for non-filter state
@@ -153,6 +167,7 @@ export function ResultsExplorer_v2({
   const [evidenceError, setEvidenceError] = useState<ValidationResultsError | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastLoadedValidationId, setLastLoadedValidationId] = useState<string | null>(null);
+  const [sessionTotal, setSessionTotal] = useState<number | null>(null);
 
   // Check validation age for expiry status
   const validationExpiryStatus = useMemo(() => {
@@ -256,10 +271,12 @@ export function ResultsExplorer_v2({
       console.log('[ResultsExplorer] No validation ID provided - resetting all filters and state');
       setSearchTerm('');
       setStatusFilter('all');
+      setTypeFilter('all');
       setSelectedValidation(null);
+      setSessionTotal(null);
       setShowAIChat(false);
     }
-  }, [selectedValidationId, setSearchTerm, setStatusFilter]);
+  }, [selectedValidationId, setSearchTerm, setStatusFilter, setTypeFilter]);
 
   // Auto-select validation if ID provided (from URL or dashboard double-click)
   // This runs when validationRecords load AND when selectedValidationId changes
@@ -317,6 +334,77 @@ export function ResultsExplorer_v2({
     }
   }, [selectedValidationId, validationRecords, isLoadingValidations, selectedRTOId, selectedValidation?.id]);
 
+  // Derived state for the currently selected validation record
+  const currentRecord = useMemo(() =>
+    validationRecords.find(r => r.id.toString() === selectedValidation?.id),
+    [validationRecords, selectedValidation?.id]
+  );
+
+  // Retry loading evidence
+  const handleRetryEvidence = useCallback(() => {
+    // Reset the last loaded ID to force a reload
+    setLastLoadedValidationId(null);
+    setEvidenceError(null);
+    setIsLoadingEvidence(true);
+
+    // Force re-run of effect
+    if (selectedValidation) {
+      const temp = selectedValidation;
+      setSelectedValidation(null);
+      setTimeout(() => setSelectedValidation(temp), 0);
+    }
+  }, [selectedValidation]);
+
+  // Refresh validation status
+  const handleRefreshStatus = useCallback(async () => {
+    const currentRTO = getRTOById(selectedRTOId);
+    if (!currentRTO?.code) return;
+
+    console.log('[ResultsExplorer] handleRefreshStatus called - reloading data');
+
+    try {
+      // Show loading state
+      setIsLoadingEvidence(true);
+
+      // Reload validation records
+      const records = await getActiveValidationsByRTO(currentRTO.code);
+      setValidationRecords(records);
+
+      // Force reload of evidence data by resetting the lastLoadedValidationId
+      // This triggers the existing useEffect to reload data
+      if (selectedValidation?.id) {
+        setLastLoadedValidationId(null);
+
+        // Import and call the validation results function directly
+        const { getValidationResults } = await import('../lib/validationResults');
+
+        // Get the valDetailId from the selected validation (parse to number)
+        const valDetailId = parseInt(selectedValidation.id.toString(), 10);
+
+        const response = await getValidationResults(selectedValidation.id.toString(), valDetailId);
+
+        if (response && 'data' in response && Array.isArray(response.data)) {
+          console.log('[ResultsExplorer] handleRefreshStatus reloaded', response.data.length, 'records');
+          setValidationEvidenceData(response.data);
+
+          // Update total if found in polling response
+          if (response.totalRequirements) {
+            setSessionTotal(response.totalRequirements);
+          }
+
+          setLastLoadedValidationId(selectedValidation.id.toString());
+        }
+      }
+
+      setIsLoadingEvidence(false);
+      toast.success('Results refreshed', { duration: 2000 });
+    } catch (error) {
+      console.error('[ResultsExplorer] Failed to refresh status:', error);
+      toast.error('Failed to refresh status');
+      setIsLoadingEvidence(false);
+    }
+  }, [selectedRTOId, selectedValidation]);
+
   // Load validation evidence with comprehensive error handling
   useEffect(() => {
     let cancelled = false;
@@ -338,6 +426,7 @@ export function ResultsExplorer_v2({
         setEvidenceError(null);
         setIsProcessing(false);
         setLastLoadedValidationId(null);
+        setSessionTotal(null);
         setIsLoadingEvidence(false);
         return;
       }
@@ -406,6 +495,10 @@ export function ResultsExplorer_v2({
           setValidationEvidenceData(response.data);
           setEvidenceError(null);
           setIsProcessing(false);
+          // NEW: Capture total from response if available
+          if (response.totalRequirements) {
+            setSessionTotal(response.totalRequirements);
+          }
           // Only mark as loaded after successful data fetch
           setLastLoadedValidationId(selectedValidationId);
         }
@@ -443,65 +536,33 @@ export function ResultsExplorer_v2({
     };
   }, [selectedValidation?.id, isLoadingValidations, lastLoadedValidationId]);
 
-  // Retry loading evidence
-  const handleRetryEvidence = useCallback(() => {
-    // Reset the last loaded ID to force a reload
-    setLastLoadedValidationId(null);
-    setEvidenceError(null);
-    setIsLoadingEvidence(true);
+  // Auto-refresh validation data every 5 seconds if in progress
+  useEffect(() => {
+    let intervalId: any = null;
 
-    // Force re-run of effect
-    if (selectedValidation) {
-      const temp = selectedValidation;
-      setSelectedValidation(null);
-      setTimeout(() => setSelectedValidation(temp), 0);
+    const isValidationInProgress = selectedValidation &&
+      selectedValidation.progress >= 0 &&
+      selectedValidation.progress < 100;
+
+    const isRecordProcessing = currentRecord &&
+      (currentRecord.validation_status === 'In Progress' ||
+        currentRecord.validation_status === 'Pending' ||
+        currentRecord.validation_status === 'processing');
+
+    if (isValidationInProgress || isRecordProcessing) {
+      console.log('[ResultsExplorer polling] Starting 5s auto-refresh interval');
+      intervalId = setInterval(() => {
+        handleRefreshStatus();
+      }, 5000);
     }
-  }, [selectedValidation]);
 
-  // Refresh validation status
-  const handleRefreshStatus = useCallback(async () => {
-    const currentRTO = getRTOById(selectedRTOId);
-    if (!currentRTO?.code) return;
-
-    console.log('[ResultsExplorer] handleRefreshStatus called - reloading data');
-
-    try {
-      // Show loading state
-      setIsLoadingEvidence(true);
-
-      // Reload validation records
-      const records = await getActiveValidationsByRTO(currentRTO.code);
-      setValidationRecords(records);
-
-      // Force reload of evidence data by resetting the lastLoadedValidationId
-      // This triggers the existing useEffect to reload data
-      if (selectedValidation?.id) {
-        setLastLoadedValidationId(null);
-
-        // Import and call the validation results function directly
-        const { getValidationResults } = await import('../lib/validationResults');
-
-        // Get the valDetailId from the selected validation (parse to number)
-        const valDetailId = parseInt(selectedValidation.id.toString(), 10);
-
-        const response = await getValidationResults(selectedValidation.id.toString(), valDetailId);
-
-        if (response && 'data' in response && Array.isArray(response.data)) {
-          console.log('[ResultsExplorer] handleRefreshStatus reloaded', response.data.length, 'records');
-          setValidationEvidenceData(response.data);
-          setLastLoadedValidationId(selectedValidation.id.toString());
-        }
+    return () => {
+      if (intervalId) {
+        console.log('[ResultsExplorer polling] Clearing refresh interval');
+        clearInterval(intervalId);
       }
-
-      setIsLoadingEvidence(false);
-      toast.success('Results refreshed', { duration: 2000 });
-    } catch (error) {
-      console.error('[ResultsExplorer] Failed to refresh status:', error);
-      toast.error('Failed to refresh status');
-      setIsLoadingEvidence(false);
-    }
-  }, [selectedRTOId, selectedValidation]);
-
+    };
+  }, [selectedValidation?.id, selectedValidation?.progress, currentRecord?.validation_status, handleRefreshStatus]);
   // Filter results based on search and status
   const filteredResults = validationEvidenceData.filter(result => {
     const matchesSearch = !searchTerm ||
@@ -520,11 +581,11 @@ export function ResultsExplorer_v2({
     const matchesStatus = statusFilter === 'all' ||
       normalizeStatus(result.status) === normalizeStatus(statusFilter);
 
-    return matchesSearch && matchesStatus;
-  });
+    const matchesType = typeFilter === 'all' ||
+      result.requirement_type === typeFilter;
 
-  // Get current validation record (used in multiple places)
-  const currentRecord = validationRecords.find(r => r.id.toString() === selectedValidation?.id);
+    return matchesSearch && matchesStatus && matchesType;
+  });
 
   // Render validation evidence section
   const renderValidationEvidence = () => {
@@ -599,14 +660,29 @@ export function ResultsExplorer_v2({
           </div>
           <div className="flex flex-wrap gap-2 md:gap-4 items-center">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px] md:w-[180px] bg-white">
-                <SelectValue placeholder="Filter by status" />
+              <SelectTrigger className="w-[140px] md:w-[150px] bg-white text-xs md:text-sm">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="bg-white">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="met">Met</SelectItem>
                 <SelectItem value="not-met">Not Met</SelectItem>
                 <SelectItem value="partial">Partial</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[140px] md:w-[180px] bg-white text-xs md:text-sm">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="knowledge_evidence">Knowledge Evidence</SelectItem>
+                <SelectItem value="performance_evidence">Performance Evidence</SelectItem>
+                <SelectItem value="foundation_skills">Foundation Skills</SelectItem>
+                <SelectItem value="elements_performance_criteria">Performance Criteria</SelectItem>
+                <SelectItem value="assessment_conditions">Assessment Conditions</SelectItem>
+                <SelectItem value="assessment_instructions">Assessment Instructions</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -658,10 +734,34 @@ export function ResultsExplorer_v2({
           </div>
         )}
 
-        {/* Results count */}
-        <p className="text-sm text-gray-600">
-          Showing {filteredResults.length} of {validationEvidenceData.length} requirements
-        </p>
+        {/* Results count and active progress indicator */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-gray-700">
+            Showing <span className="text-[#3b82f6] font-bold">{filteredResults.length}</span> of {Math.max(sessionTotal || currentRecord?.num_of_req || 0, validationEvidenceData.length)} requirements
+          </p>
+
+          {selectedValidation && selectedValidation.progress > 0 && selectedValidation.progress < 100 && (
+            <div className="flex items-center gap-4 py-2 px-4 bg-blue-50 border border-blue-100 rounded-lg mb-2">
+              <div className="flex-1">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                    🤖 Nytro is Validating...
+                  </span>
+                  <span className="text-xs font-bold text-blue-800">
+                    {selectedValidation.progress}% Complete
+                  </span>
+                </div>
+                <Progress value={selectedValidation.progress} className="h-2 bg-blue-100" />
+              </div>
+              <div className="flex flex-col items-center justify-center min-w-[80px]">
+                <span className="text-[10px] text-blue-600 font-medium mb-1">Checking Item</span>
+                <span className="text-lg font-bold text-blue-800 leading-tight">
+                  {currentRecord?.completed_count || 0}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Results list */}
         {filteredResults.length > 0 ? (

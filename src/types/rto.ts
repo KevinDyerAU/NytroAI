@@ -299,11 +299,11 @@ export async function consumeValidationCredit(rtoCode: string): Promise<{ succes
   console.log('[consumeValidationCredit] 1. Starting for RTO:', rtoCode);
   console.log('[consumeValidationCredit] 2. Skipping frontend credit consumption');
   console.log('[consumeValidationCredit] 3. Credits will be managed by backend Edge Functions');
-  
+
   // Frontend credit consumption is skipped due to RLS/timeout issues
   // Credits are properly managed by backend Edge Functions during validation
   // This is more secure anyway - frontend shouldn't control credit consumption
-  
+
   return {
     success: true,
     message: 'Credit consumption delegated to backend',
@@ -606,7 +606,7 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       .select('code')
       .or(`code.eq.${rtoCode},code.ilike.${rtoCode}%`)
       .maybeSingle();
-    
+
     if (rtoData?.code) {
       actualRtoCode = rtoData.code;
       console.log(`[getActiveValidationsByRTO] Resolved RTO code: ${rtoCode} -> ${actualRtoCode}`);
@@ -617,7 +617,7 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       .from('validation_detail')
       .select(`
         *,
-        validation_summary:summary_id(unitCode, rtoCode),
+        validation_summary:summary_id(unitCode, rtoCode, reqTotal),
         validation_type:validationType_id(code)
       `)
       .order('created_at', { ascending: false });
@@ -646,14 +646,18 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
     // Map database columns to ValidationRecord interface
     // Handle both camelCase and snake_case column names
     const records: ValidationRecord[] = filteredData.map((record: any) => {
-      // Use numOfReq from validation_detail table for total requirements count
-      const numOfReq = record.numOfReq || record.num_of_req || 0;
+      // Prioritize validation_total (Stage 3/Unified) over numOfReq (Stage 2/Legacy) 
+      // then fallback to the summary's reqTotal
+      let numOfReq = record.validation_total || record.numOfReq || record.num_of_req || record.validation_summary?.reqTotal || 0;
       const validationCount = record.validation_count || record.completed_count || 0;
-      const calculatedProgress = numOfReq > 0 
-        ? Math.round((validationCount / numOfReq) * 100) 
+
+      const calculatedProgress = numOfReq > 0
+        ? Math.round((validationCount / numOfReq) * 100)
         : 0;
-      const progress = record.validation_progress || calculatedProgress;
-      
+      const progress = record.validation_progress !== undefined && record.validation_progress !== null
+        ? record.validation_progress
+        : calculatedProgress;
+
       return {
         id: record.id,
         unit_code: record.validation_summary?.unitCode || record.namespace_code || record.rtoCode || null,
@@ -700,7 +704,7 @@ export interface ValidationEvidenceRecord {
   citations: string; // JSON string of citations
   created_at?: string;
   updated_at?: string;
-  
+
   // Legacy fields for backward compatibility (deprecated)
   mapped_questions?: string;
   unmapped_reasoning?: string;

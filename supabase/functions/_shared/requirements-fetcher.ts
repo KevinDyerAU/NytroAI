@@ -31,8 +31,10 @@ export async function fetchRequirements(
   supabase: any,
   unitCode: string,
   validationType: 'assessment' | 'knowledge_evidence' | 'performance_evidence' | 'foundation_skills' | 'elements_criteria' | 'assessment_conditions' | 'assessment_instructions' | 'full_validation' | 'learner_guide_validation',
-  unitLink?: string | null
+  unitLink?: string | null,
+  validationDetailId?: number
 ): Promise<Requirement[]> {
+  let requirements: Requirement[] = [];
   let requirementTable = '';
   let type: Requirement['type'] | null = null;
 
@@ -140,46 +142,51 @@ export async function fetchRequirements(
       }
     case 'learner_guide_validation':
       // For full validation and learner guide validation, fetch all requirement types
-      return await fetchAllRequirements(supabase, unitCode, unitLink);
+      requirements = await fetchAllRequirements(supabase, unitCode, unitLink);
+      break;
+    default:
+      if (!requirementTable || !type) {
+        console.warn(`[Requirements Fetcher] Unknown validation type: ${validationType}`);
+        return [];
+      }
+
+      try {
+        // Use unit_url if unitLink is provided, otherwise fall back to unit_code
+        const { data, error } = unitLink
+          ? await supabase
+            .from(requirementTable)
+            .select('*')
+            .eq('unit_url', unitLink)
+            .order('id', { ascending: true })
+          : await supabase
+            .from(requirementTable)
+            .select('*')
+            .eq('unit_code', unitCode)
+            .order('id', { ascending: true });
+
+        if (error) {
+          console.error(`[Requirements Fetcher] Error fetching from ${requirementTable}:`, error);
+          return [];
+        }
+
+        if (data && data.length > 0) {
+          console.log(`[Requirements Fetcher] Found ${data.length} requirements in ${requirementTable} for ${unitCode}`);
+          requirements = data.map((row: any) => normalizeRequirement(row, type!));
+        } else {
+          console.warn(`[Requirements Fetcher] No requirements found in ${requirementTable} for ${unitCode}`);
+        }
+      } catch (err) {
+        console.error(`[Requirements Fetcher] Exception fetching requirements:`, err);
+      }
+      break;
   }
 
-  if (!requirementTable || !type) {
-    console.warn(`[Requirements Fetcher] Unknown validation type: ${validationType}`);
-    return [];
+  // Persist total count if validationDetailId provided
+  if (validationDetailId && requirements.length > 0) {
+    await updateValidationTotal(supabase, validationDetailId, requirements.length);
   }
 
-  try {
-    // Use unit_url if unitLink is provided, otherwise fall back to unit_code
-    const { data, error } = unitLink
-      ? await supabase
-        .from(requirementTable)
-        .select('*')
-        .eq('unit_url', unitLink)
-        .order('id', { ascending: true })
-      : await supabase
-        .from(requirementTable)
-        .select('*')
-        .eq('unit_code', unitCode)
-        .order('id', { ascending: true });
-
-    if (error) {
-      console.error(`[Requirements Fetcher] Error fetching from ${requirementTable}:`, error);
-      return [];
-    }
-
-    if (!data || data.length === 0) {
-      console.warn(`[Requirements Fetcher] No requirements found in ${requirementTable} for ${unitCode}`);
-      return [];
-    }
-
-    console.log(`[Requirements Fetcher] Found ${data.length} requirements in ${requirementTable} for ${unitCode}`);
-
-    // Normalize the data structure
-    return data.map((row: any) => normalizeRequirement(row, type!));
-  } catch (err) {
-    console.error(`[Requirements Fetcher] Exception fetching requirements:`, err);
-    return [];
-  }
+  return requirements;
 }
 
 /**
@@ -188,7 +195,8 @@ export async function fetchRequirements(
 export async function fetchAllRequirements(
   supabase: any,
   unitCode: string,
-  unitLink?: string | null
+  unitLink?: string | null,
+  validationDetailId?: number
 ): Promise<Requirement[]> {
   const allRequirements: Requirement[] = [];
 
@@ -315,8 +323,37 @@ export async function fetchAllRequirements(
   console.log(`[Requirements Fetcher] Added ${hardcodedCriteria.length} hardcoded compliance criteria`);
 
   console.log(`[Requirements Fetcher] Total requirements fetched: ${allRequirements.length}`);
+
+  // Persist total count if validationDetailId provided
+  if (validationDetailId && allRequirements.length > 0) {
+    await updateValidationTotal(supabase, validationDetailId, allRequirements.length);
+  }
+
   return allRequirements;
 }
+
+/**
+ * Helper to update validation_total in validation_detail table
+ */
+async function updateValidationTotal(supabase: any, validationDetailId: number, total: number) {
+  try {
+    console.log(`[Requirements Fetcher] Updating validation_total (${total}) for ID: ${validationDetailId}`);
+    const { error } = await supabase
+      .from('validation_detail')
+      .update({
+        validation_total: total,
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', validationDetailId);
+
+    if (error) {
+      console.error(`[Requirements Fetcher] Failed to update validation_total:`, error.message);
+    }
+  } catch (err: any) {
+    console.error(`[Requirements Fetcher] Error in updateValidationTotal:`, err.message);
+  }
+}
+
 
 /**
  * Fetch requirements grouped by type (useful for structured validation)

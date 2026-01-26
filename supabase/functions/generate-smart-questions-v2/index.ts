@@ -88,7 +88,7 @@ serve(async (req) => {
 
     // Fetch requirements using the new requirements fetcher
     console.log(`[Smart Questions V2] Fetching requirements for ${unitCode}, type: ${validationType}`);
-    let requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType);
+    let requirements: Requirement[] = await fetchRequirements(supabase, unitCode, validationType, null, validationDetailId);
 
     // Filter to specific requirements if requested
     if (requirementIds && requirementIds.length > 0) {
@@ -287,7 +287,7 @@ function parseSmartQuestionsResponse(
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
-    
+
     if (!parsed.questions || !Array.isArray(parsed.questions)) {
       console.error('[Smart Questions V2] Invalid response structure');
       return [];

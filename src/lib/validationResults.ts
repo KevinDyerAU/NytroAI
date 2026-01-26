@@ -21,7 +21,7 @@ export interface ValidationEvidenceRecord {
   document_type?: string;
   created_at?: string;
   updated_at?: string;
-  
+
   // Legacy fields for backward compatibility (deprecated)
   mapped_questions?: string;
   unmapped_reasoning?: string;
@@ -44,6 +44,7 @@ export interface ValidationResultsResponse {
   error: ValidationResultsError | null;
   isEmpty: boolean;
   isProcessing: boolean;
+  totalRequirements?: number;
 }
 
 /**
@@ -53,10 +54,11 @@ export async function checkValidationStatus(validationDetailId: number): Promise
   isReady: boolean;
   status: string;
   message: string;
+  totalRequirements?: number;
 }> {
   try {
     console.log('[checkValidationStatus] Checking validation status for ID:', validationDetailId);
-    
+
     // Query validation_detail
     const { data, error } = await supabase
       .from('validation_detail')
@@ -93,6 +95,7 @@ export async function checkValidationStatus(validationDetailId: number): Promise
       isReady: true,
       status: validationStatus || 'ready',
       message: 'Validation results are ready',
+      totalRequirements: data.validation_total || data.numOfReq || 0
     };
   } catch (error) {
     console.error('[checkValidationStatus] Unexpected error:', error);
@@ -128,11 +131,11 @@ export async function getValidationResults(
   try {
     // First, check if validation is ready
     const statusCheck = await checkValidationStatus(valDetailId);
-    
+
     if (!statusCheck.isReady) {
       const isProcessing = ['pending', 'DocumentProcessing', 'Uploading', 'ProcessingInBackground']
         .includes(statusCheck.status);
-      
+
       return {
         data: [],
         error: {
@@ -233,15 +236,16 @@ export async function getValidationResults(
       error: null,
       isEmpty: false,
       isProcessing: false,
+      totalRequirements: statusCheck.totalRequirements
     };
 
   } catch (error) {
     console.error('[getValidationResults] Unexpected error:', error);
-    
-    const errorMessage = error instanceof Error 
-      ? error.message 
+
+    const errorMessage = error instanceof Error
+      ? error.message
       : 'An unexpected error occurred while fetching validation results';
-    
+
     return {
       data: [],
       error: {
@@ -266,21 +270,21 @@ export async function getValidationResultsWithRetry(
   retryDelay: number = 1000
 ): Promise<ValidationResultsResponse> {
   let lastResponse: ValidationResultsResponse | null = null;
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     lastResponse = await getValidationResults(validationId, valDetailId);
-    
+
     // If successful or non-retryable error, return immediately
     if (!lastResponse.error || !lastResponse.error.retryable) {
       return lastResponse;
     }
-    
+
     // Wait before retrying (exponential backoff)
     if (attempt < maxRetries - 1) {
       await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
     }
   }
-  
+
   // Return last response after all retries exhausted
   return lastResponse || {
     data: [],
@@ -314,13 +318,13 @@ export function subscribeToValidationResults(
       },
       async (payload) => {
         console.log('[subscribeToValidationResults] Update received:', payload);
-        
+
         // Fetch updated results
         const response = await getValidationResults(
           validationDetailId.toString(),
           validationDetailId
         );
-        
+
         if (response.error) {
           onError(response.error);
         } else {

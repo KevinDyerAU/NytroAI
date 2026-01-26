@@ -10,7 +10,7 @@ import { Progress } from './ui/progress';
 import { ValidationReport } from './reports';
 import { ReportDownloadPopup } from './ReportDownloadPopup';
 import {
-  Search, 
+  Search,
   Download,
   X,
   Target,
@@ -76,7 +76,7 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
       try {
         setIsLoadingValidations(true);
         setValidationLoadError(null);
-        
+
         const currentRTO = getRTOById(selectedRTOId);
         if (!currentRTO?.code) {
           console.warn('[ResultsExplorer] No RTO code available');
@@ -88,9 +88,9 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
         console.log('[ResultsExplorer] Loading validations for RTO:', currentRTO.code);
         const records = await getActiveValidationsByRTO(currentRTO.code);
         console.log('[ResultsExplorer] Loaded validation records:', records.length);
-        
+
         setValidationRecords(records);
-        
+
         if (records.length === 0) {
           console.warn('[ResultsExplorer] No validation records found');
         }
@@ -176,14 +176,14 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
       console.log('[ResultsExplorer] Looking for validation ID:', selectedValidationId);
       console.log('[ResultsExplorer] Available validation records:', validationRecords.length);
       console.log('[ResultsExplorer] Loading status:', isLoadingValidations);
-      
+
       // First try to find in mock validations (for backward compatibility)
       let validation = mockValidations.find(v => v.id === selectedValidationId);
 
       // If not found, look in validation records (from DB)
       if (!validation) {
         const record = validationRecords.find(r => r.id.toString() === selectedValidationId);
-        
+
         if (record) {
           console.log('[ResultsExplorer] Found validation record:', record);
           validation = {
@@ -278,48 +278,48 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
   // Convert evidence data to ValidationResult format for display
   const currentResults = selectedValidation && validationEvidenceData.length > 0
     ? validationEvidenceData.map(evidence => ({
-        id: evidence.id,
-        requirementNumber: evidence.requirement_number,
-        type: evidence.type,
-        requirementText: evidence.requirement_text,
-        status: normalizeStatus(evidence.status),
-        reasoning: evidence.reasoning,
-        evidence: {
-          mappedQuestions: evidence.mapped_questions ? evidence.mapped_questions.split('\n').filter(q => q.trim()) : [],
-          unmappedReasoning: evidence.unmapped_reasoning,
-          documentReferences: (() => {
-            try {
-              // Citations stored as JSON: [{"documentName": "...", "pageNumbers": [1,2,3]}]
-              if (evidence.document_references) {
-                const citations = JSON.parse(evidence.document_references);
-                if (Array.isArray(citations)) {
-                  // Extract all page numbers from all citations
-                  const allPages = citations.flatMap((c: any) => c.pageNumbers || []);
-                  // Remove duplicates and sort
-                  return [...new Set(allPages)].sort((a, b) => a - b);
-                }
-              }
-            } catch (e) {
-              // Fallback: try parsing as comma-separated (legacy format)
-              if (evidence.document_references) {
-                const pages = evidence.document_references.split(',').map(p => parseInt(p.trim())).filter(n => !isNaN(n));
-                if (pages.length > 0) return pages;
+      id: evidence.id,
+      requirementNumber: evidence.requirement_number,
+      type: evidence.type,
+      requirementText: evidence.requirement_text,
+      status: normalizeStatus(evidence.status),
+      reasoning: evidence.reasoning,
+      evidence: {
+        mappedQuestions: evidence.mapped_questions ? evidence.mapped_questions.split('\n').filter(q => q.trim()) : [],
+        unmappedReasoning: evidence.unmapped_reasoning,
+        documentReferences: (() => {
+          try {
+            // Citations stored as JSON: [{"documentName": "...", "pageNumbers": [1,2,3]}]
+            if (evidence.document_references) {
+              const citations = JSON.parse(evidence.document_references);
+              if (Array.isArray(citations)) {
+                // Extract all page numbers from all citations
+                const allPages = citations.flatMap((c: any) => c.pageNumbers || []);
+                // Remove duplicates and sort
+                return [...new Set(allPages)].sort((a, b) => a - b);
               }
             }
-            return [];
-          })(),
-        },
-        aiEnhancement: {
-          smartQuestion: evidence.smart_question,
-          benchmarkAnswer: evidence.benchmark_answer,
-          recommendations: evidence.recommendations ? evidence.recommendations.split('\n').filter(r => r.trim()) : [],
-        },
-      }))
+          } catch (e) {
+            // Fallback: try parsing as comma-separated (legacy format)
+            if (evidence.document_references) {
+              const pages = evidence.document_references.split(',').map(p => parseInt(p.trim())).filter(n => !isNaN(n));
+              if (pages.length > 0) return pages;
+            }
+          }
+          return [];
+        })(),
+      },
+      aiEnhancement: {
+        smartQuestion: evidence.smart_question,
+        benchmarkAnswer: evidence.benchmark_answer,
+        recommendations: evidence.recommendations ? evidence.recommendations.split('\n').filter(r => r.trim()) : [],
+      },
+    }))
     : [];
 
   const filteredResults = currentResults.filter(result => {
     const matchesSearch = result.requirementText.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         result.requirementNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      result.requirementNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || result.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -331,8 +331,8 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
     partial: currentResults.filter(r => r.status === 'partial').length,
   } : { total: 0, met: 0, notMet: 0, partial: 0 };
 
-  const complianceScore = statusCounts.total > 0 
-    ? Math.round((statusCounts.met / statusCounts.total) * 100) 
+  const complianceScore = statusCounts.total > 0
+    ? Math.round((statusCounts.met / statusCounts.total) * 100)
     : 0;
 
   const handleChatClick = (result: any) => {
@@ -383,8 +383,8 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                   <span className="text-sm text-[#166534]">
                     {getValidationTypeLabel(selectedValidation.validationType)}
                   </span>
-                  <ValidationStatusIndicator 
-                    status={selectedValidation.status} 
+                  <ValidationStatusIndicator
+                    status={selectedValidation.status}
                     progress={selectedValidation.progress}
                     size="sm"
                     compact={true}
@@ -403,8 +403,8 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                 </div>
               </div>
               <div className="flex gap-3">
-                <GlowButton 
-                  variant="default" 
+                <GlowButton
+                  variant="default"
                   onClick={() => setShowReportDownloadPopup(true)}
                   disabled={validationEvidenceData.length === 0}
                   className="flex items-center gap-2"
@@ -423,7 +423,7 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                     onClick={() => {
                       const matchingRecord = validationRecords.find(
                         r => r.unit_code === selectedValidation.unitCode &&
-                        r.rto_code === selectedValidation.rtoId
+                          r.rto_code === selectedValidation.rtoId
                       );
                       if (matchingRecord) {
                         setSelectedValidationDetailId(matchingRecord.id);
@@ -582,7 +582,7 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                       className="pl-10 bg-white border-[#dbeafe]"
                     />
                   </div>
-                  
+
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-48 bg-white border-[#dbeafe]">
                       <SelectValue placeholder="Filter by status" />
@@ -596,8 +596,8 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                   </Select>
 
                   {showChat && (
-                    <GlowButton 
-                      variant="secondary" 
+                    <GlowButton
+                      variant="secondary"
                       size="icon"
                       onClick={() => setShowChat(false)}
                     >
@@ -606,11 +606,32 @@ export function ResultsExplorer({ selectedValidationId, aiCreditsAvailable = tru
                   )}
                 </div>
 
-                {/* Results Count */}
+                {/* Results Count and Progress */}
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#dbeafe]">
-                  <p className="text-sm text-[#64748b]">
-                    Showing <span className="text-[#3b82f6] font-poppins">{filteredResults.length}</span> of {statusCounts.total} requirements
-                  </p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm text-[#64748b]">
+                      Showing <span className="text-[#3b82f6] font-poppins font-semibold">{filteredResults.length}</span> of {selectedValidation.totalRequirements || statusCounts.total} requirements
+                    </p>
+                    {selectedValidation.progress > 0 && selectedValidation.progress < 100 && (
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="flex-1 w-48 h-1.5 bg-[#f1f5f9] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#3b82f6] transition-all duration-500 rounded-full"
+                            style={{ width: `${selectedValidation.progress}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-[#3b82f6] uppercase tracking-wider bg-[#dbeafe] px-2 py-0.5 rounded">
+                          {selectedValidation.progress}% Processing
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {selectedValidation.progress === 100 && (
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#22c55e] bg-[#dcfce7] px-3 py-1 rounded-full">
+                      <FileCheck className="w-3.5 h-3.5" />
+                      All {selectedValidation.totalRequirements} Validated
+                    </div>
+                  )}
                 </div>
 
                 {/* Results List */}
