@@ -482,8 +482,8 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
             </div>
           </div>
 
-          {/* Recommendations Section - Only show for learner_guide validation type */}
-          {isLearnerGuide() && (
+          {/* Recommendations Section - Show for learner_guide OR if recommendations exist */}
+          {(isLearnerGuide() || result.recommendations) && (
             <div>
               <h4 className="font-poppins text-[#3b82f6] mb-2 flex items-center gap-2">
                 <Lightbulb className="w-4 h-4" />
@@ -763,6 +763,11 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
               />
             </div>
 
+            <AlertDialogHeader className="sr-only">
+              <AlertDialogTitle>Thinking</AlertDialogTitle>
+              <AlertDialogDescription>Nytro is thinking and generating content</AlertDialogDescription>
+            </AlertDialogHeader>
+
             <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
               Nytro is thinking...
             </h3>
@@ -813,6 +818,11 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                 className="w-full h-auto object-contain animate-pulse"
               />
             </div>
+
+            <AlertDialogHeader className="sr-only">
+              <AlertDialogTitle>Revalidating</AlertDialogTitle>
+              <AlertDialogDescription>Nytro is re-analyzing the requirement</AlertDialogDescription>
+            </AlertDialogHeader>
 
             <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
               Nytro is revalidating...

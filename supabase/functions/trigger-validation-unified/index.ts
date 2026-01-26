@@ -398,28 +398,26 @@ async function triggerAzureValidationEnhanced(
     .eq('id', validationDetail.id);
 
   // Extract document content (using 'elements' table as cache)
-  let combinedContent = '';
+  const allSessionElements: any[] = [];
 
   for (const doc of documents) {
-    console.log(`[Trigger Validation] Processing document: ${doc.file_name} (${doc.document_type || 'unspecified'})`);
+    console.log(`[Trigger Validation] Matching cache for: ${doc.file_name}`);
 
     const docUrl = `s3://smartrtobucket/${doc.storage_path}`;
 
     // 1. Check if we already have this document in 'elements' table
     const { data: existingElements, error: elementError } = await supabase
       .from('elements')
-      .select('text')
+      .select('text, page_number, filename, url')
       .eq('url', docUrl)
       .order('id', { ascending: true });
 
-    let docText = '';
-
     if (!elementError && existingElements && existingElements.length > 0) {
-      console.log(`[Trigger Validation] Found cached content for ${doc.file_name} in 'elements' table (${existingElements.length} elements)`);
-      docText = existingElements.map((e: any) => e.text).join('\n');
+      console.log(`[Trigger Validation] Found cached content for ${doc.file_name} (${existingElements.length} elements)`);
+      allSessionElements.push(...existingElements);
     } else {
       // 2. Not in cache, extract with Azure Document Intelligence
-      console.log(`[Trigger Validation] No cache found for ${doc.file_name}, extracting with Azure Doc Intel...`);
+      console.log(`[Trigger Validation] No cache found for ${doc.file_name}, extracting...`);
 
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('documents')
@@ -433,69 +431,50 @@ async function triggerAzureValidationEnhanced(
       try {
         const fileBytes = new Uint8Array(await fileData.arrayBuffer());
         const extracted = await docIntelClient.extractDocument(fileBytes);
-        docText = extracted.content;
 
-        // 3. Save extracted content to 'elements' table for future use (v2 logic)
-        console.log(`[Trigger Validation] Saving extracted content for ${doc.file_name} to 'elements' table...`);
+        // Save extracted content to memory and cache it to DB
+        const chunks = extracted.paragraphs?.map((p: any) => ({
+          id: crypto.randomUUID(),
+          text: p.content,
+          page_number: p.pageNumber || 1,
+          filename: doc.file_name,
+          url: docUrl,
+          type: p.role || 'paragraph',
+          date_processed: new Date().toISOString()
+        })) || [{
+          id: crypto.randomUUID(),
+          text: extracted.content,
+          page_number: 1,
+          filename: doc.file_name,
+          url: docUrl,
+          type: 'document',
+          date_processed: new Date().toISOString()
+        }];
 
-        const chunks = [];
-        // If we have paragraphs, use them as chunks, otherwise use the whole content
-        if (extracted.paragraphs && extracted.paragraphs.length > 0) {
-          for (let i = 0; i < extracted.paragraphs.length; i++) {
-            const p = extracted.paragraphs[i];
-            chunks.push({
-              text: p.content,
-              page_number: p.pageNumber || 1,
-              filename: doc.file_name,
-              url: docUrl,
-              type: p.role || 'paragraph',
-              date_processed: new Date().toISOString()
-            });
-          }
-        } else {
-          chunks.push({
-            text: docText,
-            page_number: 1,
-            filename: doc.file_name,
-            url: docUrl,
-            type: 'document',
-            date_processed: new Date().toISOString()
-          });
-        }
+        allSessionElements.push(...chunks);
 
-        // Insert chunks in batches if there are many
-        if (chunks.length > 0) {
-          const batchSize = 100;
-          for (let i = 0; i < chunks.length; i += batchSize) {
-            const batch = chunks.slice(i, i + batchSize);
-            const { error: insertError } = await supabase.from('elements').insert(batch);
-            if (insertError) console.error(`[Trigger Validation] Failed to cache elements for ${doc.file_name}:`, insertError);
-          }
-        }
+        // Async save to elements table (fire and forget for local memory optimization)
+        supabase.from('elements').insert(chunks).then(({ error }) => {
+          if (error) console.error(`[Trigger Validation] DB cache error for ${doc.file_name}:`, error.message);
+        });
+
       } catch (extractError) {
         console.error(`[Trigger Validation] Extraction failed for ${doc.file_name}:`, extractError);
         continue;
       }
     }
-
-    // 4. Add to combined content with clear metadata markers
-    const docRole = doc.document_type || 'Attachment';
-    combinedContent += `\n\n=== DOCUMENT START: ${doc.file_name} ===\n`;
-    combinedContent += `Type: ${docRole}\n`;
-    combinedContent += `Content:\n${docText}\n`;
-    combinedContent += `=== DOCUMENT END: ${doc.file_name} ===\n\n`;
-
-    console.log(`[Trigger Validation] Added ${docText.length} chars from ${doc.file_name}`);
   }
 
-  if (!combinedContent.trim()) {
+  if (allSessionElements.length === 0) {
     await supabase
       .from('validation_detail')
       .update({ validation_status: 'failed', updated_at: new Date().toISOString() })
       .eq('id', validationDetail.id);
 
-    return createErrorResponse('Failed to extract content from documents. Ensure supported files are uploaded.', 500);
+    return createErrorResponse('Failed to extract content from documents.', 500);
   }
+
+  console.log(`[Trigger Validation] Total session elements available for search: ${allSessionElements.length}`);
 
   // Group requirements by type
   const requirementsByType: Record<string, Requirement[]> = {};
@@ -580,11 +559,34 @@ Return a JSON response with:
           maxOutputTokens: 4096
         };
 
+        // SMART IN-MEMORY RETRIEVAL: Find relevant chunks for this specific requirement
+        const reqNum = (requirement.number || '').toLowerCase();
+        const reqText = (requirement.text || '').toLowerCase();
+        const reqKeywords = reqText.split(' ').filter(w => w.length > 5).slice(0, 3);
+
+        const relevantElements = allSessionElements.filter(e => {
+          const content = (e.text || '').toLowerCase();
+          return content.includes(reqNum) || reqKeywords.some(k => content.includes(k));
+        });
+
+        let specificContext = '';
+        if (relevantElements.length > 0) {
+          // Take the matched elements and their immediate contexts
+          specificContext = relevantElements.slice(0, 40).map(e =>
+            `\n[File: ${e.filename} | Page: ${e.page_number}]\nContent: ${e.text}\n`
+          ).join('\n---\n');
+        } else {
+          // Fallback: Take the top 50 chunks of the whole session if no match found
+          specificContext = allSessionElements.slice(0, 50).map(e =>
+            `\n[File: ${e.filename} | Page: ${e.page_number}]\nContent: ${e.text}\n`
+          ).join('\n---\n');
+        }
+
         // Call Azure OpenAI
         const response = await azureClient.generateContent(
           [
             { role: 'system', content: systemInstruction },
-            { role: 'user', content: `Document Content:\n\n${combinedContent}\n\n---\n\n${fullPrompt}` }
+            { role: 'user', content: `Matched Document Context:\n\n${specificContext}\n\n---\n\n${fullPrompt}` }
           ],
           {
             temperature: generationConfig.temperature || 0.1,
@@ -610,22 +612,22 @@ Return a JSON response with:
           };
         }
 
-        // Create result record
+        // Create result record with robust mapping
         const resultRecord: ValidationResultRecord = {
           validation_detail_id: validationDetail.id,
           status: validationResult.status || 'Unknown',
-          reasoning: validationResult.reasoning || '',
-          mapped_content: validationResult.mapped_content || '',
-          citations: Array.isArray(validationResult.citations)
-            ? JSON.stringify(validationResult.citations)
-            : validationResult.citations || '',
-          smart_questions: validationResult.smart_question || '',
-          benchmark_answer: validationResult.benchmark_answer || '',
+          reasoning: validationResult.reasoning || validationResult.explanation || validationResult.rationale || '',
+          mapped_content: validationResult.mapped_content || validationResult.evidence_found || '',
+          citations: Array.isArray(validationResult.citations || validationResult.doc_references)
+            ? JSON.stringify(validationResult.citations || validationResult.doc_references)
+            : (validationResult.citations || validationResult.doc_references || ''),
+          smart_questions: validationResult.smart_question || validationResult.smart_task || validationResult.assessment_question || '',
+          benchmark_answer: validationResult.benchmark_answer || validationResult.model_answer || '',
           requirement_type: requirement.type,
           requirement_number: requirement.number || '',
           requirement_text: requirement.text || '',
           document_type: documentType,
-          recommendations: validationResult.recommendations || ''
+          recommendations: validationResult.recommendations || validationResult.improvement_suggestions || ''
         };
 
         // Insert into validation_results

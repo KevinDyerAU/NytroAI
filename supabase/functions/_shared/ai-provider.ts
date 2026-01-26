@@ -109,7 +109,7 @@ export function createAIClient() {
         const messages: AzureOpenAIMessage[] = [
           {
             role: 'system',
-            content: 'You are an expert assessment validator. Analyze the provided document against the requirements and return a structured JSON response.'
+            content: request.systemInstruction || 'You are an expert assessment validator. Analyze the provided document against the requirements and return a structured JSON response.'
           },
           {
             role: 'user',
@@ -118,8 +118,8 @@ export function createAIClient() {
         ];
 
         const response = await openaiClient.generateContent(messages, {
-          temperature: 0.3,
-          maxTokens: 8192,
+          temperature: request.generationConfig?.temperature ?? 0.1,
+          maxTokens: request.generationConfig?.maxOutputTokens ?? 4096,
           responseFormat: 'json_object'
         });
 

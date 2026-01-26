@@ -565,6 +565,8 @@ export function PromptMaintenanceNew() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleEdit(prompt)}
+                          disabled
+                          className="opacity-50 cursor-not-allowed"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -572,7 +574,8 @@ export function PromptMaintenanceNew() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleDelete(prompt.id)}
-                          className="text-red-600 hover:text-red-700"
+                          disabled
+                          className="text-red-600 hover:text-red-700 opacity-50 cursor-not-allowed"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

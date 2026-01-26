@@ -88,6 +88,19 @@ export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
       // Add JSON response format if requested
       if (options?.responseFormat === 'json_object') {
         requestBody.response_format = { type: 'json_object' };
+
+        // Azure requires the word "json" to appear in the messages
+        // Add it to the last user message if not already present
+        const lastUserMsgIndex = messages.map((m, i) => m.role === 'user' ? i : -1).filter(i => i >= 0).pop();
+        if (lastUserMsgIndex !== undefined) {
+          const lastMsg = messages[lastUserMsgIndex];
+          if (!lastMsg.content.toLowerCase().includes('json')) {
+            messages[lastUserMsgIndex] = {
+              ...lastMsg,
+              content: lastMsg.content + '\n\nPlease respond with valid JSON only.'
+            };
+          }
+        }
       }
 
       let lastError = null;
@@ -115,7 +128,11 @@ export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
 
             // Retry on 429 (Rate Limit) and 5xx (Server Errors)
             if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
-              console.warn(`[Azure OpenAI] ${response.status} error, will retry:`, errorText.substring(0, 200));
+              const retryAfter = response.headers.get('Retry-After');
+              const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000, 30000);
+
+              console.warn(`[Azure OpenAI] ${response.status} error. Retrying in ${Math.round(delay)}ms... attempt ${attempt + 1}/${maxRetries}`);
+              await new Promise(resolve => setTimeout(resolve, delay));
               lastError = new Error(`Azure OpenAI API error (${response.status}): ${errorText}`);
               continue;
             }
