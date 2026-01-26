@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Task-Oriented Prompts v1.2 (2026-01-26)
+
+#### Added
+- **v1.2 Task-Oriented Prompts**: New PE and E_PC Unit validation prompts with explicit OVERRIDE instruction
+  - `PE Unit Validation v1.2`: Task-oriented prompt for Performance Evidence validation
+  - `E_PC Unit Validation v1.2`: Task-oriented prompt for Elements and Performance Criteria validation
+  - Both prompts include approved performance action verbs list
+  - Both prompts focus on observable workplace actions, not knowledge questions
+- SQL seed file: `supabase/seed/seed_prompts_v1.2.sql`
+
+#### Changed
+- Set v1.1 PE and E_PC Unit prompts to non-default (preserved for rollback)
+- Deactivated all v0.1 and v0.2 prompts (preserved for reference)
+
+#### Fixed
+- Addressed issue where validation was generating knowledge-based questions instead of practical workplace tasks
+
 ### Documentation Overhaul (2025-11-29)
 
 #### Added
