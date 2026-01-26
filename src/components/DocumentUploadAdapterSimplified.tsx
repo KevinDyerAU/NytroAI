@@ -43,6 +43,7 @@ export function DocumentUploadAdapterSimplified({
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   // Removed validationDetailId state - will be created by ValidationTriggerCard when user types "validate"
   const [validationType, setValidationType] = useState<'unit' | 'learner_guide'>('unit');
+  const [sessionId, setSessionId] = useState<string>(() => `v-${Date.now()}`);
 
   // validationDetailId will be created by ValidationTriggerCard when user confirms
 
@@ -110,7 +111,7 @@ export function DocumentUploadAdapterSimplified({
     }
 
     const searchLower = unitSearchTerm.toLowerCase();
-    const filtered = allUnits.filter(unit => 
+    const filtered = allUnits.filter(unit =>
       unit.unitCode?.toLowerCase().includes(searchLower) ||
       unit.Title?.toLowerCase().includes(searchLower)
     ).slice(0, 10); // Limit to 10 results
@@ -123,7 +124,7 @@ export function DocumentUploadAdapterSimplified({
   const handleUnitSelect = (unit: any) => {
     console.log('[DocumentUploadAdapterSimplified] Selected unit object:', unit);
     console.log('[DocumentUploadAdapterSimplified] Unit.Link value:', unit.Link);
-    
+
     setSelectedUnit({
       id: unit.id,
       code: unit.unitCode,
@@ -167,7 +168,7 @@ export function DocumentUploadAdapterSimplified({
       const exactMatch = filteredUnits.find(
         unit => unit.unitCode?.toUpperCase() === unitSearchTerm.toUpperCase()
       );
-      
+
       if (exactMatch) {
         handleUnitSelect(exactMatch);
       } else {
@@ -186,15 +187,20 @@ export function DocumentUploadAdapterSimplified({
   // Handle file selection (just update state, don't create validation)
   const handleFilesSelected = useCallback((files: File[]) => {
     console.log('[DocumentUploadAdapterSimplified] 📁 Files selected:', files.length);
-    
+
     // Always update selectedFiles to ensure sync
     setSelectedFiles(files);
-    
+
     // Reset upload state for new selection
     console.log('[DocumentUploadAdapterSimplified] 🔄 Resetting upload state for new file selection');
     setUploadedCount(0);
     setUploadedDocuments([]);
     setIsComplete(false);
+
+    // Generate a fresh session ID for each new selection batch to ensure uniqueness
+    const newSessionId = `v-${Date.now()}`;
+    setSessionId(newSessionId);
+    console.log('[DocumentUploadAdapterSimplified] 🔑 New session ID generated:', newSessionId);
   }, []);
 
   // Handle upload complete (storage only, n8n creates DB records)
@@ -203,17 +209,17 @@ export function DocumentUploadAdapterSimplified({
       fileName,
       storagePath,
     });
-    
+
     // Add to uploaded documents list
     setUploadedDocuments(prev => {
       const updated = [...prev, { fileName, storagePath }];
       console.log(`[DocumentUploadAdapterSimplified] 📊 Uploaded documents: ${updated.length}`);
-      
+
       // Check completion immediately after state update
       setUploadedCount(currentCount => {
         const newCount = currentCount + 1;
         console.log(`[DocumentUploadAdapterSimplified] 📊 Upload count: ${newCount}/${selectedFiles.length}`);
-        
+
         // Check if all uploads are complete RIGHT NOW
         if (newCount === selectedFiles.length && selectedFiles.length > 0) {
           console.log('[DocumentUploadAdapterSimplified] 🎉 COMPLETION DETECTED! All files uploaded!');
@@ -228,10 +234,10 @@ export function DocumentUploadAdapterSimplified({
         } else {
           console.log(`[DocumentUploadAdapterSimplified] ⏳ Still uploading: ${newCount}/${selectedFiles.length}`);
         }
-        
+
         return newCount;
       });
-      
+
       return updated;
     });
   }, [selectedFiles.length]);
@@ -244,11 +250,11 @@ export function DocumentUploadAdapterSimplified({
       isComplete,
       shouldComplete: uploadedCount > 0 && uploadedCount === selectedFiles.length && !isComplete
     });
-    
+
     if (uploadedCount > 0 && uploadedCount === selectedFiles.length && !isComplete) {
       console.log('[DocumentUploadAdapterSimplified] 🎉 All files uploaded! Setting isComplete=true');
       setIsComplete(true);
-      
+
       toast.success('Upload complete!', {
         description: 'Click "Next: Start Validation" to continue.',
         duration: 5000,
@@ -264,6 +270,8 @@ export function DocumentUploadAdapterSimplified({
     setIsComplete(false);
     setSelectedUnit(null);
     setUnitSearchTerm('');
+    // Generate fresh session ID
+    setSessionId(`v-${Date.now()}`);
     toast.info('Form reset. Ready for new validation.');
   };
 
@@ -303,59 +311,53 @@ export function DocumentUploadAdapterSimplified({
         {/* Validation Type Selection - Side by Side Tiles */}
         <RadioGroup value={validationType} onValueChange={(value: 'unit' | 'learner_guide') => setValidationType(value)}>
           <div className="flex gap-4">
-          {/* Unit of Competency - Blue Tile */}
-          <div
-            onClick={() => setValidationType('unit')}
-            className={`flex-1 relative cursor-pointer rounded-xl border-2 transition-all ${
-              validationType === 'unit'
-                ? 'border-[#3b82f6] bg-[#dbeafe]'
-                : 'border-[#e2e8f0] bg-white hover:border-[#3b82f6]/50'
-            }`}
-          >
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                  validationType === 'unit' ? 'bg-[#3b82f6]' : 'bg-[#dbeafe]'
-                }`}>
-                  <FileText className={`w-6 h-6 ${
-                    validationType === 'unit' ? 'text-white' : 'text-[#3b82f6]'
-                  }`} />
+            {/* Unit of Competency - Blue Tile */}
+            <div
+              onClick={() => setValidationType('unit')}
+              className={`flex-1 relative cursor-pointer rounded-xl border-2 transition-all ${validationType === 'unit'
+                  ? 'border-[#3b82f6] bg-[#dbeafe]'
+                  : 'border-[#e2e8f0] bg-white hover:border-[#3b82f6]/50'
+                }`}
+            >
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${validationType === 'unit' ? 'bg-[#3b82f6]' : 'bg-[#dbeafe]'
+                    }`}>
+                    <FileText className={`w-6 h-6 ${validationType === 'unit' ? 'text-white' : 'text-[#3b82f6]'
+                      }`} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-[#1e293b]">Unit of Competency</h3>
+                    <p className="text-sm text-[#64748b]">Validate assessment documents</p>
+                  </div>
+                  <RadioGroupItem value="unit" id="unit-tile" checked={validationType === 'unit'} />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-[#1e293b]">Unit of Competency</h3>
-                  <p className="text-sm text-[#64748b]">Validate assessment documents</p>
-                </div>
-                <RadioGroupItem value="unit" id="unit-tile" checked={validationType === 'unit'} />
               </div>
             </div>
-          </div>
 
-          {/* Learner Guide - Green Tile */}
-          <div
-            onClick={() => setValidationType('learner_guide')}
-            className={`flex-1 relative cursor-pointer rounded-xl border-2 transition-all ${
-              validationType === 'learner_guide'
-                ? 'border-[#22c55e] bg-[#dcfce7]'
-                : 'border-[#e2e8f0] bg-white hover:border-[#22c55e]/50'
-            }`}
-          >
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                  validationType === 'learner_guide' ? 'bg-[#22c55e]' : 'bg-[#dcfce7]'
-                }`}>
-                  <FileText className={`w-6 h-6 ${
-                    validationType === 'learner_guide' ? 'text-white' : 'text-[#22c55e]'
-                  }`} />
+            {/* Learner Guide - Green Tile */}
+            <div
+              onClick={() => setValidationType('learner_guide')}
+              className={`flex-1 relative cursor-pointer rounded-xl border-2 transition-all ${validationType === 'learner_guide'
+                  ? 'border-[#22c55e] bg-[#dcfce7]'
+                  : 'border-[#e2e8f0] bg-white hover:border-[#22c55e]/50'
+                }`}
+            >
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${validationType === 'learner_guide' ? 'bg-[#22c55e]' : 'bg-[#dcfce7]'
+                    }`}>
+                    <FileText className={`w-6 h-6 ${validationType === 'learner_guide' ? 'text-white' : 'text-[#22c55e]'
+                      }`} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-[#1e293b]">Learner Guide</h3>
+                    <p className="text-sm text-[#64748b]">Validate learner materials</p>
+                  </div>
+                  <RadioGroupItem value="learner_guide" id="learner-guide-tile" checked={validationType === 'learner_guide'} />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-[#1e293b]">Learner Guide</h3>
-                  <p className="text-sm text-[#64748b]">Validate learner materials</p>
-                </div>
-                <RadioGroupItem value="learner_guide" id="learner-guide-tile" checked={validationType === 'learner_guide'} />
               </div>
             </div>
-          </div>
           </div>
         </RadioGroup>
 
@@ -387,7 +389,7 @@ export function DocumentUploadAdapterSimplified({
                 disabled={isLoadingUnits}
                 className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3b82f6] disabled:bg-gray-100"
               />
-              
+
               {/* Autocomplete Dropdown */}
               {showUnitDropdown && filteredUnits.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -404,7 +406,7 @@ export function DocumentUploadAdapterSimplified({
                   ))}
                 </div>
               )}
-              
+
               {unitSearchTerm && filteredUnits.length === 0 && !isLoadingUnits && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg p-4 text-center text-[#64748b]">
                   <Info className="w-5 h-5 mx-auto mb-2 opacity-50" />
@@ -412,7 +414,7 @@ export function DocumentUploadAdapterSimplified({
                 </div>
               )}
             </div>
-            
+
             {selectedUnit && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -438,6 +440,7 @@ export function DocumentUploadAdapterSimplified({
               onFilesSelected={handleFilesSelected}
               onUploadStart={handleUploadStart}
               clearFilesOnNewValidation={true}
+              sessionId={sessionId}
             />
           </Card>
         )}
@@ -478,6 +481,7 @@ export function DocumentUploadAdapterSimplified({
                 unitCode={selectedUnit?.code}
                 unitLink={selectedUnit?.Link}
                 validationType={validationType}
+                sessionId={sessionId}
                 onCreditsConsumed={onCreditsConsumed}
                 onSuccess={() => {
                   setShowValidationDialog(false);

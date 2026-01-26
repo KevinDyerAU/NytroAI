@@ -267,16 +267,21 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
   // For Azure, only add explicit format instruction when using fallback (no database prompt)
   // Database prompts should have their own proper instructions
   if (!promptTemplate) {
+    const isKE = requirementType === 'knowledge_evidence';
+    const taskField = isKE ? 'suggested_question' : 'practical_workplace_task';
+    const taskDesc = isKE ? 'One clear, simple question to address the gap' : 'A practical task or observation that assesses this requirement';
+    const mappedField = isKE ? 'mapped_questions' : 'mapped_content';
+
     const outputFormatInstruction = `
 
 IMPORTANT: You MUST return a JSON object with this exact structure:
 {
   "status": "Met" | "Partially Met" | "Not Met",
   "reasoning": "detailed explanation here",
-  "mapped_content": "specific evidence from documents",
+  "${mappedField}": "specific evidence from documents",
   "citations": ["document reference 1", "document reference 2"],
-  "practical_workplace_task": "A practical task or observation that assesses this requirement",
-  "benchmark_answer": "Expected observable behavior for competent performance",
+  "${taskField}": "${taskDesc}",
+  "benchmark_answer": "Expected observable behavior or model answer",
   "unmapped_content": "What's missing if not fully met, or N/A if Met"
 }
 
@@ -336,11 +341,12 @@ ALL fields are required. If a field doesn't apply, use an empty string "" or emp
     normalizedResult.practical_task ||
     normalizedResult.smart_task ||
     normalizedResult.smart_question ||
+    normalizedResult.suggested_question ||
     normalizedResult.assessment_question;
   if (smartTaskField) {
     if (typeof smartTaskField === 'object' && !Array.isArray(smartTaskField)) {
       // AI returned nested object like { "Task Text": "...", "Benchmark Answer": "..." }
-      smartQuestions = smartTaskField.task_text || smartTaskField['task text'] || smartTaskField.text || '';
+      smartQuestions = smartTaskField.task_text || smartTaskField['task text'] || smartTaskField.text || smartTaskField.question || '';
       benchmarkAnswer = smartTaskField.benchmark_answer || smartTaskField['benchmark answer'] || smartTaskField.answer || '';
     } else {
       smartQuestions = String(smartTaskField);
@@ -358,11 +364,17 @@ ALL fields are required. If a field doesn't apply, use an empty string "" or emp
   }
 
   // Handle mapped_content - extract text if it's an object
+  // For KE, it might be in 'mapped_questions'
+  if (!mappedContent || mappedContent === 'N/A') {
+    mappedContent = normalizedResult.mapped_questions || '';
+  }
+
   if (typeof mappedContent === 'object' && !Array.isArray(mappedContent)) {
     const textValue = mappedContent.observation_task_number ||
       mappedContent['observation/task_number'] ||
       mappedContent.text ||
-      mappedContent.content;
+      mappedContent.content ||
+      mappedContent.question;
     mappedContent = textValue ? String(textValue) : '';
   }
 

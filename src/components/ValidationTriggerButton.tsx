@@ -74,6 +74,7 @@ interface ValidationTriggerCardProps {
   unitCode?: string;
   unitLink?: string;
   validationType?: 'unit' | 'learner_guide';
+  sessionId?: string;
 }
 
 export function ValidationTriggerCard({
@@ -87,6 +88,7 @@ export function ValidationTriggerCard({
   unitCode,
   unitLink,
   validationType = 'unit',
+  sessionId
 }: ValidationTriggerCardProps) {
   const { trigger, isTriggering } = useValidationTrigger();
   const [isTriggered, setIsTriggered] = React.useState(false);
@@ -124,7 +126,9 @@ export function ValidationTriggerCard({
         console.log('[ValidationTriggerCard] Creating validation record...');
 
         // Create session-specific namespace
-        const sessionNamespace = `${rtoCode}-${unitCode}-${Date.now()}`;
+        const sessionNamespace = sessionId
+          ? `${rtoCode}-${unitCode}-${sessionId}`
+          : `${rtoCode}-${unitCode}-${Date.now()}`;
 
         const { data, error } = await supabase.functions.invoke('create-validation-record', {
           body: {
@@ -168,7 +172,7 @@ export function ValidationTriggerCard({
       await trigger(finalValidationDetailId!, storagePaths);
       setIsTriggered(true);
       setConfirmText(''); // Clear input after success
-      
+
       // Notify parent that credits were consumed
       if (onCreditsConsumed) {
         onCreditsConsumed();
@@ -201,12 +205,12 @@ export function ValidationTriggerCard({
             <Play className="w-6 h-6 text-blue-600" />
           )}
         </div>
-        
+
         <div className="flex-1">
           <h3 className="font-semibold text-blue-900 mb-1">
             {isTriggered ? 'Validation Started' : 'Ready to Validate'}
           </h3>
-          
+
           {isTriggered ? (
             <div className="space-y-2">
               <p className="text-sm text-blue-800">
@@ -224,7 +228,7 @@ export function ValidationTriggerCard({
                   ? `All ${totalCount} document${totalCount !== 1 ? 's' : ''} uploaded successfully. Type "validate" below to confirm.`
                   : `Upload in progress: ${uploadedCount}/${totalCount} documents`}
               </p>
-              
+
               {allUploaded && (
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-blue-800">
@@ -245,7 +249,7 @@ export function ValidationTriggerCard({
                   />
                 </div>
               )}
-              
+
               <Button
                 onClick={handleTrigger}
                 disabled={!canValidate || isTriggering || isCreatingValidation}
@@ -263,13 +267,13 @@ export function ValidationTriggerCard({
                   </>
                 )}
               </Button>
-              
+
               {!allUploaded && (
                 <p className="text-xs text-blue-600">
                   Complete all uploads before starting validation
                 </p>
               )}
-              
+
               {allUploaded && !isConfirmed && confirmText.length > 0 && (
                 <p className="text-xs text-blue-600">
                   Please type "validate" exactly to enable the button

@@ -617,12 +617,12 @@ Return a JSON response with:
           validation_detail_id: validationDetail.id,
           status: validationResult.status || 'Unknown',
           reasoning: validationResult.reasoning || validationResult.explanation || validationResult.rationale || '',
-          mapped_content: validationResult.mapped_content || validationResult.evidence_found || '',
+          mapped_content: validationResult.mapped_content || validationResult.evidence_found || validationResult.mapped_questions || '',
           citations: Array.isArray(validationResult.citations || validationResult.doc_references)
             ? JSON.stringify(validationResult.citations || validationResult.doc_references)
             : (validationResult.citations || validationResult.doc_references || ''),
-          smart_questions: validationResult.practical_workplace_task || validationResult.practical_task || validationResult.smart_question || validationResult.smart_task || validationResult.assessment_question || '',
-          benchmark_answer: validationResult.benchmark_answer || validationResult.model_answer || '',
+          smart_questions: validationResult.practical_workplace_task || validationResult.practical_task || validationResult.smart_question || validationResult.suggested_question || validationResult.smart_task || validationResult.assessment_question || '',
+          benchmark_answer: validationResult.benchmark_answer || validationResult.model_answer || validationResult.expected_behavior || '',
           requirement_type: requirement.type,
           requirement_number: requirement.number || '',
           requirement_text: requirement.text || '',

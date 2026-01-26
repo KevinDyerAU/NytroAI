@@ -14,6 +14,7 @@ interface DocumentUploadProps {
   onUploadStart?: () => Promise<void>; // New callback fired when Upload button is clicked
   triggerUpload?: boolean;
   clearFilesOnNewValidation?: boolean;
+  sessionId?: string;
 }
 
 interface FileState {
@@ -34,14 +35,15 @@ interface FileState {
  * 
  * Key: n8n creates document records from storage paths
  */
-export function DocumentUploadSimplified({ 
-  unitCode, 
-  validationDetailId, 
-  onUploadComplete, 
+export function DocumentUploadSimplified({
+  unitCode,
+  validationDetailId,
+  onUploadComplete,
   onFilesSelected,
   onUploadStart,
   triggerUpload = false,
-  clearFilesOnNewValidation = false
+  clearFilesOnNewValidation = false,
+  sessionId
 }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<FileState[]>([]);
@@ -53,10 +55,10 @@ export function DocumentUploadSimplified({
   // Notify parent ONCE when files are initially selected (not on progress updates or after upload)
   useEffect(() => {
     // Check if any files have started uploading (have progress beyond 'pending')
-    const anyFileUploading = files.some(f => 
+    const anyFileUploading = files.some(f =>
       f.progress.stage === 'uploading' || f.progress.stage === 'completed' || f.progress.stage === 'failed'
     );
-    
+
     // Debug: Log notification check
     if (files.length > 0) {
       console.log('[DocumentUploadSimplified] 🔔 Notification check:', {
@@ -67,7 +69,7 @@ export function DocumentUploadSimplified({
         fileStages: files.map(f => f.progress.stage)
       });
     }
-    
+
     // Only notify if:
     // 1. We have files
     // 2. Parent wants notifications
@@ -87,10 +89,10 @@ export function DocumentUploadSimplified({
   useEffect(() => {
     if (clearFilesOnNewValidation && validationDetailId !== undefined) {
       const previousValidationId = previousValidationIdRef.current;
-      
+
       // Only clear if validation ID actually changed (not first time being set)
       const isValidationIdChange = previousValidationId !== undefined && previousValidationId !== validationDetailId;
-      
+
       console.log('[DocumentUploadSimplified] 🔍 Validation ID check:', {
         previousValidationId,
         currentValidationId: validationDetailId,
@@ -98,7 +100,7 @@ export function DocumentUploadSimplified({
         filesLength: files.length,
         isUploading
       });
-      
+
       if (isValidationIdChange && !isUploading) {
         console.log('[DocumentUploadSimplified] 🧹 Validation ID changed, clearing old files');
         setFiles([]);
@@ -106,7 +108,7 @@ export function DocumentUploadSimplified({
       } else if (isValidationIdChange && isUploading) {
         console.log('[DocumentUploadSimplified] ⏸️ Upload in progress, delaying file clear');
       }
-      
+
       // Update ref for next comparison
       previousValidationIdRef.current = validationDetailId;
     }
@@ -120,7 +122,7 @@ export function DocumentUploadSimplified({
       isUploading,
       willAutoUpload: triggerUpload && files.length > 0 && !isUploading
     });
-    
+
     if (triggerUpload && files.length > 0 && !isUploading) {
       console.log('[DocumentUploadSimplified] ⚠️ AUTO-UPLOADING (should not happen in manual mode!)');
       handleUpload();
@@ -196,20 +198,20 @@ export function DocumentUploadSimplified({
       // Upload all files
       for (let i = 0; i < files.length; i++) {
         const fileState = files[i];
-        
+
         // Skip if file is undefined (can happen if files are cleared during upload)
         if (!fileState?.file) {
           console.warn(`[DocumentUploadSimplified] Skipping undefined file at index ${i}`);
           continue;
         }
-        
+
         console.log(`[DocumentUploadSimplified] Uploading file ${i + 1}/${files.length}:`, fileState.file.name);
-        
+
         // Set to uploading stage
         setFiles(prev => {
           const updated = [...prev];
-          updated[i] = { 
-            ...updated[i], 
+          updated[i] = {
+            ...updated[i],
             progress: {
               stage: 'uploading',
               progress: 0,
@@ -218,7 +220,7 @@ export function DocumentUploadSimplified({
           };
           return updated;
         });
-        
+
         try {
           const result = await documentUploadService.uploadDocument(
             fileState.file,
@@ -232,13 +234,14 @@ export function DocumentUploadSimplified({
                 updated[i] = { ...updated[i], progress };
                 return updated;
               });
-            }
+            },
+            sessionId
           );
 
           // Upload complete! Save storage path
           setFiles(prev => {
             const updated = [...prev];
-            updated[i] = { 
+            updated[i] = {
               ...updated[i],
               storagePath: result.storagePath,
               progress: {
@@ -257,7 +260,7 @@ export function DocumentUploadSimplified({
 
         } catch (error) {
           console.error('[Upload] Error uploading file:', error);
-          
+
           setFiles(prev => {
             const updated = [...prev];
             updated[i] = {
@@ -278,7 +281,7 @@ export function DocumentUploadSimplified({
 
       console.log('[Upload] All files uploaded and documents created. Parent will trigger n8n.');
       toast.success('All files uploaded successfully');
-      
+
       // Reset notification flag for next upload batch
       hasNotifiedFilesRef.current = false;
 
@@ -312,8 +315,8 @@ export function DocumentUploadSimplified({
         onDrop={handleDrop}
         className={cn(
           'relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300',
-          isDragging 
-            ? 'border-[#3b82f6] bg-[#dbeafe] scale-[1.02]' 
+          isDragging
+            ? 'border-[#3b82f6] bg-[#dbeafe] scale-[1.02]'
             : 'border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-[#f8fafc]'
         )}
       >
@@ -341,9 +344,9 @@ export function DocumentUploadSimplified({
           id="file-upload"
         />
         <label htmlFor="file-upload">
-          <Button 
-            variant="outline" 
-            className="border-[#cbd5e1] hover:border-[#3b82f6] hover:bg-[#f8fafc] transition-all" 
+          <Button
+            variant="outline"
+            className="border-[#cbd5e1] hover:border-[#3b82f6] hover:bg-[#f8fafc] transition-all"
             asChild
           >
             <span>Select Files</span>
@@ -361,10 +364,10 @@ export function DocumentUploadSimplified({
             <h3 className="text-sm font-semibold text-[#1e293b]">
               Selected Files <span className="text-[#64748b] font-normal">({files.length})</span>
             </h3>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={clearAll} 
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearAll}
               disabled={isUploading}
               className="text-[#64748b] hover:text-[#ef4444] hover:bg-[#fef2f2]"
             >
@@ -378,48 +381,48 @@ export function DocumentUploadSimplified({
                 key={index}
                 className={cn(
                   "flex items-center gap-4 p-4 rounded-xl border transition-all duration-200",
-                  fileState.progress.stage === 'completed' 
-                    ? 'border-[#22c55e] bg-[#f0fdf4]' 
+                  fileState.progress.stage === 'completed'
+                    ? 'border-[#22c55e] bg-[#f0fdf4]'
                     : fileState.progress.stage === 'failed'
-                    ? 'border-[#ef4444] bg-[#fef2f2]'
-                    : fileState.progress.stage === 'uploading'
-                    ? 'border-[#3b82f6] bg-[#f8fafc]'
-                    : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1] hover:shadow-sm'
+                      ? 'border-[#ef4444] bg-[#fef2f2]'
+                      : fileState.progress.stage === 'uploading'
+                        ? 'border-[#3b82f6] bg-[#f8fafc]'
+                        : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1] hover:shadow-sm'
                 )}
               >
                 <div className={cn(
                   "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                  fileState.progress.stage === 'completed' 
-                    ? 'bg-[#dcfce7]' 
+                  fileState.progress.stage === 'completed'
+                    ? 'bg-[#dcfce7]'
                     : fileState.progress.stage === 'failed'
-                    ? 'bg-[#fee2e2]'
-                    : 'bg-[#f1f5f9]'
+                      ? 'bg-[#fee2e2]'
+                      : 'bg-[#f1f5f9]'
                 )}>
                   <FileText className={cn(
                     "h-5 w-5",
-                    fileState.progress.stage === 'completed' 
-                      ? 'text-[#22c55e]' 
+                    fileState.progress.stage === 'completed'
+                      ? 'text-[#22c55e]'
                       : fileState.progress.stage === 'failed'
-                      ? 'text-[#ef4444]'
-                      : 'text-[#64748b]'
+                        ? 'text-[#ef4444]'
+                        : 'text-[#64748b]'
                   )} />
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[#1e293b] truncate">
                     {fileState.file?.name || 'Unknown file'}
                   </p>
                   <p className={cn(
                     "text-xs mt-0.5",
-                    fileState.progress.stage === 'completed' 
+                    fileState.progress.stage === 'completed'
                       ? 'text-[#22c55e]'
                       : fileState.progress.stage === 'failed'
-                      ? 'text-[#ef4444]'
-                      : 'text-[#64748b]'
+                        ? 'text-[#ef4444]'
+                        : 'text-[#64748b]'
                   )}>
                     {fileState.progress?.message || 'Pending'}
                   </p>
-                  
+
                   {fileState.progress.stage === 'uploading' && (
                     <div className="mt-2 w-full bg-[#e2e8f0] rounded-full h-2 overflow-hidden">
                       <div

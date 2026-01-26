@@ -28,7 +28,7 @@ export interface UploadResult {
  * The Dashboard polls for status updates.
  */
 export class DocumentUploadServiceSimplified {
-  
+
   /**
    * Upload a file to storage - returns storage path
    * Document record creation and Gemini upload happens in n8n
@@ -39,11 +39,12 @@ export class DocumentUploadServiceSimplified {
     unitCode: string,
     documentType: 'assessment' | 'unit_requirement' | 'training_package' | 'other',
     validationDetailId?: number,
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    sessionId?: string
   ): Promise<UploadResult> {
     try {
       console.log('[Upload] Starting storage upload for:', file.name, 'Size:', file.size, 'bytes');
-      
+
       // Upload to Supabase Storage
       onProgress?.({
         stage: 'uploading',
@@ -61,7 +62,7 @@ export class DocumentUploadServiceSimplified {
       }, 500);
 
       try {
-        const storagePath = await this.uploadToStorage(file, rtoCode, unitCode);
+        const storagePath = await this.uploadToStorage(file, rtoCode, unitCode, sessionId);
         clearInterval(progressInterval);
         console.log('[Upload] ✅ File uploaded to storage:', storagePath);
 
@@ -83,9 +84,9 @@ export class DocumentUploadServiceSimplified {
 
     } catch (error) {
       console.error('[Upload] Error:', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      
+
       onProgress?.({
         stage: 'failed',
         progress: 0,
@@ -104,11 +105,14 @@ export class DocumentUploadServiceSimplified {
   private async uploadToStorage(
     file: File,
     rtoCode: string,
-    unitCode: string
+    unitCode: string,
+    sessionId?: string
   ): Promise<string> {
     const timestamp = Date.now();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const storagePath = `${rtoCode}/${unitCode}/${timestamp}_${sanitizedFileName}`;
+    // If sessionId exists, prepend it to the filename/path to make it unique per validation session
+    const uniquePrefix = sessionId ? `${sessionId}_` : `${timestamp}_`;
+    const storagePath = `${rtoCode}/${unitCode}/${uniquePrefix}${sanitizedFileName}`;
 
     console.log('[Upload] Starting storage upload:', storagePath);
     console.log('[Upload] File size:', file.size, 'bytes', `(${(file.size / 1024).toFixed(2)} KB)`);
