@@ -247,7 +247,8 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit }: DocumentUp
         throw new Error('No documents were successfully uploaded');
       }
 
-      // Kick off validation asynchronously (fire and forget)
+      // Kick off validation asynchronously using unified trigger
+      // This supports both Azure and Google providers based on environment config
       toast.info('Starting AI validation...');
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
