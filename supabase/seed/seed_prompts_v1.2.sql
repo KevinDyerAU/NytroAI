@@ -1,6 +1,7 @@
 -- ============================================================================
 -- Seed file for v1.2 Task-Oriented Prompts
 -- Created: 2026-01-26
+-- Updated: 2026-01-26 - Added stricter N/A instruction for Met status
 -- Purpose: Add task-oriented PE and E_PC prompts with OVERRIDE instruction
 -- ============================================================================
 
@@ -9,7 +10,8 @@ UPDATE public.prompts
 SET is_default = false 
 WHERE (requirement_type = 'performance_evidence' OR requirement_type = 'elements_performance_criteria') 
   AND document_type = 'unit' 
-  AND name LIKE '%v1.%';
+  AND name LIKE '%v1.%'
+  AND name NOT LIKE '%v1.2%';
 
 -- Insert PE Unit Validation v1.2
 INSERT INTO public.prompts (
@@ -30,7 +32,7 @@ INSERT INTO public.prompts (
     'performance_evidence',
     'unit',
     'PE Unit Validation v1.2',
-    'Task-oriented v1.2 prompt for Performance Evidence Unit validation with override instruction',
+    'Task-oriented v1.2 prompt for Performance Evidence Unit validation with override instruction and strict N/A handling',
     '# PE Unit Validation v1.2
 
 ## OVERRIDE INSTRUCTION
@@ -53,11 +55,13 @@ Use this list to guide your validation. The assessment should require the learne
 
 ## Output Requirements (JSON)
 
-1.  **status**: `Met | Partially Met | Not Met`
+Return a JSON object with these exact fields:
+
+1.  **status**: `"Met"` | `"Partially Met"` | `"Not Met"`
 2.  **reasoning**: A clear, concise explanation of your validation decision.
-3.  **mapped_content**: A list of existing tasks that require the learner to perform the action. Use `N/A` if none.
-4.  **practical_workplace_task**: One clear, simple practical task to address the gap. Use `N/A` if the status is `Met`.
-5.  **benchmark_answer**: A brief description of the expected observable behavior for the task. Use `N/A` if the status is `Met`.
+3.  **mapped_content**: A list of existing tasks that require the learner to perform the action. Use exactly `"N/A"` if none found.
+4.  **practical_workplace_task**: One clear, simple practical task to address the gap. **IMPORTANT: If status is "Met", you MUST return exactly `"N/A"` - do not return an empty string, do not generate a question, do not provide any other value.**
+5.  **benchmark_answer**: A brief description of the expected observable behavior for the task. **IMPORTANT: If status is "Met", you MUST return exactly `"N/A"` - do not return an empty string or any other value.**
 ',
     'You are an expert RTO assessor. Focus on practical, observable workplace actions. DO NOT generate knowledge questions.',
     'v1.2',
@@ -67,6 +71,7 @@ Use this list to guide your validation. The assessment should require the learne
     NOW()
 ) ON CONFLICT (name) DO UPDATE SET
     prompt_text = EXCLUDED.prompt_text,
+    description = EXCLUDED.description,
     system_instruction = EXCLUDED.system_instruction,
     is_active = EXCLUDED.is_active,
     is_default = EXCLUDED.is_default,
@@ -91,7 +96,7 @@ INSERT INTO public.prompts (
     'elements_performance_criteria',
     'unit',
     'E_PC Unit Validation v1.2',
-    'Task-oriented v1.2 prompt for Elements and Performance Criteria Unit validation with override instruction',
+    'Task-oriented v1.2 prompt for Elements and Performance Criteria Unit validation with override instruction and strict N/A handling',
     '# E_PC Unit Validation v1.2
 
 ## OVERRIDE INSTRUCTION
@@ -114,11 +119,13 @@ Use this list to guide your validation. The assessment should require the learne
 
 ## Output Requirements (JSON)
 
-1.  **status**: `Met | Partially Met | Not Met`
+Return a JSON object with these exact fields:
+
+1.  **status**: `"Met"` | `"Partially Met"` | `"Not Met"`
 2.  **reasoning**: A clear, concise explanation of your validation decision.
-3.  **mapped_content**: A list of existing tasks that require the learner to perform the action. Use `N/A` if none.
-4.  **practical_workplace_task**: One clear, simple practical task to address the gap. Use `N/A` if the status is `Met`.
-5.  **benchmark_answer**: A brief description of the expected observable behavior for the task. Use `N/A` if the status is `Met`.
+3.  **mapped_content**: A list of existing tasks that require the learner to perform the action. Use exactly `"N/A"` if none found.
+4.  **practical_workplace_task**: One clear, simple practical task to address the gap. **IMPORTANT: If status is "Met", you MUST return exactly `"N/A"` - do not return an empty string, do not generate a question, do not provide any other value.**
+5.  **benchmark_answer**: A brief description of the expected observable behavior for the task. **IMPORTANT: If status is "Met", you MUST return exactly `"N/A"` - do not return an empty string or any other value.**
 ',
     'You are an expert RTO assessor. Focus on practical, observable workplace actions. DO NOT generate knowledge questions.',
     'v1.2',
@@ -128,6 +135,7 @@ Use this list to guide your validation. The assessment should require the learne
     NOW()
 ) ON CONFLICT (name) DO UPDATE SET
     prompt_text = EXCLUDED.prompt_text,
+    description = EXCLUDED.description,
     system_instruction = EXCLUDED.system_instruction,
     is_active = EXCLUDED.is_active,
     is_default = EXCLUDED.is_default,
