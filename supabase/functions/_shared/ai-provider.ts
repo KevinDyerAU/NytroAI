@@ -237,7 +237,7 @@ export function logProviderConfig(): void {
   if (config.provider === 'azure') {
     console.log('║ Azure OpenAI Endpoint:', Deno.env.get('AZURE_OPENAI_ENDPOINT') ? '✅ Configured' : '❌ Missing');
     console.log('║ Azure OpenAI Key:', Deno.env.get('AZURE_OPENAI_KEY') ? '✅ Configured' : '❌ Missing');
-    console.log('║ Azure OpenAI Deployment:', Deno.env.get('AZURE_OPENAI_DEPLOYMENT') || 'gpt-4o-mini (default)');
+    console.log('║ Azure OpenAI Deployment:', Deno.env.get('AZURE_OPENAI_DEPLOYMENT') || 'gpt-4-1-mini (default)');
     console.log('║ Azure Doc Intel Endpoint:', Deno.env.get('AZURE_DOC_INTEL_ENDPOINT') ? '✅ Configured' : '❌ Missing');
     console.log('║ Azure Doc Intel Key:', Deno.env.get('AZURE_DOC_INTEL_KEY') ? '✅ Configured' : '❌ Missing');
   } else {
