@@ -60,11 +60,11 @@ export interface AnalyzeOperation {
  * Create an Azure Document Intelligence client
  */
 export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
-  const { endpoint, apiKey, apiVersion = '2024-02-29-preview' } = config;
-  
+  const { endpoint, apiKey, apiVersion = '2024-11-30' } = config;
+
   // Ensure endpoint doesn't have trailing slash
   const baseUrl = endpoint.replace(/\/$/, '');
-  
+
   return {
     /**
      * Analyze a document from a URL
@@ -74,12 +74,12 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
       modelId: string = 'prebuilt-layout'
     ): Promise<AnalyzeOperation> {
       const url = `${baseUrl}/documentintelligence/documentModels/${modelId}:analyze?api-version=${apiVersion}`;
-      
+
       console.log('[Azure Doc Intel] Starting analysis:', {
         modelId,
         documentUrl: documentUrl.substring(0, 100) + '...'
       });
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -90,7 +90,7 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
           urlSource: documentUrl
         }),
       });
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[Azure Doc Intel] Analysis failed:', {
@@ -99,24 +99,24 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
         });
         throw new Error(`Document analysis failed (${response.status}): ${errorText}`);
       }
-      
+
       // Get operation location from header
       const operationLocation = response.headers.get('Operation-Location');
       if (!operationLocation) {
         throw new Error('No operation location returned from Document Intelligence');
       }
-      
+
       // Extract operation ID from URL
       const operationId = operationLocation.split('/').pop()?.split('?')[0] || '';
-      
+
       console.log('[Azure Doc Intel] Analysis started:', { operationId });
-      
+
       return {
         operationId,
         status: 'running'
       };
     },
-    
+
     /**
      * Analyze a document from binary content
      */
@@ -126,22 +126,22 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
       modelId: string = 'prebuilt-layout'
     ): Promise<AnalyzeOperation> {
       const url = `${baseUrl}/documentintelligence/documentModels/${modelId}:analyze?api-version=${apiVersion}`;
-      
+
       console.log('[Azure Doc Intel] Starting analysis from bytes:', {
         modelId,
         contentType,
         sizeKB: (documentContent.length / 1024).toFixed(2)
       });
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': contentType,
           'Ocp-Apim-Subscription-Key': apiKey,
         },
-        body: documentContent,
+        body: documentContent as any,
       });
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[Azure Doc Intel] Analysis failed:', {
@@ -150,24 +150,24 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
         });
         throw new Error(`Document analysis failed (${response.status}): ${errorText}`);
       }
-      
+
       // Get operation location from header
       const operationLocation = response.headers.get('Operation-Location');
       if (!operationLocation) {
         throw new Error('No operation location returned from Document Intelligence');
       }
-      
+
       // Extract operation ID from URL
       const operationId = operationLocation.split('/').pop()?.split('?')[0] || '';
-      
+
       console.log('[Azure Doc Intel] Analysis started:', { operationId });
-      
+
       return {
         operationId,
         status: 'running'
       };
     },
-    
+
     /**
      * Get the status and result of an analysis operation
      */
@@ -176,21 +176,21 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
       modelId: string = 'prebuilt-layout'
     ): Promise<AnalyzeOperation> {
       const url = `${baseUrl}/documentintelligence/documentModels/${modelId}/analyzeResults/${operationId}?api-version=${apiVersion}`;
-      
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Ocp-Apim-Subscription-Key': apiKey,
         },
       });
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to get analysis result (${response.status}): ${errorText}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.status === 'succeeded') {
         const result = this.parseAnalyzeResult(data.analyzeResult);
         return {
@@ -205,13 +205,13 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
           error: data.error?.message || 'Analysis failed'
         };
       }
-      
+
       return {
         operationId,
         status: data.status
       };
     },
-    
+
     /**
      * Wait for analysis to complete with polling
      */
@@ -222,10 +222,10 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
       pollIntervalMs: number = 2000
     ): Promise<ExtractedDocument> {
       const startTime = Date.now();
-      
+
       while (Date.now() - startTime < maxWaitMs) {
         const result = await this.getAnalysisResult(operationId, modelId);
-        
+
         if (result.status === 'succeeded' && result.result) {
           console.log('[Azure Doc Intel] Analysis completed:', {
             operationId,
@@ -234,23 +234,23 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
           });
           return result.result;
         }
-        
+
         if (result.status === 'failed') {
           throw new Error(`Document analysis failed: ${result.error}`);
         }
-        
+
         console.log('[Azure Doc Intel] Analysis in progress...', {
           operationId,
           status: result.status,
           elapsedMs: Date.now() - startTime
         });
-        
+
         await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
       }
-      
+
       throw new Error(`Document analysis timed out after ${maxWaitMs}ms`);
     },
-    
+
     /**
      * Parse the analyze result into our format
      */
@@ -261,7 +261,7 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
         width: page.width,
         height: page.height
       }));
-      
+
       const tables: ExtractedTable[] = (analyzeResult.tables || []).map((table: any) => ({
         rowCount: table.rowCount,
         columnCount: table.columnCount,
@@ -273,13 +273,13 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
         })),
         pageNumber: table.boundingRegions?.[0]?.pageNumber
       }));
-      
+
       const paragraphs: ExtractedParagraph[] = (analyzeResult.paragraphs || []).map((para: any) => ({
         content: para.content || '',
         pageNumber: para.boundingRegions?.[0]?.pageNumber,
         role: para.role
       }));
-      
+
       return {
         content: analyzeResult.content || '',
         pages,
@@ -287,7 +287,7 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
         paragraphs
       };
     },
-    
+
     /**
      * Analyze a document and wait for completion (convenience method)
      */
@@ -307,11 +307,11 @@ export function createAzureDocIntelClient(config: AzureDocIntelConfig) {
 export function createDefaultAzureDocIntelClient() {
   const endpoint = Deno.env.get('AZURE_DOC_INTEL_ENDPOINT');
   const apiKey = Deno.env.get('AZURE_DOC_INTEL_KEY');
-  
+
   if (!endpoint || !apiKey) {
     throw new Error('Missing Azure Document Intelligence configuration. Set AZURE_DOC_INTEL_ENDPOINT and AZURE_DOC_INTEL_KEY environment variables.');
   }
-  
+
   return createAzureDocIntelClient({
     endpoint,
     apiKey

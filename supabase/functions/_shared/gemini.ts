@@ -152,9 +152,9 @@ export function createGeminiClient(config: GeminiConfig) {
       console.log('[Gemini] Original metadata:', JSON.stringify(metadata));
       const customMetadata = metadata
         ? Object.entries(metadata).map(([key, value]) => ({
-            key: key.replace(/_/g, '-'),
-            stringValue: String(value),
-          }))
+          key: key.replace(/_/g, '-'),
+          stringValue: String(value),
+        }))
         : [];
       console.log('[Gemini] Converted customMetadata for File Search:', JSON.stringify(customMetadata));
 
@@ -169,13 +169,13 @@ export function createGeminiClient(config: GeminiConfig) {
       // Build multipart body
       const parts: Uint8Array[] = [];
       const encoder = new TextEncoder();
-      
+
       // Metadata part
       parts.push(encoder.encode(`--${boundary}\r\n`));
       parts.push(encoder.encode('Content-Type: application/json; charset=UTF-8\r\n\r\n'));
       parts.push(encoder.encode(metadataJson));
       parts.push(encoder.encode('\r\n'));
-      
+
       // File part with proper headers
       parts.push(encoder.encode(`--${boundary}\r\n`));
       parts.push(encoder.encode(`Content-Type: application/pdf\r\n`));
@@ -345,7 +345,7 @@ export function createGeminiClient(config: GeminiConfig) {
           if (operation.metadata?.fileSearchStore) {
             const storeName = operation.metadata.fileSearchStore.name;
             console.log(`[Gemini Verification] Testing if file is searchable in store: ${storeName}`);
-            
+
             try {
               // Do a simple test query to verify the file is indexed
               const geminiApiKey = (Deno as any).env.get('GEMINI_API_KEY');
@@ -364,11 +364,11 @@ export function createGeminiClient(config: GeminiConfig) {
                   })
                 }
               );
-              
+
               const testData = await testResponse.json();
               const groundingChunks = testData.candidates?.[0]?.groundingMetadata?.groundingChunks?.length || 0;
               console.log(`[Gemini Verification] Grounding chunks found: ${groundingChunks}`);
-              
+
               if (groundingChunks === 0) {
                 console.warn(`[Gemini Verification] WARNING: File uploaded but not searchable yet!`);
               } else {
@@ -587,6 +587,127 @@ export function createGeminiClient(config: GeminiConfig) {
         const error = await response.text();
         throw new Error(`Failed to delete document: ${error}`);
       }
+    },
+
+    /**
+     * Generate content with File Search - Enhanced version
+     * Supports system instruction, output schema, and generation config from DB prompts
+     * This matches the n8n "AI Validation Flow - Enhanced" behavior
+     */
+    async generateContentWithFileSearchEnhanced(
+      prompt: string,
+      fileSearchStoreNames: string[],
+      options?: {
+        systemInstruction?: string;
+        outputSchema?: any;
+        generationConfig?: {
+          temperature?: number;
+          maxOutputTokens?: number;
+          responseMimeType?: string;
+          topP?: number;
+          topK?: number;
+        };
+        metadataFilter?: string;
+      }
+    ): Promise<GenerateContentResponse> {
+      const requestStartTime = new Date().toISOString();
+
+      console.log('╔════════════════════════════════════════════════════════════════════');
+      console.log('║ GEMINI GENERATE CONTENT REQUEST (ENHANCED)');
+      console.log('╠════════════════════════════════════════════════════════════════════');
+      console.log('║ Timestamp:', requestStartTime);
+      console.log('║ Model:', model);
+      console.log('║ File Search Stores:', JSON.stringify(fileSearchStoreNames, null, 2));
+      console.log('║ Has System Instruction:', !!options?.systemInstruction);
+      console.log('║ Has Output Schema:', !!options?.outputSchema);
+      console.log('║ Generation Config:', JSON.stringify(options?.generationConfig || {}));
+      if (options?.metadataFilter) {
+        console.log('║ Metadata Filter:', options.metadataFilter);
+      }
+      console.log('║');
+      console.log('║ PROMPT:');
+      console.log('║', prompt.substring(0, 500) + (prompt.length > 500 ? '...' : ''));
+      console.log('╚════════════════════════════════════════════════════════════════════');
+
+      // Build request body with enhanced options
+      const requestBody: any = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+        ],
+        tools: [
+          {
+            file_search: {
+              file_search_store_names: fileSearchStoreNames,
+              ...(options?.metadataFilter && { metadata_filter: options.metadataFilter }),
+            },
+          },
+        ],
+        generationConfig: {
+          responseMimeType: options?.generationConfig?.responseMimeType || "application/json",
+          temperature: options?.generationConfig?.temperature ?? 0.1,
+          maxOutputTokens: options?.generationConfig?.maxOutputTokens ?? 8192,
+          ...(options?.generationConfig?.topP && { topP: options.generationConfig.topP }),
+          ...(options?.generationConfig?.topK && { topK: options.generationConfig.topK }),
+        },
+      };
+
+      // Add system instruction if provided
+      if (options?.systemInstruction) {
+        requestBody.systemInstruction = {
+          parts: [{ text: options.systemInstruction }]
+        };
+      }
+
+      // Add output schema if provided (for structured output)
+      if (options?.outputSchema) {
+        requestBody.generationConfig.responseSchema = options.outputSchema;
+      }
+
+      const response = await fetch(
+        `${baseUrl}/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.log('╔════════════════════════════════════════════════════════════════════');
+        console.log('║ GEMINI GENERATE CONTENT FAILED (ENHANCED)');
+        console.log('╠════════════════════════════════════════════════════════════════════');
+        console.log('║ Error:', error);
+        console.log('╚════════════════════════════════════════════════════════════════════');
+        throw new Error(`Failed to generate content: ${error}`);
+      }
+
+      const data = await response.json();
+
+      // Extract text from response
+      const text =
+        data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
+
+      const responseEndTime = new Date().toISOString();
+      const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks?.length || 0;
+
+      console.log('╔════════════════════════════════════════════════════════════════════');
+      console.log('║ GEMINI GENERATE CONTENT RESPONSE (ENHANCED)');
+      console.log('╠════════════════════════════════════════════════════════════════════');
+      console.log('║ Timestamp:', responseEndTime);
+      console.log('║ Grounding Chunks Found:', groundingChunks);
+      console.log('║');
+      console.log('║ RESPONSE TEXT:');
+      console.log('║', text.substring(0, 1000) + (text.length > 1000 ? '...' : ''));
+      console.log('╚════════════════════════════════════════════════════════════════════');
+
+      return {
+        text,
+        candidates: data.candidates || [],
+      };
     },
   };
 }

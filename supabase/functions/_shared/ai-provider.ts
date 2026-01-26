@@ -26,8 +26,8 @@
  */
 
 import { createDefaultGeminiClient, type GenerateContentResponse } from './gemini.ts';
-import { 
-  createDefaultAzureOpenAIClient, 
+import {
+  createDefaultAzureOpenAIClient,
   shouldUseAzure,
   type StructuredValidationResponse,
   type AzureOpenAIMessage
@@ -43,6 +43,14 @@ export interface ValidationRequest {
   prompt: string;
   documentContent?: string;  // Pre-extracted document text (for Azure)
   fileSearchStoreName?: string;  // Gemini File Search store (for Google)
+  systemInstruction?: string;  // System instruction from DB prompts
+  outputSchema?: any;  // JSON schema for structured output from DB prompts
+  generationConfig?: {  // Generation config from DB prompts
+    temperature?: number;
+    maxOutputTokens?: number;
+    topP?: number;
+    topK?: number;
+  };
 }
 
 export interface ValidationResponse {
@@ -57,7 +65,7 @@ export interface ValidationResponse {
 export function getAIProviderConfig(): AIProviderConfig {
   const provider = (Deno.env.get('AI_PROVIDER') || 'google').toLowerCase() as 'azure' | 'google';
   const orchestrationMode = (Deno.env.get('ORCHESTRATION_MODE') || 'direct').toLowerCase() as 'direct' | 'n8n';
-  
+
   return { provider, orchestrationMode };
 }
 
@@ -74,19 +82,19 @@ export function shouldUseN8n(): boolean {
  */
 export function createAIClient() {
   const config = getAIProviderConfig();
-  
+
   console.log('[AI Provider] Initializing:', {
     provider: config.provider,
     orchestrationMode: config.orchestrationMode
   });
-  
+
   if (config.provider === 'azure') {
     const openaiClient = createDefaultAzureOpenAIClient();
     const docIntelClient = createDefaultAzureDocIntelClient();
-    
+
     return {
       provider: 'azure' as const,
-      
+
       /**
        * Generate validation response using Azure OpenAI
        */
@@ -94,10 +102,10 @@ export function createAIClient() {
         if (!request.documentContent) {
           throw new Error('Azure provider requires pre-extracted document content');
         }
-        
+
         // Build the prompt with document content inline
         const fullPrompt = `${request.prompt}\n\n---\n\nDOCUMENT CONTENT:\n\n${request.documentContent}`;
-        
+
         const messages: AzureOpenAIMessage[] = [
           {
             role: 'system',
@@ -108,26 +116,26 @@ export function createAIClient() {
             content: fullPrompt
           }
         ];
-        
+
         const response = await openaiClient.generateContent(messages, {
           temperature: 0.3,
           maxTokens: 8192,
           responseFormat: 'json_object'
         });
-        
+
         return {
           text: response.text,
           provider: 'azure'
         };
       },
-      
+
       /**
        * Extract document content using Azure Document Intelligence
        */
       async extractDocument(documentContent: Uint8Array): Promise<ExtractedDocument> {
         return await docIntelClient.extractDocument(documentContent);
       },
-      
+
       /**
        * Generate simple text response (non-validation)
        */
@@ -135,7 +143,7 @@ export function createAIClient() {
         const messages: AzureOpenAIMessage[] = [
           { role: 'user', content: prompt }
         ];
-        
+
         const response = await openaiClient.generateContent(messages);
         return response.text;
       }
@@ -143,31 +151,41 @@ export function createAIClient() {
   } else {
     // Google Gemini provider
     const geminiClient = createDefaultGeminiClient();
-    
+
     return {
       provider: 'google' as const,
-      
+
       /**
        * Generate validation response using Google Gemini with File Search
+       * Enhanced to support DB-driven prompts with system instruction and output schema
        */
       async generateValidation(request: ValidationRequest): Promise<ValidationResponse> {
         if (!request.fileSearchStoreName) {
           throw new Error('Google provider requires fileSearchStoreName for document grounding');
         }
-        
-        const response = await geminiClient.generateContentWithFileSearch(
+
+        // Build enhanced request with system instruction and output schema if provided
+        const response = await geminiClient.generateContentWithFileSearchEnhanced(
           request.prompt,
           [request.fileSearchStoreName],
-          undefined  // No metadata filter for per-validation stores
+          {
+            systemInstruction: request.systemInstruction,
+            outputSchema: request.outputSchema,
+            generationConfig: {
+              temperature: request.generationConfig?.temperature ?? 0.1,
+              maxOutputTokens: request.generationConfig?.maxOutputTokens ?? 8192,
+              responseMimeType: 'application/json'
+            }
+          }
         );
-        
+
         return {
           text: response.text,
           provider: 'google',
           groundingChunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks
         };
       },
-      
+
       /**
        * Upload document to Gemini File Search (returns operation for polling)
        */
@@ -185,7 +203,7 @@ export function createAIClient() {
           metadata
         );
       },
-      
+
       /**
        * Generate simple text response (non-validation)
        */
@@ -209,13 +227,13 @@ export function getN8nWebhookUrl(): string {
  */
 export function logProviderConfig(): void {
   const config = getAIProviderConfig();
-  
+
   console.log('╔════════════════════════════════════════════════════════════════════');
   console.log('║ AI PROVIDER CONFIGURATION');
   console.log('╠════════════════════════════════════════════════════════════════════');
   console.log('║ Provider:', config.provider.toUpperCase());
   console.log('║ Orchestration:', config.orchestrationMode.toUpperCase());
-  
+
   if (config.provider === 'azure') {
     console.log('║ Azure OpenAI Endpoint:', Deno.env.get('AZURE_OPENAI_ENDPOINT') ? '✅ Configured' : '❌ Missing');
     console.log('║ Azure OpenAI Key:', Deno.env.get('AZURE_OPENAI_KEY') ? '✅ Configured' : '❌ Missing');
@@ -225,10 +243,10 @@ export function logProviderConfig(): void {
   } else {
     console.log('║ Gemini API Key:', Deno.env.get('GEMINI_API_KEY') ? '✅ Configured' : '❌ Missing');
   }
-  
+
   if (config.orchestrationMode === 'n8n') {
     console.log('║ N8N Webhook URL:', getN8nWebhookUrl());
   }
-  
+
   console.log('╚════════════════════════════════════════════════════════════════════');
 }

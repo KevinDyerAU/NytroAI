@@ -54,10 +54,10 @@ export interface StructuredValidationResponse {
  */
 export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
   const { endpoint, apiKey, deploymentName, apiVersion = '2024-08-01-preview' } = config;
-  
+
   // Ensure endpoint doesn't have trailing slash
   const baseUrl = endpoint.replace(/\/$/, '');
-  
+
   return {
     /**
      * Generate a chat completion
@@ -71,65 +71,92 @@ export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
       }
     ): Promise<AzureOpenAIResponse> {
       const url = `${baseUrl}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
-      
+
       console.log('[Azure OpenAI] Calling API:', {
         deployment: deploymentName,
         messageCount: messages.length,
         temperature: options?.temperature ?? 0.3,
         responseFormat: options?.responseFormat ?? 'text'
       });
-      
+
       const requestBody: any = {
         messages,
         temperature: options?.temperature ?? 0.3,
         max_tokens: options?.maxTokens ?? 4096,
       };
-      
+
       // Add JSON response format if requested
       if (options?.responseFormat === 'json_object') {
         requestBody.response_format = { type: 'json_object' };
       }
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api-key': apiKey,
-        },
-        body: JSON.stringify(requestBody),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Azure OpenAI] API Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
-        throw new Error(`Azure OpenAI API error (${response.status}): ${errorText}`);
+
+      let lastError = null;
+      const maxRetries = 5;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          if (attempt > 0) {
+            const delay = Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 1000, 30000);
+            console.log(`[Azure OpenAI] Retry attempt ${attempt}/${maxRetries} after ${Math.round(delay)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'api-key': apiKey,
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+
+            // Retry on 429 (Rate Limit) and 5xx (Server Errors)
+            if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
+              console.warn(`[Azure OpenAI] ${response.status} error, will retry:`, errorText.substring(0, 200));
+              lastError = new Error(`Azure OpenAI API error (${response.status}): ${errorText}`);
+              continue;
+            }
+
+            console.error('[Azure OpenAI] API Error (Non-retryable):', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText
+            });
+            throw new Error(`Azure OpenAI API error (${response.status}): ${errorText}`);
+          }
+
+          const data = await response.json();
+
+          const result: AzureOpenAIResponse = {
+            text: data.choices?.[0]?.message?.content || '',
+            usage: data.usage ? {
+              promptTokens: data.usage.prompt_tokens,
+              completionTokens: data.usage.completion_tokens,
+              totalTokens: data.usage.total_tokens,
+            } : undefined,
+            finishReason: data.choices?.[0]?.finish_reason,
+          };
+
+          console.log('[Azure OpenAI] Response received:', {
+            textLength: result.text.length,
+            usage: result.usage,
+            finishReason: result.finishReason
+          });
+
+          return result;
+        } catch (error) {
+          if (attempt === maxRetries) throw error;
+          console.warn(`[Azure OpenAI] Attempt ${attempt} failed: ${error.message}. Retrying...`);
+          lastError = error;
+        }
       }
-      
-      const data = await response.json();
-      
-      const result: AzureOpenAIResponse = {
-        text: data.choices?.[0]?.message?.content || '',
-        usage: data.usage ? {
-          promptTokens: data.usage.prompt_tokens,
-          completionTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens,
-        } : undefined,
-        finishReason: data.choices?.[0]?.finish_reason,
-      };
-      
-      console.log('[Azure OpenAI] Response received:', {
-        textLength: result.text.length,
-        usage: result.usage,
-        finishReason: result.finishReason
-      });
-      
-      return result;
+
+      throw lastError || new Error('Failed after max retries');
     },
-    
+
     /**
      * Generate validation response with structured JSON output
      */
@@ -145,12 +172,12 @@ export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
-      
+
       const response = await this.generateContent(messages, {
         ...options,
         responseFormat: 'json_object'
       });
-      
+
       try {
         const parsed = JSON.parse(response.text);
         return parsed as StructuredValidationResponse;
@@ -170,11 +197,11 @@ export function createDefaultAzureOpenAIClient() {
   const endpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
   const apiKey = Deno.env.get('AZURE_OPENAI_KEY');
   const deploymentName = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') || 'gpt-4o-mini';
-  
+
   if (!endpoint || !apiKey) {
     throw new Error('Missing Azure OpenAI configuration. Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY environment variables.');
   }
-  
+
   return createAzureOpenAIClient({
     endpoint,
     apiKey,
