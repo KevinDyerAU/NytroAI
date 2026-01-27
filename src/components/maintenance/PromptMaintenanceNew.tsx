@@ -186,47 +186,90 @@ export function PromptMaintenanceNew() {
     setIsLoading(true);
     try {
       if (editingId) {
-        // When updating, instead of modifying the existing prompt:
-        // 1. Set the old prompt to non-default
-        // 2. Create a new prompt with the updated text as the new default
-
-        // First, set the old prompt to non-default (keep it for history)
-        const { error: updateOldError } = await supabase
+        // Get the original prompt to compare
+        const { data: originalPrompt, error: fetchError } = await supabase
           .from('prompts')
-          .update({ is_default: false })
-          .eq('id', editingId);
+          .select('*')
+          .eq('id', editingId)
+          .single();
 
-        if (updateOldError) throw updateOldError;
+        if (fetchError) throw fetchError;
 
-        // Increment version number
-        const currentVersion = formData.version || 'v1.0';
-        const versionMatch = currentVersion.match(/v?(\d+)\.?(\d*)/);
-        let newVersion = 'v1.1';
-        if (versionMatch) {
-          const major = parseInt(versionMatch[1]);
-          const minor = parseInt(versionMatch[2] || '0') + 1;
-          newVersion = `v${major}.${minor}`;
+        // Check if prompt text has changed
+        const promptTextChanged = originalPrompt.prompt_text !== formData.prompt_text;
+
+        if (promptTextChanged) {
+          // Prompt text changed: Create new version
+          // 1. Set the old prompt to non-default (keep it for history)
+          const { error: updateOldError } = await supabase
+            .from('prompts')
+            .update({ is_default: false })
+            .eq('id', editingId);
+
+          if (updateOldError) throw updateOldError;
+
+          // 2. Increment version number
+          const currentVersion = formData.version || 'v1.0';
+          const versionMatch = currentVersion.match(/v?(\d+)\.?(\d*)/);
+          let newVersion = 'v1.1';
+          if (versionMatch) {
+            const major = parseInt(versionMatch[1]);
+            const minor = parseInt(versionMatch[2] || '0') + 1;
+            newVersion = `v${major}.${minor}`;
+          }
+
+          // 3. Create new prompt with updated content as the new default
+          const newPromptData = {
+            ...formData,
+            version: newVersion,
+            is_default: true, // New version becomes the default
+            is_active: true,
+          };
+          // Remove id from the data so Supabase generates a new one
+          delete (newPromptData as any).id;
+          delete (newPromptData as any).created_at;
+          delete (newPromptData as any).updated_at;
+
+          const { error: insertError } = await supabase
+            .from('prompts')
+            .insert([newPromptData]);
+
+          if (insertError) throw insertError;
+          toast.success('New prompt version created successfully');
+        } else {
+          // Prompt text unchanged: Update only metadata (is_active, is_default, etc.)
+          // If setting this prompt as default, first unset any other defaults for this type
+          if (formData.is_default) {
+            const { error: unsetDefaultError } = await supabase
+              .from('prompts')
+              .update({ is_default: false })
+              .eq('prompt_type', formData.prompt_type)
+              .eq('requirement_type', formData.requirement_type || null)
+              .eq('document_type', formData.document_type || null)
+              .neq('id', editingId);
+
+            if (unsetDefaultError) throw unsetDefaultError;
+          }
+
+          // Update the existing prompt
+          const updateData = {
+            name: formData.name,
+            description: formData.description,
+            is_active: formData.is_active,
+            is_default: formData.is_default,
+            system_instruction: formData.system_instruction,
+            output_schema: formData.output_schema,
+            generation_config: formData.generation_config,
+          };
+
+          const { error: updateError } = await supabase
+            .from('prompts')
+            .update(updateData)
+            .eq('id', editingId);
+
+          if (updateError) throw updateError;
+          toast.success('Prompt updated successfully');
         }
-
-        // Create new prompt with updated content as the new default
-        const newPromptData = {
-          ...formData,
-          version: newVersion,
-          is_default: true, // New version becomes the default
-          is_active: true,
-        };
-        // Remove id from the data so Supabase generates a new one
-        delete (newPromptData as any).id;
-        delete (newPromptData as any).created_at;
-        delete (newPromptData as any).updated_at;
-
-        const { error: insertError } = await supabase
-          .from('prompts')
-          .insert([newPromptData]);
-
-        if (insertError) throw insertError;
-
-        toast.success(`New prompt version ${newVersion} created as default. Previous version preserved.`);
       } else {
         // Creating new prompt
         const { error } = await supabase.from('prompts').insert([formData]);
@@ -610,11 +653,11 @@ export function PromptMaintenanceNew() {
       {showForm && (
         <Card className="border border-[#dbeafe] bg-white p-6">
           <h3 className="text-xl font-semibold mb-2">
-            {editingId ? 'Create New Prompt Version' : 'Create New Prompt'}
+            {editingId ? 'Edit Prompt' : 'Create New Prompt'}
           </h3>
           {editingId && (
-            <p className="text-sm text-amber-600 bg-amber-50 p-2 rounded mb-4">
-              ℹ️ Saving will create a new version of this prompt and set it as the default. The previous version will be preserved.
+            <p className="text-sm text-blue-600 bg-blue-50 p-2 rounded mb-4">
+              ℹ️ <strong>Editing Prompt:</strong> If you modify the prompt text, a new version will be created. Otherwise, only metadata (active/default status) will be updated. Only one prompt can be set as default per type combination.
             </p>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
