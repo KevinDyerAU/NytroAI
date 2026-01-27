@@ -794,7 +794,7 @@ export function PromptMaintenanceNew() {
                 disabled={isLoading}
                 className="bg-[#10b981] hover:bg-[#059669]"
               >
-                {isLoading ? 'Saving...' : editingId ? 'Save as New Version' : 'Create'}
+                {isLoading ? 'Saving...' : editingId ? 'Save' : 'Create'}
               </Button>
             </div>
           </form>
