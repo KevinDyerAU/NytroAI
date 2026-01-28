@@ -379,31 +379,65 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
   const systemInstruction = promptTemplate?.system_instruction ||
     'You are an expert RTO validator. You MUST return a JSON response with ALL of the following fields: status, reasoning, mapped_content, citations (array), recommendations, smart_task, and benchmark_answer. Never omit any required fields.';
 
-  // For Azure, only add explicit format instruction when using fallback (no database prompt)
-  // Database prompts should have their own proper instructions
-  if (!promptTemplate) {
-    const isKE = requirementType === 'knowledge_evidence';
-    const taskField = isKE ? 'suggested_question' : 'practical_workplace_task';
-    const taskDesc = isKE ? 'One clear, simple question to address the gap' : 'A practical task or observation that assesses this requirement';
-    const mappedField = isKE ? 'mapped_questions' : 'mapped_content';
+  // For Azure, ALWAYS add explicit JSON format instruction
+  // Azure/GPT doesn't respect output_schema like Gemini does, so we need explicit instructions
+  const isKE = requirementType === 'knowledge_evidence';
+  const isPE = requirementType === 'performance_evidence' || requirementType === 'elements_performance_criteria';
+  
+  // Build the JSON format instruction based on requirement type
+  let outputFormatInstruction = '';
+  
+  if (isPE) {
+    // Performance Evidence needs practical tasks, not questions
+    outputFormatInstruction = `
 
-    const outputFormatInstruction = `
-
-IMPORTANT: You MUST return a JSON object with this exact structure:
+IMPORTANT: You MUST return a JSON object with this EXACT structure (no other format):
 {
   "status": "Met" | "Partially Met" | "Not Met",
-  "reasoning": "detailed explanation here",
-  "${mappedField}": "specific evidence from documents",
-  "citations": ["document reference 1", "document reference 2"],
-  "${taskField}": "${taskDesc}",
-  "benchmark_answer": "Expected observable behavior or model answer",
-  "unmapped_content": "What's missing if not fully met, or N/A if Met"
+  "reasoning": "Detailed explanation of why the requirement is met/not met (max 300 words)",
+  "mapped_content": "Specific tasks, observations, or activities from the documents that address this requirement with page numbers",
+  "citations": ["Document name, Section/Task name, Page X"],
+  "smart_task": "ONE practical workplace task or observation that assesses this performance requirement - must be observable and practical, NOT a knowledge question",
+  "benchmark_answer": "Expected observable behavior that demonstrates competent performance",
+  "unmapped_content": "What aspects are missing or inadequate. Use 'N/A' if fully met"
 }
 
-ALL fields are required. If a field doesn't apply, use an empty string "" or empty array [].`;
+ALL fields are required. Return ONLY the JSON object, no other text.`;
+  } else if (isKE) {
+    // Knowledge Evidence needs questions
+    outputFormatInstruction = `
 
-    promptText += outputFormatInstruction;
+IMPORTANT: You MUST return a JSON object with this EXACT structure (no other format):
+{
+  "status": "Met" | "Partially Met" | "Not Met",
+  "reasoning": "Detailed explanation of why the requirement is met/not met (max 300 words)",
+  "mapped_content": "Specific questions or content from the documents that address this knowledge requirement with page numbers",
+  "citations": ["Document name, Section name, Page X"],
+  "smart_question": "ONE clear, simple question that assesses this knowledge requirement",
+  "benchmark_answer": "The expected correct answer based on the documents",
+  "unmapped_content": "What knowledge areas are missing or inadequate. Use 'N/A' if fully met"
+}
+
+ALL fields are required. Return ONLY the JSON object, no other text.`;
+  } else {
+    // Generic format for other requirement types
+    outputFormatInstruction = `
+
+IMPORTANT: You MUST return a JSON object with this EXACT structure (no other format):
+{
+  "status": "Met" | "Partially Met" | "Not Met",
+  "reasoning": "Detailed explanation of why the requirement is met/not met",
+  "mapped_content": "Specific content from the documents that addresses this requirement with page numbers",
+  "citations": ["Document name, Section name, Page X"],
+  "smart_task": "ONE practical task or question that assesses this requirement",
+  "benchmark_answer": "Expected answer or observable behavior",
+  "unmapped_content": "What is missing or inadequate. Use 'N/A' if fully met"
+}
+
+ALL fields are required. Return ONLY the JSON object, no other text.`;
   }
+
+  promptText += outputFormatInstruction;
 
   // 7. Call AI
   console.log(`[Revalidate Proxy] Calling Azure for ${validationResult.requirement_number} using ${promptTemplate?.name || 'fallback prompt'}`);
