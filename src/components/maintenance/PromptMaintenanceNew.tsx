@@ -281,9 +281,26 @@ export function PromptMaintenanceNew() {
         }
       } else {
         // Creating new prompt
+        // If the new prompt is set as default, unset existing default AND deactivate it
+        if (formData.is_default) {
+          // First, find and update the existing default prompt for this combination
+          const { error: updateExistingError } = await supabase
+            .from('prompts')
+            .update({ is_default: false, is_active: false })
+            .eq('prompt_type', formData.prompt_type)
+            .eq('requirement_type', formData.requirement_type || null)
+            .eq('document_type', formData.document_type || null)
+            .eq('is_default', true);
+
+          if (updateExistingError) {
+            console.error('Error updating existing default prompt:', updateExistingError);
+            // Continue anyway - the new prompt should still be created
+          }
+        }
+
         const { error } = await supabase.from('prompts').insert([formData]);
         if (error) throw error;
-        toast.success('Prompt created successfully');
+        toast.success('Prompt created successfully' + (formData.is_default ? ' (previous default deactivated)' : ''));
       }
       setShowForm(false);
       await loadPrompts();
