@@ -7,12 +7,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { KPIWidget } from './KPIWidget';
 import { Card } from './ui/card';
+import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { supabase } from '../lib/supabase';
 import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rto';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
 import {
   Activity,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   TrendingUp,
   Zap
@@ -211,6 +214,14 @@ export function Dashboard_v3({
   const activeValidations = validations;
 
   // Pagination
+  const totalPages = Math.max(1, Math.ceil(activeValidations.length / itemsPerPage));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const paginatedValidations = activeValidations.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -510,25 +521,32 @@ export function Dashboard_v3({
           )}
         </div>
 
-        {activeValidations.length > itemsPerPage && (
-          <div className="mt-6 pt-6 border-t border-[#dbeafe] flex items-center justify-between">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 text-sm font-medium text-[#3b82f6] disabled:text-[#cbd5e1] disabled:cursor-not-allowed"
-            >
-              ← Previous
-            </button>
-            <span className="text-sm text-[#64748b]">
-              Page {currentPage} of {Math.ceil(activeValidations.length / itemsPerPage)}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(Math.ceil(activeValidations.length / itemsPerPage), p + 1))}
-              disabled={currentPage >= Math.ceil(activeValidations.length / itemsPerPage)}
-              className="px-4 py-2 text-sm font-medium text-[#3b82f6] disabled:text-[#cbd5e1] disabled:cursor-not-allowed"
-            >
-              Next →
-            </button>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-[#dbeafe]">
+            <div className="text-sm text-[#64748b]">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, activeValidations.length)} of {activeValidations.length} validations
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-[#64748b]">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         )}
       </Card>
