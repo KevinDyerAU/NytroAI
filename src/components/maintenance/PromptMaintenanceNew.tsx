@@ -64,6 +64,14 @@ const DEFAULT_FILTER_OPTIONS = [
   { value: 'not_default', label: 'Non-Default Only' },
 ];
 
+const UPDATED_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Time' },
+  { value: '24h', label: 'Last 24h' },
+  { value: '7d', label: 'Last 7d' },
+  { value: '30d', label: 'Last 30d' },
+  { value: '90d', label: 'Last 90d' },
+];
+
 export function PromptMaintenanceNew() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +83,7 @@ export function PromptMaintenanceNew() {
   const [filterDocumentType, setFilterDocumentType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDefault, setFilterDefault] = useState<string>('all');
+  const [filterUpdated, setFilterUpdated] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
   const [showForm, setShowForm] = useState(false);
@@ -377,17 +386,42 @@ export function PromptMaintenanceNew() {
       (filterDefault === 'default' && p.is_default) ||
       (filterDefault === 'not_default' && !p.is_default);
 
-    return matchesSearch && matchesPromptType && matchesRequirementType && matchesDocumentType && matchesStatus && matchesDefault;
+    const matchesUpdated = (() => {
+      if (filterUpdated === 'all') return true;
+      const updatedAt = new Date(p.updated_at || p.created_at);
+      if (Number.isNaN(updatedAt.getTime())) return true;
+      const now = Date.now();
+      const diffMs = now - updatedAt.getTime();
+
+      if (filterUpdated === '24h') return diffMs <= 24 * 60 * 60 * 1000;
+      if (filterUpdated === '7d') return diffMs <= 7 * 24 * 60 * 60 * 1000;
+      if (filterUpdated === '30d') return diffMs <= 30 * 24 * 60 * 60 * 1000;
+      if (filterUpdated === '90d') return diffMs <= 90 * 24 * 60 * 60 * 1000;
+      return true;
+    })();
+
+    return matchesSearch && matchesPromptType && matchesRequirementType && matchesDocumentType && matchesStatus && matchesDefault && matchesUpdated;
   });
 
   const paginatedPrompts = filteredPrompts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPages = Math.ceil(filteredPrompts.length / pageSize);
 
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-AU', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">Prompt Management (New Schema)</h2>
+          <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">Prompt Management</h2>
           <p className="text-sm text-gray-600 mt-1">
             Using new <code>prompts</code> table with prompt_type, requirement_type, document_type
           </p>
@@ -522,8 +556,21 @@ export function PromptMaintenanceNew() {
                 </SelectContent>
               </Select>
 
+              <Select value={filterUpdated} onValueChange={(value) => { setFilterUpdated(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[150px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Updated" />
+                </SelectTrigger>
+                <SelectContent>
+                  {UPDATED_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               {/* Clear Filters Button */}
-              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all') && (
+              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || filterUpdated !== 'all') && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -533,6 +580,7 @@ export function PromptMaintenanceNew() {
                     setFilterDocumentType('all');
                     setFilterStatus('all');
                     setFilterDefault('all');
+                    setFilterUpdated('all');
                     setCurrentPage(1);
                   }}
                   className="text-gray-500 hover:text-gray-700"
@@ -545,7 +593,7 @@ export function PromptMaintenanceNew() {
             {/* Results count */}
             <div className="text-sm text-gray-500">
               Showing {filteredPrompts.length} of {prompts.length} prompts
-              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || searchTerm) && (
+              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || filterUpdated !== 'all' || searchTerm) && (
                 <span className="ml-2 text-blue-600">(filtered)</span>
               )}
             </div>
@@ -560,6 +608,7 @@ export function PromptMaintenanceNew() {
                   <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Requirement</th>
                   <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Document</th>
                   <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Version</th>
+                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Updated</th>
                   <th className="text-center p-3 text-sm font-semibold text-[#64748b]">Active</th>
                   <th className="text-center p-3 text-sm font-semibold text-[#64748b]">Default</th>
                   <th className="text-right p-3 text-sm font-semibold text-[#64748b]">Actions</th>
@@ -578,6 +627,7 @@ export function PromptMaintenanceNew() {
                     <td className="p-3 text-sm text-[#64748b]">{prompt.requirement_type || 'N/A'}</td>
                     <td className="p-3 text-sm text-[#64748b]">{prompt.document_type || 'N/A'}</td>
                     <td className="p-3 text-sm text-[#64748b]">{prompt.version}</td>
+                    <td className="p-3 text-sm text-[#64748b]">{formatDateTime(prompt.updated_at || prompt.created_at)}</td>
                     <td className="p-3 text-center">
                       <button
                         onClick={() => handleToggleActive(prompt)}
