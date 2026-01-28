@@ -72,6 +72,21 @@ const UPDATED_FILTER_OPTIONS = [
   { value: '90d', label: 'Last 90d' },
 ];
 
+const SORT_FIELD_OPTIONS = [
+  { value: 'updated_at', label: 'Updated' },
+  { value: 'created_at', label: 'Created' },
+  { value: 'name', label: 'Name' },
+  { value: 'prompt_type', label: 'Type' },
+  { value: 'requirement_type', label: 'Requirement' },
+  { value: 'document_type', label: 'Document' },
+  { value: 'version', label: 'Version' },
+];
+
+const SORT_DIR_OPTIONS = [
+  { value: 'desc', label: 'Desc' },
+  { value: 'asc', label: 'Asc' },
+];
+
 export function PromptMaintenanceNew() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +99,8 @@ export function PromptMaintenanceNew() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDefault, setFilterDefault] = useState<string>('all');
   const [filterUpdated, setFilterUpdated] = useState<string>('all');
+  const [sortField, setSortField] = useState<string>('updated_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
   const [showForm, setShowForm] = useState(false);
@@ -420,8 +437,31 @@ export function PromptMaintenanceNew() {
     return matchesSearch && matchesPromptType && matchesRequirementType && matchesDocumentType && matchesStatus && matchesDefault && matchesUpdated;
   });
 
-  const paginatedPrompts = filteredPrompts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const totalPages = Math.ceil(filteredPrompts.length / pageSize);
+  const sortedPrompts = [...filteredPrompts].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+
+    const getComparable = (p: Prompt) => {
+      if (sortField === 'updated_at' || sortField === 'created_at') {
+        const d = new Date((p as any)[sortField] || p.created_at);
+        const t = d.getTime();
+        return Number.isNaN(t) ? 0 : t;
+      }
+
+      const v = (p as any)[sortField];
+      return (v ?? '').toString().toLowerCase();
+    };
+
+    const av = getComparable(a);
+    const bv = getComparable(b);
+
+    if (typeof av === 'number' && typeof bv === 'number') {
+      return (av - bv) * dir;
+    }
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+
+  const paginatedPrompts = sortedPrompts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.ceil(sortedPrompts.length / pageSize);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -586,6 +626,32 @@ export function PromptMaintenanceNew() {
                 </SelectContent>
               </Select>
 
+              <Select value={sortField} onValueChange={(value) => { setSortField(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[160px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_FIELD_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={sortDir} onValueChange={(value) => { setSortDir(value as any); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[110px] bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Dir" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_DIR_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               {/* Clear Filters Button */}
               {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || filterUpdated !== 'all') && (
                 <Button
@@ -609,7 +675,7 @@ export function PromptMaintenanceNew() {
 
             {/* Results count */}
             <div className="text-sm text-gray-500">
-              Showing {filteredPrompts.length} of {prompts.length} prompts
+              Showing {sortedPrompts.length} of {prompts.length} prompts
               {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || filterUpdated !== 'all' || searchTerm) && (
                 <span className="ml-2 text-blue-600">(filtered)</span>
               )}
@@ -689,7 +755,7 @@ export function PromptMaintenanceNew() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-[#64748b]">
-                Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredPrompts.length)} of {filteredPrompts.length} prompts
+                Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, sortedPrompts.length)} of {sortedPrompts.length} prompts
               </div>
               <div className="flex items-center gap-2">
                 <Button
