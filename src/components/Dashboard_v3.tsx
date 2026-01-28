@@ -389,7 +389,13 @@ export function Dashboard_v3({
               // Format date like Results Explorer
               const formatDate = (dateString: string) => {
                 const date = new Date(dateString);
-                return date.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+                return date.toLocaleString('en-AU', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
               };
 
               // Check validation age for expiry status
