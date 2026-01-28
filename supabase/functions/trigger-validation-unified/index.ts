@@ -62,6 +62,41 @@ interface ValidationResultRecord {
   recommendations: string;
 }
 
+/**
+ * Extract smart questions from AI validation response
+ * Handles various field names Azure/GPT might use (tasks, smart_question, practical_task, etc.)
+ */
+function extractSmartQuestions(validationResult: any): string {
+  // Try various field names that Azure/GPT might use
+  const smartTaskField = validationResult.practical_workplace_task ||
+    validationResult.practical_task ||
+    validationResult.smart_question ||
+    validationResult.suggested_question ||
+    validationResult.smart_task ||
+    validationResult.assessment_question ||
+    validationResult.tasks;  // Handle Azure returning 'tasks' instead of smart_questions
+
+  if (!smartTaskField) {
+    return '';
+  }
+
+  // Handle array of tasks
+  if (Array.isArray(smartTaskField)) {
+    return smartTaskField.map((t: any) => {
+      if (typeof t === 'string') return t;
+      return t.task_text || t.text || t.question || t.task || JSON.stringify(t);
+    }).join('\n');
+  }
+
+  // Handle nested object
+  if (typeof smartTaskField === 'object' && smartTaskField !== null) {
+    return smartTaskField.task_text || smartTaskField['task text'] || smartTaskField.text || smartTaskField.question || JSON.stringify(smartTaskField);
+  }
+
+  // Simple string
+  return String(smartTaskField);
+}
+
 serve(async (req) => {
   const startTime = Date.now();
 
@@ -621,7 +656,7 @@ Return a JSON response with:
           citations: Array.isArray(validationResult.citations || validationResult.doc_references)
             ? JSON.stringify(validationResult.citations || validationResult.doc_references)
             : (validationResult.citations || validationResult.doc_references || ''),
-          smart_questions: validationResult.practical_workplace_task || validationResult.practical_task || validationResult.smart_question || validationResult.suggested_question || validationResult.smart_task || validationResult.assessment_question || '',
+          smart_questions: extractSmartQuestions(validationResult),
           benchmark_answer: validationResult.benchmark_answer || validationResult.model_answer || validationResult.expected_behavior || '',
           requirement_type: requirement.type,
           requirement_number: requirement.number || '',

@@ -4,12 +4,15 @@
  * Proxies revalidate requirement requests to either:
  * 1. n8n workflow (for Google/Legacy)
  * 2. Azure OpenAI Directly (for modern Azure orchestration)
+ * 
+ * UPDATED: Now handles document processing on-demand if elements don't exist
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, corsHeaders } from '../_shared/cors.ts';
 import { createAIClient, getAIProviderConfig } from '../_shared/ai-provider.ts';
+import { createDefaultAzureDocIntelClient } from '../_shared/azure-document-intelligence.ts';
 
 interface RevalidateRequest {
   validation_result: {
@@ -64,13 +67,99 @@ serve(async (req) => {
 });
 
 /**
+ * Process documents with Azure Document Intelligence and store elements
+ * Returns the extracted elements for immediate use
+ */
+async function processDocumentsForAzure(
+  supabase: any,
+  documents: any[],
+  validationDetailId: number
+): Promise<any[]> {
+  console.log(`[Revalidate Proxy] Processing ${documents.length} documents with Azure Document Intelligence...`);
+  
+  const docIntelClient = createDefaultAzureDocIntelClient();
+  const allElements: any[] = [];
+
+  for (const doc of documents) {
+    const docUrl = `s3://smartrtobucket/${doc.storage_path}`;
+    
+    console.log(`[Revalidate Proxy] Processing document: ${doc.file_name}`);
+
+    // Download file from storage
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('documents')
+      .download(doc.storage_path);
+
+    if (downloadError || !fileData) {
+      console.error(`[Revalidate Proxy] Failed to download ${doc.file_name}:`, downloadError);
+      continue;
+    }
+
+    try {
+      const fileBytes = new Uint8Array(await fileData.arrayBuffer());
+      const extracted = await docIntelClient.extractDocument(fileBytes);
+
+      // Create elements from extracted content
+      const chunks = extracted.paragraphs?.map((p: any) => ({
+        id: crypto.randomUUID(),
+        text: p.content,
+        page_number: p.pageNumber || 1,
+        filename: doc.file_name,
+        url: docUrl,
+        type: p.role || 'paragraph',
+        date_processed: new Date().toISOString()
+      })) || [{
+        id: crypto.randomUUID(),
+        text: extracted.content,
+        page_number: 1,
+        filename: doc.file_name,
+        url: docUrl,
+        type: 'document',
+        date_processed: new Date().toISOString()
+      }];
+
+      allElements.push(...chunks);
+
+      // Store elements in database (await to ensure they're saved)
+      const { error: insertError } = await supabase
+        .from('elements')
+        .insert(chunks);
+
+      if (insertError) {
+        console.error(`[Revalidate Proxy] Failed to store elements for ${doc.file_name}:`, insertError.message);
+      } else {
+        console.log(`[Revalidate Proxy] Stored ${chunks.length} elements for ${doc.file_name}`);
+      }
+
+    } catch (extractError) {
+      console.error(`[Revalidate Proxy] Extraction failed for ${doc.file_name}:`, extractError);
+      continue;
+    }
+  }
+
+  // Update validation_detail to mark documents as extracted
+  if (allElements.length > 0) {
+    await supabase
+      .from('validation_detail')
+      .update({
+        docExtracted: true,
+        extractStatus: 'Completed',
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', validationDetailId);
+  }
+
+  return allElements;
+}
+
+/**
  * Handle revalidation directly using Azure OpenAI
  */
 async function handleAzureRevalidation(supabase: any, validationResult: any, validationResultId: number) {
   console.log('[Revalidate Proxy] Executing Azure Direct Revalidation...');
 
   const aiClient = createAIClient();
-  const validationDetailId = validationResult.validation_detail_id;
+  let validationDetailId = validationResult.validation_detail_id;
 
   if (!validationDetailId) {
     // Try to fetch it from the database if not provided in payload
@@ -83,7 +172,8 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     if (!resultData?.validation_detail_id) {
       throw new Error(`Could not find validation_detail_id for result ${validationResultId}`);
     }
-    validationResult.validation_detail_id = resultData.validation_detail_id;
+    validationDetailId = resultData.validation_detail_id;
+    validationResult.validation_detail_id = validationDetailId;
   }
 
   // 1. Fetch Validation Context
@@ -92,13 +182,15 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     .select(`
       id,
       document_type,
+      docExtracted,
+      extractStatus,
       validation_summary!inner (
         unitCode,
         unitLink,
         rtoCode
       )
     `)
-    .eq('id', validationResult.validation_detail_id)
+    .eq('id', validationDetailId)
     .single();
 
   if (detailError || !detail) {
@@ -109,7 +201,7 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
   const { data: documents, error: docsError } = await supabase
     .from('documents')
     .select('id, file_name, storage_path')
-    .eq('validation_detail_id', validationResult.validation_detail_id);
+    .eq('validation_detail_id', validationDetailId);
 
   if (docsError || !documents || documents.length === 0) {
     throw new Error(`No documents found for this validation session`);
@@ -131,13 +223,36 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     requirementType = typeMap[requirementType];
   }
 
-  // 3. Smart Element Retrieval - Use simple sequential searches instead of complex .or()
+  // 3. Build document URLs and check for existing elements
+  const docUrls = documents.map((doc: any) => `s3://smartrtobucket/${doc.storage_path}`);
+
+  // Check if elements exist for these documents
+  const { data: existingElements, error: elementsError } = await supabase
+    .from('elements')
+    .select('id, text, url, page_number')
+    .in('url', docUrls)
+    .limit(1);
+
+  let sessionElements: any[] = [];
+
+  if (!existingElements || existingElements.length === 0) {
+    // No elements found - need to process documents first
+    console.log('[Revalidate Proxy] No elements found for documents. Processing now...');
+    
+    sessionElements = await processDocumentsForAzure(supabase, documents, validationDetailId);
+    
+    if (sessionElements.length === 0) {
+      throw new Error('Failed to extract content from documents. Please try again or re-upload the documents.');
+    }
+    
+    console.log(`[Revalidate Proxy] Document processing complete. ${sessionElements.length} elements extracted.`);
+  }
+
+  // 4. Smart Element Retrieval - Use simple sequential searches instead of complex .or()
   const reqNum = (validationResult.requirement_number || '').trim();
   const reqText = (validationResult.requirement_text || '').trim();
 
   console.log(`[Revalidate Proxy] Searching for: "${reqNum}"`);
-
-  const docUrls = documents.map((doc: any) => `s3://smartrtobucket/${doc.storage_path}`);
 
   // Try simple exact requirement number search first
   let { data: matchedElements } = await supabase
@@ -149,7 +264,7 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
 
   // If no matches, try keywords from requirement text
   if (!matchedElements || matchedElements.length === 0) {
-    const keywords = reqText.split(' ').filter(w => w.length > 6).slice(0, 2);
+    const keywords = reqText.split(' ').filter((w: string) => w.length > 6).slice(0, 2);
     if (keywords.length > 0) {
       console.log(`[Revalidate Proxy] No exact match, trying keywords: ${keywords.join(', ')}`);
       const { data: keywordMatches } = await supabase
@@ -183,11 +298,11 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     });
 
     for (const [url, texts] of Object.entries(docGroups)) {
-      const fileName = documents.find(d => `s3://smartrtobucket/${d.storage_path}` === url)?.file_name || 'Document';
+      const fileName = documents.find((d: any) => `s3://smartrtobucket/${d.storage_path}` === url)?.file_name || 'Document';
       finalContent += `\n=== RELEVANT EXCERPTS FROM: ${fileName} ===\n${texts.join('\n')}\n`;
     }
   } else {
-    // 3. Fallback: If no keyword match, take the document overviews (first 60 elements)
+    // 3. Fallback: If no keyword match, take the document overviews (first 80 elements)
     console.log(`[Revalidate Proxy] No keyword match for ${reqNum}. Falling back to document overviews.`);
     const { data: overviews } = await supabase
       .from('elements')
@@ -202,7 +317,7 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     });
 
     for (const [url, texts] of Object.entries(docGroups)) {
-      const fileName = documents.find(d => `s3://smartrtobucket/${d.storage_path}` === url)?.file_name || 'Document';
+      const fileName = documents.find((d: any) => `s3://smartrtobucket/${d.storage_path}` === url)?.file_name || 'Document';
       finalContent += `\n=== DOCUMENT OVERVIEW: ${fileName} ===\n${texts.join('\n')}\n`;
     }
   }
@@ -211,7 +326,7 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     throw new Error('Could not find any relevant document content for this requirement.');
   }
 
-  // 4. Fetch Prompt Template
+  // 5. Fetch Prompt Template
   // Determine document type - essential for learner guide prompts
   const documentType = detail.document_type ||
     (requirementType === 'knowledge_evidence' && validationResult.requirement_text?.toLowerCase().includes('learner') ? 'learner_guide' : 'unit');
@@ -245,7 +360,7 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     promptTemplate = generalRevalPrompt;
   }
 
-  // 5. Build Prompt
+  // 6. Build Prompt
   const unitCode = detail.validation_summary.unitCode;
   const unitTitle = detail.validation_summary.unitTitle || '';
 
@@ -290,7 +405,7 @@ ALL fields are required. If a field doesn't apply, use an empty string "" or emp
     promptText += outputFormatInstruction;
   }
 
-  // 6. Call AI
+  // 7. Call AI
   console.log(`[Revalidate Proxy] Calling Azure for ${validationResult.requirement_number} using ${promptTemplate?.name || 'fallback prompt'}`);
   const aiResponse = await aiClient.generateValidation({
     prompt: promptText,
@@ -300,7 +415,7 @@ ALL fields are required. If a field doesn't apply, use an empty string "" or emp
     generationConfig: promptTemplate?.generation_config
   });
 
-  // 7. Parse & Store Result - ROBUST MAPPING
+  // 8. Parse & Store Result - ROBUST MAPPING
   console.log('[Revalidate Proxy] AI Response Sample:', aiResponse.text.substring(0, 300));
   let parsedResult: any;
   try {
@@ -342,12 +457,17 @@ ALL fields are required. If a field doesn't apply, use an empty string "" or emp
     normalizedResult.smart_task ||
     normalizedResult.smart_question ||
     normalizedResult.suggested_question ||
-    normalizedResult.assessment_question;
+    normalizedResult.assessment_question ||
+    normalizedResult.tasks;  // Handle Azure returning 'tasks' instead of smart_questions
+    
   if (smartTaskField) {
     if (typeof smartTaskField === 'object' && !Array.isArray(smartTaskField)) {
       // AI returned nested object like { "Task Text": "...", "Benchmark Answer": "..." }
       smartQuestions = smartTaskField.task_text || smartTaskField['task text'] || smartTaskField.text || smartTaskField.question || '';
       benchmarkAnswer = smartTaskField.benchmark_answer || smartTaskField['benchmark answer'] || smartTaskField.answer || '';
+    } else if (Array.isArray(smartTaskField)) {
+      // AI returned array of tasks - join them
+      smartQuestions = smartTaskField.map((t: any) => typeof t === 'string' ? t : (t.task_text || t.text || t.question || JSON.stringify(t))).join('\n');
     } else {
       smartQuestions = String(smartTaskField);
     }
