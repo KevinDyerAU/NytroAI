@@ -10,7 +10,8 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { supabase } from '../lib/supabase';
-import { getRTOById, fetchRTOById, getActiveValidationsByRTO } from '../types/rto';
+import { getRTOById, fetchRTOById, getActiveValidationsByRTO, getUserValidationsByRTO } from '../types/rto';
+import { useAuthStore } from '../store/auth.store';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
 import {
   Activity,
@@ -80,6 +81,9 @@ export function Dashboard_v3({
     }
   }, [currentPage]);
 
+  // Get current user from auth store for user-specific validation filtering
+  const { user } = useAuthStore();
+
   // Use hooks for metrics and credits
   const { metrics } = useDashboardMetrics(selectedRTOId, rtoCode);
   const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger);
@@ -110,7 +114,7 @@ export function Dashboard_v3({
     loadRTOCode();
   }, [selectedRTOId, selectedRTOCode]);
 
-  // Fetch validations using the same method as original Dashboard
+  // Fetch validations using user-specific filtering
   useEffect(() => {
     const loadActiveValidations = async (isInitial = false) => {
       if (!rtoCode) return;
@@ -121,7 +125,13 @@ export function Dashboard_v3({
       }
 
       try {
-        const data = await getActiveValidationsByRTO(rtoCode);
+        // Use user-specific validation filtering
+        // Admin users see all validations, regular users see only their own
+        const data = await getUserValidationsByRTO(
+          rtoCode,
+          user?.id || null,
+          user?.is_admin || false
+        );
         setValidations(data);
 
         if (isInitial && isInitialLoad) {
@@ -151,7 +161,7 @@ export function Dashboard_v3({
       subscription.unsubscribe();
       clearInterval(interval);
     };
-  }, [rtoCode, creditsRefreshTrigger, isInitialLoad]);
+  }, [rtoCode, creditsRefreshTrigger, isInitialLoad, user?.id, user?.is_admin]);
 
   // Calculate local metrics (for internal use)
   const localMetrics = useMemo(() => {
@@ -184,7 +194,12 @@ export function Dashboard_v3({
 
     setIsRefreshing(true);
     try {
-      const data = await getActiveValidationsByRTO(rtoCode);
+      // Use user-specific validation filtering
+      const data = await getUserValidationsByRTO(
+        rtoCode,
+        user?.id || null,
+        user?.is_admin || false
+      );
       setValidations(data || []);
       if (showToast) {
         toast.success('Validations refreshed');
