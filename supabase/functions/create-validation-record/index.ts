@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createSupabaseClient } from '../_shared/supabase.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
 
 interface CreateValidationRecordRequest {
@@ -10,6 +10,59 @@ interface CreateValidationRecordRequest {
   validationType: string;
   documentType?: string;
   pineconeNamespace: string;
+}
+
+/**
+ * Creates a Supabase client that can extract the user ID from the JWT token
+ */
+function createSupabaseClientWithAuth(req: Request) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+/**
+ * Extracts user ID from the Authorization header JWT token
+ */
+async function getUserIdFromRequest(req: Request, supabase: any): Promise<string | null> {
+  const authHeader = req.headers.get('Authorization');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('[create-validation-record] No Authorization header found');
+    return null;
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  
+  try {
+    // Use Supabase to verify the JWT and get user info
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error) {
+      console.log('[create-validation-record] Error verifying token:', error.message);
+      return null;
+    }
+    
+    if (user) {
+      console.log('[create-validation-record] Authenticated user:', user.id);
+      return user.id;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[create-validation-record] Error extracting user ID:', error);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -43,7 +96,11 @@ serve(async (req) => {
     }
 
     // Initialize Supabase client
-    const supabase = createSupabaseClient(req);
+    const supabase = createSupabaseClientWithAuth(req);
+    
+    // Extract user ID from the request (if authenticated)
+    const userId = await getUserIdFromRequest(req, supabase);
+    console.log('[create-validation-record] User ID from request:', userId || 'anonymous');
 
     // Step 1: Find or create validation_summary using unitLink
     console.log('[create-validation-record] 1. Looking for existing validation_summary with unitLink:', unitLink);
@@ -77,25 +134,51 @@ serve(async (req) => {
 
         console.log('[create-validation-record] Found unit in UnitOfCompetency:', unitData.unitCode);
 
-        // Create new validation_summary
+        // Create new validation_summary with user_id
+        const summaryInsertData: any = {
+          unitCode: unitData.unitCode,
+          unitLink: unitData.Link,
+          rtoCode: rtoCode,
+          reqExtracted: false,
+        };
+        
+        // Add user_id if authenticated
+        if (userId) {
+          summaryInsertData.user_id = userId;
+        }
+
         const { data: newSummary, error: createSummaryError } = await supabase
           .from('validation_summary')
-          .insert({
-            unitCode: unitData.unitCode,
-            unitLink: unitData.Link,
-            rtoCode: rtoCode, // Use rtoCode from request (UnitOfCompetency doesn't have rto_code)
-            reqExtracted: false, // Requirements not yet extracted
-          })
+          .insert(summaryInsertData)
           .select('id')
           .single();
 
         if (createSummaryError) {
           console.error('[create-validation-record] Error creating validation_summary:', createSummaryError);
-          throw new Error(`Failed to create validation_summary: ${createSummaryError.message}`);
+          
+          // If error is about user_id column not existing, retry without it
+          if (createSummaryError.message?.includes('user_id') || createSummaryError.code === '42703') {
+            console.log('[create-validation-record] Retrying validation_summary without user_id...');
+            delete summaryInsertData.user_id;
+            
+            const { data: retrySummary, error: retryError } = await supabase
+              .from('validation_summary')
+              .insert(summaryInsertData)
+              .select('id')
+              .single();
+            
+            if (retryError) {
+              throw new Error(`Failed to create validation_summary: ${retryError.message}`);
+            }
+            
+            summaryId = retrySummary.id;
+          } else {
+            throw new Error(`Failed to create validation_summary: ${createSummaryError.message}`);
+          }
+        } else {
+          console.log('[create-validation-record] Created new validation_summary:', newSummary.id);
+          summaryId = newSummary.id;
         }
-
-        console.log('[create-validation-record] Created new validation_summary:', newSummary.id);
-        summaryId = newSummary.id;
       } else {
         console.error('[create-validation-record] Error finding validation_summary:', findError);
         throw new Error(`Failed to find validation_summary: ${findError.message}`);
@@ -162,7 +245,7 @@ serve(async (req) => {
       validationTypeId = newType.id;
     }
 
-    // Step 3: Create validation_detail
+    // Step 3: Create validation_detail with user_id
     console.log('[create-validation-record] 3. Creating validation_detail...');
     
     // Build insert object conditionally based on whether document_type is provided
@@ -180,6 +263,11 @@ serve(async (req) => {
       insertData.document_type = documentType;
     }
     
+    // Add user_id if authenticated
+    if (userId) {
+      insertData.user_id = userId;
+    }
+    
     const { data: validationDetail, error: detailError } = await supabase
       .from('validation_detail')
       .insert(insertData)
@@ -189,10 +277,11 @@ serve(async (req) => {
     if (detailError) {
       console.error('[create-validation-record] Error creating validation_detail:', detailError);
       
-      // If error is about document_type column not existing, retry without it
-      if (detailError.message?.includes('document_type') || detailError.code === '42703') {
-        console.log('[create-validation-record] Retrying without document_type (column may not exist yet)...');
+      // If error is about document_type or user_id column not existing, retry without them
+      if (detailError.message?.includes('document_type') || detailError.message?.includes('user_id') || detailError.code === '42703') {
+        console.log('[create-validation-record] Retrying without optional columns (may not exist yet)...');
         delete insertData.document_type;
+        delete insertData.user_id;
         
         const { data: retryValidationDetail, error: retryError } = await supabase
           .from('validation_detail')
@@ -205,7 +294,7 @@ serve(async (req) => {
           throw new Error(`Failed to create validation_detail: ${retryError.message}`);
         }
         
-        console.log('[create-validation-record] Created validation_detail (without document_type):', retryValidationDetail.id);
+        console.log('[create-validation-record] Created validation_detail (without optional columns):', retryValidationDetail.id);
         
         const responseData = {
           success: true,
@@ -213,6 +302,7 @@ serve(async (req) => {
           detailId: retryValidationDetail.id,
           validationTypeId: validationTypeId,
           namespace: pineconeNamespace,
+          userId: userId || null,
         };
         
         return createSuccessResponse(responseData);
@@ -221,7 +311,7 @@ serve(async (req) => {
       throw new Error(`Failed to create validation_detail: ${detailError.message}`);
     }
 
-    console.log('[create-validation-record] Created validation_detail:', validationDetail.id);
+    console.log('[create-validation-record] Created validation_detail:', validationDetail.id, 'for user:', userId || 'anonymous');
 
     const responseData = {
       success: true,
@@ -229,6 +319,7 @@ serve(async (req) => {
       detailId: validationDetail.id,
       validationTypeId: validationTypeId,
       namespace: pineconeNamespace,
+      userId: userId || null,
     };
 
     console.log('[create-validation-record] Returning response:', responseData);

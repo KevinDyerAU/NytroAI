@@ -592,6 +592,7 @@ export interface ValidationRecord {
   validation_count?: number;
   validation_progress?: number;
   error_message?: string | null;
+  user_id?: string | null; // User who created this validation
 }
 
 let activeValidationsErrorLogged = false;
@@ -612,12 +613,12 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       console.log(`[getActiveValidationsByRTO] Resolved RTO code: ${rtoCode} -> ${actualRtoCode}`);
     }
 
-    // Query validation_detail with joins to get unitCode, validation_type code, and rtoCode for filtering
+    // Query validation_detail with joins to get unitCode, validation_type code, rtoCode, and user_id for filtering
     const { data, error } = await supabase
       .from('validation_detail')
       .select(`
         *,
-        validation_summary:summary_id(unitCode, rtoCode, reqTotal),
+        validation_summary:summary_id(unitCode, rtoCode, reqTotal, user_id),
         validation_type:validationType_id(code)
       `)
       .order('created_at', { ascending: false });
@@ -675,6 +676,7 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
         summary_id: record.summary_id || 0,
         validation_type: record.validation_type?.code || null,
         error_message: null,
+        user_id: record.user_id || record.validation_summary?.user_id || null,
       };
     });
 
@@ -685,6 +687,112 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       console.error('[getActiveValidationsByRTO] Exception:', error instanceof Error ? error.message : String(error));
       activeValidationsErrorLogged = true;
     }
+    return [];
+  }
+}
+
+/**
+ * Get validations for a specific user within an RTO.
+ * Non-admin users only see their own validations.
+ * Admin users see all validations for the RTO.
+ */
+export async function getUserValidationsByRTO(
+  rtoCode: string,
+  userId: string | null,
+  isAdmin: boolean = false
+): Promise<ValidationRecord[]> {
+  try {
+    // First, look up the actual RTO code from the RTO table
+    let actualRtoCode = rtoCode;
+    const { data: rtoData } = await supabase
+      .from('RTO')
+      .select('code')
+      .or(`code.eq.${rtoCode},code.ilike.${rtoCode}%`)
+      .maybeSingle();
+
+    if (rtoData?.code) {
+      actualRtoCode = rtoData.code;
+      console.log(`[getUserValidationsByRTO] Resolved RTO code: ${rtoCode} -> ${actualRtoCode}`);
+    }
+
+    // Query validation_detail with joins
+    const { data, error } = await supabase
+      .from('validation_detail')
+      .select(`
+        *,
+        validation_summary:summary_id(unitCode, rtoCode, reqTotal, user_id),
+        validation_type:validationType_id(code)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[getUserValidationsByRTO] Query failed:', error.message);
+      return [];
+    }
+
+    // Filter by RTO code and user ownership
+    const filteredData = (data || []).filter((record: any) => {
+      const summaryRtoCode = record.validation_summary?.rtoCode;
+      const recordUserId = record.user_id || record.validation_summary?.user_id;
+      
+      // Must match RTO code
+      if (summaryRtoCode !== actualRtoCode) {
+        return false;
+      }
+      
+      // Admin users see all validations for the RTO
+      if (isAdmin) {
+        return true;
+      }
+      
+      // Non-admin users see:
+      // 1. Their own validations (user_id matches)
+      // 2. Legacy validations without user_id (for backward compatibility)
+      if (!userId) {
+        // If no user ID provided, only show legacy records
+        return !recordUserId;
+      }
+      
+      return recordUserId === userId || !recordUserId;
+    });
+
+    // Map database columns to ValidationRecord interface
+    const records: ValidationRecord[] = filteredData.map((record: any) => {
+      let numOfReq = record.validation_total || record.numOfReq || record.num_of_req || record.validation_summary?.reqTotal || 0;
+      const validationCount = record.validation_count || record.completed_count || 0;
+
+      const calculatedProgress = numOfReq > 0
+        ? Math.round((validationCount / numOfReq) * 100)
+        : 0;
+      const progress = record.validation_progress !== undefined && record.validation_progress !== null
+        ? record.validation_progress
+        : calculatedProgress;
+
+      return {
+        id: record.id,
+        unit_code: record.validation_summary?.unitCode || record.namespace_code || record.rtoCode || null,
+        qualification_code: null,
+        extract_status: record.extractStatus || record.extract_status || 'Pending',
+        validation_status: record.validation_status || 'Pending',
+        doc_extracted: record.docExtracted !== undefined ? record.docExtracted : (record.doc_extracted || false),
+        req_extracted: false,
+        num_of_req: numOfReq,
+        req_total: numOfReq,
+        completed_count: validationCount,
+        validation_count: validationCount,
+        validation_progress: progress,
+        created_at: record.created_at,
+        summary_id: record.summary_id || 0,
+        validation_type: record.validation_type?.code || null,
+        error_message: null,
+        user_id: record.user_id || record.validation_summary?.user_id || null,
+      };
+    });
+
+    console.log(`[getUserValidationsByRTO] Found ${records.length} validations for user ${userId || 'anonymous'} (isAdmin: ${isAdmin})`);
+    return records;
+  } catch (error) {
+    console.error('[getUserValidationsByRTO] Exception:', error instanceof Error ? error.message : String(error));
     return [];
   }
 }

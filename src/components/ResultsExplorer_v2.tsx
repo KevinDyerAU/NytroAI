@@ -48,8 +48,10 @@ import {
   getAICredits,
   consumeAICredit,
   getActiveValidationsByRTO,
+  getUserValidationsByRTO,
   type ValidationRecord
 } from '../types/rto';
+import { useAuthStore } from '../store/auth.store';
 import {
   getValidationResults,
   type ValidationEvidenceRecord,
@@ -68,6 +70,9 @@ export function ResultsExplorer_v2({
   aiCreditsAvailable = true,
   selectedRTOId
 }: ResultsExplorerProps) {
+  // Get current user from auth store for user-specific validation filtering
+  const { user } = useAuthStore();
+
   // URL-based state for filters (persists across refresh)
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -248,7 +253,12 @@ export function ResultsExplorer_v2({
         }
 
         console.log('[ResultsExplorer] Loading validations for RTO:', currentRTO.code);
-        const records = await getActiveValidationsByRTO(currentRTO.code);
+        // Use user-specific validation filtering
+        const records = await getUserValidationsByRTO(
+          currentRTO.code,
+          user?.id || null,
+          user?.is_admin || false
+        );
         console.log('[ResultsExplorer] Loaded validation records:', records.length);
 
         setValidationRecords(records);
@@ -263,7 +273,7 @@ export function ResultsExplorer_v2({
     };
 
     loadValidations();
-  }, [selectedRTOId]);
+  }, [selectedRTOId, user?.id, user?.is_admin]);
 
   // Reset filters and state when navigating directly to Results Explorer (no validation ID)
   useEffect(() => {
@@ -366,8 +376,12 @@ export function ResultsExplorer_v2({
       // Show loading state
       setIsLoadingEvidence(true);
 
-      // Reload validation records
-      const records = await getActiveValidationsByRTO(currentRTO.code);
+      // Reload validation records with user-specific filtering
+      const records = await getUserValidationsByRTO(
+        currentRTO.code,
+        user?.id || null,
+        user?.is_admin || false
+      );
       setValidationRecords(records);
 
       // Force reload of evidence data by resetting the lastLoadedValidationId
@@ -403,7 +417,7 @@ export function ResultsExplorer_v2({
       toast.error('Failed to refresh status');
       setIsLoadingEvidence(false);
     }
-  }, [selectedRTOId, selectedValidation]);
+  }, [selectedRTOId, selectedValidation, user?.id, user?.is_admin]);
 
   // Load validation evidence with comprehensive error handling
   useEffect(() => {
