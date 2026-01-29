@@ -857,7 +857,13 @@ export function ResultsExplorer_v2({
                     <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
                     <span className="text-xs md:text-sm font-medium text-[#1e293b]">
                       {selectedValidation.validationDate
-                        ? new Date(selectedValidation.validationDate).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+                        ? new Date(selectedValidation.validationDate).toLocaleString('en-AU', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
                         : 'N/A'}
                     </span>
                     {validationExpiryStatus === 'expired' && (

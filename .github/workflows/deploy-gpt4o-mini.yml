@@ -49,8 +49,8 @@ env:
   MODEL_VERSION: "2024-07-18"
 
 jobs:
-  deploy-gpt51-mini:
-    name: Deploy GPT o4 Mini Model
+  deploy-gpt4o-mini:
+    name: Deploy GPT 4o Mini Model
     runs-on: ubuntu-latest
     
     steps:
@@ -111,13 +111,13 @@ jobs:
           echo "✅ Azure OpenAI resource verified"
           echo "✅ Endpoint: $ENDPOINT"
       
-      - name: 🚀 Deploy GPT 5.1 Mini Model
+      - name: 🚀 Deploy GPT 4o Mini Model
         id: deploy-model
         run: |
           set -e
           
           echo "=========================================="
-          echo "Deploying GPT 5.1 Codex Mini"
+          echo "Deploying GPT 4o Mini"
           echo "=========================================="
           echo "Deployment Name: ${{ env.DEPLOYMENT_NAME }}"
           echo "Model: ${{ env.MODEL_NAME }}"
