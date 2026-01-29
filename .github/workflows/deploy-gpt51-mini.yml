@@ -45,8 +45,8 @@ env:
   OPENAI_NAME: nytroai-openai-${{ github.event.inputs.environment }}
   OPENAI_LOCATION: ${{ github.event.inputs.openai_location }}
   DEPLOYMENT_NAME: gpt-51-mini
-  MODEL_NAME: gpt-51-mini
-  MODEL_VERSION: "2024-11-20"
+  MODEL_NAME: gpt-5.1-codex-mini
+  MODEL_VERSION: "2025-11-13"
 
 jobs:
   deploy-gpt51-mini:
@@ -117,7 +117,7 @@ jobs:
           set -e
           
           echo "=========================================="
-          echo "Deploying GPT 5.1 Mini"
+          echo "Deploying GPT 5.1 Codex Mini"
           echo "=========================================="
           echo "Deployment Name: ${{ env.DEPLOYMENT_NAME }}"
           echo "Model: ${{ env.MODEL_NAME }}"
@@ -208,7 +208,7 @@ jobs:
                 
                 echo ""
                 echo "=========================================="
-                echo "✅ GPT 5.1 Mini deployed successfully!"
+                echo "✅ GPT 5.1 Codex Mini deployed successfully!"
                 echo "=========================================="
                 echo "Deployment: ${{ env.DEPLOYMENT_NAME }}"
                 echo "Location: ${{ env.OPENAI_LOCATION }}"
