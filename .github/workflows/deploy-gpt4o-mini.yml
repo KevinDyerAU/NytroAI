@@ -16,7 +16,7 @@ on:
       deployment_capacity:
         description: 'Deployment capacity (tokens per minute / 1000)'
         required: true
-        default: '150'
+        default: '10'
         type: string
       
       openai_location:
