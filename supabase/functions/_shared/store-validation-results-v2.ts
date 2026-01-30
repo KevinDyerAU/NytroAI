@@ -99,18 +99,30 @@ export async function storeValidationResultsV2(
 
     // Prepare records for insertion
     const records = validationResponse.requirementValidations.map(reqVal => {
-      // Format smart questions for storage
-      const smartQuestions = reqVal.smartQuestions.map(sq => ({
-        question: sq.question,
-        rationale: sq.rationale,
-        benchmark_answer: sq.benchmarkAnswer || '',
-        type: 'smart' as const,
-        assessment_type: sq.assessmentType || 'written',
-        metadata: {
-          skill_application: sq.skillApplication,
-          implementation_note: sq.implementationNote,
-        },
-      }));
+      // IMPORTANT: Only include smart questions if status is NOT 'met'
+      // This is part of the split validation architecture:
+      // - Phase 1 (validation) always runs
+      // - Phase 2 (generation/smart questions) only runs when status != 'met'
+      const shouldIncludeSmartQuestions = reqVal.status !== 'met';
+      
+      // Format smart questions for storage (only if status is not 'met')
+      const smartQuestions = shouldIncludeSmartQuestions && reqVal.smartQuestions 
+        ? reqVal.smartQuestions.map(sq => ({
+            question: sq.question,
+            rationale: sq.rationale,
+            benchmark_answer: sq.benchmarkAnswer || '',
+            type: 'smart' as const,
+            assessment_type: sq.assessmentType || 'written',
+            metadata: {
+              skill_application: sq.skillApplication,
+              implementation_note: sq.implementationNote,
+            },
+          }))
+        : [];
+      
+      if (!shouldIncludeSmartQuestions && reqVal.smartQuestions?.length > 0) {
+        console.log(`[Store V2] Skipping ${reqVal.smartQuestions.length} smart questions for requirement ${reqVal.requirementNumber} (status: ${reqVal.status})`);
+      }
 
       // Format evidence found
       const evidenceText = reqVal.evidenceFound
