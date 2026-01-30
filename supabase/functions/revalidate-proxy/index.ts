@@ -551,10 +551,78 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
   // - Phase 1 (validation) always runs
   // - Phase 2 (generation/smart questions) only runs when status != 'Met'
   const normalizedStatus = status.toLowerCase().replace(/[\s_-]/g, '');
-  const shouldIncludeSmartQuestions = normalizedStatus !== 'met';
+  const shouldRunPhase2 = normalizedStatus !== 'met';
   
-  if (!shouldIncludeSmartQuestions && smartQuestions) {
+  // Phase 2: Generate smart questions if status is not Met
+  if (shouldRunPhase2 && (!smartQuestions || smartQuestions.trim() === '')) {
+    console.log(`[Revalidate Proxy] Running Phase 2 generation for requirement (status: ${status})`);
+    
+    // Fetch Phase 2 generation prompt
+    const { data: generationPrompt } = await supabase
+      .from('prompts')
+      .select('*')
+      .eq('prompt_type', 'generation')
+      .eq('requirement_type', requirementType)
+      .eq('document_type', documentType)
+      .eq('is_active', true)
+      .eq('is_default', true)
+      .limit(1)
+      .maybeSingle();
+    
+    if (generationPrompt) {
+      console.log(`[Revalidate Proxy] Using generation prompt: ${generationPrompt.name}`);
+      
+      // Build Phase 2 prompt
+      let phase2Prompt = generationPrompt.prompt_text
+        .replace(/{{requirement_number}}/g, validationResult.requirement_number)
+        .replace(/{{requirement_text}}/g, validationResult.requirement_text)
+        .replace(/{{element_text}}/g, '')
+        .replace(/{{unit_code}}/g, unitCode)
+        .replace(/{{unit_title}}/g, unitTitle)
+        .replace(/{{status}}/g, status)
+        .replace(/{{reasoning}}/g, reasoning)
+        .replace(/{{unmapped_content}}/g, recommendations || 'N/A');
+      
+      // Call AI for Phase 2 generation
+      console.log(`[Revalidate Proxy] Calling AI for Phase 2 generation...`);
+      const phase2Response = await aiClient.generateValidation({
+        prompt: phase2Prompt,
+        documentContent: finalContent,
+        systemInstruction,
+        outputSchema: generationPrompt.output_schema,
+        generationConfig: generationPrompt.generation_config
+      });
+      
+      try {
+        const phase2Result = JSON.parse(phase2Response.text);
+        const normalizedPhase2: any = {};
+        for (const key in phase2Result) {
+          const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
+          normalizedPhase2[normalizedKey] = phase2Result[key];
+        }
+        
+        // Extract smart questions and benchmark answer from Phase 2
+        const phase2SmartTask = normalizedPhase2.smart_task || normalizedPhase2.smart_question || normalizedPhase2.practical_workplace_task || normalizedPhase2.practical_task || '';
+        if (phase2SmartTask) {
+          smartQuestions = typeof phase2SmartTask === 'string' ? phase2SmartTask : JSON.stringify(phase2SmartTask);
+        }
+        
+        const phase2Benchmark = normalizedPhase2.benchmark_answer || normalizedPhase2.model_answer || '';
+        if (phase2Benchmark) {
+          benchmarkAnswer = typeof phase2Benchmark === 'string' ? phase2Benchmark : JSON.stringify(phase2Benchmark);
+        }
+        
+        console.log(`[Revalidate Proxy] Phase 2 completed - smart_questions length: ${smartQuestions.length}`);
+      } catch (e) {
+        console.error(`[Revalidate Proxy] Phase 2 parsing failed:`, e);
+      }
+    } else {
+      console.log(`[Revalidate Proxy] No Phase 2 generation prompt found for ${requirementType}/${documentType}`);
+    }
+  } else if (!shouldRunPhase2 && smartQuestions) {
     console.log(`[Revalidate Proxy] Skipping smart questions for requirement (status: ${status})`);
+    smartQuestions = '';
+    benchmarkAnswer = '';
   }
 
   const updateData = {
@@ -563,8 +631,8 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
     mapped_content: typeof mappedContent === 'string' ? mappedContent : '',
     citations: Array.isArray(citations) ? JSON.stringify(citations) : String(citations || '[]'),
     recommendations: typeof recommendations === 'string' ? recommendations : '',
-    smart_questions: shouldIncludeSmartQuestions ? smartQuestions : '',
-    benchmark_answer: shouldIncludeSmartQuestions ? benchmarkAnswer : '',
+    smart_questions: smartQuestions || '',
+    benchmark_answer: benchmarkAnswer || '',
     updated_at: new Date().toISOString()
   };
 
