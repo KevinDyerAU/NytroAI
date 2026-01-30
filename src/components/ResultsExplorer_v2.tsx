@@ -169,19 +169,10 @@ export function ResultsExplorer_v2({
   const [lastLoadedValidationId, setLastLoadedValidationId] = useState<string | null>(null);
   const [sessionTotal, setSessionTotal] = useState<number | null>(null);
 
-  // Check validation age for expiry status
-  const validationExpiryStatus = useMemo(() => {
-    if (!selectedValidation?.validationDate) return 'active';
-    const createdDate = new Date(selectedValidation.validationDate);
-    const now = new Date();
-    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
-    if (hoursDiff > 48) return 'expired';
-    if (hoursDiff > 36) return 'expiring'; // Less than 12 hours left
-    return 'active';
-  }, [selectedValidation?.validationDate]);
-
-  // For backward compatibility with existing code
-  const isValidationExpired = validationExpiryStatus === 'expired';
+  // Expiry functionality removed - Gemini file caching no longer used
+  // All validations are now always 'active'
+  const validationExpiryStatus = 'active';
+  const isValidationExpired = false;
 
 
   // Load AI credits
