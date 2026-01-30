@@ -229,8 +229,9 @@ serve(async (req) => {
 
     // 3. ACTIVE UNITS
     console.log('║ Step 3: Counting active units...');
-    // Count total validated units and currently processing (non-expired, within 48 hours)
-    const expiryThreshold = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
+    // Count total validated units and currently processing (within last 30 days)
+    // Note: 48-hour Gemini expiry no longer applies - using 30 days for 'active' threshold
+    const activeThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
     
     // Query validation_detail - get all records first
     const { data: activeUnitsData, error: activeUnitsError } = await supabaseClient
@@ -297,12 +298,13 @@ serve(async (req) => {
     // Total validated units (all validation_detail records for this RTO)
     const totalValidatedUnits = filteredUnits.length;
     
-    // Currently processing = non-expired (within 48 hours) AND not finalised
+    // Currently processing = within last 30 days AND not finalised
+    // Note: 48-hour Gemini expiry removed - validations no longer expire
     const currentlyProcessing = filteredUnits.filter((v: any) => {
       const createdAt = new Date(v.created_at);
-      const isNotExpired = createdAt >= expiryThreshold;
+      const isActive = createdAt >= activeThreshold;
       const isNotFinalised = v.validation_status !== 'Finalised';
-      return isNotExpired && isNotFinalised;
+      return isActive && isNotFinalised;
     }).length;
 
     console.log(`║ Total validated: ${totalValidatedUnits}, Currently processing: ${currentlyProcessing}`);

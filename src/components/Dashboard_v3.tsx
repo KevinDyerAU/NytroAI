@@ -409,16 +409,9 @@ export function Dashboard_v3({
                 });
               };
 
-              // Check validation age for expiry status
-              const getExpiryStatus = () => {
-                const createdDate = new Date(validation.created_at);
-                const now = new Date();
-                const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
-                if (hoursDiff > 48) return 'expired';
-                if (hoursDiff > 36) return 'expiring'; // Less than 12 hours left
-                return 'active';
-              };
-              const expiryStatus = getExpiryStatus();
+              // Expiry functionality removed - Gemini file caching no longer used
+              // All validations are now always 'active'
+              const expiryStatus = 'active';
 
               // Status indicator component with tooltip
               const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
