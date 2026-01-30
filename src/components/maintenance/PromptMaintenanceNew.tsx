@@ -39,11 +39,12 @@ interface Prompt {
   updated_at: string;
 }
 
-const PROMPT_TYPES = ['validation', 'smart_question', 'report', 'summary', 'chat', 'requirement_revalidation'];
+const PROMPT_TYPES = ['validation', 'generation', 'smart_question', 'report', 'summary', 'chat', 'requirement_revalidation'];
 const REQUIREMENT_TYPES = [
   'knowledge_evidence',
   'performance_evidence',
   'foundation_skills',
+  'performance_criteria',
   'elements_performance_criteria',
   'assessment_conditions',
   'assessment_instructions',
