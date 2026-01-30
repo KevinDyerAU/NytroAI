@@ -10,6 +10,7 @@ import { storeValidationResults as storeValidationResultsNew, storeSingleValidat
 import { fetchRequirements, fetchAllRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
 import { storeValidationResultsV2, type ValidationResponseV2 } from '../_shared/store-validation-results-v2.ts';
 import { parseValidationResponseV2WithFallback, mergeCitationsIntoValidations } from '../_shared/parse-validation-response-v2.ts';
+import { runPhase2Generation, updateValidationWithPhase2, type Phase2GenerationInput } from '../_shared/phase2-generation.ts';
 
 /**
  * Fetch prompt from database based on validation type
@@ -434,6 +435,42 @@ serve(async (req) => {
 
       if (storeResult.success) {
         console.log(`[Validate Assessment] Successfully stored ${storeResult.insertedCount} requirement validations`);
+        
+        // Phase 2: Run generation for requirements that are not Met
+        console.log(`[Validate Assessment] Running Phase 2 generation for unmet requirements...`);
+        const documentTypeForPrompt = validationType === 'learner_guide_validation' ? 'learner_guide' : 'unit';
+        let phase2Count = 0;
+        
+        for (const reqVal of validationResponseV2.requirementValidations) {
+          const phase2Input: Phase2GenerationInput = {
+            requirementNumber: reqVal.requirementNumber,
+            requirementText: reqVal.requirementText,
+            status: reqVal.status,
+            unmappedContent: reqVal.unmappedContent || '',
+            reasoning: reqVal.reasoning,
+          };
+          
+          const phase2Output = await runPhase2Generation(
+            supabase,
+            gemini,
+            validationType,
+            documentTypeForPrompt,
+            phase2Input,
+            fileSearchStoreResourceName
+          );
+          
+          if (phase2Output && reqVal.requirementId) {
+            await updateValidationWithPhase2(
+              supabase,
+              validationDetailId,
+              reqVal.requirementId,
+              phase2Output
+            );
+            phase2Count++;
+          }
+        }
+        
+        console.log(`[Validate Assessment] Phase 2 generation completed for ${phase2Count} requirements`);
       } else {
         console.error(`[Validate Assessment] Error storing V2 results:`, storeResult.error);
       }
