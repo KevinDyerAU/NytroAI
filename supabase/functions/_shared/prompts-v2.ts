@@ -27,10 +27,11 @@ const validationTypeToRequirementType: Record<string, string> = {
   'knowledge_evidence': 'knowledge_evidence',
   'performance_evidence': 'performance_evidence',
   'foundation_skills': 'foundation_skills',
-  'elements_criteria': 'performance_criteria',
-  'elements_performance_criteria': 'performance_criteria',
+  'elements_criteria': 'elements_performance_criteria',
+  'elements_performance_criteria': 'elements_performance_criteria',
   'assessment_conditions': 'assessment_conditions',
   'assessment_instructions': 'assessment_instructions',
+  'performance_criteria': 'performance_criteria',
 };
 
 /**
