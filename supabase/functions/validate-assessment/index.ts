@@ -4,6 +4,7 @@ import { handleCors, createErrorResponse, createSuccessResponse } from '../_shar
 import { createDefaultGeminiClient } from '../_shared/gemini.ts';
 import { getValidationPrompt } from '../_shared/validation-prompts.ts';
 import { getValidationPromptV2 } from '../_shared/validation-prompts-v2.ts';
+import { getValidationPromptV2 as getPromptFromNewTable, formatPrompt, shouldRunGeneration } from '../_shared/prompts-v2.ts';
 import { formatLearnerGuideValidationPrompt } from '../_shared/learner-guide-validation-prompt.ts';
 import { storeValidationResults as storeValidationResultsNew, storeSingleValidationResult } from '../_shared/store-validation-results.ts';
 import { fetchRequirements, fetchAllRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
@@ -221,7 +222,7 @@ serve(async (req) => {
     // Try to get prompt from database first, then fall back to hardcoded prompts
     let prompt = customPrompt;
     if (!prompt) {
-      // If promptId is provided, fetch that specific prompt
+      // If promptId is provided, fetch that specific prompt from old table
       if (promptId) {
         console.log(`[validate-assessment] Fetching prompt by ID: ${promptId}`);
         const { data: promptData, error: promptError } = await supabase
@@ -241,26 +242,43 @@ serve(async (req) => {
         }
       }
 
-      // Otherwise, try to get the current active prompt for this validation type
+      // PRIORITY 1: Try the NEW prompts table (v2.0 split prompts)
+      // These prompts support the split validation architecture and include {{requirement_text}} placeholders
+      if (!prompt) {
+        console.log(`[validate-assessment] Trying new prompts table for ${validationType}`);
+        const newPrompt = await getPromptFromNewTable(supabase, validationType, 'unit');
+        if (newPrompt) {
+          console.log(`[validate-assessment] ✅ Using NEW prompts table: ${newPrompt.name} (v${newPrompt.version})`);
+          // Replace placeholders with actual data
+          prompt = formatPrompt(newPrompt.prompt_text, {
+            unitCode: unitCode,
+            unitTitle: unit.Title || unit.title || 'Unit Title Not Available',
+            requirements: requirementsJSON,
+          });
+        }
+      }
+
+      // PRIORITY 2: Try the OLD prompt table (legacy prompts)
       if (!prompt) {
         const validationTypeId = validationTypeMap[validationType];
         if (validationTypeId) {
           const dbPrompt = await getPromptFromDatabase(supabase, validationTypeId);
           if (dbPrompt) {
+            console.log(`[validate-assessment] Using OLD prompt table for validation_type_id ${validationTypeId}`);
             // Replace placeholders with actual data
             prompt = dbPrompt
               .replace(/{unitCode}/g, unitCode)
               .replace(/{unitTitle}/g, unit.Title || unit.title || 'Unit Title Not Available');
 
             // Replace {requirements} placeholder with JSON array of requirements
-            // This provides structured data that the AI can parse and validate individually
             prompt = prompt.replace(/{requirements}/g, requirementsJSON);
           }
         }
       }
 
-      // Fallback to hardcoded prompts
+      // PRIORITY 3: Fallback to hardcoded prompts
       if (!prompt) {
+        console.log(`[validate-assessment] Using hardcoded fallback prompt for ${validationType}`);
         if (validationType === 'learner_guide_validation') {
           // Use the learner guide validation prompt template
           const allRequirementsData = await formatAllRequirementsForLearnerGuide(supabase, unitCode);
