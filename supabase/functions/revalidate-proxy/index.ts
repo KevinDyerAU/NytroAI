@@ -546,14 +546,25 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
   const status = normalizedResult.status || 'Unknown';
   const reasoning = normalizedResult.reasoning || normalizedResult.explanation || normalizedResult.rationale || '';
 
+  // IMPORTANT: Only include smart questions if status is NOT 'Met'
+  // This is part of the split validation architecture:
+  // - Phase 1 (validation) always runs
+  // - Phase 2 (generation/smart questions) only runs when status != 'Met'
+  const normalizedStatus = status.toLowerCase().replace(/[\s_-]/g, '');
+  const shouldIncludeSmartQuestions = normalizedStatus !== 'met';
+  
+  if (!shouldIncludeSmartQuestions && smartQuestions) {
+    console.log(`[Revalidate Proxy] Skipping smart questions for requirement (status: ${status})`);
+  }
+
   const updateData = {
     status,
     reasoning: typeof reasoning === 'string' ? reasoning : '',
     mapped_content: typeof mappedContent === 'string' ? mappedContent : '',
     citations: Array.isArray(citations) ? JSON.stringify(citations) : String(citations || '[]'),
     recommendations: typeof recommendations === 'string' ? recommendations : '',
-    smart_questions: smartQuestions,
-    benchmark_answer: benchmarkAnswer,
+    smart_questions: shouldIncludeSmartQuestions ? smartQuestions : '',
+    benchmark_answer: shouldIncludeSmartQuestions ? benchmarkAnswer : '',
     updated_at: new Date().toISOString()
   };
 
