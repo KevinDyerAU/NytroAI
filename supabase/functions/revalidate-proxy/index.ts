@@ -76,13 +76,13 @@ async function processDocumentsForAzure(
   validationDetailId: number
 ): Promise<any[]> {
   console.log(`[Revalidate Proxy] Processing ${documents.length} documents with Azure Document Intelligence...`);
-  
+
   const docIntelClient = createDefaultAzureDocIntelClient();
   const allElements: any[] = [];
 
   for (const doc of documents) {
     const docUrl = `s3://smartrtobucket/${doc.storage_path}`;
-    
+
     console.log(`[Revalidate Proxy] Processing document: ${doc.file_name}`);
 
     // Download file from storage
@@ -238,13 +238,13 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
   if (!existingElements || existingElements.length === 0) {
     // No elements found - need to process documents first
     console.log('[Revalidate Proxy] No elements found for documents. Processing now...');
-    
+
     sessionElements = await processDocumentsForAzure(supabase, documents, validationDetailId);
-    
+
     if (sessionElements.length === 0) {
       throw new Error('Failed to extract content from documents. Please try again or re-upload the documents.');
     }
-    
+
     console.log(`[Revalidate Proxy] Document processing complete. ${sessionElements.length} elements extracted.`);
   }
 
@@ -383,10 +383,10 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
   // Azure/GPT doesn't respect output_schema like Gemini does, so we need explicit instructions
   const isKE = requirementType === 'knowledge_evidence';
   const isPE = requirementType === 'performance_evidence' || requirementType === 'elements_performance_criteria';
-  
+
   // Build the JSON format instruction based on requirement type
   let outputFormatInstruction = '';
-  
+
   if (isPE) {
     // Performance Evidence needs practical tasks, not questions
     outputFormatInstruction = `
@@ -493,7 +493,7 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
     normalizedResult.suggested_question ||
     normalizedResult.assessment_question ||
     normalizedResult.tasks;  // Handle Azure returning 'tasks' instead of smart_questions
-    
+
   if (smartTaskField) {
     if (typeof smartTaskField === 'object' && !Array.isArray(smartTaskField)) {
       // AI returned nested object like { "Task Text": "...", "Benchmark Answer": "..." }
@@ -552,11 +552,13 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
   // - Phase 2 (generation/smart questions) only runs when status != 'Met'
   const normalizedStatus = status.toLowerCase().replace(/[\s_-]/g, '');
   const shouldRunPhase2 = normalizedStatus !== 'met';
-  
+
   // Phase 2: Generate smart questions if status is not Met
-  if (shouldRunPhase2 && (!smartQuestions || smartQuestions.trim() === '')) {
+  // Also run if smartQuestions is a placeholder like 'N/A', 'None', etc.
+  const isPlaceholder = smartQuestions && ['n/a', 'na', 'none', 'null', 'undefined', ''].includes(smartQuestions.trim().toLowerCase());
+  if (shouldRunPhase2 && (!smartQuestions || smartQuestions.trim() === '' || isPlaceholder)) {
     console.log(`[Revalidate Proxy] Running Phase 2 generation for requirement (status: ${status})`);
-    
+
     // Fetch Phase 2 generation prompt
     const { data: generationPrompt } = await supabase
       .from('prompts')
@@ -568,10 +570,10 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
       .eq('is_default', true)
       .limit(1)
       .maybeSingle();
-    
+
     if (generationPrompt) {
       console.log(`[Revalidate Proxy] Using generation prompt: ${generationPrompt.name}`);
-      
+
       // Build Phase 2 prompt
       let phase2Prompt = generationPrompt.prompt_text
         .replace(/{{requirement_number}}/g, validationResult.requirement_number)
@@ -582,7 +584,7 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
         .replace(/{{status}}/g, status)
         .replace(/{{reasoning}}/g, reasoning)
         .replace(/{{unmapped_content}}/g, recommendations || 'N/A');
-      
+
       // Call AI for Phase 2 generation
       console.log(`[Revalidate Proxy] Calling AI for Phase 2 generation...`);
       const phase2Response = await aiClient.generateValidation({
@@ -592,7 +594,7 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
         outputSchema: generationPrompt.output_schema,
         generationConfig: generationPrompt.generation_config
       });
-      
+
       try {
         const phase2Result = JSON.parse(phase2Response.text);
         const normalizedPhase2: any = {};
@@ -600,18 +602,18 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
           const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
           normalizedPhase2[normalizedKey] = phase2Result[key];
         }
-        
+
         // Extract smart questions and benchmark answer from Phase 2
         const phase2SmartTask = normalizedPhase2.smart_task || normalizedPhase2.smart_question || normalizedPhase2.practical_workplace_task || normalizedPhase2.practical_task || '';
         if (phase2SmartTask) {
           smartQuestions = typeof phase2SmartTask === 'string' ? phase2SmartTask : JSON.stringify(phase2SmartTask);
         }
-        
+
         const phase2Benchmark = normalizedPhase2.benchmark_answer || normalizedPhase2.model_answer || '';
         if (phase2Benchmark) {
           benchmarkAnswer = typeof phase2Benchmark === 'string' ? phase2Benchmark : JSON.stringify(phase2Benchmark);
         }
-        
+
         console.log(`[Revalidate Proxy] Phase 2 completed - smart_questions length: ${smartQuestions.length}`);
       } catch (e) {
         console.error(`[Revalidate Proxy] Phase 2 parsing failed:`, e);
