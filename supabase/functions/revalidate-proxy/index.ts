@@ -397,11 +397,12 @@ IMPORTANT: You MUST return a JSON object with this EXACT structure (no other for
   "reasoning": "Detailed explanation of why the requirement is met/not met (max 300 words)",
   "mapped_content": "Specific tasks, observations, or activities from the documents that address this requirement with page numbers",
   "citations": ["Document name, Section/Task name, Page X"],
-  "smart_task": "ONE practical workplace task or observation that assesses this performance requirement - must be observable and practical, NOT a knowledge question",
-  "benchmark_answer": "Expected observable behavior that demonstrates competent performance",
+  "smart_task": "If status is 'Met', use 'N/A'. Otherwise, ONE practical workplace task or observation that assesses this performance requirement",
+  "benchmark_answer": "If status is 'Met', use 'N/A'. Otherwise, expected observable behavior that demonstrates competent performance",
   "unmapped_content": "What aspects are missing or inadequate. Use 'N/A' if fully met"
 }
 
+IMPORTANT: Only generate smart_task and benchmark_answer when status is NOT 'Met'. If status is 'Met', set both to 'N/A'.
 ALL fields are required. Return ONLY the JSON object, no other text.`;
   } else if (isKE) {
     // Knowledge Evidence needs questions
@@ -413,11 +414,12 @@ IMPORTANT: You MUST return a JSON object with this EXACT structure (no other for
   "reasoning": "Detailed explanation of why the requirement is met/not met (max 300 words)",
   "mapped_content": "Specific questions or content from the documents that address this knowledge requirement with page numbers",
   "citations": ["Document name, Section name, Page X"],
-  "smart_question": "ONE clear, simple question that assesses this knowledge requirement",
-  "benchmark_answer": "The expected correct answer based on the documents",
+  "smart_question": "If status is 'Met', use 'N/A'. Otherwise, ONE clear, simple question that assesses this knowledge requirement",
+  "benchmark_answer": "If status is 'Met', use 'N/A'. Otherwise, the expected correct answer based on the documents",
   "unmapped_content": "What knowledge areas are missing or inadequate. Use 'N/A' if fully met"
 }
 
+IMPORTANT: Only generate smart_question and benchmark_answer when status is NOT 'Met'. If status is 'Met', set both to 'N/A'.
 ALL fields are required. Return ONLY the JSON object, no other text.`;
   } else {
     // Generic format for other requirement types
@@ -429,11 +431,12 @@ IMPORTANT: You MUST return a JSON object with this EXACT structure (no other for
   "reasoning": "Detailed explanation of why the requirement is met/not met",
   "mapped_content": "Specific content from the documents that addresses this requirement with page numbers",
   "citations": ["Document name, Section name, Page X"],
-  "smart_task": "ONE practical task or question that assesses this requirement",
-  "benchmark_answer": "Expected answer or observable behavior",
+  "smart_task": "If status is 'Met', use 'N/A'. Otherwise, ONE practical task or question that assesses this requirement",
+  "benchmark_answer": "If status is 'Met', use 'N/A'. Otherwise, expected answer or observable behavior",
   "unmapped_content": "What is missing or inadequate. Use 'N/A' if fully met"
 }
 
+IMPORTANT: Only generate smart_task and benchmark_answer when status is NOT 'Met'. If status is 'Met', set both to 'N/A'.
 ALL fields are required. Return ONLY the JSON object, no other text.`;
   }
 

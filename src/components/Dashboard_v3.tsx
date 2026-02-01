@@ -144,12 +144,8 @@ export function Dashboard_v3({
     loadActiveValidations(true);
     const subscription = supabase.channel('validation_detail_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'validation_detail' }, () => loadActiveValidations(false)).subscribe();
 
-    // Poll every 5 seconds as a fallback (real-time subscription handles most updates)
-    const interval = setInterval(() => loadActiveValidations(false), 5000);
-
     return () => {
       subscription.unsubscribe();
-      clearInterval(interval);
     };
   }, [rtoCode, creditsRefreshTrigger, isInitialLoad]);
 
@@ -199,13 +195,13 @@ export function Dashboard_v3({
     }
   };
 
-  // Set up polling every 30 seconds
+  // Set up polling every 60 seconds as fallback (real-time subscription handles most updates)
   useEffect(() => {
     if (!rtoCode) return;
 
     const interval = setInterval(() => {
       refreshValidations(false);
-    }, 30000); // 30 seconds
+    }, 60000); // 60 seconds
 
     return () => clearInterval(interval);
   }, [rtoCode]);
@@ -409,16 +405,7 @@ export function Dashboard_v3({
                 });
               };
 
-              // Check validation age for expiry status
-              const getExpiryStatus = () => {
-                const createdDate = new Date(validation.created_at);
-                const now = new Date();
-                const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
-                if (hoursDiff > 48) return 'expired';
-                if (hoursDiff > 36) return 'expiring'; // Less than 12 hours left
-                return 'active';
-              };
-              const expiryStatus = getExpiryStatus();
+
 
               // Status indicator component with tooltip
               const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
@@ -457,24 +444,7 @@ export function Dashboard_v3({
                         <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
                         <span className="text-xs md:text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
                       </div>
-                      {expiryStatus === 'expired' && (
-                        <div
-                          className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
-                          title="This validation is older than 48 hours. AI features are disabled."
-                        >
-                          <span>⚠️</span>
-                          <span className="hidden sm:inline">Expired</span>
-                        </div>
-                      )}
-                      {expiryStatus === 'expiring' && (
-                        <div
-                          className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
-                          title="Less than 12 hours remaining before AI features are disabled."
-                        >
-                          <span>⏰</span>
-                          <span className="hidden sm:inline">Expiring Soon</span>
-                        </div>
-                      )}
+
                     </div>
 
                     {/* Progress Bar - fixed width for alignment */}
