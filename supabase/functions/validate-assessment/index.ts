@@ -367,12 +367,15 @@ serve(async (req) => {
 
     for (const requirement of requirements) {
       const req: any = requirement; // Cast to any since different requirement types have different property names
+
+      // Map fields from the Requirement interface (requirements-fetcher.ts)
+      // Fields: id, unitCode, type, number, text, description, metadata
       const requirementInput: RequirementInput = {
         id: req.id,
-        requirement_number: req.requirement_number || req.ke_point || req.pe_point || req.fs_number || req.element_number || `REQ-${req.id}`,
-        requirement_text: req.requirement_text || req.ke_text || req.pe_text || req.description || '',
-        requirement_type: req.requirement_type || validationType,
-        element_text: req.element_text
+        requirement_number: req.number || req.requirement_number || req.ke_point || req.pe_point || req.fs_number || req.element_number || `REQ-${req.id}`,
+        requirement_text: req.text || req.requirement_text || req.description || req.ke_text || req.pe_text || '',
+        requirement_type: req.type || req.requirement_type || validationType,
+        element_text: req.metadata?.originalRow?.element || req.element_text
       };
 
       console.log(`[Validate Assessment] Validating: ${requirementInput.requirement_number}`);
