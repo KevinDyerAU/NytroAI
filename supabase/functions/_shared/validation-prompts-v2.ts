@@ -68,22 +68,22 @@ CITATION REQUIREMENTS:
   switch (validationType) {
     case 'knowledge_evidence':
       return baseIntro + jsonInstructions + getKnowledgeEvidencePromptV2(unit, requirementsJSON) + citationNote;
-    
+
     case 'performance_evidence':
       return baseIntro + jsonInstructions + getPerformanceEvidencePromptV2(unit, requirementsJSON) + citationNote;
-    
+
     case 'foundation_skills':
       return baseIntro + jsonInstructions + getFoundationSkillsPromptV2(unit, requirementsJSON) + citationNote;
-    
+
     case 'elements_criteria':
       return baseIntro + jsonInstructions + getElementsCriteriaPromptV2(unit, requirementsJSON) + citationNote;
-    
+
     case 'assessment_conditions':
       return baseIntro + jsonInstructions + getAssessmentConditionsPromptV2(unit, requirementsJSON) + citationNote;
-    
+
     case 'full_validation':
       return baseIntro + jsonInstructions + getFullValidationPromptV2(unit, requirementsJSON) + citationNote;
-    
+
     default:
       return baseIntro + jsonInstructions + `Analyze this assessment document for compliance with unit requirements for ${unit.code}.` + citationNote;
   }

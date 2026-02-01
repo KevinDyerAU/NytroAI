@@ -590,36 +590,46 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
 
       // Call AI for Phase 2 generation
       console.log(`[Revalidate Proxy] Calling AI for Phase 2 generation...`);
-      const phase2Response = await aiClient.generateValidation({
-        prompt: phase2Prompt,
-        documentContent: finalContent,
-        systemInstruction,
-        outputSchema: generationPrompt.output_schema,
-        generationConfig: generationPrompt.generation_config
-      });
-
       try {
-        const phase2Result = JSON.parse(phase2Response.text);
-        const normalizedPhase2: any = {};
-        for (const key in phase2Result) {
-          const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
-          normalizedPhase2[normalizedKey] = phase2Result[key];
-        }
+        const phase2Response = await aiClient.generateValidation({
+          prompt: phase2Prompt,
+          documentContent: finalContent,
+          systemInstruction,
+          outputSchema: generationPrompt.output_schema,
+          generationConfig: generationPrompt.generation_config
+        });
 
-        // Extract smart questions and benchmark answer from Phase 2
-        const phase2SmartTask = normalizedPhase2.smart_task || normalizedPhase2.smart_question || normalizedPhase2.practical_workplace_task || normalizedPhase2.practical_task || '';
-        if (phase2SmartTask) {
-          smartQuestions = typeof phase2SmartTask === 'string' ? phase2SmartTask : JSON.stringify(phase2SmartTask);
-        }
+        console.log(`[Revalidate Proxy] Phase 2 raw response length: ${phase2Response?.text?.length || 0}`);
 
-        const phase2Benchmark = normalizedPhase2.benchmark_answer || normalizedPhase2.model_answer || '';
-        if (phase2Benchmark) {
-          benchmarkAnswer = typeof phase2Benchmark === 'string' ? phase2Benchmark : JSON.stringify(phase2Benchmark);
-        }
+        if (!phase2Response?.text || phase2Response.text.trim() === '') {
+          console.error(`[Revalidate Proxy] Phase 2 returned empty response`);
+        } else {
+          const phase2Result = JSON.parse(phase2Response.text);
+          const normalizedPhase2: any = {};
+          for (const key in phase2Result) {
+            const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
+            normalizedPhase2[normalizedKey] = phase2Result[key];
+          }
 
-        console.log(`[Revalidate Proxy] Phase 2 completed - smart_questions length: ${smartQuestions.length}`);
+          console.log(`[Revalidate Proxy] Phase 2 parsed keys: ${Object.keys(normalizedPhase2).join(', ')}`);
+
+          // Extract smart questions and benchmark answer from Phase 2
+          const phase2SmartTask = normalizedPhase2.smart_task || normalizedPhase2.smart_question || normalizedPhase2.practical_workplace_task || normalizedPhase2.practical_task || '';
+          if (phase2SmartTask) {
+            smartQuestions = typeof phase2SmartTask === 'string' ? phase2SmartTask : JSON.stringify(phase2SmartTask);
+          } else {
+            console.warn(`[Revalidate Proxy] Phase 2 response missing smart_task/smart_question field`);
+          }
+
+          const phase2Benchmark = normalizedPhase2.benchmark_answer || normalizedPhase2.model_answer || '';
+          if (phase2Benchmark) {
+            benchmarkAnswer = typeof phase2Benchmark === 'string' ? phase2Benchmark : JSON.stringify(phase2Benchmark);
+          }
+
+          console.log(`[Revalidate Proxy] Phase 2 completed - smart_questions length: ${smartQuestions.length}`);
+        }
       } catch (e) {
-        console.error(`[Revalidate Proxy] Phase 2 parsing failed:`, e);
+        console.error(`[Revalidate Proxy] Phase 2 failed:`, e);
       }
     } else {
       console.log(`[Revalidate Proxy] No Phase 2 generation prompt found for ${requirementType}/${documentType}`);

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
-import { createDefaultGeminiClient } from '../_shared/gemini.ts';
+import { createAIClient } from '../_shared/ai-provider.ts';
 import { getValidationPrompt } from '../_shared/validation-prompts.ts';
 import { getValidationPromptV2 } from '../_shared/validation-prompts-v2.ts';
 import { getValidationPromptV2 as getPromptFromNewTable, formatPrompt, shouldRunGeneration } from '../_shared/prompts-v2.ts';
@@ -10,6 +10,7 @@ import { storeValidationResults as storeValidationResultsNew, storeSingleValidat
 import { fetchRequirements, fetchAllRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
 import { storeValidationResultsV2, type ValidationResponseV2 } from '../_shared/store-validation-results-v2.ts';
 import { parseValidationResponseV2WithFallback, mergeCitationsIntoValidations } from '../_shared/parse-validation-response-v2.ts';
+import { validateRequirement, getDocumentContent, extractDocuments, type ValidationContext, type RequirementInput } from '../_shared/validate-requirement.ts';
 
 /**
  * Fetch prompt from database based on validation type
@@ -204,8 +205,6 @@ serve(async (req) => {
     // Ensure we have requirements datas JSON for prompt injection
     const requirementsJSON = formatRequirementsAsJSON(requirements);
 
-    const gemini = createDefaultGeminiClient();
-
     // Map validationType to validation_type_id for database lookup
     const validationTypeMap: Record<string, number> = {
       'knowledge_evidence': 1,
@@ -298,262 +297,155 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[Validate Assessment] Running ${validationType} validation for ${unitCode}`);
+    console.log(`[Validate Assessment] Running ${validationType} validation for ${unitCode} using Azure`);
     console.log(`[Validate Assessment] Document info:`, {
       id: document.id,
       file_name: document.file_name,
-      file_search_store_id: document.file_search_store_id,
-      embedding_status: document.embedding_status
+      storage_path: document.storage_path
     });
 
-    // Get the actual File Search store resource name
-    // If file_search_store_id is a display name (like "rto-7148-assessments"),
-    // we need to look up the actual resource name (like "fileSearchStores/abc123")
-    let fileSearchStoreResourceName = document.file_search_store_id;
+    // ===== AZURE-BASED VALIDATION =====
+    // 1. Fetch all documents for this validation session
+    const { data: sessionDocuments, error: docsError } = await supabase
+      .from('documents')
+      .select('id, file_name, storage_path')
+      .eq('validation_detail_id', validationDetailId);
 
-    if (!fileSearchStoreResourceName.startsWith('fileSearchStores/')) {
-      // It's a display name, need to look up the actual resource name
-      console.log(`[Validate Assessment] Looking up store by display name: ${fileSearchStoreResourceName}`);
-      const stores = await gemini.listFileSearchStores();
-      const matchingStore = stores.find((s) => s.displayName === fileSearchStoreResourceName);
-
-      if (matchingStore) {
-        fileSearchStoreResourceName = matchingStore.name;
-        console.log(`[Validate Assessment] Found store resource name: ${fileSearchStoreResourceName}`);
-
-        // Update document for future use
-        await supabase
-          .from('documents')
-          .update({ file_search_store_id: fileSearchStoreResourceName })
-          .eq('id', document.id);
-      } else {
-        console.error(`[Validate Assessment] File Search store not found: ${fileSearchStoreResourceName}`);
-        throw new Error(`File Search store not found: ${fileSearchStoreResourceName}`);
-      }
+    if (docsError || !sessionDocuments || sessionDocuments.length === 0) {
+      console.error(`[Validate Assessment] No documents found for validation_detail_id: ${validationDetailId}`);
+      return createErrorResponse('No documents found for this validation session', 404);
     }
 
-    // Build metadata filter - use namespace if provided to search ALL documents in this validation session
-    // Note: Gemini API requires string values to be quoted in metadata filters
-    // IMPORTANT: Metadata keys are converted from underscore to dash during upload (e.g., unit_code -> unit-code)
+    console.log(`[Validate Assessment] Found ${sessionDocuments.length} documents for validation session`);
 
-    // Determine document type based on validation type
+    // 2. Extract document content using Azure Document Intelligence
+    const docUrls = sessionDocuments.map((doc: any) => `s3://smartrtobucket/${doc.storage_path}`);
+
+    // Check if elements exist for these documents
+    const { data: existingElements } = await supabase
+      .from('elements')
+      .select('id')
+      .in('url', docUrls)
+      .limit(1);
+
+    if (!existingElements || existingElements.length === 0) {
+      console.log(`[Validate Assessment] No elements found - extracting documents now...`);
+      await extractDocuments(supabase, sessionDocuments, validationDetailId);
+    }
+
+    // Determine document type
     const documentType = validationType === 'learner_guide_validation'
-      ? 'training_package'  // Learner guides
-      : 'assessment';        // Assessment documents
+      ? 'training_package'
+      : 'assessment';
 
-    // SKIP ALL METADATA FILTERS - dedicated store per RTO
-    // Since rto7148assessments is a dedicated store for RTO 7148, 
-    // we don't need filters - all documents are relevant
-    const docMetadata = document.metadata || {};
-    console.log(`[Validate Assessment] Document metadata:`, JSON.stringify(docMetadata));
-
-    let metadataFilter: string | undefined = undefined;
-
-    console.log(`[Validate Assessment] ⚠️ Using dedicated RTO store - NO FILTER`);
-    console.log(`[Validate Assessment] Will search ALL documents in store: ${fileSearchStoreResourceName}`);
-    console.log(`[Validate Assessment] Reason: Metadata filtering is unreliable - dedicated store ensures relevance`);
-
-    // DEBUG: List all documents in the store to verify they exist
-    console.log(`[Validate Assessment] 🔍 DEBUG: Listing ALL documents in store...`);
-    try {
-      const allDocs = await gemini.listDocuments(fileSearchStoreResourceName);
-      console.log(`[Validate Assessment] 📄 Documents in store: ${allDocs.length}`);
-      if (allDocs.length > 0) {
-        console.log(`[Validate Assessment] 📋 Showing ALL documents and their metadata:`);
-        allDocs.forEach((doc: any, i: number) => {
-          console.log(`[Validate Assessment]   [${i + 1}/${allDocs.length}] ${doc.displayName}`);
-          console.log(`[Validate Assessment]       Name: ${doc.name}`);
-          console.log(`[Validate Assessment]       Metadata: ${JSON.stringify(doc.customMetadata || {}, null, 2)}`);
-        });
-      } else {
-        console.error(`[Validate Assessment] ⚠️ No documents found in File Search store!`);
-        console.error(`[Validate Assessment] This means documents weren't uploaded or are in a different store.`);
-      }
-    } catch (listError) {
-      console.error(`[Validate Assessment] ❌ Error listing documents:`, listError);
-      console.error(`[Validate Assessment] Error details:`, JSON.stringify(listError, null, 2));
-    }
-
-    // Query with File Search - NO FILTER (dedicated store)
-    console.log(`[Validate Assessment] Querying File Search store (no filter): ${fileSearchStoreResourceName}`);
-    const response = await gemini.generateContentWithFileSearch(
-      prompt,
-      [fileSearchStoreResourceName],
-      undefined // No filter - search all documents in dedicated store
-    );
-
-    // Log grounding information
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    console.log(`[Validate Assessment] Grounding chunks found: ${groundingChunks.length}`);
-
-    if (groundingChunks.length > 0) {
-      console.log(`[Validate Assessment] ✅ Sample chunks:`, groundingChunks.slice(0, 3).map((c: any) => ({
-        doc: c.fileSearchChunk?.documentName,
-        pages: c.fileSearchChunk?.pageNumbers
-      })));
-    } else {
-      console.error(`[Validate Assessment] ❌ No grounding chunks found - Gemini could not find relevant content`);
-      return createErrorResponse(
-        `No relevant content found in File Search store. Documents may still be indexing or the prompt may need adjustment.`,
-        404
-      );
-    }
-
-    // Try to parse as V2 response first (structured JSON with requirement validations)
-    console.log(`[Validate Assessment] Attempting to parse as V2 response...`);
-    console.log(`[Validate Assessment] Response text length: ${response.text.length} characters`);
-    console.log(`[Validate Assessment] Response text preview: ${response.text.substring(0, 500)}...`);
-
-    let validationResponseV2 = parseValidationResponseV2WithFallback(
-      response.text,
-      validationType,
+    // 3. Build validation context
+    const validationContext: ValidationContext = {
+      supabase,
+      validationDetailId,
       unitCode,
-      requirements
+      unitTitle: unit.Title || unit.title || 'Unit Title Not Available',
+      documentType,
+      documents: sessionDocuments,
+      rtoCode: unit.rtoCode
+    };
+
+    // 4. Get document content once for efficient reuse
+    const documentContent = await getDocumentContent(
+      supabase,
+      sessionDocuments,
+      validationDetailId
     );
 
-    // Merge grounding metadata citations into the response
-    validationResponseV2 = mergeCitationsIntoValidations(
-      validationResponseV2,
-      response.candidates[0]?.groundingMetadata
-    );
+    console.log(`[Validate Assessment] Document content retrieved: ${documentContent.length} characters`);
 
-    console.log(`[Validate Assessment] V2 Response parsed:`, {
-      overallStatus: validationResponseV2.overallStatus,
-      requirementCount: validationResponseV2.requirementValidations.length,
-    });
+    // 5. Validate each requirement using Azure OpenAI
+    const validationResults: any[] = [];
+    let successCount = 0;
+    let failCount = 0;
 
-    // Store V2 validation results in validation_results table
-    if (validationDetailId && validationResponseV2.requirementValidations.length > 0) {
-      console.log(`[Validate Assessment] Storing V2 validation results...`);
-      const storeResult = await storeValidationResultsV2(
+    console.log(`[Validate Assessment] Validating ${requirements.length} requirements...`);
+
+    for (const requirement of requirements) {
+      const req: any = requirement; // Cast to any since different requirement types have different property names
+      const requirementInput: RequirementInput = {
+        id: req.id,
+        requirement_number: req.requirement_number || req.ke_point || req.pe_point || req.fs_number || req.element_number || `REQ-${req.id}`,
+        requirement_text: req.requirement_text || req.ke_text || req.pe_text || req.description || '',
+        requirement_type: req.requirement_type || validationType,
+        element_text: req.element_text
+      };
+
+      console.log(`[Validate Assessment] Validating: ${requirementInput.requirement_number}`);
+
+      // Get requirement-specific content from documents
+      const reqContent = await getDocumentContent(
         supabase,
+        sessionDocuments,
         validationDetailId,
-        validationResponseV2,
-        namespace
+        requirementInput.requirement_number,
+        requirementInput.requirement_text
       );
 
-      if (storeResult.success) {
-        console.log(`[Validate Assessment] Successfully stored ${storeResult.insertedCount} requirement validations`);
+      const result = await validateRequirement(validationContext, requirementInput, reqContent);
+
+      if (result.success) {
+        successCount++;
       } else {
-        console.error(`[Validate Assessment] Error storing V2 results:`, storeResult.error);
+        failCount++;
+        console.warn(`[Validate Assessment] Failed to validate ${requirementInput.requirement_number}: ${result.error}`);
       }
+
+      // Store result in validation_results table
+      const { error: insertError } = await supabase
+        .from('validation_results')
+        .insert({
+          validation_detail_id: validationDetailId,
+          requirement_id: req.id,
+          requirement_type: requirementInput.requirement_type,
+          requirement_number: requirementInput.requirement_number,
+          requirement_text: requirementInput.requirement_text,
+          status: result.status,
+          reasoning: result.reasoning,
+          mapped_content: result.mappedContent,
+          citations: result.citations,
+          smart_questions: result.smartQuestions,
+          benchmark_answer: result.benchmarkAnswer,
+          recommendations: result.recommendations,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error(`[Validate Assessment] Failed to store result for ${requirementInput.requirement_number}:`, insertError.message);
+      }
+
+      validationResults.push({
+        requirementId: req.id,
+        requirementNumber: requirementInput.requirement_number,
+        ...result
+      });
     }
 
-    // Also parse as legacy format for backward compatibility
-    const validationResult = parseValidationResponse(
-      response.text,
-      validationType,
-      response.candidates[0]?.groundingMetadata
-    );
+    console.log(`[Validate Assessment] Validation complete: ${successCount} succeeded, ${failCount} failed`);
 
-    console.log(`[Validate Assessment] Validation completed. Score: ${validationResult.score}`);
-    console.log(`[Validate Assessment] Citations found: ${validationResult.citations.length}`);
+    // 6. Update validation_detail with completion status
+    const overallStatus = failCount === 0 ? 'completed' : (successCount > 0 ? 'partial' : 'failed');
 
-    // Store validation results in the legacy tables (for backward compatibility)
-    if (validationDetailId) {
-      if (validationType === 'full_validation' || validationType === 'learner_guide_validation') {
-        const validationLabel = validationType === 'learner_guide_validation'
-          ? 'Learner guide validation'
-          : 'Full validation';
-        console.log(`[Validate Assessment] ${validationLabel} - storing results across all validation tables`);
+    await supabase
+      .from('validation_detail')
+      .update({
+        status: overallStatus,
+        completed_at: new Date().toISOString(),
+        last_updated_at: new Date().toISOString()
+      })
+      .eq('id', validationDetailId);
 
-        const requirementTables = [
-          { type: 'knowledge_evidence', table: 'knowledge_evidence_requirements' },
-          { type: 'performance_evidence', table: 'performance_evidence_requirements' },
-          { type: 'foundation_skills', table: 'foundation_skills_requirements' },
-          { type: 'elements_criteria', table: 'elements_performance_criteria_requirements' },
-          { type: 'assessment_conditions', table: 'assessment_conditions_requirements' },
-        ];
+    // Calculate summary stats
+    const metCount = validationResults.filter(r => r.status?.toLowerCase() === 'met').length;
+    const partialCount = validationResults.filter(r => r.status?.toLowerCase().includes('partial')).length;
+    const notMetCount = validationResults.filter(r => r.status?.toLowerCase().includes('not')).length;
 
-        let totalInserted = 0;
-        let allTablesEmpty = true;
-
-        for (const { type, table } of requirementTables) {
-          const { data: reqData, error: reqError } = await supabase
-            .from(table)
-            .select('*')
-            .eq('unitCode', unitCode);
-
-          if (!reqError && reqData && reqData.length > 0) {
-            allTablesEmpty = false;
-            console.log(`[Validate Assessment] Storing ${reqData.length} ${type} validations`);
-            await storeValidationResultsNew(
-              supabase,
-              type,
-              validationDetailId,
-              reqData,
-              validationResult,
-              namespace
-            );
-            totalInserted += reqData.length;
-          }
-        }
-
-        if (allTablesEmpty) {
-          console.log(`[Validate Assessment] No requirements found for ${unitCode} - using single-prompt mode (no requirement linking)`);
-
-          // For single-prompt validation, store results without linking to specific requirements
-          // Create one validation record per requirement type
-          const validationTypes = [
-            { type: 'knowledge_evidence', tableName: 'knowledge_evidence_validations' },
-            { type: 'performance_evidence', tableName: 'performance_evidence_validations' },
-            { type: 'foundation_skills', tableName: 'foundation_skills_validations' },
-            { type: 'elements_criteria', tableName: 'elements_performance_criteria_validations' },
-            { type: 'assessment_conditions', tableName: 'assessment_conditions_validations' },
-          ];
-
-          for (const { type, tableName } of validationTypes) {
-            // Map validation status to database format
-            const dbStatus = validationResult.status === 'pass' ? 'met'
-              : validationResult.status === 'fail' ? 'not-met'
-                : 'partial';
-
-            const record = {
-              valDetail_id: validationDetailId,
-              requirementId: null, // No specific requirement for single-prompt
-              status: dbStatus,
-              mapped_questions: validationResult.summary,
-              unmappedContent: validationResult.details,
-              unmappedRecommendation: validationResult.recommendations.join('\n'),
-              docReferences: formatCitationsForStorage(validationResult.citations),
-            };
-
-            const { data: insertData, error: insertError } = await supabase
-              .from(tableName)
-              .insert([record])
-              .select();
-
-            if (insertError) {
-              console.error(`[Validate Assessment] ERROR inserting ${type} validation:`, insertError);
-              console.error(`[Validate Assessment] Record attempted:`, JSON.stringify(record, null, 2));
-            } else {
-              console.log(`[Validate Assessment] ✓ Stored single-prompt ${type} validation (id: ${insertData?.[0]?.id})`);
-              totalInserted++;
-            }
-          }
-        }
-
-        await supabase
-          .from('validation_detail')
-          .update({
-            completed_count: totalInserted,
-            extractStatus: 'Completed',
-          })
-          .eq('id', validationDetailId);
-
-        console.log(`[Validate Assessment] ${validationLabel} complete - ${totalInserted} total validations stored`);
-      } else if (requirements.length > 0) {
-        // Single validation type
-        await storeValidationResultsNew(
-          supabase,
-          validationType,
-          validationDetailId,
-          requirements,
-          validationResult,
-          namespace
-        );
-      }
-    }
+    console.log(`[Validate Assessment] Summary: ${metCount} Met, ${partialCount} Partial, ${notMetCount} Not Met`);
 
     const duration = Date.now() - startTime;
     console.log('[validate-assessment] Validation completed successfully');
@@ -563,7 +455,14 @@ serve(async (req) => {
 
     return createSuccessResponse({
       success: true,
-      validation: validationResult,
+      validation: {
+        overallStatus: overallStatus,
+        requirementCount: validationResults.length,
+        metCount,
+        partialCount,
+        notMetCount,
+        results: validationResults
+      },
     });
   } catch (error) {
     const duration = Date.now() - startTime;
