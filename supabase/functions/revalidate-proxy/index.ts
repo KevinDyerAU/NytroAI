@@ -543,18 +543,15 @@ ALL fields are required. Return ONLY the JSON object.`;
   const status = normalizedResult.status || 'Unknown';
   const reasoning = normalizedResult.reasoning || normalizedResult.explanation || normalizedResult.rationale || '';
 
-  // IMPORTANT: Only include smart questions if status is NOT 'Met'
-  // This is part of the split validation architecture:
-  // - Phase 1 (validation) always runs
-  // - Phase 2 (generation/smart questions) only runs when status != 'Met'
+  // Phase 2: Generate smart questions for any status that's not "Met"
+  // Phase 1 validation prompts don't generate questions, so we always want Phase 2 to run
   const normalizedStatus = status.toLowerCase().replace(/[\s_-]/g, '');
   const shouldRunPhase2 = normalizedStatus !== 'met';
 
-  // Phase 2: Generate smart questions if status is not Met
-  // Also run if smartQuestions is a placeholder like 'N/A', 'None', etc.
-  const isPlaceholder = smartQuestions && ['n/a', 'na', 'none', 'null', 'undefined', ''].includes(smartQuestions.trim().toLowerCase());
-  if (shouldRunPhase2 && (!smartQuestions || smartQuestions.trim() === '' || isPlaceholder)) {
-    console.log(`[Revalidate Proxy] Running Phase 2 generation for requirement (status: ${status})`);
+  if (shouldRunPhase2) {
+    console.log(`[Revalidate Proxy] ===== PHASE 2 TRIGGERED =====`);
+    console.log(`[Revalidate Proxy] Status: ${normalizedStatus}`);
+    console.log(`[Revalidate Proxy] RequirementType: ${requirementType}`);
 
     // Fetch Phase 2 generation prompt
     const { data: generationPrompt } = await supabase
@@ -588,7 +585,7 @@ ALL fields are required. Return ONLY the JSON object.`;
         const phase2Response = await aiClient.generateValidation({
           prompt: phase2Prompt,
           documentContent: finalContent,
-          systemInstruction,
+          systemInstruction: generationPrompt.system_instruction,
           outputSchema: generationPrompt.output_schema,
           generationConfig: generationPrompt.generation_config
         });

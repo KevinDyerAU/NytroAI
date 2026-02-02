@@ -474,25 +474,46 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
             mappedContent = mappedContent.text || mappedContent.content || JSON.stringify(mappedContent);
         }
 
-        // Phase 2: Generate smart questions if status is not Met and none were generated
+        // Phase 2: Generate smart questions for any status that's not "Met"
+        // Phase 1 validation prompts don't generate questions, so we always want Phase 2 to run
         const normalizedStatus = status.toLowerCase().replace(/[\s_-]/g, '');
-        const isPlaceholder = smartQuestions && ['n/a', 'na', 'none', 'null', 'undefined', ''].includes(smartQuestions.trim().toLowerCase());
+        const shouldRunPhase2 = normalizedStatus !== 'met';
 
-        if (normalizedStatus !== 'met' && (!smartQuestions || isPlaceholder)) {
-            console.log(`[${FUNCTION_NAME}] Running Phase 2 for ${requirement.requirement_number}`);
+        if (shouldRunPhase2) {
+            console.log(`[${FUNCTION_NAME}] ===== PHASE 2 TRIGGERED =====`);
+            console.log(`[${FUNCTION_NAME}] Requirement: ${requirement.requirement_number}`);
+            console.log(`[${FUNCTION_NAME}] Status: ${normalizedStatus}`);
+            console.log(`[${FUNCTION_NAME}] RequirementType: ${requirementType}`);
+            console.log(`[${FUNCTION_NAME}] Phase 1 smart_questions: "${smartQuestions}" (will be replaced by Phase 2)`);
 
             // Fetch Phase 2 generation prompt
-            const { data: generationPrompt } = await supabase
+            const { data: generationPrompt, error: promptError } = await supabase
                 .from('prompts')
                 .select('*')
                 .eq('prompt_type', 'generation')
                 .eq('requirement_type', requirementType)
+                .eq('document_type', documentType)
                 .eq('is_active', true)
                 .eq('is_default', true)
                 .limit(1)
                 .maybeSingle();
 
+            if (promptError) {
+                console.error(`[${FUNCTION_NAME}] Error fetching generation prompt:`, promptError);
+            }
+
+            if (!generationPrompt) {
+                console.warn(`[${FUNCTION_NAME}] No generation prompt found for:`);
+                console.warn(`[${FUNCTION_NAME}]   prompt_type: generation`);
+                console.warn(`[${FUNCTION_NAME}]   requirement_type: ${requirementType}`);
+                console.warn(`[${FUNCTION_NAME}]   is_active: true, is_default: true`);
+            }
+
             if (generationPrompt) {
+                console.log(`[${FUNCTION_NAME}] Found generation prompt: ${generationPrompt.name} (ID: ${generationPrompt.id})`);
+                console.log(`[${FUNCTION_NAME}] Prompt has system_instruction: ${!!generationPrompt.system_instruction}`);
+                console.log(`[${FUNCTION_NAME}] Prompt has output_schema: ${!!generationPrompt.output_schema}`);
+
                 let phase2Prompt = generationPrompt.prompt_text
                     .replace(/{{requirement_number}}/g, requirement.requirement_number)
                     .replace(/{{requirement_text}}/g, requirement.requirement_text)
@@ -531,8 +552,11 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
 
                         console.log(`[${FUNCTION_NAME}] Phase 2 completed - smart_questions length: ${smartQuestions.length}`);
                     }
-                } catch (e) {
-                    console.error(`[${FUNCTION_NAME}] Phase 2 failed:`, e);
+                } catch (e: any) {
+                    console.error(`[${FUNCTION_NAME}] ===== PHASE 2 FAILED =====`);
+                    console.error(`[${FUNCTION_NAME}] Error:`, e);
+                    console.error(`[${FUNCTION_NAME}] Error message:`, e?.message);
+                    console.error(`[${FUNCTION_NAME}] Stack:`, e?.stack);
                 }
             }
         } else if (normalizedStatus === 'met') {
