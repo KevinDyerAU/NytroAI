@@ -10,8 +10,7 @@ import { storeValidationResults as storeValidationResultsNew, storeSingleValidat
 import { fetchRequirements, fetchAllRequirements, formatRequirementsAsJSON, type Requirement } from '../_shared/requirements-fetcher.ts';
 import { storeValidationResultsV2, type ValidationResponseV2 } from '../_shared/store-validation-results-v2.ts';
 import { parseValidationResponseV2WithFallback, mergeCitationsIntoValidations } from '../_shared/parse-validation-response-v2.ts';
-import { getDocumentContent, extractDocuments, type ValidationContext, type RequirementInput } from '../_shared/validate-requirement.ts';
-import { validateRequirementUnified, type ValidatorInput } from '../_shared/unified-validator.ts';
+import { validateRequirement, getDocumentContent, extractDocuments, type ValidationContext, type RequirementInput } from '../_shared/validate-requirement.ts';
 
 /**
  * Fetch prompt from database based on validation type
@@ -390,24 +389,7 @@ serve(async (req) => {
         requirementInput.requirement_text
       );
 
-      // Use unified validator for consistent behavior with revalidate-proxy
-      const validatorInput: ValidatorInput = {
-        requirement: {
-          id: req.id,
-          requirement_number: requirementInput.requirement_number,
-          requirement_text: requirementInput.requirement_text,
-          requirement_type: requirementInput.requirement_type,
-          element_text: requirementInput.element_text
-        },
-        documentContent: reqContent,
-        documentType: documentType === 'training_package' ? 'learner_guide' : 'unit',
-        unitCode,
-        unitTitle: unit.Title || unit.title || 'Unit Title Not Available',
-        validationDetailId,
-        supabase
-      };
-
-      const result = await validateRequirementUnified(validatorInput);
+      const result = await validateRequirement(validationContext, requirementInput, reqContent);
 
       if (result.success) {
         successCount++;

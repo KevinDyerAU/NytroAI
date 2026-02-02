@@ -104,13 +104,12 @@ export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
       }
 
       let lastError = null;
-      const maxRetries = 2; // Reduced from 5 to fail faster and not timeout
+      const maxRetries = 5;
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           if (attempt > 0) {
-            // Cap delay at 10 seconds to avoid Edge Function timeout
-            const delay = Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 1000, 10000);
+            const delay = Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 1000, 30000);
             console.log(`[Azure OpenAI] Retry attempt ${attempt}/${maxRetries} after ${Math.round(delay)}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
@@ -129,8 +128,8 @@ export function createAzureOpenAIClient(config: AzureOpenAIConfig) {
 
             // Retry on 429 (Rate Limit) and 5xx (Server Errors)
             if (response.status === 429 || (response.status >= 500 && response.status < 600)) {
-              // Ignore Retry-After header - cap at 10 seconds to avoid timeout
-              const delay = Math.min(Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000, 10000);
+              const retryAfter = response.headers.get('Retry-After');
+              const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000, 30000);
 
               console.warn(`[Azure OpenAI] ${response.status} error. Retrying in ${Math.round(delay)}ms... attempt ${attempt + 1}/${maxRetries}`);
               await new Promise(resolve => setTimeout(resolve, delay));
