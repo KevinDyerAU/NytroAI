@@ -168,6 +168,30 @@ export function ValidationTriggerCard({
         console.log('[ValidationTriggerCard] ✅ Validation created:', finalValidationDetailId);
       }
 
+      // Create document records from storage paths BEFORE triggering validation
+      if (storagePaths.length > 0 && finalValidationDetailId) {
+        console.log('[ValidationTriggerCard] 📄 Creating document records for', storagePaths.length, 'files...');
+        
+        for (const storagePath of storagePaths) {
+          // Extract filename from storage path
+          const fileName = storagePath.split('/').pop() || 'document';
+          
+          const { error: docError } = await supabase
+            .from('documents')
+            .insert({
+              validation_detail_id: finalValidationDetailId,
+              file_name: fileName,
+              storage_path: storagePath
+            });
+          
+          if (docError) {
+            console.error('[ValidationTriggerCard] Failed to create document record:', docError);
+          } else {
+            console.log('[ValidationTriggerCard] ✅ Document record created:', fileName);
+          }
+        }
+      }
+
       // Now trigger the validation
       await trigger(finalValidationDetailId!, storagePaths);
       setIsTriggered(true);

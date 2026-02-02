@@ -142,6 +142,8 @@ export function Dashboard_v3({
     };
 
     loadActiveValidations(true);
+    
+    // Real-time subscription for dashboard updates
     const subscription = supabase.channel('validation_detail_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'validation_detail' }, () => loadActiveValidations(false)).subscribe();
 
     return () => {
@@ -195,16 +197,7 @@ export function Dashboard_v3({
     }
   };
 
-  // Set up polling every 60 seconds as fallback (real-time subscription handles most updates)
-  useEffect(() => {
-    if (!rtoCode) return;
-
-    const interval = setInterval(() => {
-      refreshValidations(false);
-    }, 60000); // 60 seconds
-
-    return () => clearInterval(interval);
-  }, [rtoCode]);
+  // No auto-polling - user clicks refresh button manually
 
   // Show ALL validations (not just actively processing ones)
   const activeValidations = validations;

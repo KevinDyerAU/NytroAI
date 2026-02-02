@@ -1,3 +1,12 @@
+/**
+ * @deprecated This function is DEPRECATED.
+ * Use trigger-validation-unified instead, which calls unified-validator.ts
+ * for consistent N/A handling when status is 'Met'.
+ * 
+ * This legacy Gemini-only function does NOT apply the N/A fix for Met status.
+ * It remains for backward compatibility with the n8n orchestration path only.
+ */
+
 // Deno imports
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';

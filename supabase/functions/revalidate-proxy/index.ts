@@ -13,6 +13,7 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, corsHeaders } from '../_shared/cors.ts';
 import { createAIClient, getAIProviderConfig } from '../_shared/ai-provider.ts';
 import { createDefaultAzureDocIntelClient } from '../_shared/azure-document-intelligence.ts';
+import { validateRequirementUnified, type ValidatorInput } from '../_shared/unified-validator.ts';
 
 interface RevalidateRequest {
   validation_result: {
@@ -99,23 +100,25 @@ async function processDocumentsForAzure(
       const fileBytes = new Uint8Array(await fileData.arrayBuffer());
       const extracted = await docIntelClient.extractDocument(fileBytes);
 
-      // Create elements from extracted content
-      const chunks = extracted.paragraphs?.map((p: any) => ({
+      // Create elements from extracted content (matches trigger-validation-unified format)
+      const chunks = extracted.paragraphs?.map((p: any, idx: number) => ({
         id: crypto.randomUUID(),
+        element_id: `${doc.id}-p${idx}`,
         text: p.content,
         page_number: p.pageNumber || 1,
         filename: doc.file_name,
-        url: docUrl,
+        record_id: `doc-${doc.id}`,
         type: p.role || 'paragraph',
-        date_processed: new Date().toISOString()
+        filetype: 'pdf'
       })) || [{
         id: crypto.randomUUID(),
+        element_id: `${doc.id}-full`,
         text: extracted.content,
         page_number: 1,
         filename: doc.file_name,
-        url: docUrl,
+        record_id: `doc-${doc.id}`,
         type: 'document',
-        date_processed: new Date().toISOString()
+        filetype: 'pdf'
       }];
 
       allElements.push(...chunks);
@@ -223,32 +226,45 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     requirementType = typeMap[requirementType];
   }
 
-  // 3. Build document URLs and check for existing elements
-  const docUrls = documents.map((doc: any) => `s3://smartrtobucket/${doc.storage_path}`);
-
-  // Check if elements exist for these documents
-  const { data: existingElements, error: elementsError } = await supabase
-    .from('elements')
-    .select('id, text, url, page_number')
-    .in('url', docUrls)
-    .limit(1);
-
+  // 3. Check for existing elements by record_id (matches trigger-validation-unified)
   let sessionElements: any[] = [];
+  let allContent = '';
 
-  if (!existingElements || existingElements.length === 0) {
-    // No elements found - need to process documents first
-    console.log('[Revalidate Proxy] No elements found for documents. Processing now...');
+  for (const doc of documents) {
+    // Check if we already have extracted content for this document
+    const { data: existingElements } = await supabase
+      .from('elements')
+      .select('text, page_number')
+      .eq('filename', doc.file_name)
+      .eq('record_id', `doc-${doc.id}`)
+      .order('page_number', { ascending: true });
 
-    sessionElements = await processDocumentsForAzure(supabase, documents, validationDetailId);
-
-    if (sessionElements.length === 0) {
-      throw new Error('Failed to extract content from documents. Please try again or re-upload the documents.');
+    if (existingElements && existingElements.length > 0) {
+      // Use cached extraction
+      console.log(`[Revalidate Proxy] Using cached extraction for ${doc.file_name}: ${existingElements.length} elements`);
+      sessionElements.push(...existingElements);
+      const cachedContent = existingElements.map((e: any) => e.text).join('\n');
+      allContent += `\n=== ${doc.file_name} ===\n${cachedContent}\n`;
+    } else {
+      // No elements found - need to process this document
+      console.log(`[Revalidate Proxy] No elements found for ${doc.file_name}. Processing now...`);
+      const newElements = await processDocumentsForAzure(supabase, [doc], validationDetailId);
+      sessionElements.push(...newElements);
+      const newContent = newElements.map((e: any) => e.text).join('\n');
+      allContent += `\n=== ${doc.file_name} ===\n${newContent}\n`;
     }
-
-    console.log(`[Revalidate Proxy] Document processing complete. ${sessionElements.length} elements extracted.`);
   }
 
-  // 4. Smart Element Retrieval - Use simple sequential searches instead of complex .or()
+  if (sessionElements.length === 0) {
+    throw new Error('Failed to extract content from documents. Please try again or re-upload the documents.');
+  }
+
+  console.log(`[Revalidate Proxy] Total elements: ${sessionElements.length}, content length: ${allContent.length}`);
+
+  // Build document record_ids for element lookups
+  const docRecordIds = documents.map((doc: any) => `doc-${doc.id}`);
+
+  // 4. Smart Element Retrieval - Use simple sequential searches
   const reqNum = (validationResult.requirement_number || '').trim();
   const reqText = (validationResult.requirement_text || '').trim();
 
@@ -257,8 +273,8 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
   // Try simple exact requirement number search first
   let { data: matchedElements } = await supabase
     .from('elements')
-    .select('id, text, url, page_number')
-    .in('url', docUrls)
+    .select('id, text, page_number, record_id')
+    .in('record_id', docRecordIds)
     .ilike('text', `%${reqNum}%`)
     .limit(50);
 
@@ -269,8 +285,8 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
       console.log(`[Revalidate Proxy] No exact match, trying keywords: ${keywords.join(', ')}`);
       const { data: keywordMatches } = await supabase
         .from('elements')
-        .select('id, text, url, page_number')
-        .in('url', docUrls)
+        .select('id, text, page_number, record_id')
+        .in('record_id', docRecordIds)
         .ilike('text', `%${keywords[0]}%`)
         .limit(50);
       matchedElements = keywordMatches;
@@ -279,45 +295,49 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
 
   let finalContent = '';
   if (matchedElements && matchedElements.length > 0) {
-    // 2. Fetch all elements from the pages where we found matches to give the AI context
+    // Fetch all elements from the pages where we found matches to give the AI context
     const pageNumbers = [...new Set(matchedElements.map((e: any) => e.page_number))];
     console.log(`[Revalidate Proxy] Found matches on pages: ${pageNumbers.join(', ')}. Fetching context...`);
 
     const { data: contextualElements } = await supabase
       .from('elements')
-      .select('text, url, page_number')
-      .in('url', docUrls)
+      .select('text, page_number, record_id')
+      .in('record_id', docRecordIds)
       .in('page_number', pageNumbers.slice(0, 6)) // Limit to first 6 matching pages
       .order('id', { ascending: true })
       .limit(120);
 
     const docGroups: Record<string, string[]> = {};
     (contextualElements || matchedElements).forEach((e: any) => {
-      if (!docGroups[e.url]) docGroups[e.url] = [];
-      docGroups[e.url].push(e.text);
+      const key = e.record_id || 'unknown';
+      if (!docGroups[key]) docGroups[key] = [];
+      docGroups[key].push(e.text);
     });
 
-    for (const [url, texts] of Object.entries(docGroups)) {
-      const fileName = documents.find((d: any) => `s3://smartrtobucket/${d.storage_path}` === url)?.file_name || 'Document';
+    for (const [recordId, texts] of Object.entries(docGroups)) {
+      const docId = recordId.replace('doc-', '');
+      const fileName = documents.find((d: any) => String(d.id) === docId)?.file_name || 'Document';
       finalContent += `\n=== RELEVANT EXCERPTS FROM: ${fileName} ===\n${texts.join('\n')}\n`;
     }
   } else {
-    // 3. Fallback: If no keyword match, take the document overviews (first 80 elements)
+    // Fallback: If no keyword match, take the document overviews (first 80 elements)
     console.log(`[Revalidate Proxy] No keyword match for ${reqNum}. Falling back to document overviews.`);
     const { data: overviews } = await supabase
       .from('elements')
-      .select('text, url')
-      .in('url', docUrls)
+      .select('text, record_id')
+      .in('record_id', docRecordIds)
       .limit(80);
 
     const docGroups: Record<string, string[]> = {};
     (overviews || []).forEach((e: any) => {
-      if (!docGroups[e.url]) docGroups[e.url] = [];
-      docGroups[e.url].push(e.text);
+      const key = e.record_id || 'unknown';
+      if (!docGroups[key]) docGroups[key] = [];
+      docGroups[key].push(e.text);
     });
 
-    for (const [url, texts] of Object.entries(docGroups)) {
-      const fileName = documents.find((d: any) => `s3://smartrtobucket/${d.storage_path}` === url)?.file_name || 'Document';
+    for (const [recordId, texts] of Object.entries(docGroups)) {
+      const docId = recordId.replace('doc-', '');
+      const fileName = documents.find((d: any) => String(d.id) === docId)?.file_name || 'Document';
       finalContent += `\n=== DOCUMENT OVERVIEW: ${fileName} ===\n${texts.join('\n')}\n`;
     }
   }
@@ -360,294 +380,48 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
     promptTemplate = generalRevalPrompt;
   }
 
-  // 6. Build Prompt
+  // 6. Call Unified Validator
+  console.log(`[Revalidate Proxy] Calling Unified Validator for ${validationResult.requirement_number}`);
   const unitCode = detail.validation_summary.unitCode;
-  const unitTitle = detail.validation_summary.unitTitle || '';
-
-  let promptText = promptTemplate?.prompt_text ||
-    `Validate the following requirement against the provided documents.
-    Requirement: {{requirement_number}} - {{requirement_text}}`;
-
-  promptText = promptText
-    .replace(/{{requirement_number}}/g, validationResult.requirement_number || '')
-    .replace(/{{requirement_text}}/g, validationResult.requirement_text || '')
-    .replace(/{{requirement_type}}/g, requirementType)
-    .replace(/{{unit_code}}/g, unitCode)
-    .replace(/{{unit_title}}/g, unitTitle)
-    .replace(/{{document_type}}/g, documentType);
-
-  const systemInstruction = promptTemplate?.system_instruction ||
-    'You are an expert RTO validator. You MUST return a JSON response with ALL of the following fields: status, reasoning, mapped_content, citations (array), recommendations, smart_task, and benchmark_answer. Never omit any required fields.';
-
-  // For Azure, ALWAYS add explicit JSON format instruction
-  // Azure/GPT doesn't respect output_schema like Gemini does, so we need explicit instructions
-  const isKE = requirementType === 'knowledge_evidence';
-  const isPE = requirementType === 'performance_evidence' || requirementType === 'elements_performance_criteria';
-
-  // Build the JSON format instruction based on requirement type
-  let outputFormatInstruction = '';
-
-  if (isPE) {
-    outputFormatInstruction = `
-
-IMPORTANT: You MUST return a JSON object with this EXACT structure:
-{
-  "status": "Met" | "Partially Met" | "Not Met",
-  "reasoning": "Detailed explanation (max 300 words)",
-  "mapped_content": "Specific tasks/observations with page numbers",
-  "citations": ["Document name, Section, Page X"],
-  "smart_task": "If 'Met', use 'N/A'. Otherwise, ONE practical task",
-  "benchmark_answer": "If 'Met', use 'N/A'. Otherwise, expected behavior",
-  "unmapped_content": "What is missing. Use 'N/A' if fully met"
-}
-
-ALL fields are required. Return ONLY the JSON object.`;
-  } else if (isKE) {
-    outputFormatInstruction = `
-
-IMPORTANT: You MUST return a JSON object with this EXACT structure:
-{
-  "status": "Met" | "Partially Met" | "Not Met",
-  "reasoning": "Detailed explanation (max 300 words)",
-  "mapped_content": "Specific questions/content with page numbers",
-  "citations": ["Document name, Section, Page X"],
-  "smart_question": "If 'Met', use 'N/A'. Otherwise, ONE question",
-  "benchmark_answer": "If 'Met', use 'N/A'. Otherwise, expected answer",
-  "unmapped_content": "What is missing. Use 'N/A' if fully met"
-}
-
-ALL fields are required. Return ONLY the JSON object.`;
-  } else {
-    outputFormatInstruction = `
-
-IMPORTANT: You MUST return a JSON object with this EXACT structure:
-{
-  "status": "Met" | "Partially Met" | "Not Met",
-  "reasoning": "Detailed explanation",
-  "mapped_content": "Specific content with page numbers",
-  "citations": ["Document name, Section, Page X"],
-  "smart_task": "If 'Met', use 'N/A'. Otherwise, ONE task/question",
-  "benchmark_answer": "If 'Met', use 'N/A'. Otherwise, expected answer",
-  "unmapped_content": "What is missing. Use 'N/A' if fully met"
-}
-
-ALL fields are required. Return ONLY the JSON object.`;
-  }
-
-  promptText += outputFormatInstruction;
-
-  // 7. Call AI
-  console.log(`[Revalidate Proxy] Calling Azure for ${validationResult.requirement_number} using ${promptTemplate?.name || 'fallback prompt'}`);
-  const aiResponse = await aiClient.generateValidation({
-    prompt: promptText,
+  const validatorInput: ValidatorInput = {
+    requirement: {
+      id: validationResult.requirement_id || validationResult.id,
+      requirement_number: validationResult.requirement_number,
+      requirement_text: validationResult.requirement_text,
+      requirement_type: requirementType,
+      element_text: validationResult.element_text
+    },
     documentContent: finalContent,
-    systemInstruction,
-    outputSchema: promptTemplate?.output_schema,
-    generationConfig: promptTemplate?.generation_config
-  });
+    documentType: documentType as 'unit' | 'learner_guide',
+    unitCode,
+    unitTitle: detail.validation_summary.unitTitle || '',
+    validationDetailId,
+    supabase
+  };
 
-  // 8. Parse & Store Result - ROBUST MAPPING
-  console.log('[Revalidate Proxy] AI Response Sample:', aiResponse.text.substring(0, 300));
-  let parsedResult: any;
-  try {
-    parsedResult = JSON.parse(aiResponse.text);
-  } catch (e) {
-    console.error('[Revalidate Proxy] JSON Parse Failed:', aiResponse.text);
-    throw new Error('AI returned invalid JSON');
-  }
+  const result = await validateRequirementUnified(validatorInput);
 
-  // Normalize keys to lowercase AND replace spaces with underscores
-  const normalizedResult: any = {};
-  for (const key in parsedResult) {
-    const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
-    normalizedResult[normalizedKey] = parsedResult[key];
-  }
-
-  console.log('[Revalidate Proxy] Normalized keys:', Object.keys(normalizedResult).join(', '));
-  console.log('[Revalidate Proxy] Full normalized result:', JSON.stringify(normalizedResult).substring(0, 500));
-
-  // Handle special case: AI sometimes puts citations array in mapped_content
-  let citations = normalizedResult.citations || normalizedResult.doc_references || normalizedResult.evidence_citations || [];
-  let mappedContent = normalizedResult.mapped_content || normalizedResult.evidence_found || '';
-
-  // If mapped_content is an array, it's probably citations
-  if (Array.isArray(mappedContent) && (!citations || (Array.isArray(citations) && citations.length === 0))) {
-    citations = mappedContent;
-    mappedContent = ''; // Clear mapped_content since we moved it to citations
-  }
-
-  // Extract smart_task/practical_task and benchmark_answer - handle both flat and nested formats
-  // For Performance Evidence/Elements: AI returns practical_workplace_task
-  // For Knowledge Evidence: AI returns smart_task or smart_question
-  // Both map to the same database field: smart_questions
-  let smartQuestions = '';
-  let benchmarkAnswer = '';
-
-  const smartTaskField = normalizedResult.practical_workplace_task ||
-    normalizedResult.practical_task ||
-    normalizedResult.smart_task ||
-    normalizedResult.smart_question ||
-    normalizedResult.suggested_question ||
-    normalizedResult.assessment_question ||
-    normalizedResult.tasks;  // Handle Azure returning 'tasks' instead of smart_questions
-
-  if (smartTaskField) {
-    if (typeof smartTaskField === 'object' && !Array.isArray(smartTaskField)) {
-      // AI returned nested object like { "Task Text": "...", "Benchmark Answer": "..." }
-      smartQuestions = smartTaskField.task_text || smartTaskField['task text'] || smartTaskField.text || smartTaskField.question || '';
-      benchmarkAnswer = smartTaskField.benchmark_answer || smartTaskField['benchmark answer'] || smartTaskField.answer || '';
-    } else if (Array.isArray(smartTaskField)) {
-      // AI returned array of tasks - join them
-      smartQuestions = smartTaskField.map((t: any) => typeof t === 'string' ? t : (t.task_text || t.text || t.question || JSON.stringify(t))).join('\n');
-    } else {
-      smartQuestions = String(smartTaskField);
-    }
-  }
-
-  // If benchmark_answer is separate, use it
-  const benchmarkField = normalizedResult.benchmark_answer || normalizedResult.model_answer || normalizedResult.expected_behavior;
-  if (benchmarkField && !benchmarkAnswer) {
-    if (typeof benchmarkField === 'object' && !Array.isArray(benchmarkField)) {
-      benchmarkAnswer = benchmarkField.text || benchmarkField.answer || JSON.stringify(benchmarkField);
-    } else {
-      benchmarkAnswer = String(benchmarkField);
-    }
-  }
-
-  // Handle mapped_content - extract text if it's an object
-  // For KE, it might be in 'mapped_questions'
-  if (!mappedContent || mappedContent === 'N/A') {
-    mappedContent = normalizedResult.mapped_questions || '';
-  }
-
-  if (typeof mappedContent === 'object' && !Array.isArray(mappedContent)) {
-    const textValue = mappedContent.observation_task_number ||
-      mappedContent['observation/task_number'] ||
-      mappedContent.text ||
-      mappedContent.content ||
-      mappedContent.question;
-    mappedContent = textValue ? String(textValue) : '';
-  }
-
-  // Handle recommendations - extract text if it's an object
-  // For PE/EPC: unmapped_content maps to recommendations
-  // For KE: recommendations or improvement_suggestions
-  let recommendations = normalizedResult.unmapped_content ||
-    normalizedResult.recommendations ||
-    normalizedResult.improvement_suggestions || '';
-  if (typeof recommendations === 'object' && !Array.isArray(recommendations)) {
-    recommendations = recommendations.text || recommendations.content || '';
-  }
-
-  // Reconcile all fields
-  const status = normalizedResult.status || 'Unknown';
-  const reasoning = normalizedResult.reasoning || normalizedResult.explanation || normalizedResult.rationale || '';
-
-  // Phase 2: Generate smart questions for any status that's not "Met"
-  // Phase 1 validation prompts don't generate questions, so we always want Phase 2 to run
-  const normalizedStatus = status.toLowerCase().replace(/[\s_-]/g, '');
-  const shouldRunPhase2 = normalizedStatus !== 'met';
-
-  if (shouldRunPhase2) {
-    console.log(`[Revalidate Proxy] ===== PHASE 2 TRIGGERED =====`);
-    console.log(`[Revalidate Proxy] Status: ${normalizedStatus}`);
-    console.log(`[Revalidate Proxy] RequirementType: ${requirementType}`);
-
-    // Fetch Phase 2 generation prompt
-    const { data: generationPrompt } = await supabase
-      .from('prompts')
-      .select('*')
-      .eq('prompt_type', 'generation')
-      .eq('requirement_type', requirementType)
-      .eq('document_type', documentType)
-      .eq('is_active', true)
-      .eq('is_default', true)
-      .limit(1)
-      .maybeSingle();
-
-    if (generationPrompt) {
-      console.log(`[Revalidate Proxy] Using generation prompt: ${generationPrompt.name}`);
-
-      // Build Phase 2 prompt
-      let phase2Prompt = generationPrompt.prompt_text
-        .replace(/{{requirement_number}}/g, validationResult.requirement_number)
-        .replace(/{{requirement_text}}/g, validationResult.requirement_text)
-        .replace(/{{element_text}}/g, '')
-        .replace(/{{unit_code}}/g, unitCode)
-        .replace(/{{unit_title}}/g, unitTitle)
-        .replace(/{{status}}/g, status)
-        .replace(/{{reasoning}}/g, reasoning)
-        .replace(/{{unmapped_content}}/g, recommendations || 'N/A');
-
-      // Call AI for Phase 2 generation
-      console.log(`[Revalidate Proxy] Calling AI for Phase 2 generation...`);
-      try {
-        const phase2Response = await aiClient.generateValidation({
-          prompt: phase2Prompt,
-          documentContent: finalContent,
-          systemInstruction: generationPrompt.system_instruction,
-          outputSchema: generationPrompt.output_schema,
-          generationConfig: generationPrompt.generation_config
-        });
-
-        console.log(`[Revalidate Proxy] Phase 2 raw response length: ${phase2Response?.text?.length || 0}`);
-
-        if (!phase2Response?.text || phase2Response.text.trim() === '') {
-          console.error(`[Revalidate Proxy] Phase 2 returned empty response`);
-        } else {
-          const phase2Result = JSON.parse(phase2Response.text);
-          const normalizedPhase2: any = {};
-          for (const key in phase2Result) {
-            const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
-            normalizedPhase2[normalizedKey] = phase2Result[key];
-          }
-
-          console.log(`[Revalidate Proxy] Phase 2 parsed keys: ${Object.keys(normalizedPhase2).join(', ')}`);
-
-          // Extract smart questions and benchmark answer from Phase 2
-          const phase2SmartTask = normalizedPhase2.smart_task || normalizedPhase2.smart_question || normalizedPhase2.practical_workplace_task || normalizedPhase2.practical_task || '';
-          if (phase2SmartTask) {
-            smartQuestions = typeof phase2SmartTask === 'string' ? phase2SmartTask : JSON.stringify(phase2SmartTask);
-          } else {
-            console.warn(`[Revalidate Proxy] Phase 2 response missing smart_task/smart_question field`);
-          }
-
-          const phase2Benchmark = normalizedPhase2.benchmark_answer || normalizedPhase2.model_answer || '';
-          if (phase2Benchmark) {
-            benchmarkAnswer = typeof phase2Benchmark === 'string' ? phase2Benchmark : JSON.stringify(phase2Benchmark);
-          }
-
-          console.log(`[Revalidate Proxy] Phase 2 completed - smart_questions length: ${smartQuestions.length}`);
-        }
-      } catch (e) {
-        console.error(`[Revalidate Proxy] Phase 2 failed:`, e);
-      }
-    } else {
-      console.log(`[Revalidate Proxy] No Phase 2 generation prompt found for ${requirementType}/${documentType}`);
-    }
-  } else if (!shouldRunPhase2 && smartQuestions) {
-    console.log(`[Revalidate Proxy] Skipping smart questions for requirement (status: ${status})`);
-    smartQuestions = '';
-    benchmarkAnswer = '';
+  if (!result.success) {
+    throw new Error(`Validation failed: ${result.error}`);
   }
 
   const updateData = {
-    status,
-    reasoning: typeof reasoning === 'string' ? reasoning : '',
-    mapped_content: typeof mappedContent === 'string' ? mappedContent : '',
-    citations: Array.isArray(citations) ? JSON.stringify(citations) : String(citations || '[]'),
-    recommendations: typeof recommendations === 'string' ? recommendations : '',
-    smart_questions: smartQuestions || '',
-    benchmark_answer: benchmarkAnswer || '',
+    status: result.status,
+    reasoning: result.reasoning,
+    mapped_content: result.mappedContent,
+    citations: result.citations,
+    recommendations: result.recommendations,
+    smart_questions: result.smartQuestions,
+    benchmark_answer: result.benchmarkAnswer,
     updated_at: new Date().toISOString()
   };
 
   console.log('[Revalidate Proxy] Update data:', {
-    status,
-    reasoningLength: reasoning.length,
+    status: updateData.status,
+    reasoningLength: updateData.reasoning.length,
     citationsLength: updateData.citations.length,
-    smartQuestionsLength: smartQuestions.length,
-    benchmarkLength: benchmarkAnswer.length
+    smartQuestionsLength: updateData.smart_questions.length,
+    benchmarkLength: updateData.benchmark_answer.length
   });
 
   const { data: updatedResult, error: updateError } = await supabase
