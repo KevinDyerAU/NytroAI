@@ -388,56 +388,50 @@ async function handleAzureRevalidation(supabase: any, validationResult: any, val
   let outputFormatInstruction = '';
 
   if (isPE) {
-    // Performance Evidence needs practical tasks, not questions
     outputFormatInstruction = `
 
-IMPORTANT: You MUST return a JSON object with this EXACT structure (no other format):
+IMPORTANT: You MUST return a JSON object with this EXACT structure:
 {
   "status": "Met" | "Partially Met" | "Not Met",
-  "reasoning": "Detailed explanation of why the requirement is met/not met (max 300 words)",
-  "mapped_content": "Specific tasks, observations, or activities from the documents that address this requirement with page numbers",
-  "citations": ["Document name, Section/Task name, Page X"],
-  "smart_task": "If status is 'Met', use 'N/A'. Otherwise, ONE practical workplace task or observation that assesses this performance requirement",
-  "benchmark_answer": "If status is 'Met', use 'N/A'. Otherwise, expected observable behavior that demonstrates competent performance",
-  "unmapped_content": "What aspects are missing or inadequate. Use 'N/A' if fully met"
+  "reasoning": "Detailed explanation (max 300 words)",
+  "mapped_content": "Specific tasks/observations with page numbers",
+  "citations": ["Document name, Section, Page X"],
+  "smart_task": "If 'Met', use 'N/A'. Otherwise, ONE practical task",
+  "benchmark_answer": "If 'Met', use 'N/A'. Otherwise, expected behavior",
+  "unmapped_content": "What is missing. Use 'N/A' if fully met"
 }
 
-IMPORTANT: Only generate smart_task and benchmark_answer when status is NOT 'Met'. If status is 'Met', set both to 'N/A'.
-ALL fields are required. Return ONLY the JSON object, no other text.`;
+ALL fields are required. Return ONLY the JSON object.`;
   } else if (isKE) {
-    // Knowledge Evidence needs questions
     outputFormatInstruction = `
 
-IMPORTANT: You MUST return a JSON object with this EXACT structure (no other format):
+IMPORTANT: You MUST return a JSON object with this EXACT structure:
 {
   "status": "Met" | "Partially Met" | "Not Met",
-  "reasoning": "Detailed explanation of why the requirement is met/not met (max 300 words)",
-  "mapped_content": "Specific questions or content from the documents that address this knowledge requirement with page numbers",
-  "citations": ["Document name, Section name, Page X"],
-  "smart_question": "If status is 'Met', use 'N/A'. Otherwise, ONE clear, simple question that assesses this knowledge requirement",
-  "benchmark_answer": "If status is 'Met', use 'N/A'. Otherwise, the expected correct answer based on the documents",
-  "unmapped_content": "What knowledge areas are missing or inadequate. Use 'N/A' if fully met"
+  "reasoning": "Detailed explanation (max 300 words)",
+  "mapped_content": "Specific questions/content with page numbers",
+  "citations": ["Document name, Section, Page X"],
+  "smart_question": "If 'Met', use 'N/A'. Otherwise, ONE question",
+  "benchmark_answer": "If 'Met', use 'N/A'. Otherwise, expected answer",
+  "unmapped_content": "What is missing. Use 'N/A' if fully met"
 }
 
-IMPORTANT: Only generate smart_question and benchmark_answer when status is NOT 'Met'. If status is 'Met', set both to 'N/A'.
-ALL fields are required. Return ONLY the JSON object, no other text.`;
+ALL fields are required. Return ONLY the JSON object.`;
   } else {
-    // Generic format for other requirement types
     outputFormatInstruction = `
 
-IMPORTANT: You MUST return a JSON object with this EXACT structure (no other format):
+IMPORTANT: You MUST return a JSON object with this EXACT structure:
 {
   "status": "Met" | "Partially Met" | "Not Met",
-  "reasoning": "Detailed explanation of why the requirement is met/not met",
-  "mapped_content": "Specific content from the documents that addresses this requirement with page numbers",
-  "citations": ["Document name, Section name, Page X"],
-  "smart_task": "If status is 'Met', use 'N/A'. Otherwise, ONE practical task or question that assesses this requirement",
-  "benchmark_answer": "If status is 'Met', use 'N/A'. Otherwise, expected answer or observable behavior",
-  "unmapped_content": "What is missing or inadequate. Use 'N/A' if fully met"
+  "reasoning": "Detailed explanation",
+  "mapped_content": "Specific content with page numbers",
+  "citations": ["Document name, Section, Page X"],
+  "smart_task": "If 'Met', use 'N/A'. Otherwise, ONE task/question",
+  "benchmark_answer": "If 'Met', use 'N/A'. Otherwise, expected answer",
+  "unmapped_content": "What is missing. Use 'N/A' if fully met"
 }
 
-IMPORTANT: Only generate smart_task and benchmark_answer when status is NOT 'Met'. If status is 'Met', set both to 'N/A'.
-ALL fields are required. Return ONLY the JSON object, no other text.`;
+ALL fields are required. Return ONLY the JSON object.`;
   }
 
   promptText += outputFormatInstruction;

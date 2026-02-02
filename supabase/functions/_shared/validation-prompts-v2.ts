@@ -123,7 +123,7 @@ For EACH requirement in the JSON array above, you must:
    - Reference specific questions and their locations
    - Justify your status determination
 
-5. **Generate Smart Questions** (if status is "partial" or "not_met")
+6. **Generate Smart Questions** (if status is "partial" or "not_met")
    - Create 1-3 assessment questions that would address the gaps
    - Questions should directly test the missing knowledge
    - Format: Clear, assessable questions with context
@@ -157,8 +157,8 @@ For EACH requirement in the JSON array above, you must:
       ],
       "smartQuestions": [
         {
-          "question": "Proposed assessment question text",
-          "rationale": "Why this question addresses the gap",
+          "question": "Proposed assessment question text for the student",
+          "rationale": "Model Answer / Brief Benchmark for the assessor",
           "assessmentType": "written" | "practical" | "oral"
         }
       ],
@@ -217,10 +217,11 @@ For EACH requirement in the JSON array above, you must:
    - Reference specific assessment components and their locations
    - Justify your status determination
 
-5. **Generate Smart Questions/Tasks** (if status is "partial" or "not_met")
-   - Create 1-3 assessment tasks that would demonstrate the missing performance
-   - Tasks should be practical and realistic
-   - Format: Clear task descriptions with context
+5. **Generate Smart Tasks** (if status is "partial" or "not_met")
+   - Create 1-3 specific practical tasks for the STUDENT to perform.
+   - The "question" field MUST be a direct command to the student (e.g., "Demonstrate how to...").
+   - The "rationale" field MUST describe the OBSERVABLE BEHAVIORS for the ASSESSOR.
+   - Do NOT ask meta-questions like "How would you assess...".
 
 **Required JSON Response Format**:
 
@@ -251,8 +252,8 @@ For EACH requirement in the JSON array above, you must:
       ],
       "smartQuestions": [
         {
-          "question": "Proposed assessment task description",
-          "rationale": "Why this task addresses the gap",
+          "question": "Direct instruction to student (e.g., 'Demonstrate X')",
+          "rationale": "Observable behaviors (e.g., 'Assessor observes Y')",
           "assessmentType": "practical" | "simulation" | "workplace"
         }
       ],
@@ -402,9 +403,10 @@ For EACH performance criterion in the JSON array above, you must:
    - Reference specific assessment components
    - Justify your status determination
 
-5. **Generate Smart Questions/Tasks** (if status is "partial" or "not_met")
-   - Create 1-3 assessment components that would test the missing criterion
-   - Be specific to the performance being measured
+5. **Generate Smart Tasks** (if status is "partial" or "not_met")
+   - Create 1-3 specific practical tasks for the STUDENT to perform.
+   - The "question" field MUST be a direct command to the student.
+   - The "rationale" field MUST describe the OBSERVABLE BEHAVIORS for the ASSESSOR.
 
 **Required JSON Response Format**:
 
@@ -434,8 +436,8 @@ For EACH performance criterion in the JSON array above, you must:
       ],
       "smartQuestions": [
         {
-          "question": "Proposed assessment component",
-          "rationale": "Why this tests the criterion",
+          "question": "Direct instruction to student (e.g., 'Perform X')",
+          "rationale": "Observable behaviors (e.g., 'Assessor observes Y')",
           "assessmentType": "question" | "task" | "observation"
         }
       ],
