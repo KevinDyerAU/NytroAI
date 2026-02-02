@@ -568,9 +568,10 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
                 }
             }
         } else if (normalizedStatus === 'met') {
-            // Clear smart questions for Met status
-            smartQuestions = '';
-            benchmarkAnswer = '';
+            // Clear smart questions for Met status - use N/A for consistency
+            smartQuestions = 'N/A';
+            benchmarkAnswer = 'N/A';
+            console.log(`[${FUNCTION_NAME}] Met status - setting smart_questions and benchmark_answer to N/A`);
         }
 
         return {
