@@ -280,7 +280,7 @@ export async function validateRequirement(
     const { data: specificPrompt } = await supabase
         .from('prompts')
         .select('*')
-        .eq('prompt_type', 'revalidation')
+        .eq('prompt_type', 'validation')
         .eq('requirement_type', requirementType)
         .eq('document_type', documentType)
         .eq('is_active', true)
@@ -296,7 +296,7 @@ export async function validateRequirement(
         const { data: typePrompt } = await supabase
             .from('prompts')
             .select('*')
-            .eq('prompt_type', 'revalidation')
+            .eq('prompt_type', 'validation')
             .eq('requirement_type', requirementType)
             .eq('is_active', true)
             .eq('is_default', true)
@@ -311,7 +311,7 @@ export async function validateRequirement(
             const { data: generalPrompt } = await supabase
                 .from('prompts')
                 .select('*')
-                .eq('prompt_type', 'revalidation')
+                .eq('prompt_type', 'validation')
                 .is('requirement_type', null)
                 .eq('is_active', true)
                 .eq('is_default', true)
@@ -477,6 +477,14 @@ ALL fields are required. Return ONLY the JSON object, no other text.`;
         // Phase 2: Generate smart questions for any status that's not "Met"
         // Phase 1 validation prompts don't generate questions, so we always want Phase 2 to run
         const normalizedStatus = status.toLowerCase().replace(/[\s_-]/g, '');
+
+        // FORCE N/A for Met requirements - AI may still generate but we override
+        if (normalizedStatus === 'met') {
+            smartQuestions = 'N/A';
+            benchmarkAnswer = 'N/A';
+            console.log(`[${FUNCTION_NAME}] Status is Met - forcing smart_questions and benchmark_answer to N/A`);
+        }
+
         const shouldRunPhase2 = normalizedStatus !== 'met';
 
         if (shouldRunPhase2) {
