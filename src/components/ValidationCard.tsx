@@ -107,10 +107,16 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
   const getCitations = (): any[] => {
     try {
       if (!result.citations) return [];
+      // Try to parse as JSON first
       const parsed = JSON.parse(result.citations);
       return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
-      console.error('[ValidationCard] Error parsing citations:', e);
+      // If not JSON, treat as plain text and convert to citation objects
+      if (result.citations && result.citations.trim()) {
+        // Split by common delimiters and create citation objects
+        const textCitations = result.citations.split(/[,;](?=\s*[A-Za-z])/).map((c: string) => c.trim()).filter(Boolean);
+        return textCitations.map((text: string) => ({ type: 'text', content: text }));
+      }
       return [];
     }
   };
@@ -457,6 +463,9 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                     {getCitations().map((citation: any, idx: number) => (
                       <div key={idx} className="flex items-start gap-2 text-sm bg-[#dbeafe] border border-[#3b82f6] rounded-lg p-3">
                         <FileText className="w-4 h-4 text-[#3b82f6] mt-0.5 flex-shrink-0" />
+                        {citation.type === 'text' && citation.content && (
+                          <div className="text-[#1e293b]">{citation.content}</div>
+                        )}
                         {citation.type === 'file' && citation.displayName && (
                           <div className="text-[#1e293b]">
                             <span className="font-medium">{citation.displayName}</span>
@@ -467,9 +476,9 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
                             )}
                           </div>
                         )}
-                        {!citation.displayName && (
-                          <div className="text-[#64748b]">
-                            {JSON.stringify(citation)}
+                        {citation.type !== 'text' && citation.type !== 'file' && !citation.displayName && (
+                          <div className="text-[#1e293b]">
+                            {typeof citation === 'string' ? citation : JSON.stringify(citation)}
                           </div>
                         )}
                       </div>
