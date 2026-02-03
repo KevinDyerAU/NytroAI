@@ -97,7 +97,8 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         <img
           src={nytroLogo}
           alt="Nytro Logo"
-          className="h-10 w-auto object-contain"
+          className="h-10 w-auto object-contain cursor-pointer"
+          onClick={() => navigate('/dashboard')}
         />
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -128,7 +129,8 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
             <img
               src={nytroLogo}
               alt="Nytro Logo"
-              className="w-[70%] h-auto object-contain mb-2"
+              className="w-[70%] h-auto object-contain mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => navigate('/dashboard')}
             />
             <p className="text-xs text-[#64748b] ml-1">Intelligence That Powers Performance</p>
           </div>

@@ -104,20 +104,28 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
     return isLG;
   };
 
-  const getCitations = (): any[] => {
+  const getCitationsString = (): string => {
     try {
-      if (!result.citations) return [];
+      if (!result.citations) return '';
       // Try to parse as JSON first
       const parsed = JSON.parse(result.citations);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      // If not JSON, treat as plain text and convert to citation objects
-      if (result.citations && result.citations.trim()) {
-        // Split by common delimiters and create citation objects
-        const textCitations = result.citations.split(/[,;](?=\s*[A-Za-z])/).map((c: string) => c.trim()).filter(Boolean);
-        return textCitations.map((text: string) => ({ type: 'text', content: text }));
+      if (Array.isArray(parsed)) {
+        // Join array items into a single string
+        return parsed.map((c: any) => {
+          if (typeof c === 'string') return c;
+          if (c.content) return c.content;
+          if (c.displayName) {
+            let text = c.displayName;
+            if (c.pageNumbers?.length) text += ` (Pages: ${c.pageNumbers.join(', ')})`;
+            return text;
+          }
+          return JSON.stringify(c);
+        }).join(', ');
       }
-      return [];
+      return String(parsed);
+    } catch (e) {
+      // If not JSON, return as-is (already a string)
+      return result.citations?.trim() || '';
     }
   };
 
@@ -126,7 +134,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
   const [editedQuestion, setEditedQuestion] = useState(result.smart_questions || '');
   const [editedAnswer, setEditedAnswer] = useState(result.benchmark_answer || '');
   const [aiContext, setAiContext] = useState('');
-  const [generatedCitations, setGeneratedCitations] = useState<any[]>(getCitations());
+  const [generatedCitations, setGeneratedCitations] = useState<string>(getCitationsString());
   const [isGenerating, setIsGenerating] = useState(false);
   const [showRevalidateDialog, setShowRevalidateDialog] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -257,7 +265,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
         .update({
           smart_questions: editedQuestion,
           benchmark_answer: editedAnswer,
-          citations: generatedCitations.length > 0 ? JSON.stringify(generatedCitations) : result.citations
+          citations: generatedCitations || result.citations
         })
         .eq('id', result.id);
 
@@ -271,8 +279,8 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
       // Update local state
       result.smart_questions = editedQuestion;
       result.benchmark_answer = editedAnswer;
-      if (generatedCitations.length > 0) {
-        result.citations = JSON.stringify(generatedCitations);
+      if (generatedCitations) {
+        result.citations = generatedCitations;
       }
 
       setIsEditing(false);
@@ -294,7 +302,7 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
     setEditedQuestion(result.smart_questions);
     setEditedAnswer(result.benchmark_answer);
     setAiContext('');
-    setGeneratedCitations(getCitations());
+    setGeneratedCitations(getCitationsString());
     setIsEditing(false);
   };
 
@@ -452,37 +460,15 @@ export function ValidationCard({ result, isReportSigned = false, aiCreditsAvaila
               <FileText className="w-4 h-4 text-[#3b82f6]" />
               Evidence
             </h4>
-            <div className="bg-white border border-[#dbeafe] rounded-lg p-4 space-y-3">
-              {getCitations().length > 0 ? (
+            <div className="bg-white border border-[#dbeafe] rounded-lg p-4">
+              {getCitationsString() ? (
                 <div>
                   <p className="text-sm text-[#64748b] mb-2 flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Citations:
                   </p>
-                  <div className="space-y-2">
-                    {getCitations().map((citation: any, idx: number) => (
-                      <div key={idx} className="flex items-start gap-2 text-sm bg-[#dbeafe] border border-[#3b82f6] rounded-lg p-3">
-                        <FileText className="w-4 h-4 text-[#3b82f6] mt-0.5 flex-shrink-0" />
-                        {citation.type === 'text' && citation.content && (
-                          <div className="text-[#1e293b]">{citation.content}</div>
-                        )}
-                        {citation.type === 'file' && citation.displayName && (
-                          <div className="text-[#1e293b]">
-                            <span className="font-medium">{citation.displayName}</span>
-                            {citation.pageNumbers && citation.pageNumbers.length > 0 && (
-                              <span className="text-[#3b82f6] ml-2">
-                                (Pages: {citation.pageNumbers.join(', ')})
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {citation.type !== 'text' && citation.type !== 'file' && !citation.displayName && (
-                          <div className="text-[#1e293b]">
-                            {typeof citation === 'string' ? citation : JSON.stringify(citation)}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                  <div className="text-sm text-[#1e293b] bg-[#dbeafe] border border-[#3b82f6] rounded-lg p-3">
+                    {getCitationsString()}
                   </div>
                 </div>
               ) : (

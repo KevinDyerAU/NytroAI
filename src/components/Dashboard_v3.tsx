@@ -405,7 +405,16 @@ export function Dashboard_v3({
                 });
               };
 
-
+              // Check validation age for expiry status (48 hours)
+              const getExpiryStatus = () => {
+                const createdDate = new Date(validation.created_at);
+                const now = new Date();
+                const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+                if (hoursDiff > 48) return 'expired';
+                if (hoursDiff > 36) return 'expiring'; // Less than 12 hours left
+                return 'active';
+              };
+              const expiryStatus = getExpiryStatus();
 
               // Status indicator component with tooltip
               const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
@@ -443,6 +452,12 @@ export function Dashboard_v3({
                       <div className="flex items-center gap-2">
                         <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
                         <span className="text-xs md:text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
+                        {expiryStatus === 'expired' && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full" title="Validation expired (>48 hours). AI features disabled.">Expired</span>
+                        )}
+                        {expiryStatus === 'expiring' && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full" title="Validation expiring soon (<12 hours remaining)">Expiring</span>
+                        )}
                       </div>
 
                     </div>

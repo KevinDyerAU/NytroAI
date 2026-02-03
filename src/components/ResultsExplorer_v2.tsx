@@ -536,33 +536,6 @@ export function ResultsExplorer_v2({
     };
   }, [selectedValidation?.id, isLoadingValidations, lastLoadedValidationId]);
 
-  // Auto-refresh validation data every 5 seconds if in progress
-  useEffect(() => {
-    let intervalId: any = null;
-
-    const isValidationInProgress = selectedValidation &&
-      selectedValidation.progress >= 0 &&
-      selectedValidation.progress < 100;
-
-    const isRecordProcessing = currentRecord &&
-      (currentRecord.validation_status === 'In Progress' ||
-        currentRecord.validation_status === 'Pending' ||
-        currentRecord.validation_status === 'processing');
-
-    if (isValidationInProgress || isRecordProcessing) {
-      console.log('[ResultsExplorer polling] Starting 5s auto-refresh interval');
-      intervalId = setInterval(() => {
-        handleRefreshStatus();
-      }, 5000);
-    }
-
-    return () => {
-      if (intervalId) {
-        console.log('[ResultsExplorer polling] Clearing refresh interval');
-        clearInterval(intervalId);
-      }
-    };
-  }, [selectedValidation?.id, selectedValidation?.progress, currentRecord?.validation_status, handleRefreshStatus]);
   // Filter results based on search and status
   const filteredResults = validationEvidenceData.filter(result => {
     const matchesSearch = !searchTerm ||
