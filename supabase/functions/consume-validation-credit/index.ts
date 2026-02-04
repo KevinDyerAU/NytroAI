@@ -25,47 +25,36 @@ serve(async (req) => {
     console.log('[consume-validation-credit] Consuming credit for RTO:', rtoCode);
 
     // Call the RPC function to consume a validation credit
-    const { data, error } = await supabase.rpc('add_validation_credits', {
+    const { data, error } = await supabase.rpc('consume_validation_credit', {
       rto_code: rtoCode,
-      amount: -1, // Consume 1 credit
-      reason: reason || 'Validation credit consumed',
     });
 
     if (error) {
-      console.error('[consume-validation-credit] Error:', error);
-      
-      // Check if insufficient credits
-      if (error.message?.includes('Insufficient') || error.message?.includes('not enough')) {
-        return createErrorResponse('Insufficient validation credits', 402);
-      }
-      
+      console.error('[consume-validation-credit] RPC Error:', error);
       throw new Error(`Failed to consume credit: ${error.message}`);
     }
 
-    console.log('[consume-validation-credit] Credit consumed successfully');
+    console.log('[consume-validation-credit] RPC Result:', data);
 
-    // Get updated credits
-    const { data: rto, error: rtoError } = await supabase
-      .from('RTO')
-      .select('id')
-      .eq('code', rtoCode)
-      .single();
-
-    if (!rtoError && rto) {
-      const { data: credits } = await supabase
-        .from('validation_credits')
-        .select('current_credits')
-        .eq('rto_id', rto.id)
-        .single();
-
-      return createSuccessResponse({
-        success: true,
-        remainingCredits: credits?.current_credits || 0,
-      });
+    // RPC returns array with {success, message, new_balance}
+    const result = Array.isArray(data) ? data[0] : data;
+    
+    if (!result?.success) {
+      const message = result?.message || 'Failed to consume credit';
+      console.error('[consume-validation-credit] Failed:', message);
+      
+      if (message.includes('Insufficient')) {
+        return createErrorResponse(message, 402);
+      }
+      
+      return createErrorResponse(message, 400);
     }
+
+    console.log('[consume-validation-credit] Credit consumed successfully, new balance:', result.new_balance);
 
     return createSuccessResponse({
       success: true,
+      remainingCredits: result.new_balance,
     });
   } catch (error) {
     console.error('[consume-validation-credit] Error:', error);

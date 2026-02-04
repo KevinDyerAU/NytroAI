@@ -296,19 +296,34 @@ export async function addValidationCredits(rtoCode: string, amount: number, reas
 }
 
 export async function consumeValidationCredit(rtoCode: string): Promise<{ success: boolean; message: string; newBalance?: number }> {
-  console.log('[consumeValidationCredit] 1. Starting for RTO:', rtoCode);
-  console.log('[consumeValidationCredit] 2. Skipping frontend credit consumption');
-  console.log('[consumeValidationCredit] 3. Credits will be managed by backend Edge Functions');
+  console.log('[consumeValidationCredit] Consuming credit for RTO:', rtoCode);
 
-  // Frontend credit consumption is skipped due to RLS/timeout issues
-  // Credits are properly managed by backend Edge Functions during validation
-  // This is more secure anyway - frontend shouldn't control credit consumption
+  try {
+    const { data, error } = await supabase.functions.invoke('consume-validation-credit', {
+      body: { rtoCode, reason: 'Validation triggered' },
+    });
 
-  return {
-    success: true,
-    message: 'Credit consumption delegated to backend',
-    newBalance: undefined, // Backend will handle actual consumption
-  };
+    if (error) {
+      console.error('[consumeValidationCredit] Error:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to consume credit',
+      };
+    }
+
+    console.log('[consumeValidationCredit] Success:', data);
+    return {
+      success: true,
+      message: 'Credit consumed',
+      newBalance: data?.remainingCredits,
+    };
+  } catch (err) {
+    console.error('[consumeValidationCredit] Exception:', err);
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
 }
 
 export async function getAICredits(rtoCode: string): Promise<{ current: number; total: number }> {

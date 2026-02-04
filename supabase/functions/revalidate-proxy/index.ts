@@ -171,15 +171,17 @@ async function proxyToN8n(supabase: any, body: any, validationResultId: number) 
     throw new Error(`n8n request failed: ${response.status} - ${errorText}`);
   }
 
-  // N8n workflow will handle revalidation asynchronously
-  console.log('[Revalidate Proxy] ✅ N8n 2-phase revalidation triggered successfully');
+  // Wait for n8n response and return it
+  const n8nResponse = await response.json();
+  console.log('[Revalidate Proxy] ✅ N8n 2-phase revalidation completed:', n8nResponse);
 
   return new Response(
     JSON.stringify({
       success: true,
-      message: 'Revalidation triggered via n8n',
+      message: 'Revalidation completed via n8n',
       validation_result_id: validationResultId,
-      validationDetailId: validationDetailId
+      validationDetailId: validationDetailId,
+      n8n_response: n8nResponse
     }),
     {
       status: 200,
