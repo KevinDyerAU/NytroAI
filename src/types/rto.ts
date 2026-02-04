@@ -295,12 +295,15 @@ export async function addValidationCredits(rtoCode: string, amount: number, reas
   }
 }
 
-export async function consumeValidationCredit(rtoCode: string): Promise<{ success: boolean; message: string; newBalance?: number }> {
-  console.log('[consumeValidationCredit] Consuming credit for RTO:', rtoCode);
+export async function consumeValidationCredit(
+  rtoCode?: string,
+  userId?: string
+): Promise<{ success: boolean; message: string; newBalance?: number }> {
+  console.log('[consumeValidationCredit] Consuming credit for:', { rtoCode, userId });
 
   try {
     const { data, error } = await supabase.functions.invoke('consume-validation-credit', {
-      body: { rtoCode, reason: 'Validation triggered' },
+      body: { rtoCode, userId, reason: 'Validation triggered' },
     });
 
     if (error) {

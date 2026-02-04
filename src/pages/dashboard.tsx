@@ -209,6 +209,8 @@ export function DashboardPage() {
             selectedRTOId={selectedRTOId}
             selectedRTOCode={user?.rto_code || null}
             creditsRefreshTrigger={creditsRefreshTrigger}
+            userId={user?.id || null}
+            isAdmin={user?.is_admin || false}
           />
         );
       case 'acquisition':
@@ -235,6 +237,8 @@ export function DashboardPage() {
             onValidationClick={handleValidationClick}
             selectedRTOId={selectedRTOId}
             creditsRefreshTrigger={creditsRefreshTrigger}
+            userId={user?.id || null}
+            isAdmin={user?.is_admin || false}
           />
         );
     }

@@ -17,6 +17,15 @@ interface RTOCredit {
   validationCredits: number;
 }
 
+interface UserCredit {
+  id: string;
+  email: string;
+  full_name: string | null;
+  rto_code: string | null;
+  validationCredits: number;
+  aiCredits: number;
+}
+
 interface PromoCode {
   id: number;
   code: string;
@@ -35,7 +44,7 @@ interface CreditMaintenanceProps {
 
 export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'credits' | 'promos'>('credits');
+  const [activeTab, setActiveTab] = useState<'users' | 'credits' | 'promos'>('users');
   const [rtos, setRTOs] = useState<RTOCredit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,6 +58,20 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
     amount: '',
     reason: '',
   });
+
+  // User credits state
+  const [users, setUsers] = useState<UserCredit[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserCredit | null>(null);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [userFormData, setUserFormData] = useState({
+    operation: 'add' as 'add' | 'remove',
+    type: 'validation' as 'validation' | 'ai',
+    amount: '',
+    reason: '',
+  });
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [userCurrentPage, setUserCurrentPage] = useState(1);
 
   // Promo code state
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
@@ -64,9 +87,58 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
   });
 
   useEffect(() => {
+    loadUsers();
     loadRTOs();
     loadPromoCodes();
   }, []);
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      // Get all users with their credits
+      const { data: userProfiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, email, full_name, rto_code');
+
+      if (profilesError) throw profilesError;
+
+      // Get user credits
+      const { data: userCredits, error: creditsError } = await supabase
+        .from('user_credits')
+        .select('user_id, validation_credits, ai_credits');
+
+      if (creditsError) throw creditsError;
+
+      // Create a map of user credits
+      const creditsMap = new Map<string, { validation: number; ai: number }>();
+      (userCredits || []).forEach((uc: any) => {
+        creditsMap.set(uc.user_id, {
+          validation: uc.validation_credits || 0,
+          ai: uc.ai_credits || 0,
+        });
+      });
+
+      // Combine user profiles with credits
+      const combined: UserCredit[] = (userProfiles || []).map((profile: any) => {
+        const credits = creditsMap.get(profile.id) || { validation: 0, ai: 0 };
+        return {
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          rto_code: profile.rto_code,
+          validationCredits: credits.validation,
+          aiCredits: credits.ai,
+        };
+      });
+
+      setUsers(combined);
+    } catch (error) {
+      toast.error('Failed to load users');
+      console.error(error);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (user?.rto_code && rtos.length > 0) {
@@ -285,6 +357,84 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       setIsLoading(false);
     }
   };
+
+  const handleProcessUserCredits = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedUser) {
+      toast.error('No user selected');
+      return;
+    }
+
+    if (!userFormData.amount || isNaN(Number(userFormData.amount)) || Number(userFormData.amount) <= 0) {
+      toast.error('Please enter a valid credit amount');
+      return;
+    }
+
+    setUsersLoading(true);
+    try {
+      const amount = Number(userFormData.amount);
+      const actionWord = userFormData.operation === 'add' ? 'allocation' : 'removal';
+      const reason = userFormData.reason || `Admin ${actionWord} of ${amount} ${userFormData.type} credits`;
+
+      if (userFormData.operation === 'add') {
+        // Use RPC function to add credits
+        const { data, error } = await supabase.rpc('add_user_credits', {
+          p_user_id: selectedUser.id,
+          p_validation_credits: userFormData.type === 'validation' ? amount : 0,
+          p_ai_credits: userFormData.type === 'ai' ? amount : 0,
+          p_reason: reason,
+        });
+
+        if (error) throw error;
+        toast.success(`Added ${amount} ${userFormData.type} credits to ${selectedUser.email}`);
+      } else {
+        // Direct update to remove credits
+        const field = userFormData.type === 'validation' ? 'validation_credits' : 'ai_credits';
+        const currentBalance = userFormData.type === 'validation' ? selectedUser.validationCredits : selectedUser.aiCredits;
+        
+        if (amount > currentBalance) {
+          toast.error(`Cannot remove more credits than available (${currentBalance})`);
+          return;
+        }
+
+        const { error } = await supabase
+          .from('user_credits')
+          .update({ [field]: currentBalance - amount })
+          .eq('user_id', selectedUser.id);
+
+        if (error) throw error;
+        toast.success(`Removed ${amount} ${userFormData.type} credits from ${selectedUser.email}`);
+      }
+
+      loadUsers();
+      setUserFormData({ operation: 'add', type: 'validation', amount: '', reason: '' });
+      setShowUserForm(false);
+      setSelectedUser(null);
+
+      if (onCreditsModified) {
+        onCreditsModified();
+      }
+    } catch (error) {
+      toast.error(`Error ${userFormData.operation}ing user credits`);
+      console.error(error);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter(u =>
+    u.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    (u.full_name && u.full_name.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
+    (u.rto_code && u.rto_code.toLowerCase().includes(userSearchTerm.toLowerCase()))
+  );
+
+  const paginatedUsers = filteredUsers.slice(
+    (userCurrentPage - 1) * pageSize,
+    userCurrentPage * pageSize
+  );
+
+  const totalUserPages = Math.ceil(filteredUsers.length / pageSize);
 
   const filteredRTOs = rtos.filter(rto =>
     rto.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -509,6 +659,18 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-[#dbeafe]">
         <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'users'
+              ? 'text-[#8b5cf6] border-b-2 border-[#8b5cf6]'
+              : 'text-[#64748b] hover:text-[#1e293b]'
+            }`}
+        >
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            User Credits
+          </div>
+        </button>
+        <button
           onClick={() => setActiveTab('credits')}
           className={`px-4 py-2 font-semibold transition-colors ${activeTab === 'credits'
               ? 'text-[#8b5cf6] border-b-2 border-[#8b5cf6]'
@@ -517,7 +679,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
         >
           <div className="flex items-center gap-2">
             <Cpu className="w-4 h-4" />
-            Credits
+            RTO Credits (Legacy)
           </div>
         </button>
         <button
@@ -533,6 +695,197 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
           </div>
         </button>
       </div>
+
+      {/* Users Tab */}
+      {activeTab === 'users' && (
+        <Card className="border border-[#dbeafe] bg-white p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Search className="w-5 h-5 text-[#64748b]" />
+            <Input
+              placeholder="Search by email, name, or RTO code..."
+              value={userSearchTerm}
+              onChange={(e) => {
+                setUserSearchTerm(e.target.value);
+                setUserCurrentPage(1);
+              }}
+              className="border border-[#dbeafe] bg-white"
+            />
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#dbeafe]">
+                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Email</th>
+                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Name</th>
+                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">RTO</th>
+                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Validation Credits</th>
+                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">AI Credits</th>
+                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersLoading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-[#64748b]">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : paginatedUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-[#64748b]">
+                      No users found
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedUsers.map((u) => (
+                    <tr key={u.id} className="border-b border-[#e2e8f0] hover:bg-[#f8f9fb]">
+                      <td className="py-3 px-4 text-[#1e293b] font-semibold">{u.email}</td>
+                      <td className="py-3 px-4 text-[#64748b]">{u.full_name || '-'}</td>
+                      <td className="py-3 px-4 text-[#64748b]">{u.rto_code || '-'}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-[#3b82f6]" />
+                          <span className="font-semibold text-[#1e293b]">{u.validationCredits}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="w-4 h-4 text-[#8b5cf6]" />
+                          <span className="font-semibold text-[#1e293b]">{u.aiCredits}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setUserFormData({ operation: 'add', type: 'validation', amount: '', reason: '' });
+                              setShowUserForm(true);
+                            }}
+                            className="px-3 py-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold rounded transition-colors text-sm"
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setUserFormData({ operation: 'remove', type: 'validation', amount: '', reason: '' });
+                              setShowUserForm(true);
+                            }}
+                            className="px-3 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-semibold rounded transition-colors text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {totalUserPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-sm text-[#64748b]">
+                Page {userCurrentPage} of {totalUserPages} ({filteredUsers.length} total)
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setUserCurrentPage(Math.max(1, userCurrentPage - 1))}
+                  disabled={userCurrentPage === 1}
+                  className="p-2 rounded border border-[#dbeafe] hover:bg-[#f8f9fb] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-5 h-5 text-[#64748b]" />
+                </button>
+                <button
+                  onClick={() => setUserCurrentPage(Math.min(totalUserPages, userCurrentPage + 1))}
+                  disabled={userCurrentPage === totalUserPages}
+                  className="p-2 rounded border border-[#dbeafe] hover:bg-[#f8f9fb] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-5 h-5 text-[#64748b]" />
+                </button>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* User Credit Form Modal */}
+      {showUserForm && selectedUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="border border-[#dbeafe] bg-white p-6 w-full max-w-md">
+            <h2 className="text-xl font-poppins font-bold text-[#1e293b] mb-4">
+              {userFormData.operation === 'add' ? 'Add' : 'Remove'} Credits - {selectedUser.email}
+            </h2>
+            <form onSubmit={handleProcessUserCredits} className="space-y-4">
+              <div>
+                <Label className="text-[#1e293b] font-semibold mb-2 block">Operation</Label>
+                <select
+                  value={userFormData.operation}
+                  onChange={(e) => setUserFormData({ ...userFormData, operation: e.target.value as 'add' | 'remove' })}
+                  className="w-full border border-[#dbeafe] rounded px-3 py-2 bg-white text-[#1e293b]"
+                >
+                  <option value="add">Add Credits</option>
+                  <option value="remove">Remove Credits</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-[#1e293b] font-semibold mb-2 block">Credit Type</Label>
+                <select
+                  value={userFormData.type}
+                  onChange={(e) => setUserFormData({ ...userFormData, type: e.target.value as 'validation' | 'ai' })}
+                  className="w-full border border-[#dbeafe] rounded px-3 py-2 bg-white text-[#1e293b]"
+                >
+                  <option value="validation">Validation Credits</option>
+                  <option value="ai">AI Credits</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-[#1e293b] font-semibold mb-2 block">Amount</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={userFormData.amount}
+                  onChange={(e) => setUserFormData({ ...userFormData, amount: e.target.value })}
+                  placeholder="Enter number of credits"
+                  className="border border-[#dbeafe] bg-white"
+                />
+              </div>
+              <div>
+                <Label className="text-[#1e293b] font-semibold mb-2 block">Reason (Optional)</Label>
+                <Input
+                  type="text"
+                  value={userFormData.reason}
+                  onChange={(e) => setUserFormData({ ...userFormData, reason: e.target.value })}
+                  placeholder="e.g., Purchase, Promo, Adjustment"
+                  className="border border-[#dbeafe] bg-white"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => { setShowUserForm(false); setSelectedUser(null); }}
+                  className="flex-1 bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#1e293b] font-semibold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={usersLoading || !userFormData.amount}
+                  className={`flex-1 text-white font-semibold ${userFormData.operation === 'add'
+                      ? 'bg-[#3b82f6] hover:bg-[#2563eb]'
+                      : 'bg-[#ef4444] hover:bg-[#dc2626]'
+                    }`}
+                >
+                  {usersLoading ? '...' : (userFormData.operation === 'add' ? 'Add Credits' : 'Remove Credits')}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
 
       {/* Credits Tab */}
       {activeTab === 'credits' && (

@@ -76,6 +76,7 @@ interface ValidationTriggerCardProps {
   unitLink?: string;
   validationType?: 'unit' | 'learner_guide';
   sessionId?: string;
+  userId?: string; // User ID for user-based credit consumption
 }
 
 export function ValidationTriggerCard({
@@ -89,7 +90,8 @@ export function ValidationTriggerCard({
   unitCode,
   unitLink,
   validationType = 'unit',
-  sessionId
+  sessionId,
+  userId
 }: ValidationTriggerCardProps) {
   const { trigger, isTriggering } = useValidationTrigger();
   const [isTriggered, setIsTriggered] = React.useState(false);
@@ -139,6 +141,7 @@ export function ValidationTriggerCard({
             validationType: 'assessment',
             documentType: validationType,
             pineconeNamespace: sessionNamespace,
+            userId, // Pass userId for user-based filtering
           },
         });
 
@@ -169,10 +172,10 @@ export function ValidationTriggerCard({
         console.log('[ValidationTriggerCard] ✅ Validation created:', finalValidationDetailId);
       }
 
-      // Consume validation credit before triggering
-      if (rtoCode) {
-        console.log('[ValidationTriggerCard] Consuming validation credit...');
-        const creditResult = await consumeValidationCredit(rtoCode);
+      // Consume validation credit before triggering (prefer userId over rtoCode)
+      if (userId || rtoCode) {
+        console.log('[ValidationTriggerCard] Consuming validation credit...', { userId, rtoCode });
+        const creditResult = await consumeValidationCredit(rtoCode, userId);
         if (!creditResult.success) {
           toast.error('Failed to consume validation credit', {
             description: creditResult.message,

@@ -10,6 +10,7 @@ interface CreateValidationRecordRequest {
   validationType: string;
   documentType?: string;
   pineconeNamespace: string;
+  userId?: string;
 }
 
 serve(async (req) => {
@@ -26,7 +27,8 @@ serve(async (req) => {
       qualificationCode, 
       validationType,
       documentType, 
-      pineconeNamespace 
+      pineconeNamespace,
+      userId 
     } = requestData;
 
     // Validate request
@@ -78,14 +80,21 @@ serve(async (req) => {
         console.log('[create-validation-record] Found unit in UnitOfCompetency:', unitData.unitCode);
 
         // Create new validation_summary
+        const summaryInsertData: any = {
+          unitCode: unitData.unitCode,
+          unitLink: unitData.Link,
+          rtoCode: rtoCode, // Use rtoCode from request (UnitOfCompetency doesn't have rto_code)
+          reqExtracted: false, // Requirements not yet extracted
+        };
+        
+        // Add user_id if provided
+        if (userId) {
+          summaryInsertData.user_id = userId;
+        }
+        
         const { data: newSummary, error: createSummaryError } = await supabase
           .from('validation_summary')
-          .insert({
-            unitCode: unitData.unitCode,
-            unitLink: unitData.Link,
-            rtoCode: rtoCode, // Use rtoCode from request (UnitOfCompetency doesn't have rto_code)
-            reqExtracted: false, // Requirements not yet extracted
-          })
+          .insert(summaryInsertData)
           .select('id')
           .single();
 
@@ -178,6 +187,11 @@ serve(async (req) => {
     // Only add document_type if provided (supports backward compatibility)
     if (documentType) {
       insertData.document_type = documentType;
+    }
+    
+    // Add user_id if provided
+    if (userId) {
+      insertData.user_id = userId;
     }
     
     const { data: validationDetail, error: detailError } = await supabase

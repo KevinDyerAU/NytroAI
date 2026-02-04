@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Label } from './ui/label';
 import { FileText, CheckCircle, Info, Plus } from 'lucide-react';
 import { ValidationTriggerCard } from './ValidationTriggerButton';
+import { useAuth } from '../hooks/useAuth';
 
 interface DocumentUploadAdapterSimplifiedProps {
   selectedRTOId: string;
@@ -28,6 +29,7 @@ export function DocumentUploadAdapterSimplified({
   onValidationSubmit,
   onCreditsConsumed
 }: DocumentUploadAdapterSimplifiedProps) {
+  const { user } = useAuth();
   const [selectedRTO, setSelectedRTO] = useState<any>(null);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -482,6 +484,7 @@ export function DocumentUploadAdapterSimplified({
                 unitLink={selectedUnit?.Link}
                 validationType={validationType}
                 sessionId={sessionId}
+                userId={user?.id}
                 onCreditsConsumed={onCreditsConsumed}
                 onSuccess={() => {
                   setShowValidationDialog(false);

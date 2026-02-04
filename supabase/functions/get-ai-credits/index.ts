@@ -3,6 +3,7 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
 
 interface GetAICreditsRequest {
+  userId?: string;
   rtoId?: string;
   rtoCode?: string;
 }
@@ -14,13 +15,50 @@ serve(async (req) => {
 
   try {
     const requestData: GetAICreditsRequest = await req.json();
-    const { rtoId, rtoCode } = requestData;
+    const { userId, rtoId, rtoCode } = requestData;
 
-    console.log('[get-ai-credits] Request received:', { rtoId, rtoCode });
+    console.log('[get-ai-credits] Request received:', { userId, rtoId, rtoCode });
 
+    // User-based credits (new flow)
+    if (userId) {
+      console.log('[get-ai-credits] Using user-based credits for userId:', userId);
+      
+      const supabase = createSupabaseClient(req);
+      
+      const { data: userCredits, error: userCreditsError } = await supabase
+        .from('user_credits')
+        .select('validation_credits, ai_credits')
+        .eq('user_id', userId)
+        .single();
+
+      if (userCreditsError) {
+        // If no record exists, user has 0 credits (new users start with 0)
+        if (userCreditsError.code === 'PGRST116') {
+          console.log('[get-ai-credits] No user credits found, returning 0');
+          return createSuccessResponse({
+            current: 0,
+            total: 0,
+            percentage: 0,
+            percentageText: '0 credits available',
+          });
+        }
+        throw new Error(`Failed to fetch user credits: ${userCreditsError.message}`);
+      }
+
+      const current = userCredits?.ai_credits || 0;
+      
+      return createSuccessResponse({
+        current,
+        total: current,
+        percentage: current > 0 ? 100 : 0,
+        percentageText: `${current} credits available`,
+      });
+    }
+
+    // Legacy RTO-based credits (fallback for backward compatibility)
     if (!rtoId && !rtoCode) {
-      console.error('[get-ai-credits] Missing rtoId and rtoCode');
-      return createErrorResponse('Missing required field: rtoId or rtoCode');
+      console.error('[get-ai-credits] Missing userId, rtoId, and rtoCode');
+      return createErrorResponse('Missing required field: userId, rtoId, or rtoCode');
     }
 
     const supabase = createSupabaseClient(req);

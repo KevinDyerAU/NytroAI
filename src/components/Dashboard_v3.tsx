@@ -38,6 +38,8 @@ interface Dashboard_v3Props {
   selectedRTOId: string;
   selectedRTOCode?: string | null;
   creditsRefreshTrigger?: number;
+  userId?: string | null;
+  isAdmin?: boolean;
 }
 
 export function Dashboard_v3({
@@ -45,6 +47,8 @@ export function Dashboard_v3({
   selectedRTOId,
   selectedRTOCode = null,
   creditsRefreshTrigger = 0,
+  userId = null,
+  isAdmin = false,
 }: Dashboard_v3Props) {
   // Load persisted state
   const loadPersistedState = () => {
@@ -80,10 +84,10 @@ export function Dashboard_v3({
     }
   }, [currentPage]);
 
-  // Use hooks for metrics and credits
-  const { metrics } = useDashboardMetrics(selectedRTOId, rtoCode);
-  const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger);
-  const { credits: aiCredits } = useAICredits(selectedRTOId, creditsRefreshTrigger);
+  // Use hooks for metrics and credits (pass userId and isAdmin for user-based filtering)
+  const { metrics } = useDashboardMetrics(selectedRTOId, rtoCode, userId, isAdmin);
+  const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger, userId);
+  const { credits: aiCredits } = useAICredits(selectedRTOId, creditsRefreshTrigger, userId);
 
   // Get RTO code from ID (only if not provided as prop)
   useEffect(() => {
@@ -310,17 +314,17 @@ export function Dashboard_v3({
               <span className={`font-poppins text-lg ${(validationCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
                 {validationCredits?.current || 0}
               </span>
-              <span className="text-[10px] text-[#64748b]">/ {validationCredits?.total || 0}</span>
+              <span className="text-[10px] text-[#64748b] uppercase">available</span>
             </div>
             <Progress
-              value={validationCredits?.total ? (validationCredits.current / validationCredits.total) * 100 : 0}
+              value={validationCredits?.current > 0 ? 100 : 0}
               className="h-1"
             />
           </div>
 
           <div className="flex justify-between items-center text-[8px] text-[#94a3b8]">
             <span>
-              {validationCredits?.percentageText || '0% available'}
+              {validationCredits?.percentageText || '0 credits available'}
             </span>
             <span className="uppercase">Credits</span>
           </div>
@@ -340,17 +344,17 @@ export function Dashboard_v3({
               <span className={`font-poppins text-lg ${(aiCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
                 {aiCredits?.current || 0}
               </span>
-              <span className="text-[10px] text-[#64748b]">/ {aiCredits?.total || 0}</span>
+              <span className="text-[10px] text-[#64748b] uppercase">available</span>
             </div>
             <Progress
-              value={aiCredits?.total ? (aiCredits.current / aiCredits.total) * 100 : 0}
+              value={aiCredits?.current > 0 ? 100 : 0}
               className="h-1"
             />
           </div>
 
           <div className="flex justify-between items-center text-[8px] text-[#94a3b8]">
             <span>
-              {aiCredits?.percentageText || '0% available'}
+              {aiCredits?.percentageText || '0 credits available'}
             </span>
             <span className="uppercase">Credits</span>
           </div>

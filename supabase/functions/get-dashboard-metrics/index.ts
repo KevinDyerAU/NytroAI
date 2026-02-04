@@ -44,16 +44,20 @@ serve(async (req) => {
       }
     );
 
-    const { rtoId, rtoCode: passedRtoCode } = await req.json();
-    console.log('║ Parameters:', { rtoId, passedRtoCode });
+    const { rtoId, rtoCode: passedRtoCode, userId, isAdmin } = await req.json();
+    console.log('║ Parameters:', { rtoId, passedRtoCode, userId, isAdmin });
 
-    if (!rtoId && !passedRtoCode) {
-      console.log('║ ERROR: Missing required parameters');
-      console.log('╚════════════════════════════════════════════════════════════════════');
-      throw new Error('Either rtoId or rtoCode is required');
+    // User-based filtering (new flow)
+    let filterByUserId: string | null = null;
+    if (userId && !isAdmin) {
+      // Non-admin users only see their own validations
+      filterByUserId = userId;
+      console.log('║ Filtering by user_id:', filterByUserId);
+    } else if (isAdmin) {
+      console.log('║ Admin user - showing all validations');
     }
 
-    // Look up the actual RTO code from the RTO table using rtoId
+    // Look up the actual RTO code from the RTO table using rtoId (for legacy compatibility)
     let rtoCode = passedRtoCode;
     if (rtoId) {
       const { data: rtoData, error: rtoLookupError } = await supabaseClient
@@ -77,12 +81,14 @@ serve(async (req) => {
 
     // 1. TOTAL VALIDATIONS
     console.log('║ Step 1: Fetching total validations...');
-    // Count all validations for this RTO
+    // Count all validations (filtered by user_id if not admin)
     let validationQuery = supabaseClient
       .from('validation_summary')
       .select('id', { count: 'exact' });
 
-    if (rtoCode) {
+    if (filterByUserId) {
+      validationQuery = validationQuery.eq('user_id', filterByUserId);
+    } else if (rtoCode) {
       validationQuery = validationQuery.eq('rtoCode', rtoCode);
     }
 
@@ -99,7 +105,9 @@ serve(async (req) => {
       .select('id', { count: 'exact' })
       .gte('created_at', startOfMonth.toISOString());
 
-    if (rtoCode) {
+    if (filterByUserId) {
+      thisMonthQuery = thisMonthQuery.eq('user_id', filterByUserId);
+    } else if (rtoCode) {
       thisMonthQuery = thisMonthQuery.eq('rtoCode', rtoCode);
     }
 
@@ -117,7 +125,9 @@ serve(async (req) => {
       .gte('created_at', startOfLastMonth.toISOString())
       .lte('created_at', endOfLastMonth.toISOString());
 
-    if (rtoCode) {
+    if (filterByUserId) {
+      lastMonthQuery = lastMonthQuery.eq('user_id', filterByUserId);
+    } else if (rtoCode) {
       lastMonthQuery = lastMonthQuery.eq('rtoCode', rtoCode);
     }
 
@@ -137,9 +147,22 @@ serve(async (req) => {
     console.log('║ Step 2: Calculating success rate...');
     // Calculate percentage of "met" requirements from validation_results table
     
-    // Get validation IDs for this RTO by joining with validation_summary
+    // Get validation IDs by joining with validation_summary (filter by user_id or rtoCode)
     let validationIdsForSuccess: number[] = [];
-    if (rtoCode) {
+    if (filterByUserId) {
+      const { data: validationIds, error: validationIdsError } = await supabaseClient
+        .from('validation_detail')
+        .select('id')
+        .eq('user_id', filterByUserId);
+
+      if (validationIdsError) {
+        console.error('Error fetching validation IDs for success rate:', validationIdsError);
+        throw validationIdsError;
+      }
+
+      validationIdsForSuccess = (validationIds || []).map((v: any) => v.id);
+      console.log(`║ Found ${validationIdsForSuccess.length} validation_detail IDs for user ${filterByUserId}`);
+    } else if (rtoCode) {
       const { data: validationIds, error: validationIdsError } = await supabaseClient
         .from('validation_detail')
         .select('id, validation_summary!inner(rtoCode)')
@@ -159,10 +182,10 @@ serve(async (req) => {
       .from('validation_results')
       .select('status');
 
-    if (rtoCode && validationIdsForSuccess.length > 0) {
+    if (validationIdsForSuccess.length > 0) {
       allResultsQuery = allResultsQuery.in('validation_detail_id', validationIdsForSuccess);
-    } else if (rtoCode && validationIdsForSuccess.length === 0) {
-      // No validations for this RTO
+    } else if (filterByUserId || rtoCode) {
+      // No validations for this user/RTO
       allResultsQuery = allResultsQuery.eq('id', -1);
     }
 
@@ -232,10 +255,16 @@ serve(async (req) => {
     // Count total validated units and currently processing (non-expired, within 48 hours)
     const expiryThreshold = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
     
-    // Query validation_detail - get all records first
-    const { data: activeUnitsData, error: activeUnitsError } = await supabaseClient
+    // Query validation_detail - filter by user_id if not admin
+    let activeUnitsQuery = supabaseClient
       .from('validation_detail')
-      .select('id, created_at, validation_status, summary_id');
+      .select('id, created_at, validation_status, summary_id, user_id');
+
+    if (filterByUserId) {
+      activeUnitsQuery = activeUnitsQuery.eq('user_id', filterByUserId);
+    }
+
+    const { data: activeUnitsData, error: activeUnitsError } = await activeUnitsQuery;
 
     if (activeUnitsError) {
       console.error('Error fetching active units:', activeUnitsError);
@@ -244,53 +273,32 @@ serve(async (req) => {
 
     console.log(`║ Found ${activeUnitsData?.length || 0} total validation_detail records`);
 
-    // Check for null summary_ids
-    const nullSummaryIds = (activeUnitsData || []).filter((v: any) => !v.summary_id);
-    console.log(`║ Records with null summary_id: ${nullSummaryIds.length}`);
+    // Filter by RTO code if needed (for non-user filtered queries)
+    let filteredUnits = activeUnitsData || [];
+    
+    if (!filterByUserId && rtoCode) {
+      // Get validation_summary records to map summary_id to rtoCode
+      const { data: summaryData, error: summaryError } = await supabaseClient
+        .from('validation_summary')
+        .select('id, rtoCode');
 
-    // Get validation_summary records to map summary_id to rtoCode
-    const { data: summaryData, error: summaryError } = await supabaseClient
-      .from('validation_summary')
-      .select('id, rtoCode');
+      if (summaryError) {
+        console.error('Error fetching validation_summary:', summaryError);
+        throw summaryError;
+      }
 
-    if (summaryError) {
-      console.error('Error fetching validation_summary:', summaryError);
-      throw summaryError;
+      // Create a map of summary_id to rtoCode
+      const summaryMap = new Map<number, string>();
+      (summaryData || []).forEach((s: any) => {
+        summaryMap.set(s.id, String(s.rtoCode));
+      });
+
+      // Filter by RTO code
+      filteredUnits = filteredUnits.filter((v: any) => {
+        const summaryRtoCode = summaryMap.get(v.summary_id);
+        return summaryRtoCode === String(rtoCode);
+      });
     }
-
-    console.log(`║ Found ${summaryData?.length || 0} validation_summary records`);
-
-    // Create a map of summary_id to rtoCode (convert to string for comparison)
-    const summaryMap = new Map<number, string>();
-    (summaryData || []).forEach((s: any) => {
-      summaryMap.set(s.id, String(s.rtoCode));
-    });
-
-    // Count how many validation_detail records have matching rtoCode
-    const matchingRtoCode = (activeUnitsData || []).filter((v: any) => {
-      const summaryRtoCode = summaryMap.get(v.summary_id);
-      return summaryRtoCode === String(rtoCode);
-    });
-
-    // Count how many have a different rtoCode
-    const differentRtoCode = (activeUnitsData || []).filter((v: any) => {
-      const summaryRtoCode = summaryMap.get(v.summary_id);
-      return summaryRtoCode && summaryRtoCode !== String(rtoCode);
-    });
-
-    // Count how many have no mapping
-    const noMapping = (activeUnitsData || []).filter((v: any) => {
-      return v.summary_id && !summaryMap.has(v.summary_id);
-    });
-
-    console.log(`║ Matching rtoCode ${rtoCode}: ${matchingRtoCode.length}`);
-    console.log(`║ Different rtoCode: ${differentRtoCode.length}`);
-    console.log(`║ No summary mapping: ${noMapping.length}`);
-
-    // Filter by RTO code if provided (compare as strings)
-    const filteredUnits = rtoCode 
-      ? matchingRtoCode
-      : (activeUnitsData || []);
 
     console.log(`║ After RTO filter: ${filteredUnits.length} records for rtoCode ${rtoCode}`);
 
@@ -311,23 +319,6 @@ serve(async (req) => {
     console.log('║ Step 4: Counting AI queries from credit transactions...');
     // Count AI credit consumptions (chat, smart questions, revalidations, validations)
     // from ai_credit_transactions table where amount < 0 (negative = consumption)
-    
-    // Get RTO ID from code
-    let aiQueriesRtoId: number | null = null;
-    if (rtoCode) {
-      const { data: rtoData, error: rtoError } = await supabaseClient
-        .from('RTO')
-        .select('id')
-        .eq('code', rtoCode)
-        .maybeSingle();
-
-      if (rtoError) {
-        console.error('Error fetching RTO ID for AI queries:', rtoError);
-        // Don't throw - just continue without RTO filtering for AI queries
-      }
-
-      aiQueriesRtoId = rtoData?.id || null;
-    }
 
     // Count all-time AI queries (credit consumptions)
     let allTimeQuery = supabaseClient
@@ -335,10 +326,19 @@ serve(async (req) => {
       .select('id', { count: 'exact' })
       .lt('amount', 0); // Only count consumptions (negative amounts)
     
-    if (rtoCode && aiQueriesRtoId) {
-      allTimeQuery = allTimeQuery.eq('rto_id', aiQueriesRtoId);
-    } else if (rtoCode && !aiQueriesRtoId) {
-      allTimeQuery = allTimeQuery.eq('id', -1); // No queries for this RTO
+    if (filterByUserId) {
+      allTimeQuery = allTimeQuery.eq('user_id', filterByUserId);
+    } else if (rtoCode) {
+      // Legacy: Get RTO ID from code
+      const { data: rtoData } = await supabaseClient
+        .from('RTO')
+        .select('id')
+        .eq('code', rtoCode)
+        .maybeSingle();
+      
+      if (rtoData?.id) {
+        allTimeQuery = allTimeQuery.eq('rto_id', rtoData.id);
+      }
     }
 
     const { count: totalQueriesAllTime, error: allTimeError } = await allTimeQuery;
@@ -357,10 +357,18 @@ serve(async (req) => {
       .lt('amount', 0) // Only count consumptions
       .gte('created_at', startOfMonth.toISOString());
     
-    if (rtoCode && aiQueriesRtoId) {
-      thisMonthAIQuery = thisMonthAIQuery.eq('rto_id', aiQueriesRtoId);
-    } else if (rtoCode && !aiQueriesRtoId) {
-      thisMonthAIQuery = thisMonthAIQuery.eq('id', -1); // No queries for this RTO
+    if (filterByUserId) {
+      thisMonthAIQuery = thisMonthAIQuery.eq('user_id', filterByUserId);
+    } else if (rtoCode) {
+      const { data: rtoData } = await supabaseClient
+        .from('RTO')
+        .select('id')
+        .eq('code', rtoCode)
+        .maybeSingle();
+      
+      if (rtoData?.id) {
+        thisMonthAIQuery = thisMonthAIQuery.eq('rto_id', rtoData.id);
+      }
     }
 
     const { count: totalQueriesThisMonth, error: thisMonthAIError } = await thisMonthAIQuery;
