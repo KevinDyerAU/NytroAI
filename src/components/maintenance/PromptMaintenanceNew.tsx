@@ -484,8 +484,8 @@ export function PromptMaintenanceNew() {
           </p>
         </div>
         <Button
-          onClick={handleCreate}
-          className="bg-[#10b981] hover:bg-[#059669] text-white font-semibold"
+          disabled
+          className="bg-[#10b981] hover:bg-[#059669] text-white font-semibold opacity-50 cursor-not-allowed"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Prompt
@@ -712,32 +712,33 @@ export function PromptMaintenanceNew() {
                     <td className="p-3 text-sm text-[#64748b]">{prompt.version}</td>
                     <td className="p-3 text-sm text-[#64748b]">{formatDateTime(prompt.updated_at || prompt.created_at)}</td>
                     <td className="p-3 text-center">
-                      <button
-                        onClick={() => handleToggleActive(prompt)}
-                        className="hover:opacity-70"
-                      >
+                      <div className="inline-block">
                         {prompt.is_active ? (
                           <CheckCircle className="w-5 h-5 text-green-600" />
                         ) : (
                           <XCircle className="w-5 h-5 text-gray-400" />
                         )}
-                      </button>
+                      </div>
                     </td>
                     <td className="p-3 text-center">
-                      <button
-                        onClick={() => handleToggleDefault(prompt)}
-                        className="hover:opacity-70"
-                      >
+                      <div className="inline-block">
                         {prompt.is_default ? (
                           <CheckCircle className="w-5 h-5 text-blue-600" />
                         ) : (
                           <XCircle className="w-5 h-5 text-gray-400" />
                         )}
-                      </button>
+                      </div>
                     </td>
                     <td className="p-3">
-                      <div className="flex items-center justify-end gap-2 text-sm text-gray-500">
-                        View only
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          className="opacity-50 cursor-not-allowed"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
