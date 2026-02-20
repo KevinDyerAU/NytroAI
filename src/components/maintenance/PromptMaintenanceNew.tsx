@@ -736,14 +736,8 @@ export function PromptMaintenanceNew() {
                       </button>
                     </td>
                     <td className="p-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(prompt)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                      <div className="flex items-center justify-end gap-2 text-sm text-gray-500">
+                        View only
                       </div>
                     </td>
                   </tr>
