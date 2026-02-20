@@ -424,7 +424,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
   };
 
   const filteredUsers = users.filter(u =>
-    u.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
     (u.full_name && u.full_name.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
     (u.rto_code && u.rto_code.toLowerCase().includes(userSearchTerm.toLowerCase()))
   );
@@ -437,8 +437,8 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
   const totalUserPages = Math.ceil(filteredUsers.length / pageSize);
 
   const filteredRTOs = rtos.filter(rto =>
-    rto.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    rto.name.toLowerCase().includes(searchTerm.toLowerCase())
+    rto.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    rto.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const paginatedRTOs = filteredRTOs.slice(
