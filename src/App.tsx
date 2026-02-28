@@ -8,6 +8,8 @@ import { ForgotPasswordPage } from './pages/forgot-password';
 import { ResetPasswordPage } from './pages/reset-password';
 import { DashboardPage } from './pages/dashboard';
 import { LandingPage } from './pages/LandingPage';
+import { ValidationLandingPage } from './pages/ValidationLandingPage';
+import { ValidationSuccessPage } from './pages/ValidationSuccessPage';
 import './styles/index.css';
 
 export default function App() {
@@ -34,6 +36,10 @@ export default function App() {
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
           } 
         />
+
+        {/* $99 Validation Landing Page - public, always accessible */}
+        <Route path="/validation" element={<ValidationLandingPage />} />
+        <Route path="/validation/success" element={<ValidationSuccessPage />} />
 
         {/* Public Auth Routes - redirect to landing page */}
         <Route path="/login" element={<Navigate to="/" replace />} />
