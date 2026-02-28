@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { HelmetProvider } from 'react-helmet-async';
 import { useAuth } from './hooks/useAuth';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/login';
@@ -28,46 +27,44 @@ export default function App() {
   }
 
   return (
-    <HelmetProvider>
-      <Router>
-        <Routes>
-          {/* Landing Page - only show if not authenticated */}
-          <Route 
-            path="/" 
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
-            } 
-          />
+    <Router>
+      <Routes>
+        {/* Landing Page - only show if not authenticated */}
+        <Route 
+          path="/" 
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
+          } 
+        />
 
-          {/* $99 Validation Landing Page - public, always accessible */}
-          <Route path="/validation" element={<ValidationLandingPage />} />
-          <Route path="/validation/success" element={<ValidationSuccessPage />} />
+        {/* $99 Validation Landing Page - public, always accessible */}
+        <Route path="/validation" element={<ValidationLandingPage />} />
+        <Route path="/validation/success" element={<ValidationSuccessPage />} />
 
-          {/* Public Auth Routes - redirect to landing page */}
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* Public Auth Routes - redirect to landing page */}
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Protected Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
+        {/* Protected Routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
 
-          {/* Catch all - redirect to landing or dashboard */}
-          <Route 
-            path="*" 
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
-            } 
-          />
-        </Routes>
-      </Router>
-    </HelmetProvider>
+        {/* Catch all - redirect to landing or dashboard */}
+        <Route 
+          path="*" 
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
+          } 
+        />
+      </Routes>
+    </Router>
   );
 }

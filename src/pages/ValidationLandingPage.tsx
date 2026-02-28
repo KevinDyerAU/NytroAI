@@ -6,7 +6,7 @@
  * SEO-optimized landing page for Nytro's independent resource validation service.
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { useDocumentHead } from '../hooks/useDocumentHead';
 import { supabase } from '../lib/supabase';
 // Stripe checkout is handled via edge function URL redirect
 import nytroLogo from '../assets/nytro-logo.svg';
@@ -276,42 +276,33 @@ export const ValidationLandingPage: React.FC = () => {
     })),
   };
 
+  // ─── SEO Document Head ──────────────────────────────────────────────────
+  useDocumentHead({
+    title: '$99 Independent Validation | Nytro — RTO Resource Compliance',
+    meta: [
+      { name: 'description', content: 'Get independent validation of your RTO training resources from $99. Nytro maps assessment evidence against training package requirements in real time. Australian data storage. Fast turnaround.' },
+      { name: 'keywords', content: 'RTO validation, independent validation, training resource compliance, assessment tool validation, RTO audit preparation, Australian RTO, Nytro, compliance visibility, unit of competency' },
+      { property: 'og:title', content: '$99 Independent Validation | Nytro' },
+      { property: 'og:description', content: 'Independent resource validation for Australian RTOs from $99. Clear visibility before audit pressure builds.' },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:url', content: 'https://nytro.com.au/validation' },
+      { property: 'og:site_name', content: 'Nytro' },
+      { property: 'og:locale', content: 'en_AU' },
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:title', content: '$99 Independent Validation | Nytro' },
+      { name: 'twitter:description', content: 'Independent resource validation for Australian RTOs from $99.' },
+      { name: 'robots', content: 'index, follow' },
+      { name: 'geo.region', content: 'AU-QLD' },
+      { name: 'geo.placename', content: 'Robina' },
+    ],
+    links: [
+      { rel: 'canonical', href: 'https://nytro.com.au/validation' },
+    ],
+    structuredData: [structuredData, faqStructuredData],
+  });
+
   return (
     <>
-      {/* ─── SEO Meta Tags ─────────────────────────────────────────────── */}
-      <Helmet>
-        <title>$99 Independent Validation | Nytro — RTO Resource Compliance</title>
-        <meta
-          name="description"
-          content="Get independent validation of your RTO training resources from $99. Nytro maps assessment evidence against training package requirements in real time. Australian data storage. Fast turnaround."
-        />
-        <meta
-          name="keywords"
-          content="RTO validation, independent validation, training resource compliance, assessment tool validation, RTO audit preparation, Australian RTO, Nytro, compliance visibility, unit of competency"
-        />
-        <link rel="canonical" href="https://nytro.com.au/validation" />
-        <meta property="og:title" content="$99 Independent Validation | Nytro" />
-        <meta
-          property="og:description"
-          content="Independent resource validation for Australian RTOs from $99. Clear visibility before audit pressure builds."
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://nytro.com.au/validation" />
-        <meta property="og:site_name" content="Nytro" />
-        <meta property="og:locale" content="en_AU" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="$99 Independent Validation | Nytro" />
-        <meta
-          name="twitter:description"
-          content="Independent resource validation for Australian RTOs from $99."
-        />
-        <meta name="robots" content="index, follow" />
-        <meta name="geo.region" content="AU-QLD" />
-        <meta name="geo.placename" content="Robina" />
-        <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
-        <script type="application/ld+json">{JSON.stringify(faqStructuredData)}</script>
-      </Helmet>
-
       <div className="min-h-screen bg-white text-slate-900 font-body selection:bg-teal-200 selection:text-teal-900">
         {/* ─── Navigation ──────────────────────────────────────────────── */}
         <nav className="fixed top-0 left-0 right-0 z-50 bg-nytro-dark/95 backdrop-blur-md border-b border-slate-800">
