@@ -103,7 +103,7 @@ export const ValidationSuccessPage: React.FC = () => {
 
         <div className="space-y-4">
           <a
-            href="/validation"
+            href="/"
             className="inline-flex items-center gap-2 text-teal-400 hover:text-teal-300 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />

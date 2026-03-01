@@ -193,7 +193,7 @@ export const ValidationLandingPage: React.FC = () => {
           quantity: 1,
           unitPrice: 99,
           successUrl: `${window.location.origin}/validation/success?lead_id=${leadData.id}`,
-          cancelUrl: `${window.location.origin}/validation?cancelled=true`,
+          cancelUrl: `${window.location.origin}/?cancelled=true`,
           userId: '',
           rtoId: '',
         }),
@@ -285,7 +285,7 @@ export const ValidationLandingPage: React.FC = () => {
       { property: 'og:title', content: '$99 Independent Validation | Nytro' },
       { property: 'og:description', content: 'Independent resource validation for Australian RTOs from $99. Clear visibility before audit pressure builds.' },
       { property: 'og:type', content: 'website' },
-      { property: 'og:url', content: 'https://nytro.com.au/validation' },
+      { property: 'og:url', content: 'https://nytro.com.au/' },
       { property: 'og:site_name', content: 'Nytro' },
       { property: 'og:locale', content: 'en_AU' },
       { name: 'twitter:card', content: 'summary_large_image' },
@@ -296,7 +296,7 @@ export const ValidationLandingPage: React.FC = () => {
       { name: 'geo.placename', content: 'Robina' },
     ],
     links: [
-      { rel: 'canonical', href: 'https://nytro.com.au/validation' },
+      { rel: 'canonical', href: 'https://nytro.com.au/' },
     ],
     structuredData: [structuredData, faqStructuredData],
   });

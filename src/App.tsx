@@ -29,17 +29,27 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* Landing Page - only show if not authenticated */}
+        {/* $99 Validation Landing Page - default landing page */}
         <Route 
           path="/" 
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <ValidationLandingPage />
+          } 
+        />
+
+        {/* Validation success page */}
+        <Route path="/validation/success" element={<ValidationSuccessPage />} />
+
+        {/* Legacy redirect: /validation now redirects to root */}
+        <Route path="/validation" element={<Navigate to="/" replace />} />
+
+        {/* Original landing page preserved at /original */}
+        <Route 
+          path="/original" 
           element={
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
           } 
         />
-
-        {/* $99 Validation Landing Page - public, always accessible */}
-        <Route path="/validation" element={<ValidationLandingPage />} />
-        <Route path="/validation/success" element={<ValidationSuccessPage />} />
 
         {/* Public Auth Routes - redirect to landing page */}
         <Route path="/login" element={<Navigate to="/" replace />} />
