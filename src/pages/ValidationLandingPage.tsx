@@ -83,8 +83,9 @@ const faqData: FAQItem[] = [
   },
 ];
 
-// ─── Supabase URL for edge functions ─────────────────────────────────────────
+// ─── Supabase config for edge functions ────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export const ValidationLandingPage: React.FC = () => {
@@ -183,23 +184,54 @@ export const ValidationLandingPage: React.FC = () => {
       }
 
       // 3. Create Stripe checkout session
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productType: 'unit',
-          quantity: 1,
-          unitPrice: 99,
-          successUrl: `${window.location.origin}/validation/success?lead_id=${leadData.id}`,
-          cancelUrl: `${window.location.origin}/?cancelled=true`,
-          userId: '',
-          rtoId: '',
-        }),
-      });
+      if (!SUPABASE_URL) {
+        throw new Error('Payment service is not configured. Please contact support@nytro.com.au.');
+      }
 
-      const checkoutData = await response.json();
+      let response: Response;
+      try {
+        response = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            productType: 'unit',
+            quantity: 1,
+            unitPrice: 99,
+            successUrl: `${window.location.origin}/validation/success?lead_id=${leadData.id}`,
+            cancelUrl: `${window.location.origin}/?cancelled=true`,
+            userId: '',
+            rtoId: '',
+          }),
+        });
+      } catch (fetchError) {
+        console.error('Stripe checkout fetch error:', fetchError);
+        throw new Error(
+          'Unable to connect to the payment service. Your details have been saved — please try again in a moment or contact support@nytro.com.au.'
+        );
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('Stripe checkout response error:', response.status, errorText);
+        if (response.status === 500) {
+          throw new Error(
+            'The payment service is temporarily unavailable. Your details have been saved — please try again shortly or contact support@nytro.com.au.'
+          );
+        }
+        throw new Error(
+          'There was a problem creating your checkout session. Please try again or contact support@nytro.com.au.'
+        );
+      }
+
+      let checkoutData;
+      try {
+        checkoutData = await response.json();
+      } catch {
+        throw new Error('Received an unexpected response from the payment service. Please try again.');
+      }
 
       if (checkoutData.error) {
         throw new Error(checkoutData.error);
@@ -222,9 +254,24 @@ export const ValidationLandingPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Submission error:', error);
-      setSubmitError(
-        error instanceof Error ? error.message : 'Something went wrong. Please try again.'
-      );
+      const errorMessage = error instanceof Error ? error.message : '';
+      
+      // Provide contextual error messages
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        setSubmitError(
+          'Network error — please check your internet connection and try again.'
+        );
+      } else if (errorMessage.includes('duplicate key') || errorMessage.includes('unique')) {
+        setSubmitError(
+          'It looks like you have already submitted a validation request with this email. Please contact support@nytro.com.au if you need assistance.'
+        );
+      } else if (errorMessage) {
+        setSubmitError(errorMessage);
+      } else {
+        setSubmitError(
+          'Something went wrong. Please try again or contact support@nytro.com.au for assistance.'
+        );
+      }
       setIsSubmitting(false);
     }
   };
