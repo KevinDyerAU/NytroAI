@@ -162,7 +162,8 @@ export const ValidationLandingPage: React.FC = () => {
         }
       }
 
-      // 2. Insert lead into Supabase
+      // 2. Insert lead into Supabase (include user_id if authenticated)
+      const { data: { session } } = await supabase.auth.getSession();
       const { data: leadData, error: leadError } = await supabase
         .from('validation_leads')
         .insert({
@@ -175,6 +176,7 @@ export const ValidationLandingPage: React.FC = () => {
           file_name: fileName,
           subscribe_newsletter: formData.subscribeNewsletter,
           status: 'pending',
+          user_id: session?.user?.id || null,
         })
         .select()
         .single();
