@@ -9,9 +9,6 @@ import { Settings } from '../components/Settings';
 import { MaintenanceHub } from '../components/maintenance/MaintenanceHub';
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
 import { PromptMaintenanceNew as PromptMaintenance } from '../components/maintenance/PromptMaintenanceNew';
-import { SubscriptionsAdmin } from '../components/maintenance/SubscriptionsAdmin';
-import { TechRoadmap } from '../components/maintenance/TechRoadmap';
-import { NytroStrategyRoadmap } from '../components/maintenance/NytroStrategyRoadmap';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
@@ -164,27 +161,6 @@ export function DashboardPage() {
             <PromptMaintenance />
           </div>
         );
-      case 'subscriptions':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <SubscriptionsAdmin />
-          </div>
-        );
-      case 'roadmap':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <TechRoadmap />
-          </div>
-        );
-      case 'strategy':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <NytroStrategyRoadmap />
-          </div>
-        );
       default:
         return <MaintenanceHub onSelectModule={(moduleId) => setMaintenanceModule(moduleId)} />;
     }
@@ -209,6 +185,8 @@ export function DashboardPage() {
             selectedRTOId={selectedRTOId}
             selectedRTOCode={user?.rto_code || null}
             creditsRefreshTrigger={creditsRefreshTrigger}
+            userId={user?.id || null}
+            isAdmin={user?.is_admin || false}
           />
         );
       case 'acquisition':
@@ -235,6 +213,8 @@ export function DashboardPage() {
             onValidationClick={handleValidationClick}
             selectedRTOId={selectedRTOId}
             creditsRefreshTrigger={creditsRefreshTrigger}
+            userId={user?.id || null}
+            isAdmin={user?.is_admin || false}
           />
         );
     }

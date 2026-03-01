@@ -3,6 +3,7 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
 
 interface GetValidationCreditsRequest {
+  userId?: string;
   rtoId?: string;
   rtoCode?: string;
 }
@@ -14,13 +15,50 @@ serve(async (req) => {
 
   try {
     const requestData: GetValidationCreditsRequest = await req.json();
-    const { rtoId, rtoCode } = requestData;
+    const { userId, rtoId, rtoCode } = requestData;
 
-    console.log('[get-validation-credits] Request received:', { rtoId, rtoCode });
+    console.log('[get-validation-credits] Request received:', { userId, rtoId, rtoCode });
 
+    // User-based credits (new flow)
+    if (userId) {
+      console.log('[get-validation-credits] Using user-based credits for userId:', userId);
+      
+      const supabase = createSupabaseClient(req);
+      
+      const { data: userCredits, error: userCreditsError } = await supabase
+        .from('user_credits')
+        .select('validation_credits, ai_credits')
+        .eq('user_id', userId)
+        .single();
+
+      if (userCreditsError) {
+        // If no record exists, user has 0 credits (new users start with 0)
+        if (userCreditsError.code === 'PGRST116') {
+          console.log('[get-validation-credits] No user credits found, returning 0');
+          return createSuccessResponse({
+            current: 0,
+            total: 0,
+            percentage: 0,
+            percentageText: '0 credits available',
+          });
+        }
+        throw new Error(`Failed to fetch user credits: ${userCreditsError.message}`);
+      }
+
+      const current = userCredits?.validation_credits || 0;
+      
+      return createSuccessResponse({
+        current,
+        total: current,
+        percentage: current > 0 ? 100 : 0,
+        percentageText: `${current} credits available`,
+      });
+    }
+
+    // Legacy RTO-based credits (fallback for backward compatibility)
     if (!rtoId && !rtoCode) {
-      console.error('[get-validation-credits] Missing rtoId and rtoCode');
-      return createErrorResponse('Missing required field: rtoId or rtoCode');
+      console.error('[get-validation-credits] Missing userId, rtoId, and rtoCode');
+      return createErrorResponse('Missing required field: userId, rtoId, or rtoCode');
     }
 
     const supabase = createSupabaseClient(req);
@@ -61,7 +99,7 @@ serve(async (req) => {
       console.log('[get-validation-credits] Found RTO ID:', rtoDbId);
     }
 
-    // Get validation credits for this RTO
+    // Get validation credits for this RTO (legacy)
     console.log('[get-validation-credits] Querying validation_credits for rto_id:', rtoDbId);
     
     const { data: credits, error: creditsError } = await supabase
@@ -78,35 +116,15 @@ serve(async (req) => {
         hint: creditsError.hint
       });
       
-      // If no credits record exists, create one with default values
+      // If no credits record exists, return 0
       if (creditsError.code === 'PGRST116') {
-        console.log('[get-validation-credits] No credits found, creating default record');
-        
-        const { data: newCredits, error: insertError } = await supabase
-          .from('validation_credits')
-          .insert({
-            rto_id: rtoDbId,
-            current_credits: 10, // Default starter credits
-            total_credits: 10,
-            subscription_credits: 10,
-          })
-          .select('current_credits, total_credits, subscription_credits')
-          .single();
-
-        if (insertError) {
-          throw new Error(`Failed to create credits record: ${insertError.message}`);
-        }
-
-        const newCurrent = newCredits.current_credits || 0;
-        const newTotal = newCredits.total_credits || 0;
-        const newPercentage = newTotal > 0 ? Math.round((newCurrent / newTotal) * 100) : 0;
-        
+        console.log('[get-validation-credits] No credits found, returning 0');
         return createSuccessResponse({
-          current: newCurrent,
-          total: newTotal,
-          subscription: newCredits.subscription_credits || 0,
-          percentage: newPercentage,
-          percentageText: `${newPercentage}% available`,
+          current: 0,
+          total: 0,
+          subscription: 0,
+          percentage: 0,
+          percentageText: '0 credits available',
         });
       }
       

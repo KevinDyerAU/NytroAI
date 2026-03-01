@@ -39,6 +39,8 @@ interface Dashboard_v3Props {
   selectedRTOId: string;
   selectedRTOCode?: string | null;
   creditsRefreshTrigger?: number;
+  userId?: string | null;
+  isAdmin?: boolean;
 }
 
 export function Dashboard_v3({
@@ -46,6 +48,8 @@ export function Dashboard_v3({
   selectedRTOId,
   selectedRTOCode = null,
   creditsRefreshTrigger = 0,
+  userId = null,
+  isAdmin = false,
 }: Dashboard_v3Props) {
   // Load persisted state
   const loadPersistedState = () => {
@@ -81,13 +85,10 @@ export function Dashboard_v3({
     }
   }, [currentPage]);
 
-  // Get current user from auth store for user-specific validation filtering
-  const { user } = useAuthStore();
-
-  // Use hooks for metrics and credits
-  const { metrics } = useDashboardMetrics(selectedRTOId, rtoCode);
-  const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger);
-  const { credits: aiCredits } = useAICredits(selectedRTOId, creditsRefreshTrigger);
+  // Use hooks for metrics and credits (pass userId and isAdmin for user-based filtering)
+  const { metrics } = useDashboardMetrics(selectedRTOId, rtoCode, userId, isAdmin);
+  const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger, userId);
+  const { credits: aiCredits } = useAICredits(selectedRTOId, creditsRefreshTrigger, userId);
 
   // Get RTO code from ID (only if not provided as prop)
   useEffect(() => {
@@ -154,12 +155,8 @@ export function Dashboard_v3({
     loadActiveValidations(true);
     const subscription = supabase.channel('validation_detail_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'validation_detail' }, () => loadActiveValidations(false)).subscribe();
 
-    // Poll every 5 seconds as a fallback (real-time subscription handles most updates)
-    const interval = setInterval(() => loadActiveValidations(false), 5000);
-
     return () => {
       subscription.unsubscribe();
-      clearInterval(interval);
     };
   }, [rtoCode, creditsRefreshTrigger, isInitialLoad, user?.id, user?.is_admin]);
 
@@ -214,13 +211,13 @@ export function Dashboard_v3({
     }
   };
 
-  // Set up polling every 30 seconds
+  // Set up polling every 60 seconds as fallback (real-time subscription handles most updates)
   useEffect(() => {
     if (!rtoCode) return;
 
     const interval = setInterval(() => {
       refreshValidations(false);
-    }, 30000); // 30 seconds
+    }, 60000); // 60 seconds
 
     return () => clearInterval(interval);
   }, [rtoCode]);
@@ -329,17 +326,17 @@ export function Dashboard_v3({
               <span className={`font-poppins text-lg ${(validationCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
                 {validationCredits?.current || 0}
               </span>
-              <span className="text-[10px] text-[#64748b]">/ {validationCredits?.total || 0}</span>
+              <span className="text-[10px] text-[#64748b] uppercase">available</span>
             </div>
             <Progress
-              value={validationCredits?.total ? (validationCredits.current / validationCredits.total) * 100 : 0}
+              value={validationCredits?.current > 0 ? 100 : 0}
               className="h-1"
             />
           </div>
 
           <div className="flex justify-between items-center text-[8px] text-[#94a3b8]">
             <span>
-              {validationCredits?.percentageText || '0% available'}
+              {validationCredits?.percentageText || '0 credits available'}
             </span>
             <span className="uppercase">Credits</span>
           </div>
@@ -359,17 +356,17 @@ export function Dashboard_v3({
               <span className={`font-poppins text-lg ${(aiCredits?.current || 0) > 0 ? 'text-[#1e293b]' : 'text-[#ef4444]'}`}>
                 {aiCredits?.current || 0}
               </span>
-              <span className="text-[10px] text-[#64748b]">/ {aiCredits?.total || 0}</span>
+              <span className="text-[10px] text-[#64748b] uppercase">available</span>
             </div>
             <Progress
-              value={aiCredits?.total ? (aiCredits.current / aiCredits.total) * 100 : 0}
+              value={aiCredits?.current > 0 ? 100 : 0}
               className="h-1"
             />
           </div>
 
           <div className="flex justify-between items-center text-[8px] text-[#94a3b8]">
             <span>
-              {aiCredits?.percentageText || '0% available'}
+              {aiCredits?.percentageText || '0 credits available'}
             </span>
             <span className="uppercase">Credits</span>
           </div>
@@ -424,7 +421,7 @@ export function Dashboard_v3({
                 });
               };
 
-              // Check validation age for expiry status
+              // Check validation age for expiry status (48 hours)
               const getExpiryStatus = () => {
                 const createdDate = new Date(validation.created_at);
                 const now = new Date();
@@ -471,25 +468,14 @@ export function Dashboard_v3({
                       <div className="flex items-center gap-2">
                         <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
                         <span className="text-xs md:text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
+                        {expiryStatus === 'expired' && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full" title="Validation expired (>48 hours). AI features disabled.">Expired</span>
+                        )}
+                        {expiryStatus === 'expiring' && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full" title="Validation expiring soon (<12 hours remaining)">Expiring</span>
+                        )}
                       </div>
-                      {expiryStatus === 'expired' && (
-                        <div
-                          className="flex items-center gap-1 px-2 py-0.5 bg-[#fef3c7] text-[#b45309] rounded-full text-xs font-medium cursor-help"
-                          title="This validation is older than 48 hours. AI features are disabled."
-                        >
-                          <span>⚠️</span>
-                          <span className="hidden sm:inline">Expired</span>
-                        </div>
-                      )}
-                      {expiryStatus === 'expiring' && (
-                        <div
-                          className="flex items-center gap-1 px-2 py-0.5 bg-[#dcfce7] text-[#166534] rounded-full text-xs font-medium cursor-help"
-                          title="Less than 12 hours remaining before AI features are disabled."
-                        >
-                          <span>⏰</span>
-                          <span className="hidden sm:inline">Expiring Soon</span>
-                        </div>
-                      )}
+
                     </div>
 
                     {/* Progress Bar - fixed width for alignment */}

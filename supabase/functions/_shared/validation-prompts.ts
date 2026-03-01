@@ -529,58 +529,129 @@ Return only the JSON structure.`;
  * Assessment Instructions validation prompt (from SimpleAIValidateUnit.json)
  */
 function getAssessmentInstructionsPrompt(unit: any, requirements?: any[]): string {
-  return `Your task is to validate that the assessment document provides clear, comprehensive instructions for candidates.
+  return `Your task is to analyze the assessment documents to validate that clear, comprehensive instructions are provided for candidates.
 
 **Unit of Competency**: ${unit.code} - ${unit.title}
 
 **Assessment Instructions to Validate**:
 
 1. **Purpose and Overview**
-   - Is the purpose of the assessment clearly stated?
-   - Is there an overview of what will be assessed?
+   - Check: Is the assessment purpose clearly stated with an overview of what will be assessed?
+   - Status: "Met" or "Not Met"
+   - If "Not Met": Explain what is missing or unclear
+   - Recommendation: Suggest specific improvements
 
 2. **Instructions Clarity**
-   - Are instructions clear and easy to understand?
-   - Are they written in plain English?
-   - Are they free from ambiguity?
+   - Check: Are instructions clear, written in plain English, and free from ambiguity?
+   - Status: "Met" or "Not Met"
+   - If "Not Met": Identify unclear or confusing sections
+   - Recommendation: Suggest how to improve clarity
 
 3. **Task Requirements**
-   - Is it clear what the candidate needs to do?
-   - Are task requirements specific and measurable?
+   - Check: Is it clear what the candidate needs to do? Are requirements specific and measurable?
+   - Status: "Met" or "Not Met"
+   - If "Not Met": Explain what task details are missing
+   - Recommendation: Suggest specific task clarifications
 
 4. **Submission Requirements**
-   - Are submission formats clearly specified?
-   - Are deadlines or timeframes mentioned?
-   - Is it clear how to submit work?
+   - Check: Are submission formats, methods, and timeframes clearly specified?
+   - Status: "Met" or "Not Met"
+   - If "Not Met": Detail what submission information is missing
+   - Recommendation: Suggest submission details to add
 
 5. **Assessment Criteria**
-   - Are assessment criteria clearly communicated?
-   - Does the candidate know how they will be assessed?
+   - Check: Are assessment criteria clearly communicated so candidates know how they will be judged?
+   - Status: "Met" or "Not Met"
+   - If "Not Met": Explain what criteria information is missing
+   - Recommendation: Suggest criteria to include
 
 6. **Resources and Materials**
-   - Are required resources listed?
-   - Is it clear what materials candidates can access?
+   - Check: Are required resources and accessible materials clearly listed?
+   - Status: "Met" or "Not Met"
+   - If "Not Met": Identify missing resource information
+   - Recommendation: Suggest resources to specify
 
 7. **Support and Assistance**
-   - Is it clear how candidates can get help?
-   - Are assessor contact details provided?
+   - Check: Is it clear how candidates can get help? Are contact details provided?
+   - Status: "Met" or "Not Met"
+   - If "Not Met": Explain what support information is missing
+   - Recommendation: Suggest support details to add
+
+**Validation Process**:
+
+1. **Locate Relevant Sections**
+   - Search the document(s) for instruction sections, candidate guides, or assessment overviews
+   - For each instruction area, identify the relevant content and page/section references
+
+2. **Assess Each Instruction Area**
+   - Evaluate whether each area meets the validation criteria
+   - Document specific evidence found (or not found) in the assessment
+
+3. **Assign Status**
+   For each instruction area:
+   - **Met**: Instruction area is clearly addressed
+   - **Partially Met**: Some information present but incomplete
+   - **Not Met**: Information is missing or unclear
 
 **Output Format**:
 
 \`\`\`json
 {
-  "Instruction Area": "Purpose and Overview",
-  "Status": "Met / Not Met / Partially Met",
-  "Evidence": "Quote or reference from document",
-  "Document and Pages": "assessment.pdf: Page 1",
-  "Gaps": "Explanation of any gaps",
-  "Recommendations": "Suggestions for improvement"
+  "Purpose and Overview": {
+    "instruction_area": "Purpose and Overview",
+    "status": "Met/Not Met/Partially Met",
+    "document_and_pages": "assessment.pdf: Page 1, Section: Introduction",
+    "reasoning": "Explanation of whether the instruction area is adequately addressed",
+    "recommendation": "Specific action to address any gap, if Not Met"
+  },
+  "Instructions Clarity": {
+    "instruction_area": "Instructions Clarity",
+    "status": "Met/Not Met/Partially Met",
+    "document_and_pages": "assessment.pdf: Pages 2-3",
+    "reasoning": "Explanation of instruction clarity assessment",
+    "recommendation": "Suggestions for improving clarity, if Not Met"
+  },
+  "Task Requirements": {
+    "instruction_area": "Task Requirements",
+    "status": "Met/Not Met/Partially Met",
+    "document_and_pages": "assessment.pdf: Page 4, Section: Tasks",
+    "reasoning": "Explanation of task requirements clarity",
+    "recommendation": "Suggestions for task clarification, if Not Met"
+  },
+  "Submission Requirements": {
+    "instruction_area": "Submission Requirements",
+    "status": "Met/Not Met/Partially Met",
+    "document_and_pages": "assessment.pdf: Page 5",
+    "reasoning": "Explanation of submission requirements clarity",
+    "recommendation": "Suggestions for submission details, if Not Met"
+  },
+  "Assessment Criteria": {
+    "instruction_area": "Assessment Criteria",
+    "status": "Met/Not Met/Partially Met",
+    "document_and_pages": "assessment.pdf: Page 6",
+    "reasoning": "Explanation of criteria clarity",
+    "recommendation": "Suggestions for criteria improvements, if Not Met"
+  },
+  "Resources and Materials": {
+    "instruction_area": "Resources and Materials",
+    "status": "Met/Not Met/Partially Met",
+    "document_and_pages": "assessment.pdf: Page 2",
+    "reasoning": "Explanation of resource listing adequacy",
+    "recommendation": "Suggestions for resource specification, if Not Met"
+  },
+  "Support and Assistance": {
+    "instruction_area": "Support and Assistance",
+    "status": "Met/Not Met/Partially Met",
+    "document_and_pages": "assessment.pdf: Page 1",
+    "reasoning": "Explanation of support information adequacy",
+    "recommendation": "Suggestions for support details, if Not Met"
+  }
 }
 \`\`\`
 
 **Important**: Be very lenient. If instructions are reasonably clear, mark as met.
 
-Return only the JSON structure for all instruction areas.`;
+Return only the JSON structure.`;
 }
 
 /**

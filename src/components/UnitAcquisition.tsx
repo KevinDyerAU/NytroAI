@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { GlowButton } from './GlowButton';
-import { StatusBadge } from './StatusBadge';
-import { Target, Search, ExternalLink, RefreshCw, Sparkles, Eye, X } from 'lucide-react';
+import { Target, Search, ExternalLink, RefreshCw, Eye, X, RotateCcw, AlertTriangle, CheckCircle2, Clock, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { fetchUnitsOfCompetency } from '../types/rto';
 import {
   Table,
   TableBody,
@@ -19,6 +17,13 @@ import {
   AlertDialogContent,
 } from "./ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from './ui/tooltip';
+import { RequirementCompleteness, AcquisitionStatusBadge } from './RequirementCompleteness';
+import { useAcquisitionQueue } from '../hooks/useAcquisitionQueue';
 
 // Import wizard logo
 import wizardLogo from '../assets/wizard-logo.png';
@@ -33,13 +38,30 @@ interface UnitOfCompetency {
   Title?: string;
   created_at?: string;
   link?: string;
+  // Completeness flags
+  has_knowledge_evidence: boolean;
+  has_performance_evidence: boolean;
+  has_foundation_skills: boolean;
+  has_elements_performance_criteria: boolean;
+  has_assessment_conditions: boolean;
+  acquisition_status: string;
+  last_acquisition_error?: string;
+  last_acquired_at?: string;
+}
+
+type AlertType = 'success' | 'error' | 'warning' | 'info';
+
+interface AlertState {
+  show: boolean;
+  type: AlertType;
+  title: string;
+  message: string;
 }
 
 export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
   const [unitCode, setUnitCode] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [alert, setAlert] = useState<AlertState>({ show: false, type: 'success', title: '', message: '' });
   const [existingUnits, setExistingUnits] = useState<UnitOfCompetency[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,9 +82,16 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
   const [epcReqs, setEpcReqs] = useState<any[]>([]);
   const [acReqs, setAcReqs] = useState<any[]>([]);
 
+  // Queue hook for resilient acquisition
+  const {
+    queueItems,
+    enqueueUnit,
+    retryUnit,
+    cancelUnit,
+    getQueueItemForUnit,
+  } = useAcquisitionQueue();
+
   const extractUnitCode = (input: string): string => {
-    // Extract unit code from full URL or just the code itself
-    // URL format: https://training.gov.au/training/details/UNITCODE/unitdetails
     const match = input.match(/(?:\/details\/)?([A-Z0-9]+)(?:\/unitdetails)?$/i);
     return match ? match[1].toUpperCase() : '';
   };
@@ -72,20 +101,42 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     return `https://training.gov.au/training/details/${code.trim()}/unitdetails`;
   };
 
-  useEffect(() => {
-    fetchExistingUnits();
+  // Show alert helper
+  const showAlert = useCallback((type: AlertType, title: string, message: string, autoDismiss = true) => {
+    setAlert({ show: true, type, title, message });
+    if (autoDismiss) {
+      setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 8000);
+    }
   }, []);
 
-  const fetchExistingUnits = async () => {
+  // Fetch existing units with completeness flags
+  const fetchExistingUnits = useCallback(async () => {
     setIsLoadingUnits(true);
     try {
-      const data = await fetchUnitsOfCompetency();
+      const { data, error } = await supabase
+        .from('UnitOfCompetency')
+        .select('id, unitCode, Title, created_at, Link, has_knowledge_evidence, has_performance_evidence, has_foundation_skills, has_elements_performance_criteria, has_assessment_conditions, acquisition_status, last_acquisition_error, last_acquired_at')
+        .order('unitCode', { ascending: true });
+
+      if (error) {
+        console.error('[UnitAcquisition] Fetch error:', error);
+        return;
+      }
+
       const formattedUnits = (data || []).map((unit: any) => ({
         id: unit.id,
         unitCode: unit.unitCode,
         Title: unit.Title,
         created_at: unit.created_at,
         link: unit.Link,
+        has_knowledge_evidence: unit.has_knowledge_evidence || false,
+        has_performance_evidence: unit.has_performance_evidence || false,
+        has_foundation_skills: unit.has_foundation_skills || false,
+        has_elements_performance_criteria: unit.has_elements_performance_criteria || false,
+        has_assessment_conditions: unit.has_assessment_conditions || false,
+        acquisition_status: unit.acquisition_status || 'pending',
+        last_acquisition_error: unit.last_acquisition_error,
+        last_acquired_at: unit.last_acquired_at,
       }));
       setExistingUnits(formattedUnits);
     } catch (error) {
@@ -93,7 +144,34 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     } finally {
       setIsLoadingUnits(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchExistingUnits();
+  }, [fetchExistingUnits]);
+
+  // Subscribe to UnitOfCompetency changes for live flag updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('unit_completeness_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'UnitOfCompetency',
+        },
+        () => {
+          // Refresh units when completeness flags change
+          fetchExistingUnits();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchExistingUnits]);
 
   const isValidUnitCode = (code: string): boolean => {
     return code.trim().length > 0;
@@ -109,6 +187,9 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     unit => unit.unitCode.toUpperCase() === unitCode.toUpperCase()
   );
 
+  const unitInQueue = unitCode.trim() ? getQueueItemForUnit(unitCode) : undefined;
+  const isUnitQueued = unitInQueue && ['queued', 'in_progress', 'retry'].includes(unitInQueue.status);
+
   const isCodeValid = isValidUnitCode(unitCode);
 
   const filteredUnits = unitCode.trim()
@@ -123,7 +204,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedUnits = filteredUnits.slice(startIndex, endIndex);
 
-  // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [unitCode]);
@@ -135,7 +215,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     setActiveTab('ke');
     setIsLoadingDetails(true);
 
-    // Clear previous data
     setKeReqs([]);
     setPeReqs([]);
     setFsReqs([]);
@@ -143,32 +222,14 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     setAcReqs([]);
 
     try {
-      // The requirements tables use unit_url which stores the full URL
-      // Match using the unit's link (exact match) or unit code pattern in URL
       const unitLink = unit.link || '';
-      const unitCodePattern = `%${unit.unitCode}%`;
 
-      console.log('[UnitAcquisition] Fetching requirements for unit:', unit.unitCode);
-      console.log('[UnitAcquisition] Link URL:', unitLink);
-
-      // Fetch from all 5 requirements tables in parallel
-      // Use .eq() for exact URL match since that's how the data is stored
       const [keResult, peResult, fsResult, epcResult, acResult] = await Promise.all([
-        supabase.from('knowledge_evidence_requirements')
-          .select('*')
-          .eq('unit_url', unitLink),
-        supabase.from('performance_evidence_requirements')
-          .select('*')
-          .eq('unit_url', unitLink),
-        supabase.from('foundation_skills_requirements')
-          .select('*')
-          .eq('unit_url', unitLink),
-        supabase.from('elements_performance_criteria_requirements')
-          .select('*')
-          .eq('unit_url', unitLink),
-        supabase.from('assessment_conditions_requirements')
-          .select('*')
-          .eq('unit_url', unitLink),
+        supabase.from('knowledge_evidence_requirements').select('*').eq('unit_url', unitLink),
+        supabase.from('performance_evidence_requirements').select('*').eq('unit_url', unitLink),
+        supabase.from('foundation_skills_requirements').select('*').eq('unit_url', unitLink),
+        supabase.from('elements_performance_criteria_requirements').select('*').eq('unit_url', unitLink),
+        supabase.from('assessment_conditions_requirements').select('*').eq('unit_url', unitLink),
       ]);
 
       setKeReqs(keResult.data || []);
@@ -183,117 +244,238 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     }
   };
 
+  /**
+   * New queue-based acquisition handler.
+   * Instead of blocking the UI while scraping, we insert into the queue
+   * and also fire the n8n webhook. The queue provides resilience if the
+   * immediate request fails.
+   */
   const handleAcquire = async () => {
-    if (!isCodeValid || unitCodeExists) return;
+    if (!isCodeValid || unitCodeExists || isUnitQueued) return;
 
-    const originUrl = buildWebhookUrl(unitCode);
     setIsScanning(true);
     setShowAcquisitionModal(true);
-    setAcquisitionStep('Preparing extraction...');
+    setAcquisitionStep('Adding to acquisition queue...');
 
     try {
-      // Step 1: Validate configuration
-      setAcquisitionStep('Checking configuration...');
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Step 1: Add to the queue table (this is the source of truth)
+      const queueItem = await enqueueUnit(unitCode);
 
+      if (!queueItem) {
+        throw new Error('Failed to add unit to acquisition queue');
+      }
+
+      setAcquisitionStep('Queued successfully. Attempting immediate extraction...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 2: Attempt immediate extraction via n8n (best-effort)
       const n8nUrl = import.meta.env.VITE_N8N_WEB_SCRAPE_URL;
 
-      if (!n8nUrl) {
-        throw new Error('N8N Web Scrape URL not configured. Please set VITE_N8N_WEB_SCRAPE_URL in environment variables.');
-      }
+      if (n8nUrl) {
+        setAcquisitionStep('Connecting to training.gov.au via n8n...');
 
-      // Step 2: Connect to training.gov.au
-      setAcquisitionStep(`Connecting to training.gov.au...`);
-      await new Promise(resolve => setTimeout(resolve, 400));
-
-      // Build callback webhook URL (for n8n to send results back)
-      const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`;
-
-      // Step 3: Send extraction request
-      setAcquisitionStep(`Extracting unit ${unitCode}...`);
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const response = await fetch(n8nUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          originUrl: originUrl,
-          webhookUrl: webhookUrl,
-          executionMode: 'production',
-        }),
-      });
-
-      // Step 4: Processing response
-      setAcquisitionStep('Processing requirements...');
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Check response status first
-      if (!response.ok) {
-        console.error('Webhook request failed:');
-        console.error('Status:', response.status, response.statusText);
-
-        // Try to get error message from response body
-        let errorText = 'Webhook request failed';
         try {
-          const text = await response.text();
-          if (text) {
-            errorText = text;
-          }
-        } catch (e) {
-          // Ignore if we can't read the error
-        }
+          const originUrl = buildWebhookUrl(unitCode);
+          const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`;
 
-        throw new Error(errorText);
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+          const response = await fetch(n8nUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              originUrl,
+              webhookUrl,
+              executionMode: 'production',
+              queueId: queueItem.id, // Pass queue ID for status updates
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.warn('[UnitAcquisition] n8n request failed:', response.status, errorText);
+
+            // Update queue with error but don't throw — the queue retry mechanism will handle it
+            await supabase
+              .from('unit_acquisition_queue')
+              .update({
+                status: 'retry',
+                last_error: `training.gov.au returned ${response.status}: ${errorText.substring(0, 200)}`,
+                error_history: [
+                  ...(queueItem.error_history || []),
+                  {
+                    timestamp: new Date().toISOString(),
+                    error: `HTTP ${response.status}: ${errorText.substring(0, 200)}`,
+                    retry_count: 0,
+                  },
+                ],
+                next_retry_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // Retry in 5 min
+              })
+              .eq('id', queueItem.id);
+
+            setShowAcquisitionModal(false);
+            showAlert(
+              'warning',
+              'Queued for Retry',
+              `Unit ${unitCode} has been queued but the initial extraction failed (training.gov.au may be experiencing issues). The system will automatically retry. You can also manually retry from the queue panel below.`
+            );
+
+            await fetchExistingUnits();
+            return;
+          }
+
+          // Immediate success
+          setAcquisitionStep('Processing requirements...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          setShowAcquisitionModal(false);
+          showAlert(
+            'success',
+            'Extraction Initiated',
+            `Unit ${unitCode} extraction request sent successfully. Requirements will be processed and saved. The completeness indicators will update in real-time as each section is captured.`
+          );
+
+          // Refresh units after a short delay to allow DB writes
+          setTimeout(() => fetchExistingUnits(), 3000);
+          setTimeout(() => fetchExistingUnits(), 8000);
+
+        } catch (fetchError) {
+          // Network error or timeout — the queue will handle retries
+          const isTimeout = fetchError instanceof DOMException && fetchError.name === 'AbortError';
+          const errorMsg = isTimeout
+            ? 'Request timed out (training.gov.au may be down)'
+            : (fetchError instanceof Error ? fetchError.message : 'Network error');
+
+          console.warn('[UnitAcquisition] Immediate extraction failed:', errorMsg);
+
+          await supabase
+            .from('unit_acquisition_queue')
+            .update({
+              status: 'retry',
+              last_error: errorMsg,
+              error_history: [
+                ...(queueItem.error_history || []),
+                {
+                  timestamp: new Date().toISOString(),
+                  error: errorMsg,
+                  retry_count: 0,
+                },
+              ],
+              next_retry_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+            })
+            .eq('id', queueItem.id);
+
+          setShowAcquisitionModal(false);
+          showAlert(
+            'warning',
+            'Queued — Immediate Extraction Failed',
+            isTimeout
+              ? `training.gov.au appears to be experiencing an outage. Unit ${unitCode} has been queued and will be automatically retried when the service recovers.`
+              : `Could not reach training.gov.au right now. Unit ${unitCode} has been queued and will be automatically retried.`
+          );
+        }
+      } else {
+        // No n8n URL configured — just queue it
+        setShowAcquisitionModal(false);
+        showAlert(
+          'info',
+          'Queued for Processing',
+          `Unit ${unitCode} has been added to the acquisition queue. It will be processed by the background worker.`
+        );
       }
 
-      // Response is OK - try to parse JSON if there's content
-      let result = null;
-      const contentType = response.headers.get('content-type');
-
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          const text = await response.text();
-          if (text && text.trim()) {
-            result = JSON.parse(text);
-          }
-        } catch (jsonError) {
-          console.warn('Could not parse JSON response, but request was successful:', jsonError);
-          // Continue anyway since the request was successful
-        }
-      }
-
-      // Step 5: Saving to database
-      setAcquisitionStep('Saving to database...');
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      console.log('Webhook request successful', result);
-
-      // Close modal and show success
-      setShowAcquisitionModal(false);
-      setAcquisitionStep('');
-      setSuccessMessage(`Successfully initiated extraction for ${unitCode}. Requirements will be processed and saved to the database.`);
-      setShowSuccessAlert(true);
-
-      // Refresh the units list
       await fetchExistingUnits();
+      setTimeout(() => setUnitCode(''), 2000);
 
-      // Auto-dismiss after 8 seconds and clear filter
-      setTimeout(() => {
-        setShowSuccessAlert(false);
-        setUnitCode('');
-      }, 8000);
     } catch (error) {
-      console.error('Error sending webhook:', error);
+      console.error('Error in acquisition:', error);
       setShowAcquisitionModal(false);
-      setAcquisitionStep('');
-      // Show error to user
-      setSuccessMessage(`Failed to extract unit: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setShowSuccessAlert(true);
+      showAlert(
+        'error',
+        'Acquisition Failed',
+        `Failed to queue unit ${unitCode}: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`
+      );
     } finally {
       setIsScanning(false);
     }
+  };
+
+  // Handle retry from the queue
+  const handleRetry = async (queueId: number, unitCodeToRetry: string) => {
+    const success = await retryUnit(queueId);
+    if (success) {
+      showAlert('info', 'Retry Queued', `Unit ${unitCodeToRetry} has been re-queued for extraction.`);
+
+      // Also attempt immediate extraction
+      const n8nUrl = import.meta.env.VITE_N8N_WEB_SCRAPE_URL;
+      if (n8nUrl) {
+        try {
+          const originUrl = buildWebhookUrl(unitCodeToRetry);
+          const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`;
+          fetch(n8nUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              originUrl,
+              webhookUrl,
+              executionMode: 'production',
+              queueId,
+            }),
+          }).catch(() => {
+            // Silently fail — queue retry will handle it
+          });
+        } catch {
+          // Silently fail
+        }
+      }
+    } else {
+      showAlert('error', 'Retry Failed', `Could not re-queue unit ${unitCodeToRetry}. Please try again.`);
+    }
+  };
+
+  // Handle cancel from the queue
+  const handleCancel = async (queueId: number, unitCodeToCancel: string) => {
+    const success = await cancelUnit(queueId);
+    if (success) {
+      showAlert('info', 'Cancelled', `Unit ${unitCodeToCancel} has been removed from the queue.`);
+    }
+  };
+
+  // Count active queue items
+  const activeQueueCount = queueItems.filter(
+    item => ['queued', 'in_progress', 'retry'].includes(item.status)
+  ).length;
+
+  const failedQueueCount = queueItems.filter(
+    item => item.status === 'failed'
+  ).length;
+
+  // Alert styling
+  const alertStyles: Record<AlertType, { bg: string; border: string; iconColor: string; titleColor: string; textColor: string; icon: React.ReactNode }> = {
+    success: {
+      bg: 'bg-[#dcfce7]', border: 'border-[#86efac]', iconColor: 'text-[#16a34a]',
+      titleColor: 'text-[#166534]', textColor: 'text-[#15803d]',
+      icon: <CheckCircle2 className="h-5 w-5 text-[#16a34a]" />,
+    },
+    error: {
+      bg: 'bg-[#fee2e2]', border: 'border-[#fca5a5]', iconColor: 'text-[#dc2626]',
+      titleColor: 'text-[#991b1b]', textColor: 'text-[#b91c1c]',
+      icon: <X className="h-5 w-5 text-[#dc2626]" />,
+    },
+    warning: {
+      bg: 'bg-[#fef3c7]', border: 'border-[#fcd34d]', iconColor: 'text-[#d97706]',
+      titleColor: 'text-[#92400e]', textColor: 'text-[#a16207]',
+      icon: <AlertTriangle className="h-5 w-5 text-[#d97706]" />,
+    },
+    info: {
+      bg: 'bg-[#dbeafe]', border: 'border-[#93c5fd]', iconColor: 'text-[#2563eb]',
+      titleColor: 'text-[#1e40af]', textColor: 'text-[#1d4ed8]',
+      icon: <Clock className="h-5 w-5 text-[#2563eb]" />,
+    },
   };
 
   return (
@@ -335,13 +517,13 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
             <GlowButton
               variant="primary"
               onClick={handleAcquire}
-              disabled={isScanning || !isCodeValid || unitCodeExists}
+              disabled={isScanning || !isCodeValid || unitCodeExists || !!isUnitQueued}
               className="h-14 px-8"
             >
               {isScanning ? (
                 <>
                   <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-                  Scanning...
+                  Queuing...
                 </>
               ) : (
                 <>
@@ -359,7 +541,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                 <div className="flex-1 h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
                   <div className="h-full bg-[#3b82f6] animate-pulse" style={{ width: '60%' }}></div>
                 </div>
-                <span className="text-xs text-[#64748b]">Extracting requirements...</span>
+                <span className="text-xs text-[#64748b]">Adding to queue...</span>
               </div>
             </div>
           )}
@@ -369,34 +551,36 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
         {unitCodeExists && isCodeValid && (
           <div className="mt-6 p-4 bg-[#fef3c7] border border-[#fcd34d] rounded-lg">
             <p className="text-sm text-[#92400e]">
-              <span className="font-semibold">⚠</span> Unit {unitCode} already exists in the system
+              <span className="font-semibold">Unit {unitCode} already exists in the system.</span>
+              {' '}Check the completeness indicators below to see if all requirement sections have been captured.
             </p>
           </div>
         )}
 
-        {/* Success Alert */}
-        {showSuccessAlert && (
-          <div className="mt-6 p-4 bg-[#dcfce7] border border-[#86efac] rounded-lg">
+        {/* Unit Already in Queue Message */}
+        {isUnitQueued && isCodeValid && !unitCodeExists && (
+          <div className="mt-6 p-4 bg-[#dbeafe] border border-[#93c5fd] rounded-lg">
+            <p className="text-sm text-[#1e40af]">
+              <span className="font-semibold">Unit {unitCode} is already in the acquisition queue</span>
+              {' '}(Status: {unitInQueue?.status}). It will be processed automatically.
+            </p>
+          </div>
+        )}
+
+        {/* Alert */}
+        {alert.show && (
+          <div className={`mt-6 p-4 ${alertStyles[alert.type].bg} border ${alertStyles[alert.type].border} rounded-lg`}>
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-[#16a34a]" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              </div>
+              <div className="flex-shrink-0">{alertStyles[alert.type].icon}</div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-[#166534]">Requirements Extraction Initiated</p>
-                <p className="text-sm text-[#15803d] mt-1">{successMessage}</p>
+                <p className={`text-sm font-semibold ${alertStyles[alert.type].titleColor}`}>{alert.title}</p>
+                <p className={`text-sm ${alertStyles[alert.type].textColor} mt-1`}>{alert.message}</p>
               </div>
               <button
-                onClick={() => {
-                  setShowSuccessAlert(false);
-                  setUnitCode('');
-                }}
-                className="flex-shrink-0 text-[#16a34a] hover:text-[#15803d] transition-colors"
+                onClick={() => setAlert(prev => ({ ...prev, show: false }))}
+                className={`flex-shrink-0 ${alertStyles[alert.type].iconColor} hover:opacity-70 transition-opacity`}
               >
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+                <X className="h-5 w-5" />
               </button>
             </div>
           </div>
@@ -407,12 +591,90 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
           <p className="text-xs text-[#64748b] leading-relaxed">
             <span className="text-[#3b82f6]">▸</span> Enter the unit code or paste the full training.gov.au URL
             <br />
-            <span className="text-[#3b82f6]">▸</span> System will automatically extract the unit code and retrieve all performance criteria and knowledge evidence
+            <span className="text-[#3b82f6]">▸</span> The unit will be queued for extraction. If training.gov.au is unavailable, the system will automatically retry
             <br />
-            <span className="text-[#3b82f6]">▸</span> Extracted data will be available for document validation
+            <span className="text-[#3b82f6]">▸</span> All 5 requirement sections (KE, PE, FS, EPC, AC) must be captured before validation can proceed
+            <br />
+            <span className="text-[#3b82f6]">▸</span> Completeness indicators update in real-time as each section is captured
           </p>
         </div>
       </Card>
+
+      {/* Acquisition Queue Panel */}
+      {(activeQueueCount > 0 || failedQueueCount > 0) && (
+        <Card className="border border-[#fcd34d] bg-white p-6 shadow-soft mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#fef3c7] border border-[#fcd34d] flex items-center justify-center">
+                <Clock className="w-5 h-5 text-[#d97706]" />
+              </div>
+              <div>
+                <h2 className="font-poppins text-[#1e293b] text-lg">Acquisition Queue</h2>
+                <p className="text-xs text-[#64748b]">
+                  {activeQueueCount > 0 && `${activeQueueCount} active`}
+                  {activeQueueCount > 0 && failedQueueCount > 0 && ' · '}
+                  {failedQueueCount > 0 && <span className="text-[#ef4444]">{failedQueueCount} failed</span>}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {queueItems
+              .filter(item => ['queued', 'in_progress', 'retry', 'failed', 'partial_success'].includes(item.status))
+              .slice(0, 10)
+              .map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-[#e2e8f0] bg-[#f8f9fb] hover:bg-white transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-semibold text-[#3b82f6]">{item.unit_code}</span>
+                    <AcquisitionStatusBadge status={item.status} lastError={item.last_error} />
+                    {item.retry_count > 0 && (
+                      <span className="text-xs text-[#94a3b8]">
+                        Attempt {item.retry_count + 1}/{item.max_retries}
+                      </span>
+                    )}
+                    {item.next_retry_at && item.status === 'retry' && (
+                      <span className="text-xs text-[#94a3b8]">
+                        Next retry: {new Date(item.next_retry_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {(item.status === 'failed' || item.status === 'partial_success' || item.status === 'retry') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => handleRetry(item.id, item.unit_code)}
+                            className="p-1.5 rounded hover:bg-[#dbeafe] text-[#3b82f6] transition-colors"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Retry now</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {(item.status === 'queued' || item.status === 'failed') && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => handleCancel(item.id, item.unit_code)}
+                            className="p-1.5 rounded hover:bg-[#fee2e2] text-[#94a3b8] hover:text-[#ef4444] transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Remove from queue</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </Card>
+      )}
 
       {/* Existing Units Table */}
       <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
@@ -453,6 +715,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                 <TableRow className="border-[#dbeafe] bg-[#f8f9fb]">
                   <TableHead className="font-poppins text-[#64748b]">Unit Code</TableHead>
                   <TableHead className="font-poppins text-[#64748b]">Title</TableHead>
+                  <TableHead className="font-poppins text-[#64748b]">Requirements</TableHead>
                   <TableHead className="font-poppins text-[#64748b]">Date Captured</TableHead>
                   <TableHead className="font-poppins text-[#64748b]">Actions</TableHead>
                 </TableRow>
@@ -465,12 +728,23 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                   >
                     <TableCell className="font-mono text-[#3b82f6]">{unit.unitCode}</TableCell>
                     <TableCell className="text-[#1e293b]">{unit.Title || '-'}</TableCell>
+                    <TableCell>
+                      <RequirementCompleteness
+                        flags={{
+                          has_knowledge_evidence: unit.has_knowledge_evidence,
+                          has_performance_evidence: unit.has_performance_evidence,
+                          has_foundation_skills: unit.has_foundation_skills,
+                          has_elements_performance_criteria: unit.has_elements_performance_criteria,
+                          has_assessment_conditions: unit.has_assessment_conditions,
+                        }}
+                        compact
+                      />
+                    </TableCell>
                     <TableCell className="text-sm text-[#64748b]">
                       {unit.created_at ? new Date(unit.created_at).toLocaleDateString('en-AU') : '-'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {/* View Requirements Button */}
                         <button
                           onClick={() => openUnitDetails(unit)}
                           className="p-2 rounded transition-colors hover:bg-[#dbeafe] text-[#3b82f6] cursor-pointer"
@@ -478,7 +752,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        {/* External Link Button */}
                         <button
                           onClick={() => {
                             if (unit.link) {
@@ -523,7 +796,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
 
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                  // Show first page, last page, current page, and pages around current
                   const showPage =
                     page === 1 ||
                     page === totalPages ||
@@ -577,7 +849,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
       <AlertDialog open={showAcquisitionModal} onOpenChange={setShowAcquisitionModal}>
         <AlertDialogContent className="max-w-md bg-white">
           <div className="flex flex-col items-center justify-center py-8 px-4">
-            {/* Wizard logo */}
             <div className="mb-6 w-32">
               <img
                 src={wizardLogo}
@@ -590,7 +861,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
               Nytro is extracting...
             </h3>
 
-            {/* Progress indicator */}
             <div className="w-full max-w-xs mb-4">
               <div className="h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
                 <div
@@ -600,7 +870,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
               </div>
             </div>
 
-            {/* Current step display */}
             <div className="flex items-center gap-2 mb-3 px-4 py-2 bg-[#f0fdf4] rounded-lg border border-[#86efac]">
               <Target className="w-4 h-4 text-[#16a34a] animate-spin" style={{ animationDuration: '1.5s' }} />
               <p className="text-sm font-medium text-[#166534]">
@@ -608,7 +877,6 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
               </p>
             </div>
 
-            {/* Bouncing dots */}
             <div className="flex items-center gap-2 mb-2">
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
@@ -651,6 +919,20 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                     AC: {acReqs.length}
                   </span>
                 </div>
+                {/* Completeness indicator in detail dialog */}
+                {detailUnit && (
+                  <div className="mt-3">
+                    <RequirementCompleteness
+                      flags={{
+                        has_knowledge_evidence: detailUnit.has_knowledge_evidence,
+                        has_performance_evidence: detailUnit.has_performance_evidence,
+                        has_foundation_skills: detailUnit.has_foundation_skills,
+                        has_elements_performance_criteria: detailUnit.has_elements_performance_criteria,
+                        has_assessment_conditions: detailUnit.has_assessment_conditions,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => setShowDetailsDialog(false)}
@@ -694,7 +976,9 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                     <TabsContent value="ke" className="mt-0 h-full">
                       {keReqs.length === 0 ? (
                         <div className="text-center py-8 text-[#64748b]">
-                          <p>No knowledge evidence requirements found for this unit.</p>
+                          <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-[#f59e0b]" />
+                          <p className="font-medium">No knowledge evidence requirements captured</p>
+                          <p className="text-sm mt-1">This section may need to be re-acquired from training.gov.au</p>
                         </div>
                       ) : (
                         <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
@@ -722,7 +1006,9 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                     <TabsContent value="pe" className="mt-0 h-full">
                       {peReqs.length === 0 ? (
                         <div className="text-center py-8 text-[#64748b]">
-                          <p>No performance evidence requirements found for this unit.</p>
+                          <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-[#f59e0b]" />
+                          <p className="font-medium">No performance evidence requirements captured</p>
+                          <p className="text-sm mt-1">This section may need to be re-acquired from training.gov.au</p>
                         </div>
                       ) : (
                         <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
@@ -750,7 +1036,9 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                     <TabsContent value="fs" className="mt-0 h-full">
                       {fsReqs.length === 0 ? (
                         <div className="text-center py-8 text-[#64748b]">
-                          <p>No foundation skills requirements found for this unit.</p>
+                          <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-[#f59e0b]" />
+                          <p className="font-medium">No foundation skills requirements captured</p>
+                          <p className="text-sm mt-1">This section may need to be re-acquired from training.gov.au</p>
                         </div>
                       ) : (
                         <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
@@ -778,7 +1066,9 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                     <TabsContent value="epc" className="mt-0 h-full">
                       {epcReqs.length === 0 ? (
                         <div className="text-center py-8 text-[#64748b]">
-                          <p>No elements & performance criteria found for this unit.</p>
+                          <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-[#f59e0b]" />
+                          <p className="font-medium">No elements & performance criteria captured</p>
+                          <p className="text-sm mt-1">This section may need to be re-acquired from training.gov.au</p>
                         </div>
                       ) : (
                         <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">
@@ -806,7 +1096,9 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                     <TabsContent value="ac" className="mt-0 h-full">
                       {acReqs.length === 0 ? (
                         <div className="text-center py-8 text-[#64748b]">
-                          <p>No assessment conditions found for this unit.</p>
+                          <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-[#f59e0b]" />
+                          <p className="font-medium">No assessment conditions captured</p>
+                          <p className="text-sm mt-1">This section may need to be re-acquired from training.gov.au</p>
                         </div>
                       ) : (
                         <div className="border border-[#e2e8f0] rounded-lg overflow-hidden">

@@ -77,7 +77,7 @@ function parseRequirementNumber(requirementNumber: string): { type: string; numb
 }
 
 /**
- * Parse JSONB array from validation_results (smart_questions or citations)
+ * Parse JSONB array from validation_results (smart_questions)
  */
 function parseJSONBArray(jsonbField: any): any[] {
   if (!jsonbField) return [];
@@ -98,6 +98,43 @@ function parseJSONBArray(jsonbField: any): any[] {
     return [jsonbField];
   }
   return [];
+}
+
+/**
+ * Get citations as a simple string for report output
+ */
+function getCitationsString(citationsField: any): string {
+  if (!citationsField) return '';
+  if (typeof citationsField === 'string') {
+    // Try to parse as JSON array and join
+    try {
+      const parsed = JSON.parse(citationsField);
+      if (Array.isArray(parsed)) {
+        return parsed.map((c: any) => {
+          if (typeof c === 'string') return c;
+          if (c.content) return c.content;
+          if (c.displayName) {
+            let text = c.displayName;
+            if (c.pageNumbers?.length) text += ` (Pages: ${c.pageNumbers.join(', ')})`;
+            return text;
+          }
+          if (c.text) return c.text;
+          return JSON.stringify(c);
+        }).join(', ');
+      }
+      return String(parsed);
+    } catch {
+      // Not JSON, return as-is
+      return citationsField.trim();
+    }
+  }
+  if (Array.isArray(citationsField)) {
+    return citationsField.map((c: any) => {
+      if (typeof c === 'string') return c;
+      return c.displayName || c.text || c.content || JSON.stringify(c);
+    }).join(', ');
+  }
+  return '';
 }
 
 /**
@@ -530,11 +567,8 @@ function createKnowledgeEvidenceSheet(
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
     
-    // Citations (JSONB array)
-    const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
-      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
-    ).join('\n') || '';
+    // Citations (simple string)
+    sheet.getCell(row, 6).value = getCitationsString(item.citations);
     
     if (isLearnerGuide) {
       // Recommendations - only for learner-guide reports
@@ -638,11 +672,8 @@ function createPerformanceEvidenceSheet(
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
     
-    // Citations (JSONB array)
-    const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
-      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
-    ).join('\n') || '';
+    // Citations (simple string)
+    sheet.getCell(row, 6).value = getCitationsString(item.citations);
     
     if (isLearnerGuide) {
       // Recommendations - only for learner-guide reports
@@ -746,10 +777,7 @@ function createElementsPerformanceCriteriaSheet(
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
     
-    const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
-      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
-    ).join('\n') || '';
+    sheet.getCell(row, 6).value = getCitationsString(item.citations);
     
     if (isLearnerGuide) {
       // Recommendations - only for learner-guide reports
@@ -852,10 +880,7 @@ function createFoundationSkillsSheet(
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
     
-    const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
-      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
-    ).join('\n') || '';
+    sheet.getCell(row, 6).value = getCitationsString(item.citations);
     
     if (isLearnerGuide) {
       // Recommendations - only for learner-guide reports
@@ -943,10 +968,7 @@ function createAssessmentConditionsSheet(
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
     
-    const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
-      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
-    ).join('\n') || '';
+    sheet.getCell(row, 6).value = getCitationsString(item.citations);
     
     for (let col = 2; col <= 6; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };
@@ -1015,10 +1037,7 @@ function createAssessmentInstructionsSheet(
     applyStatusFill(sheet.getCell(row, 4), item.status);
     sheet.getCell(row, 5).value = item.reasoning || '';
     
-    const citations = parseJSONBArray(item.citations);
-    sheet.getCell(row, 6).value = citations.map((c: any, idx: number) => 
-      `${idx + 1}. ${c.displayName || c.text || JSON.stringify(c)}`
-    ).join('\n') || '';
+    sheet.getCell(row, 6).value = getCitationsString(item.citations);
     
     for (let col = 2; col <= 6; col++) {
       sheet.getCell(row, col).alignment = { wrapText: true, vertical: 'top' };

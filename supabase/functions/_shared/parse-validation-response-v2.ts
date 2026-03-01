@@ -89,13 +89,24 @@ export function parseValidationResponseV2(
 
 /**
  * Normalize status values to ensure consistency
+ * 
+ * Handles various status formats:
+ * - "Met", "met", "MET" -> 'met'
+ * - "Partially Met", "partial", "Partial" -> 'partial'
+ * - "Not Met", "not_met", "NotMet" -> 'not_met'
  */
 function normalizeStatus(status: string): 'met' | 'partial' | 'not_met' {
-  const normalized = status.toLowerCase().replace(/[_-]/g, '_');
+  // Remove spaces, underscores, hyphens and convert to lowercase
+  const normalized = status.toLowerCase().replace(/[\s_-]/g, '');
   
+  // Check for exact 'met' (not 'partially met' or 'not met')
   if (normalized === 'met' || normalized === 'pass') return 'met';
-  if (normalized === 'partial') return 'partial';
-  if (normalized === 'not_met' || normalized === 'notmet' || normalized === 'fail') return 'not_met';
+  
+  // Check for partial variations
+  if (normalized.includes('partial')) return 'partial';
+  
+  // Check for not met variations
+  if (normalized === 'notmet' || normalized === 'fail' || normalized.includes('notmet')) return 'not_met';
   
   console.warn(`[Parse V2] Unknown status value: ${status}, defaulting to not_met`);
   return 'not_met';

@@ -3,7 +3,8 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { handleCors, createErrorResponse, createSuccessResponse } from '../_shared/cors.ts';
 
 interface ConsumeAICreditRequest {
-  rtoCode: string;
+  userId?: string;
+  rtoCode?: string;
   reason?: string;
 }
 
@@ -14,13 +15,50 @@ serve(async (req) => {
 
   try {
     const requestData: ConsumeAICreditRequest = await req.json();
-    const { rtoCode, reason } = requestData;
-
-    if (!rtoCode) {
-      return createErrorResponse('Missing required field: rtoCode');
-    }
+    const { userId, rtoCode, reason } = requestData;
 
     const supabase = createSupabaseClient(req);
+
+    // User-based credit consumption (new flow)
+    if (userId) {
+      console.log('[consume-ai-credit] Consuming credit for user:', userId);
+
+      const { data, error } = await supabase.rpc('consume_user_ai_credit', {
+        p_user_id: userId,
+      });
+
+      if (error) {
+        console.error('[consume-ai-credit] RPC Error:', error);
+        throw new Error(`Failed to consume credit: ${error.message}`);
+      }
+
+      console.log('[consume-ai-credit] RPC Result:', data);
+
+      const result = Array.isArray(data) ? data[0] : data;
+      
+      if (!result?.success) {
+        const message = result?.message || 'Failed to consume credit';
+        console.error('[consume-ai-credit] Failed:', message);
+        
+        if (message.includes('Insufficient')) {
+          return createErrorResponse(message, 402);
+        }
+        
+        return createErrorResponse(message, 400);
+      }
+
+      console.log('[consume-ai-credit] Credit consumed successfully, new balance:', result.new_balance);
+
+      return createSuccessResponse({
+        success: true,
+        remainingCredits: result.new_balance,
+      });
+    }
+
+    // Legacy RTO-based consumption (fallback)
+    if (!rtoCode) {
+      return createErrorResponse('Missing required field: userId or rtoCode');
+    }
 
     console.log('[consume-ai-credit] Consuming credit for RTO:', rtoCode);
 

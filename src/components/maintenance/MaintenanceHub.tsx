@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Building2, BookOpen, CheckSquare, Zap, MessageSquare, CreditCard, Compass } from 'lucide-react';
+import { ChevronRight, Zap, MessageSquare } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -29,20 +29,6 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
       description: 'Manage Gemini AI validation prompts and correlate with validation types',
       icon: <MessageSquare className="w-8 h-8" />,
       color: 'bg-pink-50 border-pink-200',
-    },
-    {
-      id: 'subscriptions',
-      title: 'Nytro Subscriptions & Platform Costs',
-      description: 'Monitor Nytro platform subscriptions and paid service costs including Render, Supabase, Google, and Netlify',
-      icon: <CreditCard className="w-8 h-8" />,
-      color: 'bg-violet-50 border-violet-200',
-    },
-    {
-      id: 'strategy',
-      title: 'Strategy & Roadmap',
-      description: 'Nytro 2026 strategy, six-month plan, marketing, commercial model, and tech roadmap',
-      icon: <Compass className="w-8 h-8" />,
-      color: 'bg-cyan-50 border-cyan-200',
     },
   ];
 

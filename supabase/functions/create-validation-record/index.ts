@@ -10,6 +10,7 @@ interface CreateValidationRecordRequest {
   validationType: string;
   documentType?: string;
   pineconeNamespace: string;
+  userId?: string;
 }
 
 /**
@@ -79,7 +80,8 @@ serve(async (req) => {
       qualificationCode, 
       validationType,
       documentType, 
-      pineconeNamespace 
+      pineconeNamespace,
+      userId 
     } = requestData;
 
     // Validate request

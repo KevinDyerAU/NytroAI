@@ -12,6 +12,7 @@ import { Play, Loader2, CheckCircle } from 'lucide-react';
 import { useValidationTrigger } from '../hooks/useValidationTrigger';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { consumeValidationCredit } from '../types/rto';
 
 interface ValidationTriggerButtonProps {
   validationDetailId: number;
@@ -75,6 +76,7 @@ interface ValidationTriggerCardProps {
   unitLink?: string;
   validationType?: 'unit' | 'learner_guide';
   sessionId?: string;
+  userId?: string; // User ID for user-based credit consumption
 }
 
 export function ValidationTriggerCard({
@@ -88,7 +90,8 @@ export function ValidationTriggerCard({
   unitCode,
   unitLink,
   validationType = 'unit',
-  sessionId
+  sessionId,
+  userId
 }: ValidationTriggerCardProps) {
   const { trigger, isTriggering } = useValidationTrigger();
   const [isTriggered, setIsTriggered] = React.useState(false);
@@ -138,6 +141,7 @@ export function ValidationTriggerCard({
             validationType: 'assessment',
             documentType: validationType,
             pineconeNamespace: sessionNamespace,
+            userId, // Pass userId for user-based filtering
           },
         });
 
@@ -168,12 +172,25 @@ export function ValidationTriggerCard({
         console.log('[ValidationTriggerCard] ✅ Validation created:', finalValidationDetailId);
       }
 
+      // Consume validation credit before triggering (prefer userId over rtoCode)
+      if (userId || rtoCode) {
+        console.log('[ValidationTriggerCard] Consuming validation credit...', { userId, rtoCode });
+        const creditResult = await consumeValidationCredit(rtoCode, userId);
+        if (!creditResult.success) {
+          toast.error('Failed to consume validation credit', {
+            description: creditResult.message,
+          });
+          return;
+        }
+        console.log('[ValidationTriggerCard] ✅ Credit consumed, remaining:', creditResult.newBalance);
+      }
+
       // Now trigger the validation
       await trigger(finalValidationDetailId!, storagePaths);
       setIsTriggered(true);
       setConfirmText(''); // Clear input after success
 
-      // Notify parent that credits were consumed
+      // Notify parent that credits were consumed (triggers dashboard refresh)
       if (onCreditsConsumed) {
         onCreditsConsumed();
       }

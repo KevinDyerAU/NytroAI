@@ -36,14 +36,20 @@ export interface AICredits {
   percentageText: string;
 }
 
-export function useDashboardMetrics(rtoId: string | null, rtoCode: string | null) {
+export function useDashboardMetrics(
+  rtoId: string | null, 
+  rtoCode: string | null,
+  userId?: string | null,
+  isAdmin?: boolean
+) {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
 
   useEffect(() => {
-    if (!rtoId && !rtoCode) {
+    // For user-based filtering, we need userId (unless admin)
+    if (!userId && !isAdmin && !rtoId && !rtoCode) {
       setLoading(false);
       setMetrics(getDefaultMetrics());
       return;
@@ -54,10 +60,10 @@ export function useDashboardMetrics(rtoId: string | null, rtoCode: string | null
         setLoading(true);
         setError(null);
 
-        console.log('[useDashboardMetrics] Calling edge function with:', { rtoId, rtoCode });
+        console.log('[useDashboardMetrics] Calling edge function with:', { rtoId, rtoCode, userId, isAdmin });
         
         const { data, error: functionError } = await supabase.functions.invoke('get-dashboard-metrics', {
-          body: { rtoId, rtoCode },
+          body: { rtoId, rtoCode, userId, isAdmin },
         });
 
         if (functionError) {
@@ -112,7 +118,7 @@ export function useDashboardMetrics(rtoId: string | null, rtoCode: string | null
     const interval = setInterval(fetchMetrics, 30000);
 
     return () => clearInterval(interval);
-  }, [rtoId, rtoCode, consecutiveErrors]);
+  }, [rtoId, rtoCode, userId, isAdmin, consecutiveErrors]);
 
   return { metrics, loading, error };
 }
@@ -140,7 +146,11 @@ function getDefaultMetrics(): DashboardMetrics {
   };
 }
 
-export function useValidationCredits(rtoId: string | null, refreshTrigger: number = 0) {
+export function useValidationCredits(
+  rtoId: string | null, 
+  refreshTrigger: number = 0,
+  userId?: string | null
+) {
   const [credits, setCredits] = useState<ValidationCredits>({
     current: 0,
     total: 0,
@@ -152,7 +162,10 @@ export function useValidationCredits(rtoId: string | null, refreshTrigger: numbe
   const [errorLogged, setErrorLogged] = useState(false);
 
   useEffect(() => {
-    if (!rtoId) {
+    // MUST have userId for user-based credits (preferred) or rtoId for legacy
+    // Wait for user to be loaded before making API calls
+    if (!userId && !rtoId) {
+      console.log('[useValidationCredits] Waiting for userId or rtoId...');
       setLoading(false);
       return;
     }
@@ -162,30 +175,29 @@ export function useValidationCredits(rtoId: string | null, refreshTrigger: numbe
         setLoading(true);
         setError(null);
 
+        // Prioritize userId over rtoId - only pass rtoId if userId is not available
+        const requestBody = userId 
+          ? { userId } 
+          : { rtoId };
+
+        console.log('[useValidationCredits] Fetching credits with:', requestBody);
+
         const { data, error: functionError } = await supabase.functions.invoke('get-validation-credits', {
-          body: { rtoId },
+          body: requestBody,
         });
 
         if (functionError) {
-          if (!errorLogged) {
-            console.error('[useValidationCredits] Error:', functionError.message || 'Failed to fetch credits');
-            setErrorLogged(true);
-          }
+          console.error('[useValidationCredits] Error:', functionError.message || 'Failed to fetch credits');
           throw functionError;
         }
 
+        console.log('[useValidationCredits] Success:', data);
         setCredits(data);
-        setErrorLogged(false); // Reset on success
+        setError(null);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         setError(errorMsg);
-        // Preserve previous credits on error
-        setCredits(prev => prev || {
-          current: 0,
-          total: 0,
-          percentage: 0,
-          percentageText: '0% Remaining',
-        });
+        // Keep loading false but don't clear credits
       } finally {
         setLoading(false);
       }
@@ -197,12 +209,16 @@ export function useValidationCredits(rtoId: string | null, refreshTrigger: numbe
     const interval = setInterval(fetchCredits, 30000);
 
     return () => clearInterval(interval);
-  }, [rtoId, refreshTrigger, errorLogged]);
+  }, [rtoId, refreshTrigger, userId]);
 
   return { credits, loading, error };
 }
 
-export function useAICredits(rtoId: string | null, refreshTrigger: number = 0) {
+export function useAICredits(
+  rtoId: string | null, 
+  refreshTrigger: number = 0,
+  userId?: string | null
+) {
   const [credits, setCredits] = useState<AICredits>({
     current: 0,
     total: 0,
@@ -214,7 +230,10 @@ export function useAICredits(rtoId: string | null, refreshTrigger: number = 0) {
   const [errorLogged, setErrorLogged] = useState(false);
 
   useEffect(() => {
-    if (!rtoId) {
+    // MUST have userId for user-based credits (preferred) or rtoId for legacy
+    // Wait for user to be loaded before making API calls
+    if (!userId && !rtoId) {
+      console.log('[useAICredits] Waiting for userId or rtoId...');
       setLoading(false);
       return;
     }
@@ -224,30 +243,29 @@ export function useAICredits(rtoId: string | null, refreshTrigger: number = 0) {
         setLoading(true);
         setError(null);
 
+        // Prioritize userId over rtoId - only pass rtoId if userId is not available
+        const requestBody = userId 
+          ? { userId } 
+          : { rtoId };
+
+        console.log('[useAICredits] Fetching credits with:', requestBody);
+
         const { data, error: functionError } = await supabase.functions.invoke('get-ai-credits', {
-          body: { rtoId },
+          body: requestBody,
         });
 
         if (functionError) {
-          if (!errorLogged) {
-            console.error('[useAICredits] Error:', functionError.message || 'Failed to fetch credits');
-            setErrorLogged(true);
-          }
+          console.error('[useAICredits] Error:', functionError.message || 'Failed to fetch credits');
           throw functionError;
         }
 
+        console.log('[useAICredits] Success:', data);
         setCredits(data);
-        setErrorLogged(false); // Reset on success
+        setError(null);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         setError(errorMsg);
-        // Preserve previous credits on error
-        setCredits(prev => prev || {
-          current: 0,
-          total: 0,
-          percentage: 0,
-          percentageText: 'Depleted',
-        });
+        // Keep loading false but don't clear credits
       } finally {
         setLoading(false);
       }
@@ -259,7 +277,7 @@ export function useAICredits(rtoId: string | null, refreshTrigger: number = 0) {
     const interval = setInterval(fetchCredits, 30000);
 
     return () => clearInterval(interval);
-  }, [rtoId, refreshTrigger, errorLogged]);
+  }, [rtoId, refreshTrigger, userId]);
 
   return { credits, loading, error };
 }
