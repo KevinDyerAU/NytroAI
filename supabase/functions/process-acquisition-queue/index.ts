@@ -421,10 +421,10 @@ serve(async (req) => {
  */
 async function updateCompletenessFlags(supabase: any, unitCode: string) {
   try {
-    // Get the unit's Link (URL) which is used as the foreign key in requirement tables
+    // Get the unit's Link (URL) and text columns (ac, fs) for completeness check
     const { data: unit, error: unitError } = await supabase
       .from('UnitOfCompetency')
-      .select('id, "Link", unitCode')
+      .select('id, "Link", unitCode, ac, fs, ke, pe, epc')
       .eq('unitCode', unitCode)
       .single();
 
@@ -435,7 +435,7 @@ async function updateCompletenessFlags(supabase: any, unitCode: string) {
 
     const unitUrl = unit.Link;
 
-    // Check each requirement table
+    // Check dedicated requirement tables for structured data
     const [keResult, peResult, fsResult, epcResult, acResult] = await Promise.all([
       supabase.from('knowledge_evidence_requirements').select('id', { count: 'exact', head: true }).eq('unit_url', unitUrl),
       supabase.from('performance_evidence_requirements').select('id', { count: 'exact', head: true }).eq('unit_url', unitUrl),
@@ -444,11 +444,14 @@ async function updateCompletenessFlags(supabase: any, unitCode: string) {
       supabase.from('assessment_conditions_requirements').select('id', { count: 'exact', head: true }).eq('unit_url', unitUrl),
     ]);
 
-    const hasKE = (keResult.count || 0) > 0;
-    const hasPE = (peResult.count || 0) > 0;
-    const hasFS = (fsResult.count || 0) > 0;
-    const hasEPC = (epcResult.count || 0) > 0;
-    const hasAC = (acResult.count || 0) > 0;
+    // Check BOTH the dedicated tables AND the UnitOfCompetency text columns
+    // The text columns (ac, fs, ke, pe, epc) are populated by the scraper and used by the validation engine
+    // The dedicated tables may not always be populated (e.g., assessment_conditions, foundation_skills)
+    const hasKE = (keResult.count || 0) > 0 || (unit.ke && unit.ke.trim().length > 0);
+    const hasPE = (peResult.count || 0) > 0 || (unit.pe && unit.pe.trim().length > 0);
+    const hasFS = (fsResult.count || 0) > 0 || (unit.fs && unit.fs.trim().length > 0);
+    const hasEPC = (epcResult.count || 0) > 0 || (unit.epc && unit.epc.trim().length > 0);
+    const hasAC = (acResult.count || 0) > 0 || (unit.ac && unit.ac.trim().length > 0);
 
     const allComplete = hasKE && hasPE && hasFS && hasEPC && hasAC;
     const anyPartial = hasKE || hasPE || hasFS || hasEPC || hasAC;

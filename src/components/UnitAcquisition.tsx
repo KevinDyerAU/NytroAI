@@ -271,6 +271,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
 
     try {
       const unitLink = unit.link || '';
+      // Fetch from dedicated requirements tables
       const [keResult, peResult, fsResult, epcResult, acResult] = await Promise.all([
         supabase.from('knowledge_evidence_requirements').select('*').eq('unit_url', unitLink),
         supabase.from('performance_evidence_requirements').select('*').eq('unit_url', unitLink),
@@ -280,9 +281,53 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
       ]);
       setKeReqs(keResult.data || []);
       setPeReqs(peResult.data || []);
-      setFsReqs(fsResult.data || []);
       setEpcReqs(epcResult.data || []);
-      setAcReqs(acResult.data || []);
+
+      // For Foundation Skills and Assessment Conditions, fall back to UnitOfCompetency text columns
+      // when the dedicated tables are empty (the scraper stores data in UoC columns, not always in the tables)
+      if ((fsResult.data || []).length > 0) {
+        setFsReqs(fsResult.data || []);
+      } else {
+        // Fetch the fs text from UnitOfCompetency and parse into displayable rows
+        const { data: uocData } = await supabase
+          .from('UnitOfCompetency')
+          .select('fs')
+          .eq('unitCode', unit.unitCode)
+          .single();
+        if (uocData?.fs) {
+          const fsLines = uocData.fs.split(/\n/).filter((l: string) => l.trim().length > 0);
+          setFsReqs(fsLines.map((line: string, idx: number) => ({
+            id: idx + 1,
+            fs_number: `FS.${idx + 1}`,
+            skill_point: line.trim(),
+            unit_url: unitLink,
+          })));
+        } else {
+          setFsReqs([]);
+        }
+      }
+
+      if ((acResult.data || []).length > 0) {
+        setAcReqs(acResult.data || []);
+      } else {
+        // Fetch the ac text from UnitOfCompetency and parse into displayable rows
+        const { data: uocData } = await supabase
+          .from('UnitOfCompetency')
+          .select('ac')
+          .eq('unitCode', unit.unitCode)
+          .single();
+        if (uocData?.ac) {
+          const acLines = uocData.ac.split(/\n/).filter((l: string) => l.trim().length > 0);
+          setAcReqs(acLines.map((line: string, idx: number) => ({
+            id: idx + 1,
+            ac_number: `AC.${idx + 1}`,
+            condition_point: line.trim(),
+            unit_url: unitLink,
+          })));
+        } else {
+          setAcReqs([]);
+        }
+      }
     } catch (error) {
       console.error('Failed to load unit requirements:', error);
     } finally {
@@ -1173,7 +1218,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                         <RequirementTable
                           items={acReqs}
                           numberKey="ac_number"
-                          contentKey="condition_text"
+                          contentKey="condition_point"
                           accentColor="#ec4899"
                           headerLabel="Condition"
                           isMobile={isMobile}

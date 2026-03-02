@@ -122,6 +122,11 @@ export function RequirementCompleteness({ flags, compact = false }: RequirementC
 
 export function AcquisitionStatusBadge({ status, lastError }: { status: string; lastError?: string | null }) {
   const configs: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
+    pending: {
+      label: 'Pending',
+      className: 'bg-[#f1f5f9] text-[#475569] border-[#94a3b8]',
+      icon: <div className="w-2 h-2 rounded-full bg-[#94a3b8]" />,
+    },
     queued: {
       label: 'Queued',
       className: 'bg-[#f1f5f9] text-[#475569] border-[#94a3b8]',
@@ -132,10 +137,20 @@ export function AcquisitionStatusBadge({ status, lastError }: { status: string; 
       className: 'bg-[#dbeafe] text-[#1e40af] border-[#3b82f6]',
       icon: <div className="w-2 h-2 rounded-full bg-[#3b82f6] animate-pulse" />,
     },
+    complete: {
+      label: 'Complete',
+      className: 'bg-[#dcfce7] text-[#166534] border-[#22c55e]',
+      icon: <CheckCircle2 className="w-3 h-3" />,
+    },
     completed: {
       label: 'Complete',
       className: 'bg-[#dcfce7] text-[#166534] border-[#22c55e]',
       icon: <CheckCircle2 className="w-3 h-3" />,
+    },
+    partial: {
+      label: 'Partial',
+      className: 'bg-[#fef3c7] text-[#92400e] border-[#f59e0b]',
+      icon: <AlertTriangle className="w-3 h-3" />,
     },
     partial_success: {
       label: 'Partial',
@@ -154,7 +169,7 @@ export function AcquisitionStatusBadge({ status, lastError }: { status: string; 
     },
   };
 
-  const config = configs[status] || configs.queued;
+  const config = configs[status] || configs.pending;
 
   const badge = (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${config.className}`}>
