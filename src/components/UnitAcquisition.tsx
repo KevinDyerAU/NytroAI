@@ -451,18 +451,26 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
       showAlert('info', 'Retry Queued', `Unit ${unitCodeToRetry} has been re-queued for extraction.`);
       const n8nUrl = import.meta.env.VITE_N8N_WEB_SCRAPE_URL;
       if (n8nUrl) {
-        try {
-          fetch(n8nUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              originUrl: buildWebhookUrl(unitCodeToRetry),
-              webhookUrl: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`,
-              executionMode: 'production',
-              queueId,
-            }),
-          }).catch(() => {});
-        } catch {}
+        // Stagger retries: count how many active items are ahead of this one
+        const activeAhead = queueItems.filter(
+          i => ['queued', 'in_progress'].includes(i.status) && i.id < queueId
+        ).length;
+        const delayMs = activeAhead * 5000; // 5 second gap between each request
+
+        setTimeout(async () => {
+          try {
+            fetch(n8nUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                originUrl: buildWebhookUrl(unitCodeToRetry),
+                webhookUrl: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-training-gov-au`,
+                executionMode: 'production',
+                queueId,
+              }),
+            }).catch(() => {});
+          } catch {}
+        }, delayMs);
       }
     } else {
       showAlert('error', 'Retry Failed', `Could not re-queue unit ${unitCodeToRetry}.`);
@@ -711,6 +719,9 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                           Next: {new Date(item.next_retry_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       )}
+                      <span className="text-xs text-[#94a3b8]">
+                        {new Date(item.created_at).toLocaleString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1 self-end sm:self-auto">
                       {(item.status === 'failed' || item.status === 'partial_success' || item.status === 'retry') && (
