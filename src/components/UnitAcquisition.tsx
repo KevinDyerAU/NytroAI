@@ -123,6 +123,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     retryUnit,
     cancelUnit,
     getQueueItemForUnit,
+    refreshQueue,
   } = useAcquisitionQueue();
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -776,7 +777,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                 </button>
               </div>
               <button
-                onClick={() => fetchExistingUnits()}
+                onClick={() => { fetchExistingUnits(); refreshQueue(); }}
                 className="p-2 rounded-lg border border-[#dbeafe] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#3b82f6] transition-colors"
                 title="Refresh"
               >

@@ -39,13 +39,24 @@ export function useAcquisitionQueue(): UseAcquisitionQueueReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch all queue items
+  // Fetch queue items for the current user (exclude completed)
   const fetchQueue = useCallback(async () => {
     try {
-      const { data, error: fetchError } = await supabase
+      // Get current user to filter by requested_by
+      const { data: { user } } = await supabase.auth.getUser();
+
+      let query = supabase
         .from('unit_acquisition_queue')
         .select('*')
+        .in('status', ['queued', 'in_progress', 'retry', 'failed', 'partial_success'])
         .order('created_at', { ascending: false });
+
+      // Filter by current user if available
+      if (user?.id) {
+        query = query.eq('requested_by', user.id);
+      }
+
+      const { data, error: fetchError } = await query;
 
       if (fetchError) {
         console.error('[AcquisitionQueue] Fetch error:', fetchError);
@@ -80,15 +91,23 @@ export function useAcquisitionQueue(): UseAcquisitionQueueReturn {
           console.log('[AcquisitionQueue] Realtime event:', payload.eventType, payload);
 
           if (payload.eventType === 'INSERT') {
-            setQueueItems(prev => [payload.new as AcquisitionQueueItem, ...prev]);
+            const newItem = payload.new as AcquisitionQueueItem;
+            // Only add if not completed
+            if (newItem.status !== 'completed') {
+              setQueueItems(prev => [newItem, ...prev]);
+            }
           } else if (payload.eventType === 'UPDATE') {
-            setQueueItems(prev =>
-              prev.map(item =>
-                item.id === (payload.new as AcquisitionQueueItem).id
-                  ? (payload.new as AcquisitionQueueItem)
-                  : item
-              )
-            );
+            const updatedItem = payload.new as AcquisitionQueueItem;
+            if (updatedItem.status === 'completed') {
+              // Remove completed items from the list
+              setQueueItems(prev => prev.filter(item => item.id !== updatedItem.id));
+            } else {
+              setQueueItems(prev =>
+                prev.map(item =>
+                  item.id === updatedItem.id ? updatedItem : item
+                )
+              );
+            }
           } else if (payload.eventType === 'DELETE') {
             setQueueItems(prev =>
               prev.filter(item => item.id !== (payload.old as { id: number }).id)
