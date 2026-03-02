@@ -2,13 +2,15 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * $99 Independent Validation Landing Page
- * SEO-optimized landing page for Nytro's independent resource validation service.
+ * $99 Independent Validation Landing Page — SPA
+ * Single-page application with smooth scroll navigation,
+ * Stripe checkout, and Supabase lead capture. SEO-optimized.
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDocumentHead } from '../hooks/useDocumentHead';
 import { supabase } from '../lib/supabase';
-// Stripe checkout is handled via edge function URL redirect
+import { useAuth } from '../hooks/useAuth';
 import nytroLogo from '../assets/nytro-logo.svg';
 import {
   CheckCircle,
@@ -22,6 +24,9 @@ import {
   Clock,
   FileCheck,
   ArrowUp,
+  Loader2,
+  LogIn,
+  X,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -87,8 +92,19 @@ const faqData: FAQItem[] = [
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+// ─── Smooth scroll helper ──────────────────────────────────────────────────
+function smoothScrollTo(id: string) {
+  const el = document.getElementById(id);
+  if (el) {
+    const navHeight = 80;
+    const top = el.getBoundingClientRect().top + window.scrollY - navHeight;
+    window.scrollTo({ top, behavior: 'smooth' });
+  }
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export const ValidationLandingPage: React.FC = () => {
+  const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
@@ -105,17 +121,50 @@ export const ValidationLandingPage: React.FC = () => {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [activeSection, setActiveSection] = useState('hero');
 
+  // Login dialog state
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const { login } = useAuth();
+
+  // ─── Scroll spy for active nav section ──────────────────────────────────
   useEffect(() => {
+    const sections = ['hero', 'breakdown', 'why-nytro', 'limited-offer', 'process', 'faq'];
     const handleScroll = () => {
       setShowBackToTop(window.scrollY > 400);
+
+      const navHeight = 100;
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const el = document.getElementById(sections[i]);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= navHeight) {
+            setActiveSection(sections[i]);
+            break;
+          }
+        }
+      }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // ─── SPA navigation handler ─────────────────────────────────────────────
+  const handleNavClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+    e.preventDefault();
+    smoothScrollTo(sectionId);
+  }, []);
+
   const scrollToForm = () => {
-    formRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (formRef.current) {
+      const navHeight = 80;
+      const top = formRef.current.getBoundingClientRect().top + window.scrollY - navHeight;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
   };
 
   const scrollToTop = () => {
@@ -136,6 +185,28 @@ export const ValidationLandingPage: React.FC = () => {
     }
   };
 
+  // ─── Login handler ──────────────────────────────────────────────────────
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError(null);
+
+    try {
+      const result = await login(loginEmail, loginPassword);
+      if (result.success) {
+        setShowLoginDialog(false);
+        navigate('/dashboard');
+      } else {
+        setLoginError(result.error || 'Invalid email or password');
+      }
+    } catch {
+      setLoginError('An error occurred. Please try again.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // ─── Form submit handler ────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -155,14 +226,13 @@ export const ValidationLandingPage: React.FC = () => {
 
         if (uploadError) {
           console.error('File upload error:', uploadError);
-          // Continue without file — don't block the submission
         } else {
           fileUrl = uploadData?.path || '';
           fileName = selectedFile.name;
         }
       }
 
-      // 2. Insert lead into Supabase (include user_id if authenticated)
+      // 2. Insert lead into Supabase
       const { data: { session } } = await supabase.auth.getSession();
       const { data: leadData, error: leadError } = await supabase
         .from('validation_leads')
@@ -251,18 +321,14 @@ export const ValidationLandingPage: React.FC = () => {
       if (checkoutData.url) {
         window.location.href = checkoutData.url;
       } else if (checkoutData.sessionId) {
-        // Fallback: construct Stripe checkout URL
         window.location.href = `https://checkout.stripe.com/c/pay/${checkoutData.sessionId}`;
       }
     } catch (error) {
       console.error('Submission error:', error);
       const errorMessage = error instanceof Error ? error.message : '';
       
-      // Provide contextual error messages
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        setSubmitError(
-          'Network error — please check your internet connection and try again.'
-        );
+        setSubmitError('Network error — please check your internet connection and try again.');
       } else if (errorMessage.includes('duplicate key') || errorMessage.includes('unique')) {
         setSubmitError(
           'It looks like you have already submitted a validation request with this email. Please contact support@nytro.com.au if you need assistance.'
@@ -270,10 +336,9 @@ export const ValidationLandingPage: React.FC = () => {
       } else if (errorMessage) {
         setSubmitError(errorMessage);
       } else {
-        setSubmitError(
-          'Something went wrong. Please try again or contact support@nytro.com.au for assistance.'
-        );
+        setSubmitError('Something went wrong. Please try again or contact support@nytro.com.au for assistance.');
       }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -325,7 +390,6 @@ export const ValidationLandingPage: React.FC = () => {
     })),
   };
 
-  // ─── SEO Document Head ──────────────────────────────────────────────────
   useDocumentHead({
     title: '$99 Independent Validation | Nytro — RTO Resource Compliance',
     meta: [
@@ -350,43 +414,75 @@ export const ValidationLandingPage: React.FC = () => {
     structuredData: [structuredData, faqStructuredData],
   });
 
+  // Nav link helper with active state
+  const navLinkClass = (section: string) =>
+    `transition-colors text-sm font-medium cursor-pointer ${
+      activeSection === section
+        ? 'text-teal-400'
+        : 'text-slate-300 hover:text-white'
+    }`;
+
   return (
     <>
       <div className="min-h-screen bg-white text-slate-900 font-body selection:bg-teal-200 selection:text-teal-900">
-        {/* ─── Navigation ──────────────────────────────────────────────── */}
+        {/* ─── Fixed Navigation ──────────────────────────────────────────── */}
         <nav className="fixed top-0 left-0 right-0 z-50 bg-nytro-dark/95 backdrop-blur-md border-b border-slate-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16 md:h-20">
-              <a href="/" className="flex items-center" aria-label="Nytro Home">
+              <a
+                href="#hero"
+                onClick={(e) => { e.preventDefault(); scrollToTop(); }}
+                className="flex items-center"
+                aria-label="Nytro Home"
+              >
                 <img src={nytroLogo} alt="Nytro" className="h-8 md:h-10 w-auto" />
               </a>
               <div className="hidden md:flex items-center gap-8">
-                <a href="#process" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
+                <a href="#process" onClick={(e) => handleNavClick(e, 'process')} className={navLinkClass('process')}>
                   How it works
                 </a>
-                <a href="#breakdown" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
+                <a href="#breakdown" onClick={(e) => handleNavClick(e, 'breakdown')} className={navLinkClass('breakdown')}>
                   Solutions
                 </a>
-                <a href="#limited-offer" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
+                <a href="#limited-offer" onClick={(e) => handleNavClick(e, 'limited-offer')} className={navLinkClass('limited-offer')}>
                   Pricing
                 </a>
-                <a href="#footer" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">
+                <a href="#faq" onClick={(e) => handleNavClick(e, 'faq')} className={navLinkClass('faq')}>
+                  FAQ
+                </a>
+                <a href="#footer" onClick={(e) => handleNavClick(e, 'footer')} className={navLinkClass('footer')}>
                   Contact
                 </a>
+                <button
+                  onClick={() => setShowLoginDialog(true)}
+                  className="text-slate-300 hover:text-white transition-colors text-sm font-medium flex items-center gap-1.5"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Login
+                </button>
                 <button
                   onClick={scrollToForm}
                   className="bg-gradient-to-r from-teal-400 to-blue-500 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:from-teal-500 hover:to-blue-600 transition-all shadow-lg shadow-teal-500/25"
                 >
-                  Book a Demo
+                  Get Started
                 </button>
               </div>
-              {/* Mobile menu button */}
-              <button
-                onClick={scrollToForm}
-                className="md:hidden bg-gradient-to-r from-teal-400 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold"
-              >
-                Get Started
-              </button>
+              {/* Mobile */}
+              <div className="md:hidden flex items-center gap-3">
+                <button
+                  onClick={() => setShowLoginDialog(true)}
+                  className="text-slate-300 hover:text-white p-2"
+                  aria-label="Login"
+                >
+                  <LogIn className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={scrollToForm}
+                  className="bg-gradient-to-r from-teal-400 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold"
+                >
+                  Get Started
+                </button>
+              </div>
             </div>
           </div>
         </nav>
@@ -464,7 +560,7 @@ export const ValidationLandingPage: React.FC = () => {
           </div>
         </section>
 
-        {/* ─── 2. PROBLEM + SOLUTION SECTION ───────────────────────────── */}
+        {/* ─── 2. PROBLEM + SOLUTION + FORM SECTION ───────────────────── */}
         <section id="breakdown" className="py-16 md:py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-5 gap-12 items-start">
@@ -536,8 +632,8 @@ export const ValidationLandingPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right: Form Card (2 cols) */}
-              <div ref={formRef} className="lg:col-span-2 lg:sticky lg:top-28">
+              {/* Right: Form Card (2 cols) — sticky */}
+              <div ref={formRef} id="form" className="lg:col-span-2 lg:sticky lg:top-28">
                 <div className="bg-nytro-dark rounded-2xl p-6 md:p-8 shadow-2xl shadow-slate-900/20">
                   <h3 className="text-xl font-sans font-bold text-white mb-6">
                     Validate Your Resource
@@ -673,7 +769,14 @@ export const ValidationLandingPage: React.FC = () => {
                       disabled={isSubmitting}
                       className="w-full bg-gradient-to-r from-teal-400 to-teal-500 text-nytro-dark px-6 py-3 rounded-lg text-sm font-bold uppercase tracking-wide hover:from-teal-500 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-500/20"
                     >
-                      {isSubmitting ? 'Processing...' : 'Start Validation'}
+                      {isSubmitting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Processing...
+                        </span>
+                      ) : (
+                        'Start Validation — $99'
+                      )}
                     </button>
                   </form>
                 </div>
@@ -699,14 +802,12 @@ export const ValidationLandingPage: React.FC = () => {
               spends more time delivering quality training and less time reacting to compliance
               issues.
             </p>
-            <a
-              href="https://nytro.com.au"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={scrollToForm}
               className="inline-block bg-transparent border-2 border-teal-400 text-teal-400 px-8 py-3 rounded-lg text-sm font-bold uppercase tracking-wide hover:bg-teal-400 hover:text-nytro-dark transition-all"
             >
               Get Started
-            </a>
+            </button>
           </div>
         </section>
 
@@ -780,7 +881,7 @@ export const ValidationLandingPage: React.FC = () => {
                 },
                 {
                   icon: Mail,
-                  label: 'Receive your completed validation via email',
+                  label: 'Receive your completed validation report',
                   color: 'from-purple-400 to-purple-500',
                 },
               ].map((step, i) => (
@@ -827,14 +928,16 @@ export const ValidationLandingPage: React.FC = () => {
                       <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
                     )}
                   </button>
-                  {openFAQ === i && (
-                    <div
-                      id={`faq-answer-${i}`}
-                      className="px-5 pb-4 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-3"
-                    >
+                  <div
+                    id={`faq-answer-${i}`}
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      openFAQ === i ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <div className="px-5 pb-4 text-sm text-slate-500 leading-relaxed border-t border-slate-100 pt-3">
                       {faq.answer}
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -859,12 +962,20 @@ export const ValidationLandingPage: React.FC = () => {
                 </h4>
                 <ul className="space-y-2 text-sm">
                   <li>
-                    <a href="#process" className="hover:text-teal-400 transition-colors">
+                    <a
+                      href="#process"
+                      onClick={(e) => handleNavClick(e, 'process')}
+                      className="hover:text-teal-400 transition-colors"
+                    >
                       How It Works
                     </a>
                   </li>
                   <li>
-                    <a href="#limited-offer" className="hover:text-teal-400 transition-colors">
+                    <a
+                      href="#limited-offer"
+                      onClick={(e) => handleNavClick(e, 'limited-offer')}
+                      className="hover:text-teal-400 transition-colors"
+                    >
                       Pricing
                     </a>
                   </li>
@@ -879,9 +990,12 @@ export const ValidationLandingPage: React.FC = () => {
                     </a>
                   </li>
                   <li>
-                    <a href="/" className="hover:text-teal-400 transition-colors">
+                    <button
+                      onClick={() => setShowLoginDialog(true)}
+                      className="hover:text-teal-400 transition-colors"
+                    >
                       Login
-                    </a>
+                    </button>
                   </li>
                 </ul>
               </div>
@@ -911,17 +1025,98 @@ export const ValidationLandingPage: React.FC = () => {
           </div>
         </footer>
 
-        {/* ─── Back to Top Button ──────────────────────────────────────── */}
-        {showBackToTop && (
-          <button
-            onClick={scrollToTop}
-            className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-amber-500 text-white shadow-lg hover:bg-amber-600 transition-all flex items-center justify-center"
-            aria-label="Back to top"
-          >
-            <ArrowUp className="w-5 h-5" />
-          </button>
-        )}
+        {/* ─── Back to Top Button (gold) ──────────────────────────────── */}
+        <button
+          onClick={scrollToTop}
+          className={`fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-amber-500 text-white shadow-lg hover:bg-amber-600 transition-all flex items-center justify-center ${
+            showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+          }`}
+          aria-label="Back to top"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
       </div>
+
+      {/* ─── Login Dialog ──────────────────────────────────────────────── */}
+      {showLoginDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLoginDialog(false)}
+          />
+          <div className="relative bg-nytro-dark rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl border border-slate-700">
+            <button
+              onClick={() => setShowLoginDialog(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+              aria-label="Close login"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="text-center mb-6">
+              <img src={nytroLogo} alt="Nytro" className="h-8 w-auto mx-auto mb-4" />
+              <h2 className="text-xl font-sans font-bold text-white">Welcome back</h2>
+              <p className="text-sm text-slate-400 mt-1">Sign in to your Nytro account</p>
+            </div>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label htmlFor="loginEmail" className="block text-xs text-slate-400 mb-1">
+                  Email
+                </label>
+                <input
+                  id="loginEmail"
+                  type="email"
+                  required
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+                  placeholder="email@company.com"
+                />
+              </div>
+              <div>
+                <label htmlFor="loginPassword" className="block text-xs text-slate-400 mb-1">
+                  Password
+                </label>
+                <input
+                  id="loginPassword"
+                  type="password"
+                  required
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+                  placeholder="Password"
+                />
+              </div>
+              {loginError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
+                  {loginError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={isLoggingIn}
+                className="w-full bg-gradient-to-r from-teal-400 to-teal-500 text-nytro-dark px-6 py-3 rounded-lg text-sm font-bold uppercase tracking-wide hover:from-teal-500 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoggingIn ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Signing in...
+                  </span>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+              <div className="text-center">
+                <a
+                  href="/forgot-password"
+                  className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                >
+                  Forgot your password?
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };

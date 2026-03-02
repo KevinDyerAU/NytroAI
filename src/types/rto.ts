@@ -720,21 +720,27 @@ export async function getUserValidationsByRTO(
   isAdmin: boolean = false
 ): Promise<ValidationRecord[]> {
   try {
-    // First, look up the actual RTO code from the RTO table
-    let actualRtoCode = rtoCode;
-    const { data: rtoData } = await supabase
-      .from('RTO')
-      .select('code')
-      .or(`code.eq.${rtoCode},code.ilike.${rtoCode}%`)
-      .maybeSingle();
+    // Handle $99 users who have no RTO — query by user_id only
+    const hasRtoCode = rtoCode && rtoCode.trim() !== '';
 
-    if (rtoData?.code) {
-      actualRtoCode = rtoData.code;
-      console.log(`[getUserValidationsByRTO] Resolved RTO code: ${rtoCode} -> ${actualRtoCode}`);
+    let actualRtoCode = rtoCode;
+    if (hasRtoCode) {
+      // Look up the actual RTO code from the RTO table
+      const { data: rtoData } = await supabase
+        .from('RTO')
+        .select('code')
+        .or(`code.eq.${rtoCode},code.ilike.${rtoCode}%`)
+        .maybeSingle();
+
+      if (rtoData?.code) {
+        actualRtoCode = rtoData.code;
+        console.log(`[getUserValidationsByRTO] Resolved RTO code: ${rtoCode} -> ${actualRtoCode}`);
+      }
     }
 
     // Query validation_detail with joins
-    const { data, error } = await supabase
+    // For users without RTO, filter by user_id directly in the query
+    let query = supabase
       .from('validation_detail')
       .select(`
         *,
@@ -742,6 +748,13 @@ export async function getUserValidationsByRTO(
         validation_type:validationType_id(code)
       `)
       .order('created_at', { ascending: false });
+
+    // If no RTO code and not admin, filter by user_id directly for efficiency
+    if (!hasRtoCode && !isAdmin && userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[getUserValidationsByRTO] Query failed:', error.message);
@@ -752,18 +765,25 @@ export async function getUserValidationsByRTO(
     const filteredData = (data || []).filter((record: any) => {
       const summaryRtoCode = record.validation_summary?.rtoCode;
       const recordUserId = record.user_id || record.validation_summary?.user_id;
-      
-      // Must match RTO code
-      if (summaryRtoCode !== actualRtoCode) {
-        return false;
+
+      // If user has an RTO code, filter by it
+      if (hasRtoCode) {
+        if (summaryRtoCode !== actualRtoCode) {
+          return false;
+        }
       }
       
-      // Admin users see all validations for the RTO
+      // Admin users see all validations
       if (isAdmin) {
         return true;
       }
+
+      // For $99 users without RTO, show only their own validations (already filtered by query)
+      if (!hasRtoCode && userId) {
+        return recordUserId === userId;
+      }
       
-      // Non-admin users see:
+      // Non-admin users with RTO see:
       // 1. Their own validations (user_id matches)
       // 2. Legacy validations without user_id (for backward compatibility)
       if (!userId) {

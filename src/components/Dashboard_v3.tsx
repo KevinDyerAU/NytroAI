@@ -11,7 +11,6 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { supabase } from '../lib/supabase';
 import { getRTOById, fetchRTOById, getActiveValidationsByRTO, getUserValidationsByRTO } from '../types/rto';
-import { useAuthStore } from '../store/auth.store';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
 import {
   Activity,
@@ -118,7 +117,8 @@ export function Dashboard_v3({
   // Fetch validations using user-specific filtering
   useEffect(() => {
     const loadActiveValidations = async (isInitial = false) => {
-      if (!rtoCode) return;
+      // $99 users without RTO can still see their own validations via user_id
+      if (!rtoCode && !userId) return;
 
       // Only show loading spinner on true initial load (first visit ever)
       if (isInitial && isInitialLoad) {
@@ -129,12 +129,11 @@ export function Dashboard_v3({
         // Use user-specific validation filtering
         // Admin users see all validations, regular users see only their own
         const data = await getUserValidationsByRTO(
-          rtoCode,
-          user?.id || null,
-          user?.is_admin || false
+          rtoCode || '',
+          userId || null,
+          isAdmin || false
         );
         setValidations(data);
-
         if (isInitial && isInitialLoad) {
           setIsInitialLoad(false);
         }
@@ -158,7 +157,7 @@ export function Dashboard_v3({
     return () => {
       subscription.unsubscribe();
     };
-  }, [rtoCode, creditsRefreshTrigger, isInitialLoad, user?.id, user?.is_admin]);
+  }, [rtoCode, creditsRefreshTrigger, isInitialLoad, userId, isAdmin]);
 
   // Calculate local metrics (for internal use)
   const localMetrics = useMemo(() => {
@@ -187,15 +186,14 @@ export function Dashboard_v3({
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshValidations = async (showToast = false) => {
-    if (!rtoCode || isRefreshing) return;
-
+    if ((!rtoCode && !userId) || isRefreshing) return;
     setIsRefreshing(true);
     try {
       // Use user-specific validation filtering
       const data = await getUserValidationsByRTO(
-        rtoCode,
-        user?.id || null,
-        user?.is_admin || false
+        rtoCode || '',
+        userId || null,
+        isAdmin || false
       );
       setValidations(data || []);
       if (showToast) {
@@ -213,14 +211,12 @@ export function Dashboard_v3({
 
   // Set up polling every 60 seconds as fallback (real-time subscription handles most updates)
   useEffect(() => {
-    if (!rtoCode) return;
-
+    if (!rtoCode && !userId) return;
     const interval = setInterval(() => {
       refreshValidations(false);
     }, 60000); // 60 seconds
-
     return () => clearInterval(interval);
-  }, [rtoCode]);
+  }, [rtoCode, userId]);
 
   // Show ALL validations (not just actively processing ones)
   const activeValidations = validations;

@@ -9,6 +9,10 @@ import { Settings } from '../components/Settings';
 import { MaintenanceHub } from '../components/maintenance/MaintenanceHub';
 import { CreditsMaintenance } from '../components/maintenance/CreditsMaintenance';
 import { PromptMaintenanceNew as PromptMaintenance } from '../components/maintenance/PromptMaintenanceNew';
+import { ValidationLeadsMaintenance } from '../components/maintenance/ValidationLeadsMaintenance';
+import { StripeDiscountsMaintenance } from '../components/maintenance/StripeDiscountsMaintenance';
+import { AllValidationsMaintenance } from '../components/maintenance/AllValidationsMaintenance';
+import { LeadsManagement } from '../components/maintenance/LeadsManagement';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
@@ -147,6 +151,34 @@ export function DashboardPage() {
     );
 
     switch (maintenanceModule) {
+      case 'leads-management':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <LeadsManagement />
+          </div>
+        );
+      case 'validation-leads':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <ValidationLeadsMaintenance />
+          </div>
+        );
+      case 'all-validations':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <AllValidationsMaintenance />
+          </div>
+        );
+      case 'stripe-discounts':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <StripeDiscountsMaintenance />
+          </div>
+        );
       case 'credits':
         return (
           <div className="space-y-4">
