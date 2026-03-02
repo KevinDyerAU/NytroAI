@@ -218,44 +218,42 @@ export function ResultsExplorer_v2({
         setIsLoadingValidations(true);
         setValidationLoadError(null);
 
-        if (!selectedRTOId) {
-          console.warn('[ResultsExplorer] No RTO ID provided');
-          setValidationRecords([]);
-          setIsLoadingValidations(false);
-          return;
-        }
+        // Resolve RTO code — $99 users may not have an RTO
+        let rtoCode = '';
+        if (selectedRTOId) {
+          // Try cache first, then fetch directly if not found
+          let currentRTO = getRTOById(selectedRTOId);
 
-        // Try cache first, then fetch directly if not found
-        let currentRTO = getRTOById(selectedRTOId);
-
-        if (!currentRTO?.code) {
-          console.log('[ResultsExplorer] RTO not in cache, fetching directly...');
-          // Import and use fetchRTOById to get RTO data
-          const { fetchRTOById } = await import('../types/rto');
-          const rtoData = await fetchRTOById(selectedRTOId);
-          if (rtoData) {
-            currentRTO = {
-              id: rtoData.id.toString(),
-              code: rtoData.code,
-              name: rtoData.legalname,
-              legalname: rtoData.legalname,
-              validationCredits: { current: 10, total: 10 },
-              stats: {} as any,
-            };
+          if (!currentRTO?.code) {
+            console.log('[ResultsExplorer] RTO not in cache, fetching directly...');
+            const { fetchRTOById } = await import('../types/rto');
+            const rtoData = await fetchRTOById(selectedRTOId);
+            if (rtoData) {
+              currentRTO = {
+                id: rtoData.id.toString(),
+                code: rtoData.code,
+                name: rtoData.legalname,
+                legalname: rtoData.legalname,
+                validationCredits: { current: 10, total: 10 },
+                stats: {} as any,
+              };
+            }
           }
+          rtoCode = currentRTO?.code || '';
         }
 
-        if (!currentRTO?.code) {
-          console.warn('[ResultsExplorer] Could not get RTO code for ID:', selectedRTOId);
+        // $99 users without RTO can still see their own validations via user_id
+        if (!rtoCode && !user?.id) {
+          console.warn('[ResultsExplorer] No RTO and no user ID — cannot load validations');
           setValidationRecords([]);
           setIsLoadingValidations(false);
           return;
         }
 
-        console.log('[ResultsExplorer] Loading validations for RTO:', currentRTO.code);
-        // Use user-specific validation filtering
+        console.log('[ResultsExplorer] Loading validations for', rtoCode ? `RTO: ${rtoCode}` : `user: ${user?.id}`);
+        // Use user-specific validation filtering (handles empty rtoCode for $99 users)
         const records = await getUserValidationsByRTO(
-          currentRTO.code,
+          rtoCode,
           user?.id || null,
           user?.is_admin || false
         );
@@ -366,19 +364,18 @@ export function ResultsExplorer_v2({
   }, [selectedValidation]);
 
   // Refresh validation status
-  const handleRefreshStatus = useCallback(async () => {
-    const currentRTO = getRTOById(selectedRTOId);
-    if (!currentRTO?.code) return;
-
+   const handleRefreshStatus = useCallback(async () => {
+    const currentRTO = selectedRTOId ? getRTOById(selectedRTOId) : null;
+    const rtoCode = currentRTO?.code || '';
+    // $99 users without RTO can still refresh their own validations
+    if (!rtoCode && !user?.id) return;
     console.log('[ResultsExplorer] handleRefreshStatus called - reloading data');
-
     try {
       // Show loading state
       setIsLoadingEvidence(true);
-
       // Reload validation records with user-specific filtering
       const records = await getUserValidationsByRTO(
-        currentRTO.code,
+        rtoCode,
         user?.id || null,
         user?.is_admin || false
       );

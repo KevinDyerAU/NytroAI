@@ -334,6 +334,7 @@ export function LeadsManagement() {
                 unit_code: editUnitCode.trim(),
                 validation_type: selectedLead.validation_type || 'assessment',
                 status: 'pending',
+                user_id: selectedLead.user_id || null,
                 created_at: new Date().toISOString(),
               })
               .select('id')

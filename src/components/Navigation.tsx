@@ -84,10 +84,17 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
     }
   };
 
+  // Build nav items based on user role
+  // $99 users (no rto_id or no credits) only see Dashboard + Results
+  // Full users (with rto_id and credits) see all nav items
+  const hasFullAccess = !!user?.rto_id && (user?.credits > 0 || user?.is_admin);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'acquisition', label: 'Unit Acquisition', icon: Target },
-    { id: 'upload', label: 'Validate', icon: Upload },
+    ...(hasFullAccess ? [
+      { id: 'acquisition', label: 'Unit Acquisition', icon: Target },
+      { id: 'upload', label: 'Validate', icon: Upload },
+    ] : []),
   ];
 
   return (

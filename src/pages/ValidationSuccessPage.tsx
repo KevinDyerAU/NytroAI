@@ -27,11 +27,12 @@ export const ValidationSuccessPage: React.FC = () => {
       if (!leadId) return;
 
       try {
-        // Update lead status to paid — no automatic email dispatch
+        // Update lead status to 'landed' — ready for admin review
+        // No automatic email dispatch; admin will process via Leads Management
         const { data, error: updateError } = await supabase
           .from('validation_leads')
           .update({ 
-            status: 'paid', 
+            status: 'landed', 
             stripe_payment_status: 'paid', 
             amount_paid: 99.00,
             updated_at: new Date().toISOString(),
@@ -50,7 +51,7 @@ export const ValidationSuccessPage: React.FC = () => {
         }
 
         setStatusUpdated(true);
-        console.log('[ValidationSuccess] Lead status updated to paid for lead:', leadId);
+        console.log('[ValidationSuccess] Lead status updated to landed for lead:', leadId);
       } catch (error) {
         console.error('[ValidationSuccess] Error:', error);
         setStatusUpdated(true); // Still show success — payment was processed by Stripe
