@@ -181,7 +181,7 @@ export function useAcquisitionQueue(): UseAcquisitionQueueReturn {
         .from('unit_acquisition_queue')
         .delete()
         .eq('id', queueId)
-        .in('status', ['queued', 'failed']);
+        .in('status', ['queued', 'failed', 'retry']);
 
       if (deleteError) {
         console.error('[AcquisitionQueue] Cancel error:', deleteError);

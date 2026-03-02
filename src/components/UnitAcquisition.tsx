@@ -216,9 +216,11 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     setUnitCode(extracted || input);
   };
 
-  const unitCodeExists = existingUnits.some(
+  const existingUnit = existingUnits.find(
     unit => unit.unitCode.toUpperCase() === unitCode.toUpperCase()
   );
+  const unitCodeExists = !!existingUnit;
+  const unitIsComplete = existingUnit?.acquisition_status === 'complete';
   const unitInQueue = unitCode.trim() ? getQueueItemForUnit(unitCode) : undefined;
   const isUnitQueued = unitInQueue && ['queued', 'in_progress', 'retry'].includes(unitInQueue.status);
   const isCodeValid = isValidUnitCode(unitCode);
@@ -339,7 +341,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
   // ─── Acquisition Handler ──────────────────────────────────────────────────
 
   const handleAcquire = async () => {
-    if (!isCodeValid || unitCodeExists || isUnitQueued) return;
+    if (!isCodeValid || unitIsComplete || isUnitQueued) return;
 
     setIsScanning(true);
     setShowAcquisitionModal(true);
@@ -480,7 +482,15 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
   const handleCancel = async (queueId: number, unitCodeToCancel: string) => {
     const success = await cancelUnit(queueId);
     if (success) {
-      showAlert('info', 'Cancelled', `Unit ${unitCodeToCancel} removed from queue.`);
+      // Also remove the corresponding UnitOfCompetency entry (it's incomplete/empty)
+      await supabase
+        .from('UnitOfCompetency')
+        .delete()
+        .eq('unitCode', unitCodeToCancel)
+        .neq('acquisition_status', 'complete');
+
+      showAlert('info', 'Cancelled', `Unit ${unitCodeToCancel} removed from queue and unit list.`);
+      await fetchExistingUnits();
     }
   };
 
@@ -610,7 +620,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
           <GlowButton
             variant="primary"
             onClick={handleAcquire}
-            disabled={isScanning || !isCodeValid || unitCodeExists || !!isUnitQueued}
+            disabled={isScanning || !isCodeValid || unitIsComplete || !!isUnitQueued}
             className="h-12 px-6 whitespace-nowrap"
           >
             {isScanning ? (
@@ -622,12 +632,21 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
         </div>
 
         {/* Contextual Messages */}
-        {unitCodeExists && isCodeValid && (
+        {unitIsComplete && isCodeValid && (
+          <div className="mt-4 p-3 bg-[#dcfce7] border border-[#86efac] rounded-lg flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-[#166534]">
+              <span className="font-semibold">Unit {unitCode} is fully complete.</span>
+              {' '}All 5 requirement sections have been captured.
+            </p>
+          </div>
+        )}
+        {unitCodeExists && !unitIsComplete && isCodeValid && !isUnitQueued && (
           <div className="mt-4 p-3 bg-[#fef3c7] border border-[#fcd34d] rounded-lg flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-[#d97706] mt-0.5 flex-shrink-0" />
             <p className="text-sm text-[#92400e]">
-              <span className="font-semibold">Unit {unitCode} already exists.</span>
-              {' '}Check completeness indicators below.
+              <span className="font-semibold">Unit {unitCode} exists but is incomplete.</span>
+              {' '}Click Extract Unit to re-attempt acquisition.
             </p>
           </div>
         )}
@@ -737,7 +756,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
                           <TooltipContent>Retry now</TooltipContent>
                         </Tooltip>
                       )}
-                      {(item.status === 'queued' || item.status === 'failed') && (
+                      {(item.status === 'queued' || item.status === 'failed' || item.status === 'retry') && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
