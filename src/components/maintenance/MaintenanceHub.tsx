@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Zap, MessageSquare, Users, Tag, Activity } from 'lucide-react';
+import { ChevronRight, Zap, MessageSquare, Users, Tag, Activity, ClipboardList } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -16,6 +16,13 @@ interface MaintenanceHubProps {
 
 export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
   const modules: MaintenanceModule[] = [
+    {
+      id: 'leads-management',
+      title: 'Leads Management',
+      description: 'Review $99 validation leads, check documents, set unit codes, approve and trigger validation runs',
+      icon: <ClipboardList className="w-8 h-8" />,
+      color: 'bg-amber-50 border-amber-200',
+    },
     {
       id: 'validation-leads',
       title: 'Validation Leads',

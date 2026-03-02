@@ -53,7 +53,7 @@ interface ValidationLead {
   admin_notes: string | null;
 }
 
-type StatusFilter = 'all' | 'pending' | 'paid' | 'processing' | 'completed' | 'cancelled';
+type StatusFilter = 'all' | 'pending' | 'paid' | 'landed' | 'processing' | 'completed' | 'cancelled';
 type SortField = 'created_at' | 'status' | 'email' | 'company_name';
 type SortDir = 'asc' | 'desc';
 
@@ -68,6 +68,11 @@ const statusConfig: Record<string, { bg: string; text: string; icon: React.React
     bg: 'bg-green-50 border-green-200',
     text: 'text-green-700',
     icon: <CreditCard className="w-3.5 h-3.5" />,
+  },
+  landed: {
+    bg: 'bg-amber-50 border-amber-300',
+    text: 'text-amber-700',
+    icon: <Flag className="w-3.5 h-3.5" />,
   },
   processing: {
     bg: 'bg-blue-50 border-blue-200',
@@ -431,6 +436,7 @@ export function ValidationLeadsMaintenance() {
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
             <option value="paid">Paid</option>
+            <option value="landed">Landed</option>
             <option value="processing">Processing</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
