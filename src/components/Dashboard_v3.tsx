@@ -11,7 +11,6 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { supabase } from '../lib/supabase';
 import { getRTOById, fetchRTOById, getActiveValidationsByRTO, getUserValidationsByRTO } from '../types/rto';
-import { useAuthStore } from '../store/auth.store';
 import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
 import {
   Activity,
@@ -130,11 +129,10 @@ export function Dashboard_v3({
         // Admin users see all validations, regular users see only their own
         const data = await getUserValidationsByRTO(
           rtoCode,
-          user?.id || null,
-          user?.is_admin || false
+          userId || null,
+          isAdmin || false
         );
         setValidations(data);
-
         if (isInitial && isInitialLoad) {
           setIsInitialLoad(false);
         }
@@ -158,7 +156,7 @@ export function Dashboard_v3({
     return () => {
       subscription.unsubscribe();
     };
-  }, [rtoCode, creditsRefreshTrigger, isInitialLoad, user?.id, user?.is_admin]);
+  }, [rtoCode, creditsRefreshTrigger, isInitialLoad, userId, isAdmin]);
 
   // Calculate local metrics (for internal use)
   const localMetrics = useMemo(() => {
@@ -194,8 +192,8 @@ export function Dashboard_v3({
       // Use user-specific validation filtering
       const data = await getUserValidationsByRTO(
         rtoCode,
-        user?.id || null,
-        user?.is_admin || false
+        userId || null,
+        isAdmin || false
       );
       setValidations(data || []);
       if (showToast) {
