@@ -4,45 +4,30 @@
  * 
  * Validation Payment Success Page
  * Shown after successful Stripe checkout for the $99 validation service.
- * Triggers confirmation emails via the send-validation-email edge function.
+ * Updates lead status to 'paid'. Admin users will manually download
+ * validation reports and email them to customers.
  */
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import nytroLogo from '../assets/nytro-logo.svg';
-import { CheckCircle, Mail, Clock, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-interface EmailStatus {
-  sent: boolean;
-  loading: boolean;
-  error: string | null;
-}
+import { CheckCircle, Clock, ArrowLeft, AlertCircle } from 'lucide-react';
 
 export const ValidationSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const leadId = searchParams.get('lead_id');
   const [leadEmail, setLeadEmail] = useState<string>('');
   const [leadName, setLeadName] = useState<string>('');
-  const [emailStatus, setEmailStatus] = useState<EmailStatus>({
-    sent: false,
-    loading: true,
-    error: null,
-  });
+  const [statusUpdated, setStatusUpdated] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
     
     const processPaymentSuccess = async () => {
-      if (!leadId) {
-        setEmailStatus({ sent: false, loading: false, error: 'No lead reference found.' });
-        return;
-      }
+      if (!leadId) return;
 
       try {
-        // 1. Update lead status to paid
+        // Update lead status to paid — no automatic email dispatch
         const { data, error: updateError } = await supabase
           .from('validation_leads')
           .update({ 
@@ -56,7 +41,7 @@ export const ValidationSuccessPage: React.FC = () => {
           .single();
         
         if (updateError) {
-          console.error('Lead update error:', updateError);
+          console.error('[ValidationSuccess] Lead update error:', updateError);
         }
 
         if (data?.email) {
@@ -64,49 +49,11 @@ export const ValidationSuccessPage: React.FC = () => {
           setLeadName(data.first_name || '');
         }
 
-        // 2. Trigger confirmation emails via edge function
-        try {
-          const emailResponse = await fetch(`${SUPABASE_URL}/functions/v1/send-validation-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({
-              lead_id: parseInt(leadId),
-              email_type: 'both', // Send customer confirmation + internal notification
-            }),
-          });
-
-          if (emailResponse.ok) {
-            const result = await emailResponse.json();
-            setEmailStatus({
-              sent: true,
-              loading: false,
-              error: null,
-            });
-            console.log('[ValidationSuccess] Emails sent:', result);
-          } else {
-            const errorText = await emailResponse.text();
-            console.error('[ValidationSuccess] Email dispatch failed:', errorText);
-            setEmailStatus({
-              sent: false,
-              loading: false,
-              error: 'Confirmation email could not be sent. Our team has been notified.',
-            });
-          }
-        } catch (emailErr) {
-          console.error('[ValidationSuccess] Email dispatch error:', emailErr);
-          // Don't show email error to user — payment was still successful
-          setEmailStatus({
-            sent: false,
-            loading: false,
-            error: null, // Silently fail — the payment is still valid
-          });
-        }
+        setStatusUpdated(true);
+        console.log('[ValidationSuccess] Lead status updated to paid for lead:', leadId);
       } catch (error) {
         console.error('[ValidationSuccess] Error:', error);
-        setEmailStatus({ sent: false, loading: false, error: null });
+        setStatusUpdated(true); // Still show success — payment was processed by Stripe
       }
     };
 
@@ -151,46 +98,16 @@ export const ValidationSuccessPage: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center flex-shrink-0">
-                {emailStatus.loading ? (
-                  <Loader2 className="w-5 h-5 text-teal-400 animate-spin" />
-                ) : emailStatus.sent ? (
-                  <Mail className="w-5 h-5 text-teal-400" />
-                ) : (
-                  <Mail className="w-5 h-5 text-slate-400" />
-                )}
+                <CheckCircle className="w-5 h-5 text-teal-400" />
               </div>
               <div>
-                <p className="font-medium text-white">
-                  {emailStatus.loading
-                    ? 'Sending confirmation email...'
-                    : emailStatus.sent
-                    ? 'Confirmation email sent'
-                    : 'Confirmation email'}
-                </p>
+                <p className="font-medium text-white">Payment confirmed</p>
                 <p className="text-sm text-slate-400">
-                  {emailStatus.loading ? (
-                    'Please wait while we send your confirmation...'
-                  ) : emailStatus.sent ? (
+                  Your payment has been processed successfully.
+                  {leadEmail && (
                     <>
-                      A confirmation has been sent to{' '}
-                      {leadEmail ? (
-                        <span className="text-teal-400">{leadEmail}</span>
-                      ) : (
-                        'your email address'
-                      )}
-                      . Please check your inbox (and spam folder).
-                    </>
-                  ) : emailStatus.error ? (
-                    <span className="text-amber-400">{emailStatus.error}</span>
-                  ) : (
-                    <>
-                      A confirmation will be sent to{' '}
-                      {leadEmail ? (
-                        <span className="text-teal-400">{leadEmail}</span>
-                      ) : (
-                        'your email address'
-                      )}
-                      .
+                      {' '}A receipt will be sent to{' '}
+                      <span className="text-teal-400">{leadEmail}</span> by Stripe.
                     </>
                   )}
                 </p>
@@ -205,7 +122,7 @@ export const ValidationSuccessPage: React.FC = () => {
                 <p className="font-medium text-white">Validation in progress</p>
                 <p className="text-sm text-slate-400">
                   Our team will review your resource and deliver your completed validation report
-                  within 2–3 business days.
+                  within 2–3 business days. You will receive the report via email.
                 </p>
               </div>
             </div>

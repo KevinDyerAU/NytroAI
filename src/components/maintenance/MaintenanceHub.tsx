@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Zap, MessageSquare } from 'lucide-react';
+import { ChevronRight, Zap, MessageSquare, Users, Tag, Activity } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -16,6 +16,27 @@ interface MaintenanceHubProps {
 
 export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
   const modules: MaintenanceModule[] = [
+    {
+      id: 'validation-leads',
+      title: 'Validation Leads',
+      description: 'View all $99 validation leads, manage unit code lookups, flag missing units, and export reports',
+      icon: <Users className="w-8 h-8" />,
+      color: 'bg-teal-50 border-teal-200',
+    },
+    {
+      id: 'all-validations',
+      title: 'All Validations',
+      description: 'Monitor all running validations across all RTOs and users, download completed validation reports',
+      icon: <Activity className="w-8 h-8" />,
+      color: 'bg-blue-50 border-blue-200',
+    },
+    {
+      id: 'stripe-discounts',
+      title: 'Stripe Discounts',
+      description: 'Create, edit, and manage promotional discount codes for the validation service',
+      icon: <Tag className="w-8 h-8" />,
+      color: 'bg-purple-50 border-purple-200',
+    },
     {
       id: 'credits',
       title: 'Credits Management',
@@ -40,7 +61,7 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
           <p className="text-[#64748b] text-lg">Manage system settings, credits, and platform operations</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {modules.map((module) => (
             <Card
               key={module.id}
