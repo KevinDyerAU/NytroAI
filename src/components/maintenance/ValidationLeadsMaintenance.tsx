@@ -51,6 +51,8 @@ interface ValidationLead {
   unit_not_found: boolean;
   validation_id: number | null;
   admin_notes: string | null;
+  promo_code: string | null;
+  discount_amount: number | null;
 }
 
 type StatusFilter = 'all' | 'pending' | 'paid' | 'landed' | 'processing' | 'completed' | 'cancelled';
@@ -569,10 +571,19 @@ export function ValidationLeadsMaintenance() {
                     </td>
                     <td className="px-4 py-3">
                       {lead.file_name ? (
-                        <span className="flex items-center gap-1 text-[#3b82f6]" title={lead.file_name}>
-                          <FileText className="w-3.5 h-3.5" />
-                          <span className="text-xs truncate max-w-[80px]">{lead.file_name}</span>
-                        </span>
+                        (() => {
+                          const fileNames = lead.file_name!.split(',').map(n => n.trim()).filter(Boolean);
+                          return (
+                            <span className="flex items-center gap-1 text-[#3b82f6]" title={fileNames.join('\n')}>
+                              <FileText className="w-3.5 h-3.5" />
+                              {fileNames.length === 1 ? (
+                                <span className="text-xs truncate max-w-[80px]">{fileNames[0]}</span>
+                              ) : (
+                                <span className="text-xs font-medium">{fileNames.length} files</span>
+                              )}
+                            </span>
+                          );
+                        })()
                       ) : (
                         <span className="text-[#cbd5e1] text-xs">None</span>
                       )}
@@ -674,38 +685,69 @@ export function ValidationLeadsMaintenance() {
                   </div>
                   <div>
                     <p className="text-[#94a3b8] text-xs">Stripe Status</p>
-                    <p className="font-medium text-[#1e293b]">
+                    <p className={`font-medium ${selectedLead.stripe_payment_status === 'paid' ? 'text-emerald-600' : 'text-[#1e293b]'}`}>
                       {selectedLead.stripe_payment_status || '—'}
                     </p>
                   </div>
+                  {selectedLead.promo_code && (
+                    <div>
+                      <p className="text-[#94a3b8] text-xs">Promo Code</p>
+                      <p className="font-mono font-semibold text-purple-600">{selectedLead.promo_code}</p>
+                    </div>
+                  )}
+                  {selectedLead.discount_amount != null && selectedLead.discount_amount > 0 && (
+                    <div>
+                      <p className="text-[#94a3b8] text-xs">Discount</p>
+                      <p className="font-semibold text-orange-600">-${selectedLead.discount_amount.toFixed(2)}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* File */}
-              {selectedLead.file_name && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-[#1e293b] uppercase tracking-wide">
-                    Uploaded File
-                  </h4>
-                  <div className="flex items-center gap-2 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
-                    <FileText className="w-5 h-5 text-[#3b82f6]" />
-                    <span className="text-sm text-[#1e293b] truncate flex-1">
-                      {selectedLead.file_name}
-                    </span>
-                    {selectedLead.file_url && (
-                      <a
-                        href={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/documents/${selectedLead.file_url}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#3b82f6] hover:text-[#2563eb] p-1"
-                        title="Open file"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
+              {/* Files */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-[#1e293b] uppercase tracking-wide">
+                  Uploaded Files
+                </h4>
+                {selectedLead.file_url ? (
+                  <div className="space-y-2">
+                    {(() => {
+                      const paths = selectedLead.file_url!.split(',').map(p => p.trim()).filter(Boolean);
+                      const names = (selectedLead.file_name || '').split(',').map(n => n.trim()).filter(Boolean);
+                      return paths.map((storagePath, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
+                          <FileText className="w-5 h-5 text-[#3b82f6] flex-shrink-0" />
+                          <span className="text-sm text-[#1e293b] truncate flex-1">
+                            {names[idx] || `File ${idx + 1}`}
+                          </span>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const { data } = await supabase.storage
+                                .from('documents')
+                                .createSignedUrl(storagePath, 3600);
+                              if (data?.signedUrl) {
+                                window.open(data.signedUrl, '_blank');
+                              } else {
+                                alert('Could not generate download link. Please try again.');
+                              }
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white text-xs font-semibold rounded-lg hover:bg-[#2563eb] transition-colors"
+                            title="Open file"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View
+                          </button>
+                        </div>
+                      ));
+                    })()}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-sm text-[#94a3b8] bg-[#f8f9fb] border border-[#dbeafe] rounded-lg p-3">
+                    No files uploaded
+                  </div>
+                )}
+              </div>
 
               {/* ─── Admin Editable Fields ─────────────────────────────── */}
               <div className="border-t border-[#dbeafe] pt-6 space-y-4">
