@@ -247,7 +247,7 @@ serve(async (req: Request) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sender: { email: 'noreply@nytrolms.com', name: 'Nytro' },
+            sender: { email: 'noreply@nytro.com.au', name: 'Nytro' },
             to: { email: lead.email, name: `${lead.first_name} ${lead.last_name}` },
             subject: `Payment Confirmed — Validation #VAL-${String(lead.id).padStart(5, '0')}`,
             body_html: buildCustomerEmailHtml(lead as LeadData),
@@ -275,7 +275,7 @@ serve(async (req: Request) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sender: { email: 'noreply@nytrolms.com', name: 'Nytro System' },
+            sender: { email: 'noreply@nytro.com.au', name: 'Nytro System' },
             to: { email: 'support@nytro.com.au', name: 'Nytro Support' },
             subject: `New Validation Order #VAL-${String(lead.id).padStart(5, '0')} — ${lead.first_name} ${lead.last_name}`,
             body_html: buildInternalNotificationHtml(lead as LeadData),
