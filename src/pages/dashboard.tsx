@@ -12,7 +12,6 @@ import { PromptMaintenanceNew as PromptMaintenance } from '../components/mainten
 import { ValidationLeadsMaintenance } from '../components/maintenance/ValidationLeadsMaintenance';
 import { StripeDiscountsMaintenance } from '../components/maintenance/StripeDiscountsMaintenance';
 import { AllValidationsMaintenance } from '../components/maintenance/AllValidationsMaintenance';
-import { LeadsManagement } from '../components/maintenance/LeadsManagement';
 import { AcquisitionQueueMaintenance } from '../components/maintenance/AcquisitionQueueMaintenance';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
@@ -152,13 +151,6 @@ export function DashboardPage() {
     );
 
     switch (maintenanceModule) {
-      case 'leads-management':
-        return (
-          <div className="space-y-4">
-            {backButton}
-            <LeadsManagement />
-          </div>
-        );
       case 'validation-leads':
         return (
           <div className="space-y-4">
