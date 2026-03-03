@@ -34,7 +34,7 @@ interface UseAcquisitionQueueReturn {
   refreshQueue: () => Promise<void>;
 }
 
-export function useAcquisitionQueue(): UseAcquisitionQueueReturn {
+export function useAcquisitionQueue(isAdmin: boolean = false): UseAcquisitionQueueReturn {
   const [queueItems, setQueueItems] = useState<AcquisitionQueueItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,8 +51,8 @@ export function useAcquisitionQueue(): UseAcquisitionQueueReturn {
         .in('status', ['queued', 'in_progress', 'retry', 'failed', 'partial_success'])
         .order('created_at', { ascending: false });
 
-      // Filter by current user if available
-      if (user?.id) {
+      // Filter by current user if not admin
+      if (!isAdmin && user?.id) {
         query = query.eq('requested_by', user.id);
       }
 

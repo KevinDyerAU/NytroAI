@@ -13,6 +13,7 @@ import { ValidationLeadsMaintenance } from '../components/maintenance/Validation
 import { StripeDiscountsMaintenance } from '../components/maintenance/StripeDiscountsMaintenance';
 import { AllValidationsMaintenance } from '../components/maintenance/AllValidationsMaintenance';
 import { LeadsManagement } from '../components/maintenance/LeadsManagement';
+import { AcquisitionQueueMaintenance } from '../components/maintenance/AcquisitionQueueMaintenance';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
@@ -193,6 +194,13 @@ export function DashboardPage() {
             <PromptMaintenance />
           </div>
         );
+      case 'acquisition-queue':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <AcquisitionQueueMaintenance />
+          </div>
+        );
       default:
         return <MaintenanceHub onSelectModule={(moduleId) => setMaintenanceModule(moduleId)} />;
     }
@@ -222,7 +230,7 @@ export function DashboardPage() {
           />
         );
       case 'acquisition':
-        return <UnitAcquisition selectedRTOId={selectedRTOId} />;
+        return <UnitAcquisition selectedRTOId={selectedRTOId} isAdmin={user?.is_admin || false} />;
       case 'upload':
         if (!rtosLoaded) {
           return (

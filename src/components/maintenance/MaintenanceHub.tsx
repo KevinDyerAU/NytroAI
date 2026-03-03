@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Zap, MessageSquare, Users, Tag, Activity, ClipboardList } from 'lucide-react';
+import { ChevronRight, Zap, MessageSquare, Users, Tag, Activity, ClipboardList, Database } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -57,6 +57,13 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
       description: 'Manage Gemini AI validation prompts and correlate with validation types',
       icon: <MessageSquare className="w-8 h-8" />,
       color: 'bg-pink-50 border-pink-200',
+    },
+    {
+      id: 'acquisition-queue',
+      title: 'Acquisition Queue',
+      description: 'Monitor and manage unit acquisition processing across all users — retry failed items, clear queue, view errors',
+      icon: <Database className="w-8 h-8" />,
+      color: 'bg-cyan-50 border-cyan-200',
     },
   ];
 

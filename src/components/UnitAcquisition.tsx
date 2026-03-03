@@ -28,6 +28,7 @@ import wizardLogo from '../assets/wizard-logo.png';
 
 interface UnitAcquisitionProps {
   selectedRTOId: string;
+  isAdmin?: boolean;
 }
 
 interface UnitOfCompetency {
@@ -86,7 +87,7 @@ const ALERT_ICONS: Record<AlertType, React.ReactNode> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
+export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisitionProps) {
   const isMobile = useIsMobile();
 
   // Core state
@@ -124,7 +125,7 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
     cancelUnit,
     getQueueItemForUnit,
     refreshQueue,
-  } = useAcquisitionQueue();
+  } = useAcquisitionQueue(isAdmin);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -692,8 +693,63 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
         </div>
       </Card>
 
-      {/* ── Acquisition Queue Panel ────────────────────────────────────────── */}
-      {(stats.activeQueue > 0 || stats.failedQueue > 0) && (
+      {/* ── User Queue Status (non-admin: simple processing indicator) ──── */}
+      {!isAdmin && (stats.activeQueue > 0 || stats.failedQueue > 0) && (
+        <Card className="border border-[#93c5fd] bg-[#eff6ff] rounded-xl shadow-sm mb-6 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-[#dbeafe] border border-[#93c5fd] flex items-center justify-center">
+                <Clock className="w-4 h-4 text-[#2563eb]" />
+              </div>
+              <div>
+                <h3 className="font-poppins text-sm font-semibold text-[#1e293b]">Processing Units</h3>
+                <p className="text-xs text-[#64748b]">
+                  {stats.activeQueue > 0 && `${stats.activeQueue} unit${stats.activeQueue > 1 ? 's' : ''} being processed`}
+                  {stats.activeQueue > 0 && stats.failedQueue > 0 && ' · '}
+                  {stats.failedQueue > 0 && <span className="text-[#f59e0b]">{stats.failedQueue} need attention</span>}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {queueItems
+                .filter(item => ['queued', 'in_progress', 'retry', 'failed', 'partial_success'].includes(item.status))
+                .slice(0, 5)
+                .map(item => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2.5 rounded-lg border border-[#e2e8f0] bg-white"
+                  >
+                    <div className="flex items-center gap-2">
+                      {(item.status === 'queued' || item.status === 'in_progress') && (
+                        <Loader2 className="w-3.5 h-3.5 text-[#3b82f6] animate-spin" />
+                      )}
+                      {(item.status === 'failed' || item.status === 'partial_success') && (
+                        <AlertTriangle className="w-3.5 h-3.5 text-[#f59e0b]" />
+                      )}
+                      {item.status === 'retry' && (
+                        <RefreshCw className="w-3.5 h-3.5 text-[#94a3b8]" />
+                      )}
+                      <span className="font-mono text-sm font-semibold text-[#3b82f6]">{item.unit_code}</span>
+                      <span className="text-xs text-[#64748b]">
+                        {item.status === 'queued' && 'Queued for processing...'}
+                        {item.status === 'in_progress' && 'Processing now...'}
+                        {item.status === 'retry' && 'Retrying shortly...'}
+                        {item.status === 'failed' && 'Processing issue — will retry automatically'}
+                        {item.status === 'partial_success' && 'Partially complete — retrying remaining'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <p className="text-xs text-[#94a3b8] mt-3">
+              Units will appear in your validation dropdown once fully processed. This typically takes 1-2 minutes.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Admin Acquisition Queue Panel (full controls) ────────────────── */}
+      {isAdmin && (stats.activeQueue > 0 || stats.failedQueue > 0) && (
         <Card className="border border-[#fcd34d] bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
           <button
             onClick={() => setShowQueuePanel(!showQueuePanel)}
@@ -701,10 +757,10 @@ export function UnitAcquisition({ selectedRTOId }: UnitAcquisitionProps) {
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#fef3c7] border border-[#fcd34d] flex items-center justify-center">
-                <Clock className="w-4 h-4 text-[#d97706]" />
+                <Shield className="w-4 h-4 text-[#d97706]" />
               </div>
               <div className="text-left">
-                <h3 className="font-poppins text-sm font-semibold text-[#1e293b]">Acquisition Queue</h3>
+                <h3 className="font-poppins text-sm font-semibold text-[#1e293b]">Acquisition Queue <span className="text-xs font-normal text-[#94a3b8] ml-1">Admin</span></h3>
                 <p className="text-xs text-[#64748b]">
                   {stats.activeQueue > 0 && `${stats.activeQueue} active`}
                   {stats.activeQueue > 0 && stats.failedQueue > 0 && ' · '}
