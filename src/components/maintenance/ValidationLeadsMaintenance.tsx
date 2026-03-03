@@ -723,20 +723,21 @@ export function ValidationLeadsMaintenance() {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
+                              const fileName = names[idx] || `file-${idx + 1}`;
                               const { data } = await supabase.storage
                                 .from('documents')
-                                .createSignedUrl(storagePath, 3600);
+                                .createSignedUrl(storagePath, 3600, { download: fileName });
                               if (data?.signedUrl) {
-                                window.open(data.signedUrl, '_blank');
+                                window.location.href = data.signedUrl;
                               } else {
                                 alert('Could not generate download link. Please try again.');
                               }
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white text-xs font-semibold rounded-lg hover:bg-[#2563eb] transition-colors"
-                            title="Open file"
+                            title="Download file"
                           >
-                            <ExternalLink className="w-3 h-3" />
-                            View
+                            <Download className="w-3 h-3" />
+                            Download
                           </button>
                         </div>
                       ));
