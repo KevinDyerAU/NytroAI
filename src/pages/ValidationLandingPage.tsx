@@ -659,9 +659,12 @@ export const ValidationLandingPage: React.FC = () => {
               {/* Right: Form Card (2 cols) — sticky */}
               <div ref={formRef} id="form" className="lg:col-span-2 lg:sticky lg:top-28">
                 <div className="bg-nytro-dark rounded-2xl p-6 md:p-8 shadow-2xl shadow-slate-900/20">
-                  <h3 className="text-xl font-sans font-bold text-white mb-6">
+                  <h3 className="text-xl font-sans font-bold text-white mb-1">
                     Validate Your Resource
                   </h3>
+                  <p className="text-xs text-slate-400 mb-6">
+                    Submit your details to request a one-off independent validation — no account required.
+                  </p>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -1156,13 +1159,24 @@ export const ValidationLandingPage: React.FC = () => {
                   'Sign In'
                 )}
               </button>
-              <div className="text-center">
+              <div className="text-center space-y-3">
                 <a
                   href="/forgot-password"
-                  className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                  className="text-xs text-teal-400 hover:text-teal-300 transition-colors block"
                 >
                   Forgot your password?
                 </a>
+                <div className="border-t border-slate-700 pt-3">
+                  <p className="text-sm text-slate-400">
+                    Don't have an account?{' '}
+                    <a
+                      href="/register"
+                      className="text-teal-400 hover:text-teal-300 font-semibold transition-colors"
+                    >
+                      Sign up
+                    </a>
+                  </p>
+                </div>
               </div>
             </form>
           </div>

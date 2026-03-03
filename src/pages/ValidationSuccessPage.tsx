@@ -114,10 +114,10 @@ export const ValidationSuccessPage: React.FC = () => {
             <CheckCircle className="w-12 h-12 text-teal-400" />
           </div>
           <h1 className="text-3xl md:text-4xl font-sans font-bold mb-4">
-            Payment Successful
+            Validation Request Received
           </h1>
           <p className="text-xl text-slate-300">
-            Thank you{leadName ? `, ${leadName}` : ''}, for choosing Nytro for your independent validation.
+            Thank you{leadName ? `, ${leadName}` : ''}! Your payment has been processed and your validation request has been submitted.
           </p>
           {leadId && (
             <p className="text-sm text-slate-500 mt-2">
@@ -153,14 +153,25 @@ export const ValidationSuccessPage: React.FC = () => {
                 <Clock className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="font-medium text-white">Validation in progress</p>
+                <p className="font-medium text-white">Your resource is being reviewed</p>
                 <p className="text-sm text-slate-400">
-                  Our team will review your resource and deliver your completed validation report
-                  within 2–3 business days. You will receive the report via email.
+                  Our team will review your submitted resource and deliver a completed 
+                  validation report within <strong className="text-white">2–3 business days</strong>. 
+                  The report will be sent to {leadEmail ? <span className="text-teal-400">{leadEmail}</span> : 'the email you provided'}.
                 </p>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Important clarification */}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6 mb-8 text-left">
+          <p className="text-sm text-slate-400 mb-1 uppercase tracking-wide font-medium">Please note</p>
+          <p className="text-sm text-slate-300">
+            This was a <strong className="text-white">one-off validation request</strong> — no account was created. 
+            If you'd like to access Nytro's full platform with document management, AI-powered validation, 
+            and ongoing assessment tools, you can create a free account below.
+          </p>
         </div>
 
         {/* Warning if no lead ID */}
@@ -178,21 +189,29 @@ export const ValidationSuccessPage: React.FC = () => {
           </div>
         )}
 
-        <div className="space-y-4">
+        {/* CTAs */}
+        <div className="grid sm:grid-cols-2 gap-4 mb-8">
           <a
             href="/"
-            className="inline-flex items-center gap-2 text-teal-400 hover:text-teal-300 transition-colors"
+            className="flex items-center justify-center gap-2 bg-slate-800 border border-slate-700 hover:border-teal-400/50 text-white px-6 py-3.5 rounded-xl text-sm font-semibold transition-all hover:bg-slate-800/80"
           >
             <ArrowLeft className="w-4 h-4" />
-            Submit another validation
+            Submit Another Validation
           </a>
-          <p className="text-sm text-slate-500">
-            Questions? Contact us at{' '}
-            <a href="mailto:support@nytro.com.au" className="text-teal-400 hover:text-teal-300">
-              support@nytro.com.au
-            </a>
-          </p>
+          <a
+            href="/register"
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-400 to-teal-500 text-nytro-dark px-6 py-3.5 rounded-xl text-sm font-bold uppercase tracking-wide hover:from-teal-500 hover:to-teal-600 transition-all"
+          >
+            Create a Free Nytro Account
+          </a>
         </div>
+
+        <p className="text-sm text-slate-500">
+          Questions? Contact us at{' '}
+          <a href="mailto:support@nytro.com.au" className="text-teal-400 hover:text-teal-300">
+            support@nytro.com.au
+          </a>
+        </p>
       </div>
     </div>
   );
