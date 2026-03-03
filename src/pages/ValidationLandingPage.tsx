@@ -115,6 +115,8 @@ export const ValidationLandingPage: React.FC = () => {
     subscribeNewsletter: false,
   });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [promoCode, setPromoCode] = useState('');
+  const [showPromoField, setShowPromoField] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -278,6 +280,7 @@ export const ValidationLandingPage: React.FC = () => {
             unitPrice: 99,
             successUrl: `${window.location.origin}/validation/success?lead_id=${leadData.id}`,
             cancelUrl: `${window.location.origin}/?cancelled=true`,
+            promoCode: promoCode.trim() || undefined,
             userId: '',
             rtoId: '',
           }),
@@ -746,6 +749,28 @@ export const ValidationLandingPage: React.FC = () => {
                             : 'Choose files...'}
                         </label>
                       </div>
+                    </div>
+                    {/* Promo Code */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPromoField(!showPromoField)}
+                        className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+                      >
+                        {showPromoField ? '— Hide discount code' : '+ Have a discount code?'}
+                      </button>
+                      {showPromoField && (
+                        <div className="mt-2">
+                          <input
+                            id="promoCode"
+                            type="text"
+                            value={promoCode}
+                            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent uppercase tracking-wider"
+                            placeholder="Enter code"
+                          />
+                        </div>
+                      )}
                     </div>
                     {/* Newsletter checkbox */}
                     <label className="flex items-start gap-3 cursor-pointer">
