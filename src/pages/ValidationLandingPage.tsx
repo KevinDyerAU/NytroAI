@@ -114,7 +114,7 @@ export const ValidationLandingPage: React.FC = () => {
     email: '',
     subscribeNewsletter: false,
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -180,8 +180,8 @@ export const ValidationLandingPage: React.FC = () => {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFiles(Array.from(e.target.files));
     }
   };
 
@@ -213,24 +213,28 @@ export const ValidationLandingPage: React.FC = () => {
     setSubmitError(null);
 
     try {
-      // 1. Upload file to Supabase Storage if provided
-      let fileUrl = '';
-      let fileName = '';
-      if (selectedFile) {
-        const fileExt = selectedFile.name.split('.').pop();
-        const filePath = `validation-leads/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, selectedFile);
+      // 1. Upload files to Supabase Storage if provided
+      const uploadedUrls: string[] = [];
+      const uploadedNames: string[] = [];
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const fileExt = file.name.split('.').pop();
+          const filePath = `validation-leads/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, file);
 
-        if (uploadError) {
-          console.error('File upload error:', uploadError);
-        } else {
-          fileUrl = uploadData?.path || '';
-          fileName = selectedFile.name;
+          if (uploadError) {
+            console.error('File upload error:', file.name, uploadError);
+          } else {
+            uploadedUrls.push(uploadData?.path || '');
+            uploadedNames.push(file.name);
+          }
         }
       }
+      const fileUrl = uploadedUrls.join(', ');
+      const fileName = uploadedNames.join(', ');
 
       // 2. Insert lead into Supabase
       const { data: { session } } = await supabase.auth.getSession();
@@ -725,6 +729,7 @@ export const ValidationLandingPage: React.FC = () => {
                         <input
                           id="fileUpload"
                           type="file"
+                          multiple
                           onChange={handleFileChange}
                           className="hidden"
                           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
@@ -734,7 +739,11 @@ export const ValidationLandingPage: React.FC = () => {
                           className="flex items-center gap-2 w-full bg-slate-800 border border-slate-700 border-dashed rounded-lg px-3 py-2.5 text-sm text-slate-400 cursor-pointer hover:border-teal-400 transition-colors"
                         >
                           <Upload className="w-4 h-4" />
-                          {selectedFile ? selectedFile.name : 'Choose file...'}
+                          {selectedFiles.length > 0
+                            ? selectedFiles.length === 1
+                              ? selectedFiles[0].name
+                              : `${selectedFiles.length} files selected`
+                            : 'Choose files...'}
                         </label>
                       </div>
                     </div>
