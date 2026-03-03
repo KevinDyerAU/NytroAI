@@ -166,25 +166,8 @@ serve(async (req: Request) => {
             },
         ];
 
-        // If there's a discount, add it as a negative line item or use Stripe's discount feature
-        if (discountAmountInCents > 0 && appliedPromoCode) {
-            lineItems.push({
-                price_data: {
-                    currency: 'aud',
-                    product_data: {
-                        name: `Discount (${appliedPromoCode.code})`,
-                        description: appliedPromoCode.discount_percent
-                            ? `${appliedPromoCode.discount_percent}% off`
-                            : `$${appliedPromoCode.discount_amount?.toFixed(2)} off`,
-                    },
-                    unit_amount: -discountAmountInCents,
-                },
-                quantity: 1,
-            });
-        }
-
-        // Create Stripe checkout session
-        const session = await stripe.checkout.sessions.create({
+        // Build Stripe checkout session params
+        const sessionParams: Stripe.Checkout.SessionCreateParams = {
             payment_method_types: ['card'],
             line_items: lineItems,
             mode: 'payment',
@@ -199,10 +182,24 @@ serve(async (req: Request) => {
                 userId: body.userId || '',
                 rtoId: body.rtoId || '',
             },
-            allow_promotion_codes: false, // We handle promo codes ourselves
+            allow_promotion_codes: false,
             billing_address_collection: 'required',
             customer_creation: 'always',
-        });
+        };
+
+        // If there's a discount, create a Stripe coupon and apply it
+        if (discountAmountInCents > 0 && appliedPromoCode) {
+            const coupon = await stripe.coupons.create({
+                amount_off: discountAmountInCents,
+                currency: 'aud',
+                duration: 'once',
+                name: `Promo: ${appliedPromoCode.code}`,
+            });
+            sessionParams.discounts = [{ coupon: coupon.id }];
+        }
+
+        // Create Stripe checkout session
+        const session = await stripe.checkout.sessions.create(sessionParams);
 
         console.log('[create-checkout-session] Session created:', {
             sessionId: session.id,

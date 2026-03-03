@@ -295,14 +295,27 @@ export const ValidationLandingPage: React.FC = () => {
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');
         console.error('Stripe checkout response error:', response.status, errorText);
+        
+        // Try to parse the error for a meaningful message
+        let errorMessage = 'There was a problem creating your checkout session. Please try again or contact support@nytro.com.au.';
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error) {
+            errorMessage = errorJson.error;
+          }
+        } catch {
+          // Use the raw text if it's short enough
+          if (errorText.length < 200 && errorText.length > 0) {
+            errorMessage = errorText;
+          }
+        }
+        
         if (response.status === 500) {
           throw new Error(
             'The payment service is temporarily unavailable. Your details have been saved — please try again shortly or contact support@nytro.com.au.'
           );
         }
-        throw new Error(
-          'There was a problem creating your checkout session. Please try again or contact support@nytro.com.au.'
-        );
+        throw new Error(errorMessage);
       }
 
       let checkoutData;
