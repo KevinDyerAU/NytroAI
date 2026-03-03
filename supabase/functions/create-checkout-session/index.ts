@@ -182,12 +182,12 @@ serve(async (req: Request) => {
                 userId: body.userId || '',
                 rtoId: body.rtoId || '',
             },
-            allow_promotion_codes: false,
             billing_address_collection: 'required',
             customer_creation: 'always',
         };
 
         // If there's a discount, create a Stripe coupon and apply it
+        // Note: Stripe doesn't allow allow_promotion_codes AND discounts together
         if (discountAmountInCents > 0 && appliedPromoCode) {
             const coupon = await stripe.coupons.create({
                 amount_off: discountAmountInCents,
@@ -196,6 +196,8 @@ serve(async (req: Request) => {
                 name: `Promo: ${appliedPromoCode.code}`,
             });
             sessionParams.discounts = [{ coupon: coupon.id }];
+        } else {
+            sessionParams.allow_promotion_codes = false;
         }
 
         // Create Stripe checkout session
