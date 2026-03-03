@@ -251,6 +251,7 @@ export const ValidationLandingPage: React.FC = () => {
           file_url: fileUrl,
           file_name: fileName,
           subscribe_newsletter: formData.subscribeNewsletter,
+          promo_code: promoCode.trim() || null,
           status: 'pending',
           user_id: session?.user?.id || null,
         })
@@ -333,7 +334,10 @@ export const ValidationLandingPage: React.FC = () => {
       if (checkoutData.sessionId) {
         await supabase
           .from('validation_leads')
-          .update({ stripe_session_id: checkoutData.sessionId })
+          .update({ 
+            stripe_session_id: checkoutData.sessionId,
+            discount_amount: checkoutData.discountAmount || null,
+          })
           .eq('id', leadData.id);
       }
 

@@ -60,6 +60,8 @@ interface ValidationLead {
   unit_not_found: boolean;
   validation_id: number | null;
   admin_notes: string | null;
+  promo_code: string | null;
+  discount_amount: number | null;
 }
 
 type LeadStatus = 'all' | 'landed' | 'processing' | 'completed';
@@ -647,39 +649,45 @@ export function LeadsManagement() {
                 </div>
               </div>
 
-              {/* ─── Document ────────────────────────────────────── */}
+              {/* ─── Documents ────────────────────────────────────── */}
               <div>
-                <h3 className="text-sm font-semibold text-[#1e293b] mb-3 uppercase tracking-wide">Uploaded Document</h3>
+                <h3 className="text-sm font-semibold text-[#1e293b] mb-3 uppercase tracking-wide">Uploaded Files</h3>
                 {selectedLead.file_url ? (
-                  <div className="bg-[#f8f9fb] border border-[#e2e8f0] rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#1e293b] truncate">
-                          {selectedLead.file_name || 'Uploaded file'}
-                        </p>
-                        <p className="text-xs text-[#94a3b8]">
-                          Type: {selectedLead.validation_type || 'Not specified'}
-                        </p>
-                      </div>
-                      <a
-                        href={selectedLead.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white text-xs font-semibold rounded-lg hover:bg-[#2563eb] transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Eye className="w-3 h-3" />
-                        View
-                      </a>
-                    </div>
+                  <div className="space-y-2">
+                    {/* Split comma-separated file URLs and names */}
+                    {(() => {
+                      const urls = selectedLead.file_url!.split(',').map(u => u.trim()).filter(Boolean);
+                      const names = (selectedLead.file_name || '').split(',').map(n => n.trim()).filter(Boolean);
+                      return urls.map((url, idx) => (
+                        <div key={idx} className="bg-[#f8f9fb] border border-[#e2e8f0] rounded-lg p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-[#1e293b] truncate">
+                                {names[idx] || `File ${idx + 1}`}
+                              </p>
+                            </div>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white text-xs font-semibold rounded-lg hover:bg-[#2563eb] transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Eye className="w-3 h-3" />
+                              View
+                            </a>
+                          </div>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-700 text-sm flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4" />
-                    No document uploaded
+                    No documents uploaded
                   </div>
                 )}
               </div>
@@ -808,21 +816,39 @@ export function LeadsManagement() {
               </div>
 
               {/* ─── Payment Info ─────────────────────────────────── */}
-              {selectedLead.amount_paid && (
-                <div className="border-t border-[#e2e8f0] pt-4">
-                  <h3 className="text-sm font-semibold text-[#1e293b] mb-2 uppercase tracking-wide">Payment</h3>
+              <div className="border-t border-[#e2e8f0] pt-4">
+                <h3 className="text-sm font-semibold text-[#1e293b] mb-2 uppercase tracking-wide">Payment</h3>
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[#64748b]">Amount Paid</span>
-                    <span className="font-semibold text-[#1e293b]">${selectedLead.amount_paid.toFixed(2)} AUD</span>
+                    <span className="font-semibold text-[#1e293b]">
+                      {selectedLead.amount_paid ? `$${selectedLead.amount_paid.toFixed(2)} AUD` : 'Not paid'}
+                    </span>
                   </div>
                   {selectedLead.stripe_payment_status && (
-                    <div className="flex items-center justify-between text-sm mt-1">
+                    <div className="flex items-center justify-between text-sm">
                       <span className="text-[#64748b]">Stripe Status</span>
-                      <span className="text-[#475569] capitalize">{selectedLead.stripe_payment_status}</span>
+                      <span className={`capitalize font-medium ${selectedLead.stripe_payment_status === 'paid' ? 'text-emerald-600' : 'text-[#475569]'}`}>
+                        {selectedLead.stripe_payment_status}
+                      </span>
+                    </div>
+                  )}
+                  {selectedLead.promo_code && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#64748b]">Promo Code</span>
+                      <span className="font-mono font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
+                        {selectedLead.promo_code}
+                      </span>
+                    </div>
+                  )}
+                  {selectedLead.discount_amount != null && selectedLead.discount_amount > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#64748b]">Discount</span>
+                      <span className="font-semibold text-orange-600">-${selectedLead.discount_amount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

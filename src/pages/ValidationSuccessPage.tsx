@@ -27,14 +27,24 @@ export const ValidationSuccessPage: React.FC = () => {
       if (!leadId) return;
 
       try {
+        // First, read the lead to get promo/discount info
+        const { data: leadInfo } = await supabase
+          .from('validation_leads')
+          .select('email, first_name, last_name, discount_amount, promo_code')
+          .eq('id', parseInt(leadId))
+          .single();
+
+        // Calculate actual amount paid (99 minus discount)
+        const discount = leadInfo?.discount_amount ? Number(leadInfo.discount_amount) : 0;
+        const actualAmountPaid = Math.max(99 - discount, 1); // minimum $1
+
         // Update lead status to 'landed' — ready for admin review
-        // No automatic email dispatch; admin will process via Leads Management
         const { data, error: updateError } = await supabase
           .from('validation_leads')
           .update({ 
             status: 'landed', 
             stripe_payment_status: 'paid', 
-            amount_paid: 99.00,
+            amount_paid: actualAmountPaid,
             updated_at: new Date().toISOString(),
           })
           .eq('id', parseInt(leadId))
@@ -52,6 +62,29 @@ export const ValidationSuccessPage: React.FC = () => {
 
         setStatusUpdated(true);
         console.log('[ValidationSuccess] Lead status updated to landed for lead:', leadId);
+
+        // Trigger Brevo confirmation emails
+        try {
+          const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+          const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+            await fetch(`${SUPABASE_URL}/functions/v1/send-validation-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify({
+                lead_id: parseInt(leadId),
+                email_type: 'both',
+              }),
+            });
+            console.log('[ValidationSuccess] Brevo email triggered for lead:', leadId);
+          }
+        } catch (emailErr) {
+          console.error('[ValidationSuccess] Email trigger error:', emailErr);
+          // Don't fail the success page if email fails
+        }
       } catch (error) {
         console.error('[ValidationSuccess] Error:', error);
         setStatusUpdated(true); // Still show success — payment was processed by Stripe
