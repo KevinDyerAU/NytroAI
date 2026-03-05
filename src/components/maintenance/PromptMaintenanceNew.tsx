@@ -1,6 +1,6 @@
 /**
  * PromptMaintenance - NEW SCHEMA
- * 
+ *
  * Manages prompts using the new 'prompts' table schema with:
  * - prompt_type (validation, smart_question, report, summary)
  * - requirement_type (knowledge_evidence, performance_evidence, etc.)
@@ -9,17 +9,41 @@
  * - output_schema (JSON schema for structured output)
  */
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Card } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
-import { Edit, Plus, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
+import { Card } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
+import {
+  Edit,
+  Plus,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Eye,
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface Prompt {
   id: number;
@@ -39,68 +63,77 @@ interface Prompt {
   updated_at: string;
 }
 
-const PROMPT_TYPES = ['validation', 'generation', 'smart_question', 'report', 'summary', 'chat', 'requirement_revalidation'];
-const REQUIREMENT_TYPES = [
-  'knowledge_evidence',
-  'performance_evidence',
-  'foundation_skills',
-  'elements_performance_criteria',
-  'assessment_conditions',
-  'assessment_instructions',
-  'general',
-  'all'
+const PROMPT_TYPES = [
+  "validation",
+  "generation",
+  "smart_question",
+  "report",
+  "summary",
+  "chat",
+  "requirement_revalidation",
 ];
-const DOCUMENT_TYPES = ['unit', 'learner_guide', 'both', 'all'];
+const REQUIREMENT_TYPES = [
+  "knowledge_evidence",
+  "performance_evidence",
+  "foundation_skills",
+  "elements_performance_criteria",
+  "assessment_conditions",
+  "assessment_instructions",
+  "general",
+  "all",
+];
+const DOCUMENT_TYPES = ["unit", "learner_guide", "both", "all"];
 
 // Filter options
 const STATUS_FILTER_OPTIONS = [
-  { value: 'all', label: 'All Status' },
-  { value: 'active', label: 'Active Only' },
-  { value: 'inactive', label: 'Inactive Only' },
+  { value: "all", label: "All Status" },
+  { value: "active", label: "Active Only" },
+  { value: "inactive", label: "Inactive Only" },
 ];
 const DEFAULT_FILTER_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'default', label: 'Default Only' },
-  { value: 'not_default', label: 'Non-Default Only' },
+  { value: "all", label: "All" },
+  { value: "default", label: "Default Only" },
+  { value: "not_default", label: "Non-Default Only" },
 ];
 
 const UPDATED_FILTER_OPTIONS = [
-  { value: 'all', label: 'All Time' },
-  { value: '24h', label: 'Last 24h' },
-  { value: '7d', label: 'Last 7d' },
-  { value: '30d', label: 'Last 30d' },
-  { value: '90d', label: 'Last 90d' },
+  { value: "all", label: "All Time" },
+  { value: "24h", label: "Last 24h" },
+  { value: "7d", label: "Last 7d" },
+  { value: "30d", label: "Last 30d" },
+  { value: "90d", label: "Last 90d" },
 ];
 
 const SORT_FIELD_OPTIONS = [
-  { value: 'updated_at', label: 'Updated' },
-  { value: 'created_at', label: 'Created' },
-  { value: 'name', label: 'Name' },
-  { value: 'prompt_type', label: 'Type' },
-  { value: 'requirement_type', label: 'Requirement' },
-  { value: 'document_type', label: 'Document' },
-  { value: 'version', label: 'Version' },
+  { value: "updated_at", label: "Updated" },
+  { value: "created_at", label: "Created" },
+  { value: "name", label: "Name" },
+  { value: "prompt_type", label: "Type" },
+  { value: "requirement_type", label: "Requirement" },
+  { value: "document_type", label: "Document" },
+  { value: "version", label: "Version" },
 ];
 
 const SORT_DIR_OPTIONS = [
-  { value: 'desc', label: 'Desc' },
-  { value: 'asc', label: 'Asc' },
+  { value: "desc", label: "Desc" },
+  { value: "asc", label: "Asc" },
 ];
 
 export function PromptMaintenanceNew() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Filter states
-  const [filterPromptType, setFilterPromptType] = useState<string>('all');
-  const [filterRequirementType, setFilterRequirementType] = useState<string>('all');
-  const [filterDocumentType, setFilterDocumentType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterDefault, setFilterDefault] = useState<string>('all');
-  const [filterUpdated, setFilterUpdated] = useState<string>('all');
-  const [sortField, setSortField] = useState<string>('updated_at');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [filterPromptType, setFilterPromptType] = useState<string>("all");
+  const [filterRequirementType, setFilterRequirementType] =
+    useState<string>("all");
+  const [filterDocumentType, setFilterDocumentType] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterDefault, setFilterDefault] = useState<string>("all");
+  const [filterUpdated, setFilterUpdated] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("updated_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
   const [showForm, setShowForm] = useState(false);
@@ -108,22 +141,22 @@ export function PromptMaintenanceNew() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [formData, setFormData] = useState<Partial<Prompt>>({
-    prompt_type: 'validation',
-    requirement_type: 'knowledge_evidence',
-    document_type: 'unit',
-    name: '',
-    description: '',
-    prompt_text: '',
-    system_instruction: '',
+    prompt_type: "validation",
+    requirement_type: "knowledge_evidence",
+    document_type: "unit",
+    name: "",
+    description: "",
+    prompt_text: "",
+    system_instruction: "",
     output_schema: null,
     generation_config: {
       temperature: 0.2,
       topP: 0.95,
       topK: 40,
       maxOutputTokens: 8192,
-      responseMimeType: 'application/json'
+      responseMimeType: "application/json",
     },
-    version: 'v1.0',
+    version: "v1.0",
     is_active: true,
     is_default: false,
   });
@@ -136,35 +169,37 @@ export function PromptMaintenanceNew() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('prompts')
-        .select('*')
-        .order('prompt_type', { ascending: true })
-        .order('requirement_type', { ascending: true })
-        .order('document_type', { ascending: true })
-        .order('created_at', { ascending: false });
+        .from("prompts")
+        .select("*")
+        .order("prompt_type", { ascending: true })
+        .order("requirement_type", { ascending: true })
+        .order("document_type", { ascending: true })
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setPrompts(data || []);
     } catch (error) {
-      console.error('[PromptMaintenance] Error loading prompts:', error);
-      toast.error(`Failed to load prompts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("[PromptMaintenance] Error loading prompts:", error);
+      toast.error(
+        `Failed to load prompts: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this prompt?')) return;
+    if (!confirm("Are you sure you want to delete this prompt?")) return;
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.from('prompts').delete().eq('id', id);
+      const { error } = await supabase.from("prompts").delete().eq("id", id);
       if (error) throw error;
-      toast.success('Prompt deleted successfully');
+      toast.success("Prompt deleted successfully");
       await loadPrompts();
     } catch (error) {
-      console.error('Error deleting prompt:', error);
-      toast.error('Failed to delete prompt');
+      console.error("Error deleting prompt:", error);
+      toast.error("Failed to delete prompt");
     } finally {
       setIsLoading(false);
     }
@@ -179,22 +214,22 @@ export function PromptMaintenanceNew() {
   const handleCreate = () => {
     setEditingId(null);
     setFormData({
-      prompt_type: 'validation',
-      requirement_type: 'knowledge_evidence',
-      document_type: 'unit',
-      name: '',
-      description: '',
-      prompt_text: '',
-      system_instruction: '',
+      prompt_type: "validation",
+      requirement_type: "knowledge_evidence",
+      document_type: "unit",
+      name: "",
+      description: "",
+      prompt_text: "",
+      system_instruction: "",
       output_schema: null,
       generation_config: {
         temperature: 0.2,
         topP: 0.95,
         topK: 40,
         maxOutputTokens: 8192,
-        responseMimeType: 'application/json'
+        responseMimeType: "application/json",
       },
-      version: 'v1.0',
+      version: "v1.0",
       is_active: true,
       is_default: false,
     });
@@ -205,7 +240,7 @@ export function PromptMaintenanceNew() {
     e.preventDefault();
 
     if (!formData.name || !formData.prompt_text || !formData.prompt_type) {
-      toast.error('Name, prompt text, and prompt type are required');
+      toast.error("Name, prompt text, and prompt type are required");
       return;
     }
 
@@ -214,33 +249,34 @@ export function PromptMaintenanceNew() {
       if (editingId) {
         // Get the original prompt to compare
         const { data: originalPrompt, error: fetchError } = await supabase
-          .from('prompts')
-          .select('*')
-          .eq('id', editingId)
+          .from("prompts")
+          .select("*")
+          .eq("id", editingId)
           .single();
 
         if (fetchError) throw fetchError;
 
         // Check if prompt text has changed
-        const promptTextChanged = originalPrompt.prompt_text !== formData.prompt_text;
+        const promptTextChanged =
+          originalPrompt.prompt_text !== formData.prompt_text;
 
         if (promptTextChanged) {
           // Prompt text changed: Create new version
           // 1. Set the old prompt to non-default (keep it for history)
           const { error: updateOldError } = await supabase
-            .from('prompts')
+            .from("prompts")
             .update({ is_default: false })
-            .eq('id', editingId);
+            .eq("id", editingId);
 
           if (updateOldError) throw updateOldError;
 
           // 2. Increment version number
-          const currentVersion = formData.version || 'v1.0';
+          const currentVersion = formData.version || "v1.0";
           const versionMatch = currentVersion.match(/v?(\d+)\.?(\d*)/);
-          let newVersion = 'v1.1';
+          let newVersion = "v1.1";
           if (versionMatch) {
             const major = parseInt(versionMatch[1]);
-            const minor = parseInt(versionMatch[2] || '0') + 1;
+            const minor = parseInt(versionMatch[2] || "0") + 1;
             newVersion = `v${major}.${minor}`;
           }
 
@@ -257,22 +293,22 @@ export function PromptMaintenanceNew() {
           delete (newPromptData as any).updated_at;
 
           const { error: insertError } = await supabase
-            .from('prompts')
+            .from("prompts")
             .insert([newPromptData]);
 
           if (insertError) throw insertError;
-          toast.success('New prompt version created successfully');
+          toast.success("New prompt version created successfully");
         } else {
           // Prompt text unchanged: Update only metadata (is_active, is_default, etc.)
           // If setting this prompt as default, first unset any other defaults for this type
           if (formData.is_default) {
             const { error: unsetDefaultError } = await supabase
-              .from('prompts')
+              .from("prompts")
               .update({ is_default: false })
-              .eq('prompt_type', formData.prompt_type)
-              .eq('requirement_type', formData.requirement_type || null)
-              .eq('document_type', formData.document_type || null)
-              .neq('id', editingId);
+              .eq("prompt_type", formData.prompt_type)
+              .eq("requirement_type", formData.requirement_type || null)
+              .eq("document_type", formData.document_type || null)
+              .neq("id", editingId);
 
             if (unsetDefaultError) throw unsetDefaultError;
           }
@@ -289,12 +325,12 @@ export function PromptMaintenanceNew() {
           };
 
           const { error: updateError } = await supabase
-            .from('prompts')
+            .from("prompts")
             .update(updateData)
-            .eq('id', editingId);
+            .eq("id", editingId);
 
           if (updateError) throw updateError;
-          toast.success('Prompt updated successfully');
+          toast.success("Prompt updated successfully");
         }
       } else {
         // Creating new prompt
@@ -302,28 +338,34 @@ export function PromptMaintenanceNew() {
         if (formData.is_default) {
           // First, find and update the existing default prompt for this combination
           const { error: updateExistingError } = await supabase
-            .from('prompts')
+            .from("prompts")
             .update({ is_default: false, is_active: false })
-            .eq('prompt_type', formData.prompt_type)
-            .eq('requirement_type', formData.requirement_type || null)
-            .eq('document_type', formData.document_type || null)
-            .eq('is_default', true);
+            .eq("prompt_type", formData.prompt_type)
+            .eq("requirement_type", formData.requirement_type || null)
+            .eq("document_type", formData.document_type || null)
+            .eq("is_default", true);
 
           if (updateExistingError) {
-            console.error('Error updating existing default prompt:', updateExistingError);
+            console.error(
+              "Error updating existing default prompt:",
+              updateExistingError,
+            );
             // Continue anyway - the new prompt should still be created
           }
         }
 
-        const { error } = await supabase.from('prompts').insert([formData]);
+        const { error } = await supabase.from("prompts").insert([formData]);
         if (error) throw error;
-        toast.success('Prompt created successfully' + (formData.is_default ? ' (previous default deactivated)' : ''));
+        toast.success(
+          "Prompt created successfully" +
+            (formData.is_default ? " (previous default deactivated)" : ""),
+        );
       }
       setShowForm(false);
       await loadPrompts();
     } catch (error) {
-      console.error('Error saving prompt:', error);
-      toast.error('Failed to save prompt');
+      console.error("Error saving prompt:", error);
+      toast.error("Failed to save prompt");
     } finally {
       setIsLoading(false);
     }
@@ -332,15 +374,17 @@ export function PromptMaintenanceNew() {
   const handleToggleActive = async (prompt: Prompt) => {
     try {
       const { error } = await supabase
-        .from('prompts')
+        .from("prompts")
         .update({ is_active: !prompt.is_active })
-        .eq('id', prompt.id);
+        .eq("id", prompt.id);
       if (error) throw error;
-      toast.success(`Prompt ${!prompt.is_active ? 'activated' : 'deactivated'}`);
+      toast.success(
+        `Prompt ${!prompt.is_active ? "activated" : "deactivated"}`,
+      );
       await loadPrompts();
     } catch (error) {
-      console.error('Error toggling active status:', error);
-      toast.error('Failed to update prompt status');
+      console.error("Error toggling active status:", error);
+      toast.error("Failed to update prompt status");
     }
   };
 
@@ -349,24 +393,26 @@ export function PromptMaintenanceNew() {
       // First, unset any other defaults for this combination
       if (!prompt.is_default) {
         await supabase
-          .from('prompts')
+          .from("prompts")
           .update({ is_default: false })
-          .eq('prompt_type', prompt.prompt_type)
-          .eq('requirement_type', prompt.requirement_type)
-          .eq('document_type', prompt.document_type);
+          .eq("prompt_type", prompt.prompt_type)
+          .eq("requirement_type", prompt.requirement_type)
+          .eq("document_type", prompt.document_type);
       }
 
       // Then set this one
       const { error } = await supabase
-        .from('prompts')
+        .from("prompts")
         .update({ is_default: !prompt.is_default })
-        .eq('id', prompt.id);
+        .eq("id", prompt.id);
       if (error) throw error;
-      toast.success(`Prompt ${!prompt.is_default ? 'set as' : 'removed from'} default`);
+      toast.success(
+        `Prompt ${!prompt.is_default ? "set as" : "removed from"} default`,
+      );
       await loadPrompts();
     } catch (error) {
-      console.error('Error toggling default status:', error);
-      toast.error('Failed to update prompt default status');
+      console.error("Error toggling default status:", error);
+      toast.error("Failed to update prompt default status");
     }
   };
 
@@ -385,92 +431,114 @@ export function PromptMaintenanceNew() {
       }
     });
 
-    const duplicateActive = Object.entries(activeByKey).filter(([_, count]) => count > 1).map(([key]) => key);
-    const duplicateDefault = Object.entries(defaultByKey).filter(([_, count]) => count > 1).map(([key]) => key);
+    const duplicateActive = Object.entries(activeByKey)
+      .filter(([_, count]) => count > 1)
+      .map(([key]) => key);
+    const duplicateDefault = Object.entries(defaultByKey)
+      .filter(([_, count]) => count > 1)
+      .map(([key]) => key);
 
     return { duplicateActive, duplicateDefault };
   };
 
   const { duplicateActive, duplicateDefault } = getDuplicates();
 
-  const filteredPrompts = prompts.filter(p => {
+  const filteredPrompts = prompts.filter((p) => {
     // Text search
-    const matchesSearch = !searchTerm ||
+    const matchesSearch =
+      !searchTerm ||
       p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.prompt_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.requirement_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.document_type?.toLowerCase().includes(searchTerm.toLowerCase());
 
     // Prompt type filter
-    const matchesPromptType = filterPromptType === 'all' || p.prompt_type === filterPromptType;
+    const matchesPromptType =
+      filterPromptType === "all" || p.prompt_type === filterPromptType;
 
     // Requirement type filter
-    const matchesRequirementType = filterRequirementType === 'all' || p.requirement_type === filterRequirementType;
+    const matchesRequirementType =
+      filterRequirementType === "all" ||
+      p.requirement_type === filterRequirementType;
 
     // Document type filter
-    const matchesDocumentType = filterDocumentType === 'all' || p.document_type === filterDocumentType;
+    const matchesDocumentType =
+      filterDocumentType === "all" || p.document_type === filterDocumentType;
 
     // Status filter
-    const matchesStatus = filterStatus === 'all' ||
-      (filterStatus === 'active' && p.is_active) ||
-      (filterStatus === 'inactive' && !p.is_active);
+    const matchesStatus =
+      filterStatus === "all" ||
+      (filterStatus === "active" && p.is_active) ||
+      (filterStatus === "inactive" && !p.is_active);
 
     // Default filter
-    const matchesDefault = filterDefault === 'all' ||
-      (filterDefault === 'default' && p.is_default) ||
-      (filterDefault === 'not_default' && !p.is_default);
+    const matchesDefault =
+      filterDefault === "all" ||
+      (filterDefault === "default" && p.is_default) ||
+      (filterDefault === "not_default" && !p.is_default);
 
     const matchesUpdated = (() => {
-      if (filterUpdated === 'all') return true;
+      if (filterUpdated === "all") return true;
       const updatedAt = new Date(p.updated_at || p.created_at);
       if (Number.isNaN(updatedAt.getTime())) return true;
       const now = Date.now();
       const diffMs = now - updatedAt.getTime();
 
-      if (filterUpdated === '24h') return diffMs <= 24 * 60 * 60 * 1000;
-      if (filterUpdated === '7d') return diffMs <= 7 * 24 * 60 * 60 * 1000;
-      if (filterUpdated === '30d') return diffMs <= 30 * 24 * 60 * 60 * 1000;
-      if (filterUpdated === '90d') return diffMs <= 90 * 24 * 60 * 60 * 1000;
+      if (filterUpdated === "24h") return diffMs <= 24 * 60 * 60 * 1000;
+      if (filterUpdated === "7d") return diffMs <= 7 * 24 * 60 * 60 * 1000;
+      if (filterUpdated === "30d") return diffMs <= 30 * 24 * 60 * 60 * 1000;
+      if (filterUpdated === "90d") return diffMs <= 90 * 24 * 60 * 60 * 1000;
       return true;
     })();
 
-    return matchesSearch && matchesPromptType && matchesRequirementType && matchesDocumentType && matchesStatus && matchesDefault && matchesUpdated;
+    return (
+      matchesSearch &&
+      matchesPromptType &&
+      matchesRequirementType &&
+      matchesDocumentType &&
+      matchesStatus &&
+      matchesDefault &&
+      matchesUpdated
+    );
   });
 
   const sortedPrompts = [...filteredPrompts].sort((a, b) => {
-    const dir = sortDir === 'asc' ? 1 : -1;
+    const dir = sortDir === "asc" ? 1 : -1;
 
     const getComparable = (p: Prompt) => {
-      if (sortField === 'updated_at' || sortField === 'created_at') {
+      if (sortField === "updated_at" || sortField === "created_at") {
         const d = new Date((p as any)[sortField] || p.created_at);
         const t = d.getTime();
         return Number.isNaN(t) ? 0 : t;
       }
 
       const v = (p as any)[sortField];
-      return (v ?? '').toString().toLowerCase();
+      return (v ?? "").toString().toLowerCase();
     };
 
     const av = getComparable(a);
     const bv = getComparable(b);
 
-    if (typeof av === 'number' && typeof bv === 'number') {
+    if (typeof av === "number" && typeof bv === "number") {
       return (av - bv) * dir;
     }
     return String(av).localeCompare(String(bv)) * dir;
   });
 
-  const paginatedPrompts = sortedPrompts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedPrompts = sortedPrompts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
   const totalPages = Math.ceil(sortedPrompts.length / pageSize);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-AU', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleString("en-AU", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -478,9 +546,12 @@ export function PromptMaintenanceNew() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">Prompt Management</h2>
+          <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">
+            Prompt Management
+          </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Using new <code>prompts</code> table with prompt_type, requirement_type, document_type
+            Using new <code>prompts</code> table with prompt_type,
+            requirement_type, document_type
           </p>
         </div>
         <Button
@@ -500,12 +571,12 @@ export function PromptMaintenanceNew() {
           </p>
           {duplicateActive.length > 0 && (
             <p className="text-xs text-red-700 mt-1">
-              Multiple ACTIVE prompts for: {duplicateActive.join(', ')}
+              Multiple ACTIVE prompts for: {duplicateActive.join(", ")}
             </p>
           )}
           {duplicateDefault.length > 0 && (
             <p className="text-xs text-red-700 mt-1">
-              Multiple DEFAULT prompts for: {duplicateDefault.join(', ')}
+              Multiple DEFAULT prompts for: {duplicateDefault.join(", ")}
             </p>
           )}
         </div>
@@ -515,8 +586,11 @@ export function PromptMaintenanceNew() {
         <Card className="border border-[#dbeafe] bg-white p-6">
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              ℹ️ <strong>New Schema:</strong> Prompts are identified by 3 keys: <code>prompt_type</code>, <code>requirement_type</code>, <code>document_type</code>.
-              Only prompts marked as <strong>ACTIVE</strong> and <strong>DEFAULT</strong> are used by n8n workflows.
+              ℹ️ <strong>New Schema:</strong> Prompts are identified by 3 keys:{" "}
+              <code>prompt_type</code>, <code>requirement_type</code>,{" "}
+              <code>document_type</code>. Only prompts marked as{" "}
+              <strong>ACTIVE</strong> and <strong>DEFAULT</strong> are used by
+              n8n workflows.
             </p>
           </div>
 
@@ -538,10 +612,18 @@ export function PromptMaintenanceNew() {
 
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <span className="text-sm font-medium text-gray-600">Filters:</span>
+              <span className="text-sm font-medium text-gray-600">
+                Filters:
+              </span>
 
               {/* Prompt Type Filter */}
-              <Select value={filterPromptType} onValueChange={(value) => { setFilterPromptType(value); setCurrentPage(1); }}>
+              <Select
+                value={filterPromptType}
+                onValueChange={(value) => {
+                  setFilterPromptType(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[160px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Prompt Type" />
                 </SelectTrigger>
@@ -549,14 +631,22 @@ export function PromptMaintenanceNew() {
                   <SelectItem value="all">All Types</SelectItem>
                   {PROMPT_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {type
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               {/* Requirement Type Filter */}
-              <Select value={filterRequirementType} onValueChange={(value) => { setFilterRequirementType(value); setCurrentPage(1); }}>
+              <Select
+                value={filterRequirementType}
+                onValueChange={(value) => {
+                  setFilterRequirementType(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[180px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Requirement Type" />
                 </SelectTrigger>
@@ -564,14 +654,22 @@ export function PromptMaintenanceNew() {
                   <SelectItem value="all">All Requirements</SelectItem>
                   {REQUIREMENT_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {type
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               {/* Document Type Filter */}
-              <Select value={filterDocumentType} onValueChange={(value) => { setFilterDocumentType(value); setCurrentPage(1); }}>
+              <Select
+                value={filterDocumentType}
+                onValueChange={(value) => {
+                  setFilterDocumentType(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[150px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Document Type" />
                 </SelectTrigger>
@@ -579,14 +677,22 @@ export function PromptMaintenanceNew() {
                   <SelectItem value="all">All Documents</SelectItem>
                   {DOCUMENT_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {type
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               {/* Status Filter */}
-              <Select value={filterStatus} onValueChange={(value) => { setFilterStatus(value); setCurrentPage(1); }}>
+              <Select
+                value={filterStatus}
+                onValueChange={(value) => {
+                  setFilterStatus(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[130px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -600,7 +706,13 @@ export function PromptMaintenanceNew() {
               </Select>
 
               {/* Default Filter */}
-              <Select value={filterDefault} onValueChange={(value) => { setFilterDefault(value); setCurrentPage(1); }}>
+              <Select
+                value={filterDefault}
+                onValueChange={(value) => {
+                  setFilterDefault(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[140px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Default" />
                 </SelectTrigger>
@@ -613,7 +725,13 @@ export function PromptMaintenanceNew() {
                 </SelectContent>
               </Select>
 
-              <Select value={filterUpdated} onValueChange={(value) => { setFilterUpdated(value); setCurrentPage(1); }}>
+              <Select
+                value={filterUpdated}
+                onValueChange={(value) => {
+                  setFilterUpdated(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[150px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Updated" />
                 </SelectTrigger>
@@ -626,7 +744,13 @@ export function PromptMaintenanceNew() {
                 </SelectContent>
               </Select>
 
-              <Select value={sortField} onValueChange={(value) => { setSortField(value); setCurrentPage(1); }}>
+              <Select
+                value={sortField}
+                onValueChange={(value) => {
+                  setSortField(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[160px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Sort By" />
                 </SelectTrigger>
@@ -639,7 +763,13 @@ export function PromptMaintenanceNew() {
                 </SelectContent>
               </Select>
 
-              <Select value={sortDir} onValueChange={(value) => { setSortDir(value as any); setCurrentPage(1); }}>
+              <Select
+                value={sortDir}
+                onValueChange={(value) => {
+                  setSortDir(value as any);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[110px] bg-white border-gray-200 text-sm">
                   <SelectValue placeholder="Dir" />
                 </SelectTrigger>
@@ -653,17 +783,22 @@ export function PromptMaintenanceNew() {
               </Select>
 
               {/* Clear Filters Button */}
-              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || filterUpdated !== 'all') && (
+              {(filterPromptType !== "all" ||
+                filterRequirementType !== "all" ||
+                filterDocumentType !== "all" ||
+                filterStatus !== "all" ||
+                filterDefault !== "all" ||
+                filterUpdated !== "all") && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setFilterPromptType('all');
-                    setFilterRequirementType('all');
-                    setFilterDocumentType('all');
-                    setFilterStatus('all');
-                    setFilterDefault('all');
-                    setFilterUpdated('all');
+                    setFilterPromptType("all");
+                    setFilterRequirementType("all");
+                    setFilterDocumentType("all");
+                    setFilterStatus("all");
+                    setFilterDefault("all");
+                    setFilterUpdated("all");
                     setCurrentPage(1);
                   }}
                   className="text-gray-500 hover:text-gray-700"
@@ -676,7 +811,13 @@ export function PromptMaintenanceNew() {
             {/* Results count */}
             <div className="text-sm text-gray-500">
               Showing {sortedPrompts.length} of {prompts.length} prompts
-              {(filterPromptType !== 'all' || filterRequirementType !== 'all' || filterDocumentType !== 'all' || filterStatus !== 'all' || filterDefault !== 'all' || filterUpdated !== 'all' || searchTerm) && (
+              {(filterPromptType !== "all" ||
+                filterRequirementType !== "all" ||
+                filterDocumentType !== "all" ||
+                filterStatus !== "all" ||
+                filterDefault !== "all" ||
+                filterUpdated !== "all" ||
+                searchTerm) && (
                 <span className="ml-2 text-blue-600">(filtered)</span>
               )}
             </div>
@@ -686,31 +827,66 @@ export function PromptMaintenanceNew() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[#dbeafe]">
-                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Name</th>
-                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Type</th>
-                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Requirement</th>
-                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Document</th>
-                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Version</th>
-                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">Updated</th>
-                  <th className="text-center p-3 text-sm font-semibold text-[#64748b]">Active</th>
-                  <th className="text-center p-3 text-sm font-semibold text-[#64748b]">Default</th>
-                  <th className="text-right p-3 text-sm font-semibold text-[#64748b]">Actions</th>
+                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">
+                    Name
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">
+                    Type
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">
+                    Requirement
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">
+                    Document
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">
+                    Version
+                  </th>
+                  <th className="text-left p-3 text-sm font-semibold text-[#64748b]">
+                    Updated
+                  </th>
+                  <th className="text-center p-3 text-sm font-semibold text-[#64748b]">
+                    Active
+                  </th>
+                  <th className="text-center p-3 text-sm font-semibold text-[#64748b]">
+                    Default
+                  </th>
+                  <th className="text-right p-3 text-sm font-semibold text-[#64748b]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedPrompts.map((prompt) => (
-                  <tr key={prompt.id} className="border-b border-[#f1f5f9] hover:bg-[#f8fafc]">
+                  <tr
+                    key={prompt.id}
+                    className="border-b border-[#f1f5f9] hover:bg-[#f8fafc]"
+                  >
                     <td className="p-3">
-                      <div className="font-medium text-[#1e293b]">{prompt.name}</div>
+                      <div className="font-medium text-[#1e293b]">
+                        {prompt.name}
+                      </div>
                       {prompt.description && (
-                        <div className="text-xs text-[#64748b] mt-1">{prompt.description}</div>
+                        <div className="text-xs text-[#64748b] mt-1">
+                          {prompt.description}
+                        </div>
                       )}
                     </td>
-                    <td className="p-3 text-sm text-[#64748b]">{prompt.prompt_type}</td>
-                    <td className="p-3 text-sm text-[#64748b]">{prompt.requirement_type || 'N/A'}</td>
-                    <td className="p-3 text-sm text-[#64748b]">{prompt.document_type || 'N/A'}</td>
-                    <td className="p-3 text-sm text-[#64748b]">{prompt.version}</td>
-                    <td className="p-3 text-sm text-[#64748b]">{formatDateTime(prompt.updated_at || prompt.created_at)}</td>
+                    <td className="p-3 text-sm text-[#64748b]">
+                      {prompt.prompt_type}
+                    </td>
+                    <td className="p-3 text-sm text-[#64748b]">
+                      {prompt.requirement_type || "N/A"}
+                    </td>
+                    <td className="p-3 text-sm text-[#64748b]">
+                      {prompt.document_type || "N/A"}
+                    </td>
+                    <td className="p-3 text-sm text-[#64748b]">
+                      {prompt.version}
+                    </td>
+                    <td className="p-3 text-sm text-[#64748b]">
+                      {formatDateTime(prompt.updated_at || prompt.created_at)}
+                    </td>
                     <td className="p-3 text-center">
                       <div className="inline-block">
                         {prompt.is_active ? (
@@ -734,10 +910,10 @@ export function PromptMaintenanceNew() {
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled
-                          className="opacity-50 cursor-not-allowed"
+                          onClick={() => handleEdit(prompt)}
+                          title="View Prompt"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </Button>
                       </div>
                     </td>
@@ -750,13 +926,15 @@ export function PromptMaintenanceNew() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-[#64748b]">
-                Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, sortedPrompts.length)} of {sortedPrompts.length} prompts
+                Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                {Math.min(currentPage * pageSize, sortedPrompts.length)} of{" "}
+                {sortedPrompts.length} prompts
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -767,7 +945,9 @@ export function PromptMaintenanceNew() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   disabled={currentPage === totalPages}
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -781,11 +961,12 @@ export function PromptMaintenanceNew() {
       {showForm && (
         <Card className="border border-[#dbeafe] bg-white p-6">
           <h3 className="text-xl font-semibold mb-2">
-            {editingId ? 'Edit Prompt' : 'Create New Prompt'}
+            {editingId ? "View Prompt" : "Create New Prompt"}
           </h3>
           {editingId && (
             <p className="text-sm text-blue-600 bg-blue-50 p-2 rounded mb-4">
-              ℹ️ <strong>Editing Prompt:</strong> If you modify the prompt text, a new version will be created. Otherwise, only metadata (active/default status) will be updated. Only one prompt can be set as default per type combination.
+              ℹ️ <strong>Viewing Prompt:</strong> Prompts are currently in
+              read-only mode for admins.
             </p>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -794,14 +975,19 @@ export function PromptMaintenanceNew() {
                 <Label>Prompt Type *</Label>
                 <Select
                   value={formData.prompt_type}
-                  onValueChange={(value) => setFormData({ ...formData, prompt_type: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, prompt_type: value })
+                  }
+                  disabled={!!editingId}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PROMPT_TYPES.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    {PROMPT_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -809,15 +995,20 @@ export function PromptMaintenanceNew() {
               <div>
                 <Label>Requirement Type</Label>
                 <Select
-                  value={formData.requirement_type || ''}
-                  onValueChange={(value) => setFormData({ ...formData, requirement_type: value })}
+                  value={formData.requirement_type || ""}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, requirement_type: value })
+                  }
+                  disabled={!!editingId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select requirement type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {REQUIREMENT_TYPES.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    {REQUIREMENT_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -828,15 +1019,20 @@ export function PromptMaintenanceNew() {
               <div>
                 <Label>Document Type</Label>
                 <Select
-                  value={formData.document_type || ''}
-                  onValueChange={(value) => setFormData({ ...formData, document_type: value })}
+                  value={formData.document_type || ""}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, document_type: value })
+                  }
+                  disabled={!!editingId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select document type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {DOCUMENT_TYPES.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    {DOCUMENT_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -845,8 +1041,11 @@ export function PromptMaintenanceNew() {
                 <Label>Version</Label>
                 <Input
                   value={formData.version}
-                  onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, version: e.target.value })
+                  }
                   placeholder="v1.0"
+                  disabled={!!editingId}
                 />
               </div>
             </div>
@@ -855,28 +1054,40 @@ export function PromptMaintenanceNew() {
               <Label>Name *</Label>
               <Input
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 placeholder="KE Unit Validation v1.0"
+                disabled={!!editingId}
               />
             </div>
 
             <div>
               <Label>Description</Label>
               <Textarea
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                value={formData.description || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 placeholder="Brief description of what this prompt does"
                 rows={2}
+                disabled={!!editingId}
               />
             </div>
 
             <div>
               <Label>System Instruction</Label>
               <Textarea
-                value={formData.system_instruction || ''}
-                onChange={(e) => setFormData({ ...formData, system_instruction: e.target.value })}
+                value={formData.system_instruction || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    system_instruction: e.target.value,
+                  })
+                }
                 placeholder="You are an expert RTO assessor..."
                 rows={5}
+                disabled={!!editingId}
               />
             </div>
 
@@ -884,9 +1095,12 @@ export function PromptMaintenanceNew() {
               <Label>Prompt Text *</Label>
               <Textarea
                 value={formData.prompt_text}
-                onChange={(e) => setFormData({ ...formData, prompt_text: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, prompt_text: e.target.value })
+                }
                 placeholder="Validate the following requirement: {{requirement_text}}..."
                 rows={12}
+                disabled={!!editingId}
               />
             </div>
 
@@ -895,7 +1109,10 @@ export function PromptMaintenanceNew() {
                 <input
                   type="checkbox"
                   checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_active: e.target.checked })
+                  }
+                  disabled={!!editingId}
                 />
                 <span className="text-sm">Active</span>
               </label>
@@ -903,7 +1120,10 @@ export function PromptMaintenanceNew() {
                 <input
                   type="checkbox"
                   checked={formData.is_default}
-                  onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_default: e.target.checked })
+                  }
+                  disabled={!!editingId}
                 />
                 <span className="text-sm">Default</span>
               </label>
@@ -915,15 +1135,17 @@ export function PromptMaintenanceNew() {
                 variant="outline"
                 onClick={() => setShowForm(false)}
               >
-                Cancel
+                Close
               </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-[#10b981] hover:bg-[#059669]"
-              >
-                {isLoading ? 'Saving...' : editingId ? 'Save' : 'Create'}
-              </Button>
+              {!editingId && (
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-[#10b981] hover:bg-[#059669]"
+                >
+                  {isLoading ? "Saving..." : "Create"}
+                </Button>
+              )}
             </div>
           </form>
         </Card>
