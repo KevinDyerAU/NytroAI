@@ -17,7 +17,8 @@ import {
   ChevronRight,
   FileText,
   TrendingUp,
-  Zap
+  Zap,
+  Trash2
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
 
@@ -243,6 +244,28 @@ export function Dashboard_v3({
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleDeleteValidation = async (e: React.MouseEvent, validationId: string) => {
+    e.stopPropagation();
+    if (!isAdmin) return;
+    
+    if (window.confirm("Are you sure you want to delete this validation? This action cannot be undone.")) {
+      try {
+        const { error } = await supabase
+          .from('validation_detail')
+          .delete()
+          .eq('id', validationId);
+          
+        if (error) throw error;
+        
+        toast.success("Validation deleted successfully");
+        setValidations(prev => prev.filter(v => v.id !== validationId));
+      } catch (err) {
+        console.error("Error deleting validation:", err);
+        toast.error("Failed to delete validation");
+      }
+    }
   };
 
   // Only show loading screen on initial load
@@ -615,6 +638,19 @@ export function Dashboard_v3({
                         isComplete={repComplete}
                         tooltip={repComplete ? 'Report: Generated and finalised' : 'Report: Not yet generated'}
                       />
+                      {isAdmin && (
+                        <div className="ml-2 border-l border-gray-200 pl-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0"
+                            onClick={(e) => handleDeleteValidation(e, validation.id)}
+                            title="Delete Validation"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
