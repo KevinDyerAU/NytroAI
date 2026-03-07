@@ -843,7 +843,7 @@ supabase functions logs get-requirements --tail
 
 **Test Gemini API Directly**:
 ```bash
-curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=YOUR_KEY" \
+curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "contents": [{
