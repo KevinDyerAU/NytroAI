@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDocumentHead } from '../hooks/useDocumentHead';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import nytroLogo from '../assets/nytro-logo.svg';
+import nytroLogo from '../assets/IMG_5440.jpeg';
 import {
   CheckCircle,
   Upload,
@@ -572,11 +572,13 @@ export const ValidationLandingPage: React.FC = () => {
                       </div>
                     </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-400">
-                      <p className="text-center px-8">
-                        Video player placeholder — embed your explainer video URL here
-                      </p>
-                    </div>
+                    <iframe
+                      src="https://drive.google.com/file/d/1cOpe6z98sI0zinH_9LEO5ytb-iniJzfc/preview"
+                      className="w-full h-full absolute inset-0"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                      title="Nytro explainer video"
+                    />
                   )}
                 </div>
               </div>
