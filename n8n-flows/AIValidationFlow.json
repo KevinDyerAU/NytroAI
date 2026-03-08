@@ -189,7 +189,7 @@
     },
     {
       "parameters": {
-        "model": "gemini-2.0-flash-exp",
+        "model": "gemini-2.5-flash",
         "options": {
           "temperature": 0.1,
           "maxOutputTokens": 8192
@@ -221,7 +221,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googlePalmApi",
         "sendBody": true,

@@ -158,7 +158,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -188,7 +188,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst requirement = $input.first().json;\n\nlet validationResult;\ntry {\n  const content = response.candidates[0].content.parts[0].text;\n  validationResult = JSON.parse(content);\n} catch (error) {\n  validationResult = {\n    status: \"error\",\n    reasoning: \"Failed to parse Gemini response: \" + error.message,\n    error: true\n  };\n}\n\nreturn {\n  json: {\n    validation_detail_id: requirement.validation_detail_id,\n    requirement_type: requirement.requirement_type,\n    requirement_number: requirement.requirement_number,\n    requirement_text: requirement.requirement_text,\n    status: validationResult.status,\n    reasoning: validationResult.reasoning,\n    mapped_content: validationResult.mapped_content || null,\n    unmapped_content: validationResult.unmapped_content || null,\n    recommendations: validationResult.recommendations || null,\n    smart_questions: validationResult.smart_question ? [validationResult.smart_question] : [],\n    citations: validationResult.doc_references || null,\n    metadata: {\n      confidence_score: validationResult.confidence_score || null,\n      prompt_used: requirement.prompt_used,\n      gemini_model: \"gemini-2.0-flash-exp\",\n      validation_timestamp: new Date().toISOString()\n    }\n  }\n};"
+        "jsCode": "const response = $input.first().json;\nconst requirement = $input.first().json;\n\nlet validationResult;\ntry {\n  const content = response.candidates[0].content.parts[0].text;\n  validationResult = JSON.parse(content);\n} catch (error) {\n  validationResult = {\n    status: \"error\",\n    reasoning: \"Failed to parse Gemini response: \" + error.message,\n    error: true\n  };\n}\n\nreturn {\n  json: {\n    validation_detail_id: requirement.validation_detail_id,\n    requirement_type: requirement.requirement_type,\n    requirement_number: requirement.requirement_number,\n    requirement_text: requirement.requirement_text,\n    status: validationResult.status,\n    reasoning: validationResult.reasoning,\n    mapped_content: validationResult.mapped_content || null,\n    unmapped_content: validationResult.unmapped_content || null,\n    recommendations: validationResult.recommendations || null,\n    smart_questions: validationResult.smart_question ? [validationResult.smart_question] : [],\n    citations: validationResult.doc_references || null,\n    metadata: {\n      confidence_score: validationResult.confidence_score || null,\n      prompt_used: requirement.prompt_used,\n      gemini_model: \"gemini-2.5-flash\",\n      validation_timestamp: new Date().toISOString()\n    }\n  }\n};"
       },
       "id": "parse-validation-result",
       "name": "Parse Validation Result",
