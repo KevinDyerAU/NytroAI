@@ -459,7 +459,7 @@ export const ValidationLandingPage: React.FC = () => {
                 className="flex items-center"
                 aria-label="Nytro Home"
               >
-                <img src={nytroLogo} alt="Nytro" className="h-8 md:h-10 w-auto rounded-sm" style={{ backgroundColor: '#0F172A' }} />
+                <img src={nytroLogo} alt="Nytro" className="h-10 md:h-13 w-auto rounded-sm" style={{ backgroundColor: '#0F172A' }} />
               </a>
               <div className="hidden md:flex items-center gap-8">
                 <a href="#process" onClick={(e) => handleNavClick(e, 'process')} className={navLinkClass('process')}>
