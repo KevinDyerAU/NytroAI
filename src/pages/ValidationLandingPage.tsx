@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDocumentHead } from '../hooks/useDocumentHead';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import nytroLogo from '../assets/nytro-logo-dark.svg';
+import nytroLogo from '../assets/nytro-logo-dark.png';
 import {
   CheckCircle,
   Upload,
@@ -459,7 +459,7 @@ export const ValidationLandingPage: React.FC = () => {
                 className="flex items-center"
                 aria-label="Nytro Home"
               >
-                <img src={nytroLogo} alt="Nytro" className="h-8 md:h-10 w-auto" />
+                <img src={nytroLogo} alt="Nytro" className="h-8 md:h-10 w-auto rounded-sm" style={{ backgroundColor: '#0F172A' }} />
               </a>
               <div className="hidden md:flex items-center gap-8">
                 <a href="#process" onClick={(e) => handleNavClick(e, 'process')} className={navLinkClass('process')}>
