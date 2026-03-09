@@ -450,7 +450,7 @@ export const ValidationLandingPage: React.FC = () => {
     <>
       <div className="min-h-screen bg-white text-slate-900 font-body selection:bg-teal-200 selection:text-teal-900">
         {/* ─── Fixed Navigation ──────────────────────────────────────────── */}
-        <nav className="fixed top-0 left-0 right-0 z-50 bg-nytro-dark/95 backdrop-blur-md border-b border-slate-800">
+        <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b border-slate-800" style={{ backgroundColor: 'rgba(10, 15, 30, 0.97)' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16 md:h-20">
               <a
@@ -459,7 +459,7 @@ export const ValidationLandingPage: React.FC = () => {
                 className="flex items-center"
                 aria-label="Nytro Home"
               >
-                <img src={nytroLogo} alt="Nytro" className="h-12 md:h-15 w-auto rounded-sm" style={{ backgroundColor: '#0F172A' }} />
+                <img src={nytroLogo} alt="Nytro" className="h-12 md:h-15 w-auto rounded-sm" style={{ backgroundColor: '#0A0F1E' }} />
               </a>
               <div className="hidden md:flex items-center gap-8">
                 <a href="#process" onClick={(e) => handleNavClick(e, 'process')} className={navLinkClass('process')}>
