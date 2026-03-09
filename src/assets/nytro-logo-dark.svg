@@ -1,10 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 196 60" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
   <defs>
-    <linearGradient id="nGrad" x1="2" y1="58" x2="50" y2="2" gradientUnits="userSpaceOnUse">
+    <linearGradient id="nGrad" x1="4" y1="57" x2="48" y2="2" gradientUnits="userSpaceOnUse">
       <stop stop-color="#34D399"/>
+      <stop offset="0.5" stop-color="#2DD4BF"/>
       <stop offset="1" stop-color="#22D3EE"/>
     </linearGradient>
   </defs>
-  <path d="M2 58V28C2 14.745 12.745 4 26 4s24 10.745 24 24v30H38V28c0-6.627-5.373-12-12-12S14 21.373 14 28v30H2z" fill="url(#nGrad)"/>
-  <text x="60" y="47" font-family="Inter,'Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#FFFFFF" letter-spacing="-0.02em">ytro</text>
+  <!-- "n" icon: uniform 12px stroke, left leg full-height, right leg shorter with rounded cap -->
+  <path d="M4 54 Q4 57 7 57 L13 57 Q16 57 16 54 L16 24 A10 10 0 0 1 36 24 L36 38 A6 6 0 0 1 48 38 L48 24 A22 22 0 0 1 4 24 Z" fill="url(#nGrad)"/>
+  <text x="58" y="48" font-family="Inter,'Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#FFFFFF" letter-spacing="-0.02em">ytro</text>
 </svg>
