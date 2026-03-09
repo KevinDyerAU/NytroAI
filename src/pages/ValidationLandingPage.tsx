@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDocumentHead } from '../hooks/useDocumentHead';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import nytroLogo from '../assets/IMG_5440.jpeg';
+import nytroLogo from '../assets/nytro-logo-dark.png';
 import {
   CheckCircle,
   Upload,
