@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 196 60" fill="none">
+  <defs>
+    <linearGradient id="nGrad" x1="2" y1="58" x2="50" y2="2" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <path d="M2 58V28C2 14.745 12.745 4 26 4s24 10.745 24 24v30H38V28c0-6.627-5.373-12-12-12S14 21.373 14 28v30H2z" fill="url(#nGrad)"/>
+  <text x="60" y="47" font-family="Inter,'Segoe UI',system-ui,sans-serif" font-size="40" font-weight="700" fill="#FFFFFF" letter-spacing="-0.02em">ytro</text>
+</svg>
