@@ -17,3 +17,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// LinkedIn Insight Tag
+interface Window {
+  lintrk?: (action: string, data: Record<string, unknown>) => void;
+  _linkedin_data_partner_ids?: string[];
+}
