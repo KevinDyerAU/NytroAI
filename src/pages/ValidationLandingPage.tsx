@@ -112,7 +112,7 @@ export const ValidationLandingPage: React.FC = () => {
     companyName: '',
     phoneNumber: '',
     email: '',
-    subscribeNewsletter: false,
+    subscribeNewsletter: true,
   });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [promoCode, setPromoCode] = useState('');
@@ -183,7 +183,7 @@ export const ValidationLandingPage: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFiles(Array.from(e.target.files));
+      setSelectedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
     }
   };
 
@@ -220,15 +220,20 @@ export const ValidationLandingPage: React.FC = () => {
       const uploadedNames: string[] = [];
       if (selectedFiles.length > 0) {
         for (const file of selectedFiles) {
-          const fileExt = file.name.split('.').pop();
+          const fileExt = (file.name.split('.').pop() || '').toLowerCase();
           const filePath = `validation-leads/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('documents')
-            .upload(filePath, file);
+            .upload(filePath, file, {
+              contentType: file.type || 'application/octet-stream',
+            });
 
           if (uploadError) {
             console.error('File upload error:', file.name, uploadError);
+            throw new Error(
+              `Failed to upload "${file.name}". ${uploadError.message || 'Please try a different file format (PDF recommended) or contact support@nytro.com.au.'}`
+            );
           } else {
             uploadedUrls.push(uploadData?.path || '');
             uploadedNames.push(file.name);
@@ -757,7 +762,7 @@ export const ValidationLandingPage: React.FC = () => {
                           multiple
                           onChange={handleFileChange}
                           className="hidden"
-                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.zip"
                         />
                         <label
                           htmlFor="fileUpload"
@@ -765,12 +770,27 @@ export const ValidationLandingPage: React.FC = () => {
                         >
                           <Upload className="w-4 h-4" />
                           {selectedFiles.length > 0
-                            ? selectedFiles.length === 1
-                              ? selectedFiles[0].name
-                              : `${selectedFiles.length} files selected`
+                            ? 'Add more files...'
                             : 'Choose files...'}
                         </label>
                       </div>
+                      {selectedFiles.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-slate-800/60 rounded-lg px-3 py-1.5 text-xs">
+                              <span className="text-slate-300 truncate mr-2">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
+                                className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0"
+                                aria-label={`Remove ${file.name}`}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {/* Promo Code */}
                     <div>
@@ -804,7 +824,7 @@ export const ValidationLandingPage: React.FC = () => {
                         className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-800 text-teal-400 focus:ring-teal-400 focus:ring-offset-0"
                       />
                       <span className="text-xs text-slate-400">
-                        Sign up to news and updates
+                        I'd like to receive news and updates from Nytro
                       </span>
                     </label>
 

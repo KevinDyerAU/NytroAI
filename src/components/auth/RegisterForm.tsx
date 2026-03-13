@@ -8,6 +8,9 @@ import { Card } from '../ui/card';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchRTOsFromSupabase, type RTO } from '../../types/rto';
 
+// Default RTO code for new signups (matches SignUpDialog)
+const DEFAULT_RTO_CODE = '71480000';
+
 export function RegisterForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -18,9 +21,10 @@ export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [selectedRtoCode, setSelectedRtoCode] = useState(rtoCode);
+  const [selectedRtoCode, setSelectedRtoCode] = useState(rtoCode || DEFAULT_RTO_CODE);
   const [rtosLoading, setRtosLoading] = useState(true);
   const [rtos, setRtos] = useState<RTO[]>([]);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
 
   const { register, isLoading } = useAuth();
 
@@ -96,7 +100,7 @@ export function RegisterForm() {
 
     if (result.success) {
       toast.success('Registration successful! Please check your email to verify your account.');
-      navigate('/login');
+      setRegistrationComplete(true);
     } else {
       // Display user-friendly error message
       const errorMessage = result.error || 'Registration failed';
@@ -104,6 +108,30 @@ export function RegisterForm() {
       toast.error(errorMessage);
     }
   };
+
+  if (registrationComplete) {
+    return (
+      <div className="text-center space-y-6 py-4">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+          <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-[#1e293b] mb-2">Account Created!</h3>
+          <p className="text-[#64748b]">
+            We've sent a verification email to <strong className="text-[#1e293b]">{email}</strong>.
+            Please check your inbox and click the link to activate your account.
+          </p>
+        </div>
+        <p className="text-sm text-[#64748b]">
+          Once verified, you can{' '}
+          <a href="/" className="text-[#3b82f6] hover:underline font-semibold">sign in</a>{' '}
+          to access the full Nytro platform.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleRegister} className="space-y-6">
