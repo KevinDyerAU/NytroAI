@@ -77,11 +77,6 @@ export function RegisterForm() {
       return;
     }
 
-    if (!selectedRtoCode) {
-      toast.error('Please select an RTO');
-      return;
-    }
-
     if (password.length < 8) {
       toast.error('Password must be at least 8 characters');
       return;
@@ -97,7 +92,7 @@ export function RegisterForm() {
       return;
     }
 
-    const result = await register(email, password, fullName, selectedRtoCode);
+    const result = await register(email, password, fullName, selectedRtoCode || DEFAULT_RTO_CODE);
 
     if (result.success) {
       toast.success('Registration successful! Please check your email to verify your account.');
@@ -134,10 +129,10 @@ export function RegisterForm() {
           </p>
         </div>
         <a
-          href="/"
+          href="/validate"
           className="inline-block bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-2 px-6 rounded-md transition-colors"
         >
-          Sign In
+          Sign In &amp; Upload Documents
         </a>
       </div>
     );
@@ -200,37 +195,6 @@ export function RegisterForm() {
       </div>
 
       <div>
-        <Label htmlFor="rto" className="text-[#1e293b] font-semibold">
-          RTO Assignment
-        </Label>
-        <select
-          id="rto"
-          value={selectedRtoCode}
-          onChange={(e) => setSelectedRtoCode(e.target.value)}
-          disabled={true}
-          className="w-full px-3 py-2 mt-2 border border-[#dbeafe] rounded-md bg-[#f8f9fb] text-[#64748b] cursor-not-allowed"
-          required
-        >
-          <option value="">
-            {rtosLoading ? 'Loading RTO assignment...' : 'Select an RTO'}
-          </option>
-          {rtos.map((rto) => (
-            <option key={rto.id} value={rto.code}>
-              {rto.name} ({rto.code})
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-[#64748b] mt-1">
-          {rtosLoading ? 'Loading...' : 'RTO automatically assigned during registration'}
-        </p>
-        {rtos.length === 0 && !rtosLoading && (
-          <p className="text-xs text-red-500 mt-1">
-            No RTOs available. Please contact support.
-          </p>
-        )}
-      </div>
-
-      <div>
         <Label htmlFor="password" className="text-[#1e293b] font-semibold">
           Password
         </Label>
@@ -264,17 +228,6 @@ export function RegisterForm() {
           minLength={8}
         />
       </div>
-
-      {selectedRtoCode && !rtosLoading && (
-        <Card className="border border-[#dbeafe] bg-[#eff6ff] p-4">
-          <p className="text-sm text-[#1e293b]">
-            <span className="font-semibold">Assigned RTO:</span> {rtos.find(r => r.code === selectedRtoCode)?.name || selectedRtoCode}
-          </p>
-          <p className="text-xs text-[#64748b] mt-1">
-            Your account will be automatically associated with this RTO
-          </p>
-        </Card>
-      )}
 
       <div className="flex items-start gap-2">
         <input

@@ -131,7 +131,7 @@ export const ValidationLandingPage: React.FC = () => {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { login } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
 
   // ─── Scroll spy for active nav section ──────────────────────────────────
   useEffect(() => {
@@ -197,7 +197,8 @@ export const ValidationLandingPage: React.FC = () => {
       const result = await login(loginEmail, loginPassword);
       if (result.success) {
         setShowLoginDialog(false);
-        navigate('/dashboard');
+        // Navigate to /validate which is accessible even when logged in
+        navigate('/validate');
       } else {
         setLoginError(result.error || 'Invalid email or password');
       }
@@ -482,13 +483,22 @@ export const ValidationLandingPage: React.FC = () => {
                 <a href="#footer" onClick={(e) => handleNavClick(e, 'footer')} className={navLinkClass('footer')}>
                   Contact
                 </a>
-                <button
-                  onClick={() => setShowLoginDialog(true)}
-                  className="text-slate-300 hover:text-white transition-colors text-sm font-medium flex items-center gap-1.5"
-                >
-                  <LogIn className="w-4 h-4" />
-                  Login
-                </button>
+                {isAuthenticated ? (
+                  <a
+                    href="/dashboard"
+                    className="text-slate-300 hover:text-white transition-colors text-sm font-medium flex items-center gap-1.5"
+                  >
+                    Dashboard
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => setShowLoginDialog(true)}
+                    className="text-slate-300 hover:text-white transition-colors text-sm font-medium flex items-center gap-1.5"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    Login
+                  </button>
+                )}
                 <button
                   onClick={scrollToForm}
                   className="bg-gradient-to-r from-teal-400 to-blue-500 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:from-teal-500 hover:to-blue-600 transition-all shadow-lg shadow-teal-500/25"
@@ -498,13 +508,23 @@ export const ValidationLandingPage: React.FC = () => {
               </div>
               {/* Mobile */}
               <div className="md:hidden flex items-center gap-3">
-                <button
-                  onClick={() => setShowLoginDialog(true)}
-                  className="text-slate-300 hover:text-white p-2"
-                  aria-label="Login"
-                >
-                  <LogIn className="w-5 h-5" />
-                </button>
+                {isAuthenticated ? (
+                  <a
+                    href="/dashboard"
+                    className="text-slate-300 hover:text-white p-2"
+                    aria-label="Dashboard"
+                  >
+                    Dashboard
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => setShowLoginDialog(true)}
+                    className="text-slate-300 hover:text-white p-2"
+                    aria-label="Login"
+                  >
+                    <LogIn className="w-5 h-5" />
+                  </button>
+                )}
                 <button
                   onClick={scrollToForm}
                   className="bg-gradient-to-r from-teal-400 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold"
@@ -669,9 +689,18 @@ export const ValidationLandingPage: React.FC = () => {
                   <h3 className="text-xl font-sans font-bold text-white mb-1">
                     Validate Your Resource
                   </h3>
-                  <p className="text-xs text-slate-400 mb-6">
-                    Submit your details to request a one-off independent validation — no account required.
-                  </p>
+                  {isAuthenticated && user?.email ? (
+                    <div className="flex items-center gap-2 bg-teal-500/10 border border-teal-500/30 rounded-lg px-3 py-2 mb-4">
+                      <CheckCircle className="w-4 h-4 text-teal-400 flex-shrink-0" />
+                      <p className="text-xs text-teal-300">
+                        Logged in as <strong className="text-white">{user.email}</strong> — your submission will be linked to your account.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 mb-4">
+                      Submit your details to request a one-off independent validation — no account required.
+                    </p>
+                  )}
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>

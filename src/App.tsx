@@ -40,6 +40,9 @@ export default function App() {
         {/* Validation success page */}
         <Route path="/validation/success" element={<ValidationSuccessPage />} />
 
+        {/* Direct validation route - accessible even when logged in */}
+        <Route path="/validate" element={<ValidationLandingPage />} />
+
         {/* Legacy redirect: /validation now redirects to root */}
         <Route path="/validation" element={<Navigate to="/" replace />} />
 
