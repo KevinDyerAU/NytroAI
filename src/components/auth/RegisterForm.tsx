@@ -25,6 +25,7 @@ export function RegisterForm() {
   const [rtosLoading, setRtosLoading] = useState(true);
   const [rtos, setRtos] = useState<RTO[]>([]);
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [alreadyExists, setAlreadyExists] = useState(false);
 
   const { register, isLoading } = useAuth();
 
@@ -105,9 +106,42 @@ export function RegisterForm() {
       // Display user-friendly error message
       const errorMessage = result.error || 'Registration failed';
       console.error('[RegisterForm] Registration error:', errorMessage);
-      toast.error(errorMessage);
+      
+      if (errorMessage.toLowerCase().includes('already registered') || errorMessage.toLowerCase().includes('already exists')) {
+        toast.error(
+          'An account with this email already exists. Please sign in instead.',
+          { duration: 6000 }
+        );
+        setAlreadyExists(true);
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
+
+  if (alreadyExists) {
+    return (
+      <div className="text-center space-y-6 py-4">
+        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+          <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-[#1e293b] mb-2">Account Already Exists</h3>
+          <p className="text-[#64748b]">
+            An account with <strong className="text-[#1e293b]">{email}</strong> already exists.
+          </p>
+        </div>
+        <a
+          href="/"
+          className="inline-block bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-2 px-6 rounded-md transition-colors"
+        >
+          Sign In
+        </a>
+      </div>
+    );
+  }
 
   if (registrationComplete) {
     return (
