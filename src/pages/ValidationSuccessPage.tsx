@@ -63,6 +63,17 @@ export const ValidationSuccessPage: React.FC = () => {
         setStatusUpdated(true);
         console.log('[ValidationSuccess] Lead status updated to landed for lead:', leadId);
 
+        // LinkedIn Conversion Tracking — fire on successful Stripe payment
+        try {
+          if (typeof window.lintrk === 'function') {
+            window.lintrk('track', { conversion_id: 24710604 });
+            console.log('[ValidationSuccess] LinkedIn conversion event fired for lead:', leadId);
+          }
+        } catch (linkedinErr) {
+          console.error('[ValidationSuccess] LinkedIn tracking error:', linkedinErr);
+          // Don't fail the success page if LinkedIn tracking fails
+        }
+
         // Trigger Brevo confirmation emails
         try {
           const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
