@@ -260,7 +260,7 @@ export function Dashboard_v3({
         if (error) throw error;
         
         toast.success("Validation deleted successfully");
-        setValidations(prev => prev.filter(v => v.id !== validationId));
+        setValidations(prev => prev.filter(v => String(v.id) !== String(validationId)));
       } catch (err) {
         console.error("Error deleting validation:", err);
         toast.error("Failed to delete validation");

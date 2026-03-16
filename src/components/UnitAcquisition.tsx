@@ -495,6 +495,52 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
     }
   };
 
+  // ─── Delete Unit (admin only) ────────────────────────────────────────────
+  const handleDeleteUnit = async (e: React.MouseEvent, unit: UnitOfCompetency) => {
+    e.stopPropagation();
+    if (!isAdmin) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete unit "${unit.unitCode}"?\n\nThis will permanently remove:\n• The unit and all its requirements\n• All validation summaries for this unit\n• All validation details, results, documents, and AI conversations\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const unitLink = unit.link;
+      const unitCode = unit.unitCode;
+
+      // 1. Delete requirement records (linked by unit_url)
+      if (unitLink) {
+        const reqTables = [
+          'knowledge_evidence_requirements',
+          'performance_evidence_requirements',
+          'foundation_skills_requirements',
+          'elements_performance_criteria_requirements',
+          'assessment_conditions_requirements',
+        ];
+        for (const table of reqTables) {
+          await supabase.from(table).delete().eq('unit_url', unitLink);
+        }
+
+        // 2. Delete validation_summary (cascades to validation_detail → documents, gemini_ops, results, ai_chat)
+        await supabase.from('validation_summary').delete().eq('unitLink', unitLink);
+      }
+
+      // 3. Delete acquisition queue entries
+      await supabase.from('unit_acquisition_queue').delete().eq('unit_code', unitCode);
+
+      // 4. Delete the UnitOfCompetency record
+      const { error } = await supabase.from('UnitOfCompetency').delete().eq('id', unit.id);
+      if (error) throw error;
+
+      showAlert('success', 'Unit Deleted', `${unitCode} and all associated records have been removed.`);
+      await fetchExistingUnits();
+    } catch (err) {
+      console.error('[UnitAcquisition] Error deleting unit:', err);
+      showAlert('error', 'Delete Failed', `Failed to delete unit ${unit.unitCode}. Check console for details.`);
+    }
+  };
+
   // ─── Render Helpers ───────────────────────────────────────────────────────
 
   const getCompletenessPercent = (unit: UnitOfCompetency): number => {
@@ -937,6 +983,15 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </button>
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => handleDeleteUnit(e, unit)}
+                              className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#94a3b8] hover:text-[#ef4444] transition-colors"
+                              title="Delete unit and all associated records"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1045,6 +1100,15 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
                           >
                             <ExternalLink className="w-4 h-4" />
                           </button>
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => handleDeleteUnit(e, unit)}
+                              className="p-2 rounded-lg hover:bg-[#fee2e2] text-[#94a3b8] hover:text-[#ef4444] transition-colors"
+                              title="Delete unit and all associated records"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
