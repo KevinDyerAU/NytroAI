@@ -28,26 +28,29 @@ serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Create a client with the caller's JWT to verify admin status
-    const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // Use service role client for all operations
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user: callerUser }, error: callerError } = await callerClient.auth.getUser();
+    // Extract the JWT token and verify the caller's identity via the admin client
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: callerUser }, error: callerError } = await adminClient.auth.getUser(token);
     if (callerError || !callerUser) {
+      console.error('[admin-create-user] Token verification failed:', callerError?.message);
       return createErrorResponse('Unauthorized', 401);
     }
 
-    // Check if caller is admin
-    const { data: callerProfile, error: profileError } = await callerClient
+    console.log('[admin-create-user] Caller verified:', callerUser.email);
+
+    // Check if caller is admin (use adminClient to bypass RLS)
+    const { data: callerProfile, error: profileError } = await adminClient
       .from('user_profiles')
       .select('is_admin')
       .eq('id', callerUser.id)
       .single();
 
     if (profileError || !callerProfile?.is_admin) {
+      console.error('[admin-create-user] Not admin:', profileError?.message || 'is_admin=false');
       return createErrorResponse('Only admins can create users', 403);
     }
 
@@ -58,9 +61,6 @@ serve(async (req: Request) => {
     if (!email || !fullName) {
       return createErrorResponse('Email and full name are required', 400);
     }
-
-    // Use service role client for admin operations (creating auth users)
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Create the auth user with a random password — they'll set their own via invite email
     // Using inviteUserByEmail sends a magic link / invite email automatically
