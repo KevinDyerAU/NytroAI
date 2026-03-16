@@ -778,20 +778,18 @@ export async function getUserValidationsByRTO(
         return true;
       }
 
-      // For $99 users without RTO, show only their own validations (already filtered by query)
+      // For users without RTO (direct signups / $99), show only their own validations
       if (!hasRtoCode && userId) {
         return recordUserId === userId;
       }
       
-      // Non-admin users with RTO see:
-      // 1. Their own validations (user_id matches)
-      // 2. Legacy validations without user_id (for backward compatibility)
-      if (!userId) {
-        // If no user ID provided, only show legacy records
-        return !recordUserId;
+      // Users WITH an RTO see ALL validations within that RTO (already filtered by rtoCode above)
+      if (hasRtoCode) {
+        return true;
       }
       
-      return recordUserId === userId || !recordUserId;
+      // Fallback: no RTO, no userId — show nothing
+      return false;
     });
 
     // Map database columns to ValidationRecord interface

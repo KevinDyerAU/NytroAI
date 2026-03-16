@@ -13,6 +13,8 @@ import { ValidationLeadsMaintenance } from '../components/maintenance/Validation
 import { StripeDiscountsMaintenance } from '../components/maintenance/StripeDiscountsMaintenance';
 import { AllValidationsMaintenance } from '../components/maintenance/AllValidationsMaintenance';
 import { AcquisitionQueueMaintenance } from '../components/maintenance/AcquisitionQueueMaintenance';
+import { RTOManagement } from '../components/maintenance/RTOManagement';
+import { UserManagement } from '../components/maintenance/UserManagement';
 import { useAuth } from '../hooks/useAuth';
 import type { ValidationRecord } from '../types/rto';
 import { fetchRTOsFromSupabase, getCachedRTOs } from '../types/rto';
@@ -191,6 +193,20 @@ export function DashboardPage() {
           <div className="space-y-4">
             {backButton}
             <AcquisitionQueueMaintenance />
+          </div>
+        );
+      case 'rto-management':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <RTOManagement />
+          </div>
+        );
+      case 'user-management':
+        return (
+          <div className="space-y-4">
+            {backButton}
+            <UserManagement />
           </div>
         );
       default:

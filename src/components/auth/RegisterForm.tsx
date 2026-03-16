@@ -8,8 +8,7 @@ import { Card } from '../ui/card';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchRTOsFromSupabase, type RTO } from '../../types/rto';
 
-// Default RTO code for new signups (matches SignUpDialog)
-const DEFAULT_RTO_CODE = '71480000';
+// Direct signups get no RTO — admins assign users to RTOs after registration
 
 export function RegisterForm() {
   const navigate = useNavigate();
@@ -21,7 +20,7 @@ export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [selectedRtoCode, setSelectedRtoCode] = useState(rtoCode || DEFAULT_RTO_CODE);
+  const [selectedRtoCode, setSelectedRtoCode] = useState(rtoCode || '');
   const [rtosLoading, setRtosLoading] = useState(true);
   const [rtos, setRtos] = useState<RTO[]>([]);
   const [registrationComplete, setRegistrationComplete] = useState(false);
@@ -92,7 +91,7 @@ export function RegisterForm() {
       return;
     }
 
-    const result = await register(email, password, fullName, selectedRtoCode || DEFAULT_RTO_CODE);
+    const result = await register(email, password, fullName, selectedRtoCode);
 
     if (result.success) {
       toast.success('Registration successful! Please check your email to verify your account.');

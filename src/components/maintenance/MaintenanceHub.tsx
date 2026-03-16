@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Zap, MessageSquare, Users, Tag, Activity, Database } from 'lucide-react';
+import { ChevronRight, Zap, MessageSquare, Users, Tag, Activity, Database, Building2, UserCog } from 'lucide-react';
 import { Card } from '../ui/card';
 
 interface MaintenanceModule {
@@ -16,6 +16,20 @@ interface MaintenanceHubProps {
 
 export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
   const modules: MaintenanceModule[] = [
+    {
+      id: 'rto-management',
+      title: 'RTO Management',
+      description: 'Create and manage Registered Training Organisations, update details and status',
+      icon: <Building2 className="w-8 h-8" />,
+      color: 'bg-indigo-50 border-indigo-200',
+    },
+    {
+      id: 'user-management',
+      title: 'User Management',
+      description: 'View all users, assign or remove them from RTOs, and manage admin access',
+      icon: <UserCog className="w-8 h-8" />,
+      color: 'bg-orange-50 border-orange-200',
+    },
     {
       id: 'validation-leads',
       title: 'Validation Leads',
