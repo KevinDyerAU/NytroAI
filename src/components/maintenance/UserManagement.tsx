@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { Card } from '../ui/card';
-import { Search, UserPlus, Building2, X, Shield, User as UserIcon } from 'lucide-react';
+import { Search, UserPlus, Building2, X, Shield, User as UserIcon, Trash2 } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -131,6 +131,45 @@ export function UserManagement() {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string, userEmail: string | null) => {
+    if (!window.confirm(
+      `Are you sure you want to delete "${userName}"${userEmail ? ` (${userEmail})` : ''}?\n\nThis will permanently remove their account and profile. This action cannot be undone.`
+    )) return;
+
+    setIsSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Not authenticated');
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-delete-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ userId }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to delete user');
+
+      toast.success(`User "${userName}" deleted successfully`);
+      await loadData();
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      toast.error(err.message || 'Failed to delete user');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleToggleAdmin = async (userId: string, currentIsAdmin: boolean) => {
     setIsSaving(true);
     try {
@@ -154,6 +193,11 @@ export function UserManagement() {
   const handleCreateUser = async () => {
     if (!newUserEmail.trim()) {
       toast.error('Email is required');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUserEmail.trim())) {
+      toast.error('Please enter a valid email address (e.g. user@company.com.au)');
       return;
     }
     if (!newUserName.trim()) {
@@ -474,6 +518,15 @@ export function UserManagement() {
                       >
                         <Shield className="w-3 h-3" />
                         {user.is_admin ? 'Revoke Admin' : 'Make Admin'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user.id, user.full_name, user.email)}
+                        disabled={isSaving}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete user"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
                       </button>
                     </>
                   )}

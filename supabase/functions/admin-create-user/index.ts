@@ -69,7 +69,7 @@ serve(async (req: Request) => {
         full_name: fullName,
         rto_code: rtoCode || null,
       },
-      redirectTo: `${req.headers.get('origin') || supabaseUrl}/reset-password`,
+      redirectTo: 'https://app.nytro.com.au/reset-password',
     });
 
     if (inviteError) {
