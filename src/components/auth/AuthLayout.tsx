@@ -1,5 +1,6 @@
 import React from 'react';
-import nytroLogo from '../../assets/nytro-logo.svg';
+import nytroLogo from '../../assets/IMG_5440.jpeg';
+import nytroLogoDark from '../../assets/nytro-logo-dark.png';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -49,6 +50,11 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-[#0f4a8a] via-[#1e5fa8] to-[#3b82f6]">
         <div className="w-full max-w-md">
           <div className="mb-8">
+            <img
+              src={nytroLogoDark}
+              alt="Nytro Logo"
+              className="h-10 w-auto object-contain mb-6 lg:hidden"
+            />
             <h2 className="text-3xl font-bold text-white">{title}</h2>
             {subtitle && (
               <p className="text-blue-100 mt-2 text-sm">{subtitle}</p>
