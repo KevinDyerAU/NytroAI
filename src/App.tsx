@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/dashboard';
 import { LandingPage } from './pages/LandingPage';
 import { ValidationLandingPage } from './pages/ValidationLandingPage';
 import { ValidationSuccessPage } from './pages/ValidationSuccessPage';
+import { Toaster } from 'sonner';
 import './styles/index.css';
 
 export default function App() {
@@ -27,6 +28,8 @@ export default function App() {
   }
 
   return (
+    <>
+    <Toaster position="top-right" richColors closeButton />
     <Router>
       <Routes>
         {/* $99 Validation Landing Page - default landing page */}
@@ -79,5 +82,6 @@ export default function App() {
         />
       </Routes>
     </Router>
+    </>
   );
 }
