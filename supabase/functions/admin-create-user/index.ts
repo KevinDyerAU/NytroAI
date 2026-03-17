@@ -64,7 +64,9 @@ serve(async (req: Request) => {
 
     // Create the auth user with a random password — they'll set their own via invite email
     // Using inviteUserByEmail sends a magic link / invite email automatically
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+    let inviteData: any = null;
+
+    const { data: firstInviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: {
         full_name: fullName,
         rto_code: rtoCode || null,
@@ -75,11 +77,63 @@ serve(async (req: Request) => {
     if (inviteError) {
       console.error('[admin-create-user] Invite error:', inviteError.message);
 
-      if (inviteError.message.includes('already been registered') || inviteError.message.includes('already exists')) {
-        return createErrorResponse('A user with this email already exists', 409);
-      }
+      const isAlreadyExists = inviteError.message.includes('already been registered') || inviteError.message.includes('already exists');
 
-      return createErrorResponse(inviteError.message, 400);
+      if (isAlreadyExists) {
+        // Check if there's a profile for this email — if not, it's an orphaned auth user
+        const { data: existingProfile } = await adminClient
+          .from('user_profiles')
+          .select('id')
+          .eq('email', email)
+          .single();
+
+        if (existingProfile) {
+          // Profile exists — this is a real duplicate
+          return createErrorResponse('A user with this email already exists', 409);
+        }
+
+        // Orphaned auth user (profile was deleted but auth user remains)
+        // Find and delete the orphaned auth user, then retry
+        console.log('[admin-create-user] Orphaned auth user detected, cleaning up...');
+
+        const { data: { users: authUsers }, error: listError } = await adminClient.auth.admin.listUsers();
+        if (listError) {
+          console.error('[admin-create-user] Failed to list users:', listError.message);
+          return createErrorResponse('Failed to recover orphaned user. Try again later.', 500);
+        }
+
+        const orphanedUser = authUsers?.find((u: any) => u.email === email);
+        if (orphanedUser) {
+          console.log('[admin-create-user] Deleting orphaned auth user:', orphanedUser.id);
+          const { error: deleteError } = await adminClient.auth.admin.deleteUser(orphanedUser.id);
+          if (deleteError) {
+            console.error('[admin-create-user] Failed to delete orphaned user:', deleteError.message);
+            return createErrorResponse('Failed to clean up orphaned user. Try again later.', 500);
+          }
+
+          // Retry the invite
+          const { data: retryData, error: retryError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+            data: {
+              full_name: fullName,
+              rto_code: rtoCode || null,
+            },
+            redirectTo: 'https://app.nytro.com.au/reset-password',
+          });
+
+          if (retryError) {
+            console.error('[admin-create-user] Retry invite error:', retryError.message);
+            return createErrorResponse(retryError.message, 400);
+          }
+
+          inviteData = retryData;
+        } else {
+          return createErrorResponse('A user with this email already exists but could not be found in auth.', 409);
+        }
+      } else {
+        return createErrorResponse(inviteError.message, 400);
+      }
+    } else {
+      inviteData = firstInviteData;
     }
 
     if (!inviteData?.user) {
