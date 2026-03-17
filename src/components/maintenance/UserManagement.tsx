@@ -38,6 +38,7 @@ export function UserManagement() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRtoId, setNewUserRtoId] = useState<string>('');
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
+  const [emailError, setEmailError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   const loadData = async () => {
@@ -251,6 +252,7 @@ export function UserManagement() {
       setNewUserName('');
       setNewUserRtoId('');
       setNewUserIsAdmin(false);
+      setEmailError('');
       await loadData();
     } catch (err: any) {
       console.error('Error creating user:', err);
@@ -329,9 +331,20 @@ export function UserManagement() {
                 type="email"
                 value={newUserEmail}
                 onChange={(e) => setNewUserEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3b82f6]"
+                onBlur={() => {
+                  const trimmed = newUserEmail.trim();
+                  if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+                    setEmailError('Please enter a valid email address');
+                  } else {
+                    setEmailError('');
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                  emailError ? 'border-red-400 focus:ring-red-300' : 'border-[#e2e8f0] focus:ring-[#3b82f6]'
+                }`}
                 placeholder="user@company.com.au"
               />
+              {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#64748b] mb-1">Assign to RTO</label>
