@@ -10,7 +10,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { supabase } from '../lib/supabase';
 import { getRTOById, fetchRTOById, getActiveValidationsByRTO, getUserValidationsByRTO } from '../types/rto';
-import { useDashboardMetrics, useValidationCredits, useAICredits } from '../hooks/useDashboardMetrics';
+import { useDashboardMetrics, useValidationCredits } from '../hooks/useDashboardMetrics';
 import {
   Activity,
   ChevronLeft,
@@ -86,8 +86,13 @@ export function Dashboard_v3({
 
   // Use hooks for metrics and credits (pass userId and isAdmin for user-based filtering)
   const { metrics } = useDashboardMetrics(selectedRTOId, rtoCode, userId, isAdmin);
-  const { credits: validationCredits } = useValidationCredits(selectedRTOId, creditsRefreshTrigger, userId);
-  const { credits: aiCredits } = useAICredits(selectedRTOId, creditsRefreshTrigger, userId);
+  // RTO users share the RTO's credit pool; non-RTO users have their own credits
+  const hasRTO = !!selectedRTOId;
+  const { credits: validationCredits } = useValidationCredits(
+    hasRTO ? selectedRTOId : null,
+    creditsRefreshTrigger,
+    hasRTO ? undefined : userId
+  );
 
   // Get RTO code from ID (only if not provided as prop)
   useEffect(() => {
@@ -328,7 +333,7 @@ export function Dashboard_v3({
         />
       </div>
 
-      {/* Progress Bars Section */}
+      {/* Credits Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8">
         {/* Validation Credits */}
         {(() => {
@@ -415,90 +420,6 @@ export function Dashboard_v3({
           );
         })()}
 
-        {/* AI Credits */}
-        {(() => {
-          const ac = aiCredits?.current || 0;
-          const isLow = ac > 0 && ac < 5;
-          const isZero = ac === 0;
-          const borderColor = isZero ? 'border-red-300' : isLow ? 'border-amber-300' : 'border-[#dbeafe]';
-          const bgGlow = isZero ? 'shadow-red-100' : isLow ? 'shadow-amber-100' : 'shadow-soft';
-          return (
-            <Card className={`border ${borderColor} bg-white p-4 ${bgGlow} transition-all duration-500 relative overflow-hidden`}>
-              {/* Decorative gradient strip */}
-              <div className={`absolute top-0 left-0 right-0 h-1 ${isZero ? 'bg-gradient-to-r from-red-400 to-red-500' : isLow ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-purple-400 to-blue-500'}`} />
-              
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[10px] uppercase tracking-wider font-poppins text-[#64748b] font-semibold">
-                  AI Credits
-                </h3>
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isZero ? 'bg-red-50' : isLow ? 'bg-amber-50' : 'bg-purple-50'}`}>
-                  <Zap className={`w-3.5 h-3.5 ${isZero ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-purple-500'}`} />
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <div className="flex justify-between items-baseline">
-                  <span className={`font-poppins text-3xl font-bold ${isZero ? 'text-red-500' : isLow ? 'text-amber-600' : 'text-[#1e293b]'} ${(isZero || isLow) ? 'animate-pulse' : ''}`}>
-                    {ac}
-                  </span>
-                  <span className={`text-[10px] uppercase font-semibold tracking-wide ${isZero ? 'text-red-400' : isLow ? 'text-amber-500' : 'text-[#94a3b8]'}`}>
-                    {isZero ? 'depleted' : isLow ? 'running low' : 'available'}
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 bg-[#f1f5f9] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${isZero ? 'bg-red-400' : isLow ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-purple-400 to-blue-500'}`}
-                    style={{ width: `${Math.min(100, (ac / Math.max(ac, 100)) * 100) || 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Low credits warning */}
-              {isLow && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
-                  <div className="w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-white text-[8px] font-bold">!</span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold text-amber-800">AI credits running low</p>
-                    <p className="text-[9px] text-amber-600">
-                      Only {ac} credit{ac !== 1 ? 's' : ''} remaining.{' '}
-                      <a href="/dashboard?view=settings" className="text-amber-700 font-bold underline underline-offset-2 hover:text-amber-900 transition-colors">
-                        Purchase more →
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Zero credits warning */}
-              {isZero && (
-                <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-start gap-2">
-                  <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5 animate-pulse">
-                    <span className="text-white text-[8px] font-bold">✕</span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold text-red-800">No AI credits available</p>
-                    <p className="text-[9px] text-red-600">
-                      AI features are disabled.{' '}
-                      <a href="/dashboard?view=settings" className="text-red-700 font-bold underline underline-offset-2 hover:text-red-900 transition-colors">
-                        Purchase credits →
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Normal state footer */}
-              {!isLow && !isZero && (
-                <div className="flex justify-between items-center text-[9px] text-[#94a3b8]">
-                  <span>{aiCredits?.percentageText || '0 credits available'}</span>
-                  <span className="uppercase font-medium">Credits</span>
-                </div>
-              )}
-            </Card>
-          );
-        })()}
       </div>
 
       {/* Validation History */}

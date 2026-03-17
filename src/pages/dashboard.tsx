@@ -252,7 +252,7 @@ export function DashboardPage() {
         }
         return <DocumentUpload selectedRTOId={selectedRTOId} onValidationSubmit={handleValidationSubmit} onCreditsConsumed={handleCreditsAdded} />;
       case 'results':
-        return <ResultsExplorer selectedValidationId={selectedValidationId} aiCreditsAvailable={(user?.credits || 0) > 0} selectedRTOId={selectedRTOId} />;
+        return <ResultsExplorer selectedValidationId={selectedValidationId} selectedRTOId={selectedRTOId} />;
       case 'settings':
         return <Settings selectedRTOId={selectedRTOId} onCreditsAdded={handleCreditsAdded} />;
       default:

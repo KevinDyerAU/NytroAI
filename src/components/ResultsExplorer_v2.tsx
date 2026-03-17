@@ -45,8 +45,6 @@ import {
 import { toast } from 'sonner';
 import {
   getRTOById,
-  getAICredits,
-  consumeAICredit,
   getActiveValidationsByRTO,
   getUserValidationsByRTO,
   type ValidationRecord
@@ -61,13 +59,11 @@ import { Validation, getValidationTypeLabel, formatValidationDate } from '../typ
 
 interface ResultsExplorerProps {
   selectedValidationId?: string | null;
-  aiCreditsAvailable?: boolean;
   selectedRTOId: string;
 }
 
 export function ResultsExplorer_v2({
   selectedValidationId: propValidationId,
-  aiCreditsAvailable = true,
   selectedRTOId
 }: ResultsExplorerProps) {
   // Get current user from auth store for user-specific validation filtering
@@ -156,11 +152,6 @@ export function ResultsExplorer_v2({
   const [showDetailedReport, setShowDetailedReport] = useState(false);
   const [confirmText, setConfirmText] = useState('');
 
-  // Credits state - default to positive values to prevent showing "No credits" while loading
-  const [aiCredits, setAICredits] = useState({ current: 100, total: 100 });
-  const [creditsLoaded, setCreditsLoaded] = useState(false);
-  const [isConsumingCredit, setIsConsumingCredit] = useState(false);
-
   // Validation records state
   const [validationRecords, setValidationRecords] = useState<ValidationRecord[]>([]);
   const [isLoadingValidations, setIsLoadingValidations] = useState(true);
@@ -188,28 +179,6 @@ export function ResultsExplorer_v2({
   // For backward compatibility with existing code
   const isValidationExpired = validationExpiryStatus === 'expired';
 
-
-  // Load AI credits
-  useEffect(() => {
-    const loadAICredits = async () => {
-      const currentRTO = getRTOById(selectedRTOId);
-      if (!currentRTO?.code) return;
-
-      try {
-        console.log('[ResultsExplorer] Loading AI credits for RTO:', currentRTO.code);
-        const credits = await getAICredits(currentRTO.code);
-        console.log('[ResultsExplorer] AI credits loaded:', credits);
-        setAICredits(credits);
-        setCreditsLoaded(true);
-      } catch (error) {
-        console.error('[ResultsExplorer] Error loading AI credits:', error);
-        // On error, keep default positive values so features aren't disabled
-        setCreditsLoaded(true);
-      }
-    };
-
-    loadAICredits();
-  }, [selectedRTOId]);
 
   // Load validation records - fetch RTO first if cache is empty
   useEffect(() => {
@@ -683,8 +652,8 @@ export function ResultsExplorer_v2({
                 onClick={() => setShowAIChat(true)}
                 size="sm"
                 className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6] disabled:opacity-50"
-                disabled={aiCredits.current <= 0 || isValidationExpired}
-                title={isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : aiCredits.current <= 0 ? "No AI credits available" : "Chat with AI about the uploaded documents"}
+                disabled={isValidationExpired}
+                title={isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : "Chat with AI about the uploaded documents"}
               >
                 <MessageSquare className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Chat with Documents</span>
@@ -757,7 +726,6 @@ export function ResultsExplorer_v2({
                 key={record.id}
                 result={record as any}
                 isReportSigned={false}
-                aiCreditsAvailable={aiCredits.current > 0}
                 isValidationExpired={isValidationExpired}
                 validationContext={{
                   rtoId: selectedRTOId,
@@ -766,9 +734,7 @@ export function ResultsExplorer_v2({
                   validationType: selectedValidation?.validationType,
                   validationId: selectedValidation?.id,
                 }}
-                onCreditConsumed={(newBalance) => {
-                  setAICredits(prev => ({ ...prev, current: newBalance }));
-                }}
+                onCreditConsumed={() => {}}
                 onRefresh={handleRefreshStatus}
               />
             );
@@ -940,9 +906,7 @@ export function ResultsExplorer_v2({
           onClose={() => setShowAIChat(false)}
           selectedRTOId={selectedRTOId}
           validationDetailId={currentRecord?.id}
-          onCreditConsumed={(newBalance) => {
-            setAICredits(prev => ({ ...prev, current: newBalance }));
-          }}
+          onCreditConsumed={() => {}}
           validationResults={validationEvidenceData.map(r => ({
             requirement_number: r.requirement_number || '',
             requirement_text: r.requirement_text || '',

@@ -42,44 +42,23 @@ export function Settings({ selectedRTOId, onCreditsAdded }: SettingsProps) {
               <h3 className="text-lg font-poppins font-semibold text-[#1e293b] mb-6">
                 About Credits
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-3 text-[#64748b] text-sm">
-                  <h4 className="font-semibold text-[#1e293b] text-base mb-3">Validation Credits</h4>
-                  <p>
-                    <span className="font-semibold text-[#1e293b]">What are they?</span>
-                    <br />
-                    Validation credits are used to create validation records. Each validation detail record consumes 1 credit.
-                  </p>
-                  <p>
-                    <span className="font-semibold text-[#1e293b]">Default Allocation:</span>
-                    <br />
-                    New accounts receive 10 credits by default.
-                  </p>
-                  <p>
-                    <span className="font-semibold text-[#1e293b]">Usage:</span>
-                    <br />
-                    Automatically consumed when you start a validation in the Document Upload section.
-                  </p>
-                </div>
-
-                <div className="space-y-3 text-[#64748b] text-sm">
-                  <h4 className="font-semibold text-[#1e293b] text-base mb-3">AI Credits</h4>
-                  <p>
-                    <span className="font-semibold text-[#1e293b]">What are they?</span>
-                    <br />
-                    AI credits are consumed for: running document validations, regenerating smart questions, revalidating requirements, and AI chat queries. Each operation uses 1 credit.
-                  </p>
-                  <p>
-                    <span className="font-semibold text-[#1e293b]">Default Allocation:</span>
-                    <br />
-                    New accounts receive 100 credits by default.
-                  </p>
-                  <p>
-                    <span className="font-semibold text-[#1e293b]">Usage:</span>
-                    <br />
-                    Consumed when: validating documents (1 per validation), regenerating smart questions (1 per requirement), revalidating requirements (1 per requirement), or using AI chat (1 per message).
-                  </p>
-                </div>
+              <div className="space-y-3 text-[#64748b] text-sm max-w-xl">
+                <h4 className="font-semibold text-[#1e293b] text-base mb-3">Validation Credits</h4>
+                <p>
+                  <span className="font-semibold text-[#1e293b]">What are they?</span>
+                  <br />
+                  Validation credits are used to create validation records. Each validation consumes 1 credit. RTO users share their organisation's credit pool. Individual users have their own credits.
+                </p>
+                <p>
+                  <span className="font-semibold text-[#1e293b]">What's included?</span>
+                  <br />
+                  Each credit covers the full validation cycle: requirement extraction, document analysis, evidence mapping, smart question generation, AI chat, revalidation, and report generation.
+                </p>
+                <p>
+                  <span className="font-semibold text-[#1e293b]">Usage:</span>
+                  <br />
+                  Automatically consumed when you start a validation in the Document Upload section.
+                </p>
               </div>
 
               <div className="mt-6 pt-6 border-t border-[#dbeafe]">

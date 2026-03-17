@@ -3,9 +3,9 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Zap, Cpu, Search, ChevronLeft, ChevronRight, Tag, Plus, Trash2, Percent, DollarSign } from 'lucide-react';
+import { Zap, Search, ChevronLeft, ChevronRight, Tag, Plus, Trash2, Percent, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchRTOsFromSupabase, addValidationCredits, addAICredits, removeValidationCredits, removeAICredits, getAICredits, getValidationCredits } from '../../types/rto';
+import { fetchRTOsFromSupabase, addValidationCredits, removeValidationCredits, getValidationCredits } from '../../types/rto';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 
@@ -13,7 +13,6 @@ interface RTOCredit {
   id: number;
   code: string;
   name: string;
-  aiCredits: number;
   validationCredits: number;
 }
 
@@ -23,7 +22,6 @@ interface UserCredit {
   full_name: string | null;
   rto_code: string | null;
   validationCredits: number;
-  aiCredits: number;
 }
 
 interface PromoCode {
@@ -54,7 +52,6 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     operation: 'add' as 'add' | 'remove',
-    type: 'validation' as 'validation' | 'ai',
     amount: '',
     reason: '',
   });
@@ -66,7 +63,6 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
   const [showUserForm, setShowUserForm] = useState(false);
   const [userFormData, setUserFormData] = useState({
     operation: 'add' as 'add' | 'remove',
-    type: 'validation' as 'validation' | 'ai',
     amount: '',
     reason: '',
   });
@@ -105,29 +101,25 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       // Get user credits
       const { data: userCredits, error: creditsError } = await supabase
         .from('user_credits')
-        .select('user_id, validation_credits, ai_credits');
+        .select('user_id, validation_credits');
 
       if (creditsError) throw creditsError;
 
       // Create a map of user credits
-      const creditsMap = new Map<string, { validation: number; ai: number }>();
+      const creditsMap = new Map<string, number>();
       (userCredits || []).forEach((uc: any) => {
-        creditsMap.set(uc.user_id, {
-          validation: uc.validation_credits || 0,
-          ai: uc.ai_credits || 0,
-        });
+        creditsMap.set(uc.user_id, uc.validation_credits || 0);
       });
 
       // Combine user profiles with credits
       const combined: UserCredit[] = (userProfiles || []).map((profile: any) => {
-        const credits = creditsMap.get(profile.id) || { validation: 0, ai: 0 };
+        const validationCredits = creditsMap.get(profile.id) || 0;
         return {
           id: profile.id,
           email: profile.email,
           full_name: profile.full_name,
           rto_code: profile.rto_code,
-          validationCredits: credits.validation,
-          aiCredits: credits.ai,
+          validationCredits,
         };
       });
 
@@ -157,14 +149,12 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
 
       const combined = await Promise.all(
         rtoList.map(async (rto) => {
-          const aiCredits = await getAICredits(rto.code);
           const valCredits = await getValidationCredits(rto.code);
 
           return {
             id: Number(rto.id),
             code: rto.code,
             name: rto.name,
-            aiCredits: aiCredits.current,
             validationCredits: valCredits.current,
           };
         })
@@ -305,42 +295,26 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
     try {
       let result;
       const actionWord = formData.operation === 'add' ? 'allocation' : 'removal';
-      const defaultReason = `Admin ${actionWord} of ${formData.amount} ${formData.type} credits`;
+      const defaultReason = `Admin ${actionWord} of ${formData.amount} validation credits`;
 
       if (formData.operation === 'add') {
-        if (formData.type === 'validation') {
-          result = await addValidationCredits(
-            selectedRTO.code,
-            Number(formData.amount),
-            formData.reason || defaultReason
-          );
-        } else {
-          result = await addAICredits(
-            selectedRTO.code,
-            Number(formData.amount),
-            formData.reason || defaultReason
-          );
-        }
+        result = await addValidationCredits(
+          selectedRTO.code,
+          Number(formData.amount),
+          formData.reason || defaultReason
+        );
       } else {
-        if (formData.type === 'validation') {
-          result = await removeValidationCredits(
-            selectedRTO.code,
-            Number(formData.amount),
-            formData.reason || defaultReason
-          );
-        } else {
-          result = await removeAICredits(
-            selectedRTO.code,
-            Number(formData.amount),
-            formData.reason || defaultReason
-          );
-        }
+        result = await removeValidationCredits(
+          selectedRTO.code,
+          Number(formData.amount),
+          formData.reason || defaultReason
+        );
       }
 
       if (result.success) {
         toast.success(result.message);
         loadRTOs();
-        setFormData({ operation: 'add', type: 'validation', amount: '', reason: '' });
+        setFormData({ operation: 'add', amount: '', reason: '' });
         setShowForm(false);
         setSelectedRTO(null);
 
@@ -375,23 +349,22 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
     try {
       const amount = Number(userFormData.amount);
       const actionWord = userFormData.operation === 'add' ? 'allocation' : 'removal';
-      const reason = userFormData.reason || `Admin ${actionWord} of ${amount} ${userFormData.type} credits`;
+      const reason = userFormData.reason || `Admin ${actionWord} of ${amount} validation credits`;
 
       if (userFormData.operation === 'add') {
         // Use RPC function to add credits
         const { data, error } = await supabase.rpc('add_user_credits', {
           p_user_id: selectedUser.id,
-          p_validation_credits: userFormData.type === 'validation' ? amount : 0,
-          p_ai_credits: userFormData.type === 'ai' ? amount : 0,
+          p_validation_credits: amount,
+          p_ai_credits: 0,
           p_reason: reason,
         });
 
         if (error) throw error;
-        toast.success(`Added ${amount} ${userFormData.type} credits to ${selectedUser.email}`);
+        toast.success(`Added ${amount} validation credits to ${selectedUser.email}`);
       } else {
         // Direct update to remove credits
-        const field = userFormData.type === 'validation' ? 'validation_credits' : 'ai_credits';
-        const currentBalance = userFormData.type === 'validation' ? selectedUser.validationCredits : selectedUser.aiCredits;
+        const currentBalance = selectedUser.validationCredits;
         
         if (amount > currentBalance) {
           toast.error(`Cannot remove more credits than available (${currentBalance})`);
@@ -400,15 +373,15 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
 
         const { error } = await supabase
           .from('user_credits')
-          .update({ [field]: currentBalance - amount })
+          .update({ validation_credits: currentBalance - amount })
           .eq('user_id', selectedUser.id);
 
         if (error) throw error;
-        toast.success(`Removed ${amount} ${userFormData.type} credits from ${selectedUser.email}`);
+        toast.success(`Removed ${amount} validation credits from ${selectedUser.email}`);
       }
 
       loadUsers();
-      setUserFormData({ operation: 'add', type: 'validation', amount: '', reason: '' });
+      setUserFormData({ operation: 'add', amount: '', reason: '' });
       setShowUserForm(false);
       setSelectedUser(null);
 
@@ -590,18 +563,6 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
             </div>
 
             <div>
-              <Label className="text-[#1e293b] font-semibold mb-2 block">Credit Type</Label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'validation' | 'ai' })}
-                className="w-full border border-[#dbeafe] rounded px-3 py-2 bg-white text-[#1e293b]"
-              >
-                <option value="validation">Validation Credits</option>
-                <option value="ai">AI Credits</option>
-              </select>
-            </div>
-
-            <div>
               <Label className="text-[#1e293b] font-semibold mb-2 block">Amount</Label>
               <Input
                 type="number"
@@ -653,7 +614,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-poppins font-bold text-[#1e293b] mb-2">Credits Management</h1>
-        <p className="text-[#64748b]">Manage AI credits, validation credits, and promo codes</p>
+        <p className="text-[#64748b]">Manage validation credits and promo codes</p>
       </div>
 
       {/* Tab Navigation */}
@@ -678,8 +639,8 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
             }`}
         >
           <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4" />
-            RTO Credits (Legacy)
+            <Zap className="w-4 h-4" />
+            RTO Credits
           </div>
         </button>
         <button
@@ -720,20 +681,19 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Name</th>
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">RTO</th>
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Validation Credits</th>
-                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">AI Credits</th>
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {usersLoading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-[#64748b]">
+                    <td colSpan={5} className="text-center py-8 text-[#64748b]">
                       Loading...
                     </td>
                   </tr>
                 ) : paginatedUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-[#64748b]">
+                    <td colSpan={5} className="text-center py-8 text-[#64748b]">
                       No users found
                     </td>
                   </tr>
@@ -750,17 +710,11 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <Cpu className="w-4 h-4 text-[#8b5cf6]" />
-                          <span className="font-semibold text-[#1e293b]">{u.aiCredits}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
                               setSelectedUser(u);
-                              setUserFormData({ operation: 'add', type: 'validation', amount: '', reason: '' });
+                              setUserFormData({ operation: 'add', amount: '', reason: '' });
                               setShowUserForm(true);
                             }}
                             className="px-3 py-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold rounded transition-colors text-sm"
@@ -770,7 +724,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                           <button
                             onClick={() => {
                               setSelectedUser(u);
-                              setUserFormData({ operation: 'remove', type: 'validation', amount: '', reason: '' });
+                              setUserFormData({ operation: 'remove', amount: '', reason: '' });
                               setShowUserForm(true);
                             }}
                             className="px-3 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-semibold rounded transition-colors text-sm"
@@ -829,17 +783,6 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                 >
                   <option value="add">Add Credits</option>
                   <option value="remove">Remove Credits</option>
-                </select>
-              </div>
-              <div>
-                <Label className="text-[#1e293b] font-semibold mb-2 block">Credit Type</Label>
-                <select
-                  value={userFormData.type}
-                  onChange={(e) => setUserFormData({ ...userFormData, type: e.target.value as 'validation' | 'ai' })}
-                  className="w-full border border-[#dbeafe] rounded px-3 py-2 bg-white text-[#1e293b]"
-                >
-                  <option value="validation">Validation Credits</option>
-                  <option value="ai">AI Credits</option>
                 </select>
               </div>
               <div>
@@ -909,7 +852,6 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                 <tr className="border-b border-[#dbeafe]">
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">RTO Code</th>
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">RTO Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">AI Credits</th>
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Validation Credits</th>
                   <th className="text-left py-3 px-4 font-semibold text-[#1e293b]">Actions</th>
                 </tr>
@@ -934,12 +876,6 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                       <td className="py-3 px-4 text-[#64748b]">{rto.name}</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          <Cpu className="w-4 h-4 text-[#8b5cf6]" />
-                          <span className="font-semibold text-[#1e293b]">{rto.aiCredits}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
                           <Zap className="w-4 h-4 text-[#3b82f6]" />
                           <span className="font-semibold text-[#1e293b]">{rto.validationCredits}</span>
                         </div>
@@ -949,7 +885,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                           <button
                             onClick={() => {
                               setSelectedRTO(rto);
-                              setFormData({ operation: 'add', type: 'validation', amount: '', reason: '' });
+                              setFormData({ operation: 'add', amount: '', reason: '' });
                               setShowForm(true);
                             }}
                             className="px-3 py-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold rounded transition-colors text-sm"
@@ -959,7 +895,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                           <button
                             onClick={() => {
                               setSelectedRTO(rto);
-                              setFormData({ operation: 'remove', type: 'validation', amount: '', reason: '' });
+                              setFormData({ operation: 'remove', amount: '', reason: '' });
                               setShowForm(true);
                             }}
                             className="px-3 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-semibold rounded transition-colors text-sm"

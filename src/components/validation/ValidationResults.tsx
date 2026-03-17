@@ -23,14 +23,12 @@ interface ValidationResultsProps {
     validationId?: string;
   };
   isLoading?: boolean;
-  aiCreditsAvailable?: boolean;
 }
 
 export function ValidationResults({
   validationEvidence,
   validationContext,
   isLoading = false,
-  aiCreditsAvailable = true,
 }: ValidationResultsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'met' | 'not-met' | 'partial'>('all');
@@ -219,7 +217,6 @@ export function ValidationResults({
                 key={evidence.id}
                 result={evidence as any}
                 onChatClick={handleChatClick as any}
-                aiCreditsAvailable={aiCreditsAvailable}
                 validationContext={validationContext}
               />
             ))

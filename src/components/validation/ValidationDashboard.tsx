@@ -12,7 +12,6 @@ interface ValidationDashboardProps {
   unitCode: string;
   onClose?: () => void;
   selectedRTOId: string;
-  aiCreditsAvailable?: boolean;
 }
 
 export function ValidationDashboard({
@@ -21,7 +20,6 @@ export function ValidationDashboard({
   unitCode,
   onClose,
   selectedRTOId,
-  aiCreditsAvailable = true,
 }: ValidationDashboardProps) {
   const { validationProgress, validationEvidence, isLoading, error } =
     useValidationProgress(validationId);
@@ -148,7 +146,6 @@ export function ValidationDashboard({
             <ValidationResults
               validationEvidence={validationEvidence}
               isLoading={isLoading}
-              aiCreditsAvailable={aiCreditsAvailable}
               validationContext={{
                 rtoId: selectedRTOId,
                 unitCode: validationProgress.unitCode,

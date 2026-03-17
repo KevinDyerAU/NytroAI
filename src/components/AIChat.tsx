@@ -5,7 +5,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { GlowButton } from './GlowButton';
 import { Send, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { getRTOById, consumeAICredit } from '../types/rto';
+import { getRTOById } from '../types/rto';
 import { sendAIChatMessage } from '../lib/n8nApi';
 import wizardLogo from '../assets/WizChat.jpg';
 
@@ -126,24 +126,6 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
     });
 
     try {
-      // TODO: Re-enable credit consumption once RPC function is fixed
-      // Consume AI credit for generating smart question
-      console.log('[AIChat] Consuming AI credit for RTO:', currentRTO.code);
-      const result = await consumeAICredit(currentRTO.code);
-      console.log('[AIChat] Credit consumption result:', result);
-
-      // TEMPORARY: Bypass credit check to allow AI chat to work
-      if (!result.success) {
-        console.warn('[AIChat] Credit consumption failed, but proceeding anyway (temporary bypass):', result.message);
-        // Don't return - continue with the chat
-      } else {
-        console.log('[AIChat] Credit consumed successfully');
-        // Notify parent about credit consumption
-        if (onCreditConsumed && result.newBalance !== undefined) {
-          onCreditConsumed(result.newBalance);
-        }
-      }
-
       // Call n8n AI Chat webhook for actual AI response
       try {
         // Check if validationDetailId is available
