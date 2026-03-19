@@ -1,0 +1,100 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+# ──────────────────────────────────────────────
+# Bot Filtering: Block common exploit paths
+# ──────────────────────────────────────────────
+
+# WordPress exploit paths
+[[redirects]]
+  from = "/xmlrpc.php"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-*"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-admin/*"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-login.php"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-content/*"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/wp-includes/*"
+  to = "/404"
+  status = 410
+  force = true
+
+# PHP/CGI exploit paths
+[[redirects]]
+  from = "/*.php"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/cgi-bin/*"
+  to = "/404"
+  status = 410
+  force = true
+
+# Common CMS/server probe paths
+[[redirects]]
+  from = "/.env"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/.git/*"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/admin"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/administrator"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/phpmyadmin/*"
+  to = "/404"
+  status = 410
+  force = true
+
+[[redirects]]
+  from = "/.well-known/security.txt"
+  to = "/404"
+  status = 410
+  force = true
+
+# SPA fallback — must be LAST
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
