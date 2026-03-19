@@ -132,6 +132,7 @@ export const ValidationLandingPage: React.FC = () => {
   const [showPromoField, setShowPromoField] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -187,12 +188,20 @@ export const ValidationLandingPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const validateEmail = (email: string): string | null => {
+    if (!email.trim()) return null;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) return 'Please enter a valid email address';
+    return null;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    if (name === 'email') setEmailError(null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,6 +234,8 @@ export const ValidationLandingPage: React.FC = () => {
   // ─── Form submit handler ────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const eErr = validateEmail(formData.email);
+    if (eErr) { setEmailError(eErr); return; }
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -921,9 +932,15 @@ export const ValidationLandingPage: React.FC = () => {
                         required
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+                        onBlur={() => setEmailError(validateEmail(formData.email))}
+                        className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent ${
+                          emailError ? 'border-red-500 focus:ring-red-400' : 'border-slate-700 focus:ring-teal-400'
+                        }`}
                         placeholder="email@company.com"
                       />
+                      {emailError && (
+                        <p className="text-xs text-red-400 mt-1">{emailError}</p>
+                      )}
                     </div>
                   </div>
                   {/* File Upload */}
