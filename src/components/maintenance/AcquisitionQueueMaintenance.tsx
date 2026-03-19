@@ -57,7 +57,7 @@ export function AcquisitionQueueMaintenance() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">Acquisition Queue</h2>
+          <h2 className="text-2xl font-sans font-bold text-[#1e293b]">Acquisition Queue</h2>
           <p className="text-[#64748b] text-sm mt-1">
             Monitor and manage unit acquisition processing across all users
           </p>

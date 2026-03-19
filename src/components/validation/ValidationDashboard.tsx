@@ -42,7 +42,7 @@ export function ValidationDashboard({
             <div className="flex items-start gap-4">
               <AlertCircle className="w-8 h-8 text-[#ef4444] flex-shrink-0 mt-1" />
               <div>
-                <h2 className="font-poppins text-[#991b1b] text-lg font-semibold mb-2">
+                <h2 className="font-sans text-[#991b1b] text-lg font-semibold mb-2">
                   Error Loading Validation
                 </h2>
                 <p className="text-[#7f1d1d] mb-4">{error}</p>
@@ -74,7 +74,7 @@ export function ValidationDashboard({
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="font-poppins text-[#1e293b] mb-2">
+                <h1 className="font-sans text-[#1e293b] mb-2">
                   Real-Time Validation Progress
                 </h1>
                 <p className="text-[#64748b]">
@@ -87,7 +87,7 @@ export function ValidationDashboard({
           <Card className="border border-[#dbeafe] bg-white p-12 text-center shadow-soft">
             <div className="space-y-4">
               <div className="w-16 h-16 mx-auto bg-gradient-to-br from-[#dbeafe] to-[#93c5fd] rounded-full animate-pulse" />
-              <p className="text-[#64748b] font-poppins">Loading validation progress...</p>
+              <p className="text-[#64748b] font-sans">Loading validation progress...</p>
             </div>
           </Card>
         </div>
@@ -112,7 +112,7 @@ export function ValidationDashboard({
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-poppins text-[#1e293b] mb-2">
+              <h1 className="font-sans text-[#1e293b] mb-2">
                 Real-Time Validation Progress
               </h1>
               <p className="text-[#64748b]">
@@ -160,7 +160,7 @@ export function ValidationDashboard({
         {/* Real-Time Status Badge */}
         <div className="mt-8 flex items-center justify-center gap-2">
           <div className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
-          <span className="text-xs text-[#64748b] uppercase tracking-wide font-poppins">
+          <span className="text-xs text-[#64748b] uppercase tracking-wide font-sans">
             Real-Time Updates Active
           </span>
         </div>

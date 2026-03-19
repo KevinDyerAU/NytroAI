@@ -78,7 +78,7 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
     <div className="min-h-screen bg-[#f8f9fb] p-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-12">
-          <h1 className="text-4xl font-poppins font-bold text-[#1e293b] mb-2">Administration</h1>
+          <h1 className="text-4xl font-sans font-bold text-[#1e293b] mb-2">Administration</h1>
           <p className="text-[#64748b] text-lg">Manage system settings, credits, and platform operations</p>
         </div>
 
@@ -93,7 +93,7 @@ export function MaintenanceHub({ onSelectModule }: MaintenanceHubProps) {
                 <div className="text-[#1e293b]">{module.icon}</div>
                 <ChevronRight className="w-5 h-5 text-[#94a3b8]" />
               </div>
-              <h3 className="text-lg font-poppins font-semibold text-[#1e293b] mb-2">{module.title}</h3>
+              <h3 className="text-lg font-sans font-semibold text-[#1e293b] mb-2">{module.title}</h3>
               <p className="text-sm text-[#64748b] flex-grow">{module.description}</p>
               <button
                 className="mt-4 inline-flex items-center text-sm font-semibold text-[#3b82f6] hover:text-[#2563eb] transition-colors"

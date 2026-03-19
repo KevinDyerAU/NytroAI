@@ -54,7 +54,7 @@ export function ValidationStatusMessage({
           />
         </div>
         
-        <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+        <h3 className="font-sans text-lg font-semibold text-[#1e293b] mb-3">
           Loading Validation Results
         </h3>
         
@@ -150,7 +150,7 @@ export function ValidationStatusMessage({
           />
         </div>
         
-        <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+        <h3 className="font-sans text-lg font-semibold text-[#1e293b] mb-3">
           Nytro is still processing...
         </h3>
         
@@ -185,7 +185,7 @@ export function ValidationStatusMessage({
           />
         </div>
         
-        <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+        <h3 className="font-sans text-lg font-semibold text-[#1e293b] mb-3">
           Nytro is still processing...
         </h3>
         

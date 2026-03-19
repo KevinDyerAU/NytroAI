@@ -196,7 +196,7 @@ export function AICreditsPage({ onCreditsAdded }: AICreditsPageProps) {
             <Zap className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-semibold text-blue-700">Validation Credits</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-poppins font-bold text-[#1e293b] mb-3">
+          <h1 className="text-3xl md:text-4xl font-sans font-bold text-[#1e293b] mb-3">
             Purchase Validation Units
           </h1>
           <p className="text-[#64748b] text-lg max-w-2xl mx-auto">
@@ -220,7 +220,7 @@ export function AICreditsPage({ onCreditsAdded }: AICreditsPageProps) {
                     <FileText className="w-7 h-7 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-poppins font-bold text-[#1e293b]">
+                    <h2 className="text-xl font-sans font-bold text-[#1e293b]">
                       Unit Purchase
                     </h2>
                     <p className="text-sm text-[#64748b] mt-1">
@@ -384,7 +384,7 @@ export function AICreditsPage({ onCreditsAdded }: AICreditsPageProps) {
                 <Button
                   onClick={handlePurchase}
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-poppins font-semibold py-3.5 h-auto text-base rounded-xl shadow-lg shadow-blue-200 transition-all hover:shadow-xl hover:shadow-blue-300 active:scale-[0.99]"
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-sans font-semibold py-3.5 h-auto text-base rounded-xl shadow-lg shadow-blue-200 transition-all hover:shadow-xl hover:shadow-blue-300 active:scale-[0.99]"
                 >
                   {isLoading ? (
                     <>
@@ -425,7 +425,7 @@ export function AICreditsPage({ onCreditsAdded }: AICreditsPageProps) {
                 <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg p-2 shadow-md shadow-emerald-200">
                   <Zap className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="font-poppins font-bold text-[#1e293b]">What's Included</h3>
+                <h3 className="font-sans font-bold text-[#1e293b]">What's Included</h3>
               </div>
 
               <ul className="space-y-3">
@@ -442,7 +442,7 @@ export function AICreditsPage({ onCreditsAdded }: AICreditsPageProps) {
 
             {/* Volume Discounts */}
             <Card className="border border-blue-100 bg-white p-6 shadow-sm">
-              <h3 className="font-poppins font-bold text-[#1e293b] mb-4 flex items-center gap-2">
+              <h3 className="font-sans font-bold text-[#1e293b] mb-4 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-blue-500" />
                 Volume Pricing
               </h3>
@@ -468,7 +468,7 @@ export function AICreditsPage({ onCreditsAdded }: AICreditsPageProps) {
             <Card className="border border-slate-200 bg-gradient-to-br from-slate-800 to-slate-900 p-6 shadow-lg text-white overflow-hidden relative">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-emerald-600/10" />
               <div className="relative">
-                <h3 className="font-poppins font-bold text-white mb-2">
+                <h3 className="font-sans font-bold text-white mb-2">
                   Need a Subscription?
                 </h3>
                 <p className="text-sm text-slate-300 mb-5 leading-relaxed">

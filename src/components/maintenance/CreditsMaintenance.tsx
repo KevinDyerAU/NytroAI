@@ -433,7 +433,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
         </button>
 
         <Card className="border border-[#dbeafe] bg-white p-8">
-          <h2 className="text-2xl font-poppins font-bold text-[#1e293b] mb-6">
+          <h2 className="text-2xl font-sans font-bold text-[#1e293b] mb-6">
             Create New Promo Code
           </h2>
 
@@ -545,7 +545,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
         </button>
 
         <Card className="border border-[#dbeafe] bg-white p-8">
-          <h2 className="text-2xl font-poppins font-bold text-[#1e293b] mb-6">
+          <h2 className="text-2xl font-sans font-bold text-[#1e293b] mb-6">
             {formData.operation === 'add' ? 'Add' : 'Remove'} Credits for {selectedRTO.code}
           </h2>
 
@@ -613,7 +613,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-poppins font-bold text-[#1e293b] mb-2">Credits Management</h1>
+        <h1 className="text-3xl font-sans font-bold text-[#1e293b] mb-2">Credits Management</h1>
         <p className="text-[#64748b]">Manage validation credits and promo codes</p>
       </div>
 
@@ -770,7 +770,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       {showUserForm && selectedUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="border border-[#dbeafe] bg-white p-6 w-full max-w-md">
-            <h2 className="text-xl font-poppins font-bold text-[#1e293b] mb-4">
+            <h2 className="text-xl font-sans font-bold text-[#1e293b] mb-4">
               {userFormData.operation === 'add' ? 'Add' : 'Remove'} Credits - {selectedUser.email}
             </h2>
             <form onSubmit={handleProcessUserCredits} className="space-y-4">
@@ -941,7 +941,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       {activeTab === 'promos' && (
         <Card className="border border-[#dbeafe] bg-white p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-poppins font-semibold text-[#1e293b]">Promo Codes</h2>
+            <h2 className="text-lg font-sans font-semibold text-[#1e293b]">Promo Codes</h2>
             <Button
               onClick={() => setShowPromoForm(true)}
               className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-semibold"

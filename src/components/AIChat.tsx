@@ -215,7 +215,7 @@ export function AIChat({ context, onClose, selectedRTOId, validationDetailId, on
         {/* Header */}
         <div className="border-b border-[#3b82f6] p-4 flex items-center justify-between bg-gradient-to-r from-[#3b82f6] to-[#2563eb] flex-shrink-0">
           <div>
-            <h3 className="font-poppins text-white text-xl font-semibold">Chat with Nytro</h3>
+            <h3 className="font-sans text-white text-xl font-semibold">Chat with Nytro</h3>
           </div>
           {onClose && (
             <button

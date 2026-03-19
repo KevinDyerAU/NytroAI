@@ -58,10 +58,10 @@ export function KPIWidget({
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-2">
           {Icon && <Icon className={`w-5 h-5 ${valueClasses[variant]}`} />}
-          <h3 className="text-sm uppercase tracking-wide text-[#64748b] font-poppins">{title}</h3>
+          <h3 className="text-sm uppercase tracking-wide text-[#64748b] font-sans">{title}</h3>
         </div>
         
-        <div className={`mb-1 font-poppins ${valueClasses[variant]}`}>
+        <div className={`mb-1 font-sans ${valueClasses[variant]}`}>
           {value}
         </div>
         

@@ -80,7 +80,7 @@ export function ValidationProgress({
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-4xl font-poppins font-bold text-[#1e293b]">{progress}%</div>
+              <div className="text-4xl font-sans font-bold text-[#1e293b]">{progress}%</div>
               <div className="text-xs text-[#64748b] uppercase tracking-wide mt-1">Complete</div>
             </div>
           </div>
@@ -90,7 +90,7 @@ export function ValidationProgress({
         <div className="space-y-3 mt-6 pt-6 border-t border-[#dbeafe]">
           <div className="flex justify-between items-center text-sm">
             <span className="text-[#64748b]">Requirements Validated</span>
-            <span className="font-poppins font-semibold text-[#1e293b]">
+            <span className="font-sans font-semibold text-[#1e293b]">
               {completedCount} / {totalCount}
             </span>
           </div>
@@ -105,7 +105,7 @@ export function ValidationProgress({
 
       {/* Stage Indicators */}
       <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-        <h3 className="font-poppins text-[#64748b] uppercase text-xs tracking-wide mb-4">
+        <h3 className="font-sans text-[#64748b] uppercase text-xs tracking-wide mb-4">
           Validation Stages
         </h3>
         <div className="space-y-3">
@@ -130,7 +130,7 @@ export function ValidationProgress({
                     />
                   </div>
                   <div>
-                    <p className="font-poppins text-[#1e293b] text-sm font-medium">
+                    <p className="font-sans text-[#1e293b] text-sm font-medium">
                       {stage.label}
                     </p>
                     {isActive && (
@@ -149,25 +149,25 @@ export function ValidationProgress({
 
       {/* Status Summary */}
       <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-        <h3 className="font-poppins text-[#64748b] uppercase text-xs tracking-wide mb-4">
+        <h3 className="font-sans text-[#64748b] uppercase text-xs tracking-wide mb-4">
           Current Status
         </h3>
         <div className="space-y-2">
           <div className="flex items-center justify-between p-2 bg-[#f8f9fb] rounded">
             <span className="text-sm text-[#64748b]">Documents Processed</span>
-            <span className={`font-poppins font-semibold ${docExtracted ? 'text-[#22c55e]' : 'text-[#94a3b8]'}`}>
+            <span className={`font-sans font-semibold ${docExtracted ? 'text-[#22c55e]' : 'text-[#94a3b8]'}`}>
               {docExtracted ? '✓ Yes' : '—'}
             </span>
           </div>
           <div className="flex items-center justify-between p-2 bg-[#f8f9fb] rounded">
             <span className="text-sm text-[#64748b]">Requirements Extracted</span>
-            <span className={`font-poppins font-semibold ${reqExtracted ? 'text-[#22c55e]' : 'text-[#94a3b8]'}`}>
+            <span className={`font-sans font-semibold ${reqExtracted ? 'text-[#22c55e]' : 'text-[#94a3b8]'}`}>
               {reqExtracted ? '✓ Yes' : '—'}
             </span>
           </div>
           <div className="flex items-center justify-between p-2 bg-[#f8f9fb] rounded">
             <span className="text-sm text-[#64748b]">Validation Status</span>
-            <span className="text-sm font-poppins font-semibold text-[#3b82f6]">
+            <span className="text-sm font-sans font-semibold text-[#3b82f6]">
               {status === 'pending'
                 ? 'Pending'
                 : status === 'reqExtracted'

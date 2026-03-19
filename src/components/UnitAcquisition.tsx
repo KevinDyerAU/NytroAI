@@ -567,7 +567,7 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="font-poppins text-xl md:text-2xl text-[#1e293b] font-bold flex items-center gap-2">
+            <h1 className="font-sans text-xl md:text-2xl text-[#1e293b] font-bold flex items-center gap-2">
               <Database className="w-6 h-6 md:w-7 md:h-7 text-[#3b82f6]" />
               Unit Acquisition
             </h1>
@@ -647,7 +647,7 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
             <Target className="w-5 h-5 text-[#3b82f6]" />
           </div>
           <div>
-            <h2 className="font-poppins text-base md:text-lg font-semibold text-[#1e293b]">Extract Unit Requirements</h2>
+            <h2 className="font-sans text-base md:text-lg font-semibold text-[#1e293b]">Extract Unit Requirements</h2>
             <p className="text-xs text-[#64748b]">Enter a unit code or paste a training.gov.au URL</p>
           </div>
         </div>
@@ -748,7 +748,7 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
                 <Clock className="w-4 h-4 text-[#2563eb]" />
               </div>
               <div>
-                <h3 className="font-poppins text-sm font-semibold text-[#1e293b]">Processing Units</h3>
+                <h3 className="font-sans text-sm font-semibold text-[#1e293b]">Processing Units</h3>
                 <p className="text-xs text-[#64748b]">
                   {stats.activeQueue > 0 && `${stats.activeQueue} unit${stats.activeQueue > 1 ? 's' : ''} being processed`}
                   {stats.activeQueue > 0 && stats.failedQueue > 0 && ' · '}
@@ -806,7 +806,7 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
                 <Shield className="w-4 h-4 text-[#d97706]" />
               </div>
               <div className="text-left">
-                <h3 className="font-poppins text-sm font-semibold text-[#1e293b]">Acquisition Queue <span className="text-xs font-normal text-[#94a3b8] ml-1">Admin</span></h3>
+                <h3 className="font-sans text-sm font-semibold text-[#1e293b]">Acquisition Queue <span className="text-xs font-normal text-[#94a3b8] ml-1">Admin</span></h3>
                 <p className="text-xs text-[#64748b]">
                   {stats.activeQueue > 0 && `${stats.activeQueue} active`}
                   {stats.activeQueue > 0 && stats.failedQueue > 0 && ' · '}
@@ -1046,11 +1046,11 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
               <table className="w-full">
                 <thead className="bg-[#f8f9fb]">
                   <tr className="border-b border-[#e2e8f0]">
-                    <th className="text-left py-3 px-4 font-poppins text-xs font-semibold text-[#64748b] uppercase tracking-wider">Unit Code</th>
-                    <th className="text-left py-3 px-4 font-poppins text-xs font-semibold text-[#64748b] uppercase tracking-wider">Title</th>
-                    <th className="text-left py-3 px-4 font-poppins text-xs font-semibold text-[#64748b] uppercase tracking-wider">Requirements</th>
-                    <th className="text-left py-3 px-4 font-poppins text-xs font-semibold text-[#64748b] uppercase tracking-wider">Date</th>
-                    <th className="text-right py-3 px-4 font-poppins text-xs font-semibold text-[#64748b] uppercase tracking-wider">Actions</th>
+                    <th className="text-left py-3 px-4 font-sans text-xs font-semibold text-[#64748b] uppercase tracking-wider">Unit Code</th>
+                    <th className="text-left py-3 px-4 font-sans text-xs font-semibold text-[#64748b] uppercase tracking-wider">Title</th>
+                    <th className="text-left py-3 px-4 font-sans text-xs font-semibold text-[#64748b] uppercase tracking-wider">Requirements</th>
+                    <th className="text-left py-3 px-4 font-sans text-xs font-semibold text-[#64748b] uppercase tracking-wider">Date</th>
+                    <th className="text-right py-3 px-4 font-sans text-xs font-semibold text-[#64748b] uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1180,7 +1180,7 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
             <div className="mb-5 w-24">
               <img src={wizardLogo} alt="Nytro Wizard" className="w-full h-auto object-contain animate-pulse" />
             </div>
-            <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+            <h3 className="font-sans text-lg font-semibold text-[#1e293b] mb-3">
               Nytro is extracting...
             </h3>
             <div className="w-full max-w-xs mb-4">
@@ -1214,7 +1214,7 @@ export function UnitAcquisition({ selectedRTOId, isAdmin = false }: UnitAcquisit
             <div className="flex-none p-4 md:p-6 border-b border-[#e2e8f0]">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-poppins text-base md:text-xl font-bold text-[#1e293b] truncate">
+                  <h3 className="font-sans text-base md:text-xl font-bold text-[#1e293b] truncate">
                     {detailUnit?.unitCode}
                     <span className="text-[#64748b] font-normal ml-2 text-sm md:text-base">
                       {detailUnit?.Title || 'Unit Details'}

@@ -307,7 +307,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit }: DocumentUp
   return (
     <div className="min-h-screen w-full bg-[#f8f9fb] p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-poppins font-bold text-[#1e293b] mb-8">Document Upload</h1>
+        <h1 className="text-3xl font-sans font-bold text-[#1e293b] mb-8">Document Upload</h1>
 
         {/* Credit Balance Card */}
         <Card className="p-6 mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">

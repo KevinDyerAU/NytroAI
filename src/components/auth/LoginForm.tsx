@@ -76,15 +76,15 @@ export function LoginForm() {
     <>
       {/* Error Message Display */}
       {errorMessage && (
-        <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-red-50 border border-red-200">
-          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-600">{errorMessage}</p>
+        <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-red-500/10 border border-red-500/30">
+          <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-400">{errorMessage}</p>
         </div>
       )}
 
       <form onSubmit={handleLogin} className="space-y-6">
         <div>
-          <Label htmlFor="email" className="text-[#1e293b] font-semibold">
+          <Label htmlFor="email" className="text-slate-300 font-semibold">
             Email
           </Label>
           <Input
@@ -96,13 +96,13 @@ export function LoginForm() {
               setEmail(e.target.value);
               setErrorMessage(''); // Clear error when user types
             }}
-            className="mt-2 border-[#dbeafe] focus:border-[#3b82f6]"
+            className="mt-2 bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400"
             required
           />
         </div>
 
         <div>
-          <Label htmlFor="password" className="text-[#1e293b] font-semibold">
+          <Label htmlFor="password" className="text-slate-300 font-semibold">
             Password
           </Label>
           <div className="relative mt-2">
@@ -115,13 +115,13 @@ export function LoginForm() {
                 setPassword(e.target.value);
                 setErrorMessage(''); // Clear error when user types
               }}
-              className="border-[#dbeafe] focus:border-[#3b82f6] pr-10"
+              className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400 pr-10"
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#3b82f6] transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-teal-400 transition-colors"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? (
@@ -140,28 +140,28 @@ export function LoginForm() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded border-[#dbeafe] accent-[#3b82f6]"
+              className="w-4 h-4 rounded border-slate-600 bg-slate-700 accent-teal-400"
             />
-            <Label htmlFor="remember" className="text-sm text-[#64748b] cursor-pointer">
+            <Label htmlFor="remember" className="text-sm text-slate-400 cursor-pointer">
               Remember me
             </Label>
           </div>
-          <a href="/forgot-password" className="text-sm text-[#3b82f6] hover:underline">
+          <a href="/forgot-password" className="text-sm text-teal-400 hover:text-teal-300 transition-colors">
             Forgot password?
           </a>
         </div>
 
         <Button
           type="submit"
-          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-2 h-auto"
+          className="w-full bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 text-nytro-dark font-bold py-2 h-auto uppercase tracking-wide"
           disabled={isLoading}
         >
           {isLoading ? 'Signing in...' : 'Sign In'}
         </Button>
 
-        <p className="text-sm text-center text-[#64748b]">
+        <p className="text-sm text-center text-slate-400">
           Don't have an account?{' '}
-          <a href="/register" className="text-[#3b82f6] hover:underline font-semibold">
+          <a href="/register" className="text-teal-400 hover:text-teal-300 font-semibold transition-colors">
             Create account
           </a>
         </p>

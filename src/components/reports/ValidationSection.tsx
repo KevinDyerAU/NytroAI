@@ -33,7 +33,7 @@ export function ValidationSection({
             <Icon className="h-5 w-5 text-[#3b82f6]" />
           </div>
           <div className="flex-1">
-            <CardTitle className="font-poppins text-[#1e293b]">{title}</CardTitle>
+            <CardTitle className="font-sans text-[#1e293b]">{title}</CardTitle>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <div className="text-right">

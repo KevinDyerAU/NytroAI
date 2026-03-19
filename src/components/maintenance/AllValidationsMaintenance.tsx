@@ -349,19 +349,19 @@ export function AllValidationsMaintenance() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white border border-[#dbeafe] rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Total</p>
-          <p className="text-2xl font-poppins font-bold text-[#1e293b] mt-1">{stats.total}</p>
+          <p className="text-2xl font-sans font-bold text-[#1e293b] mt-1">{stats.total}</p>
         </div>
         <div className="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Completed</p>
-          <p className="text-2xl font-poppins font-bold text-emerald-700 mt-1">{stats.completed}</p>
+          <p className="text-2xl font-sans font-bold text-emerald-700 mt-1">{stats.completed}</p>
         </div>
         <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Processing</p>
-          <p className="text-2xl font-poppins font-bold text-blue-700 mt-1">{stats.processing}</p>
+          <p className="text-2xl font-sans font-bold text-blue-700 mt-1">{stats.processing}</p>
         </div>
         <div className="bg-white border border-red-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Failed</p>
-          <p className="text-2xl font-poppins font-bold text-red-700 mt-1">{stats.failed}</p>
+          <p className="text-2xl font-sans font-bold text-red-700 mt-1">{stats.failed}</p>
         </div>
       </div>
 
@@ -531,7 +531,7 @@ export function AllValidationsMaintenance() {
           <div className="relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-[#dbeafe] px-6 py-4 flex items-center justify-between z-10">
               <div>
-                <h3 className="text-lg font-poppins font-bold text-[#1e293b]">
+                <h3 className="text-lg font-sans font-bold text-[#1e293b]">
                   Validation #{selectedValidation.id}
                 </h3>
                 <p className="text-xs text-[#94a3b8]">

@@ -8,7 +8,7 @@ import { ForgotPasswordPage } from './pages/forgot-password';
 import { ResetPasswordPage } from './pages/reset-password';
 import { DashboardPage } from './pages/dashboard';
 import { LandingPage } from './pages/LandingPage';
-import { ValidationLandingPage } from './pages/ValidationLandingPage';
+import { ValidationLandingPage } from './pages/ValidationLandingPageV2';
 import { ValidationSuccessPage } from './pages/ValidationSuccessPage';
 import { Toaster } from 'sonner';
 import './styles/index.css';

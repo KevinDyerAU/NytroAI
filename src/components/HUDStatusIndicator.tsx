@@ -47,7 +47,7 @@ export function HUDStatusIndicator({
         ${status === 'processing' ? 'animate-pulse' : ''}
       `}></div>
       {label && (
-        <span className={`text-xs uppercase font-poppins ${config.text}`}>
+        <span className={`text-xs uppercase font-sans ${config.text}`}>
           {label}
         </span>
       )}

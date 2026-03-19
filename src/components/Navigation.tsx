@@ -13,7 +13,7 @@ import {
 import { HUDStatusIndicator } from './HUDStatusIndicator';
 import { useAuth } from '../hooks/useAuth';
 import { fetchRTOById } from '../types/rto';
-import nytroLogo from '../assets/IMG_5440.jpeg';
+import nytroLogo from '../assets/nytro-logo-dark.png';
 
 interface NavigationProps {
   currentView: string;
@@ -100,7 +100,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
   return (
     <>
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#dbeafe] shadow-soft px-4 py-3 flex items-center justify-between">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 border-b border-slate-700/50 px-4 py-3 flex items-center justify-between" style={{ backgroundColor: '#0F172A' }}>
         <img
           src={nytroLogo}
           alt="Nytro Logo"
@@ -109,9 +109,9 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         />
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 rounded-lg hover:bg-[#f1f5f9] transition-colors"
+          className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
         >
-          {isMobileMenuOpen ? <X className="w-6 h-6 text-[#64748b]" /> : <Menu className="w-6 h-6 text-[#64748b]" />}
+          {isMobileMenuOpen ? <X className="w-6 h-6 text-slate-400" /> : <Menu className="w-6 h-6 text-slate-400" />}
         </button>
       </div>
 
@@ -125,13 +125,13 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
 
       {/* Sidebar Navigation */}
       <nav className={`
-        fixed top-0 left-0 bottom-0 w-72 z-50 bg-white border-r border-[#dbeafe] shadow-soft flex flex-col
+        fixed top-0 left-0 bottom-0 w-72 z-50 flex flex-col border-r border-slate-700/50
         transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
-      `}>
+      `} style={{ backgroundColor: '#0F172A' }}>
         {/* Logo */}
-        <div className="p-6 border-b border-[#dbeafe]">
+        <div className="p-6 border-b border-slate-700/50">
           <div className="mb-4">
             <img
               src={nytroLogo}
@@ -139,19 +139,19 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
               className="w-[70%] h-auto object-contain mb-2 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => navigate('/dashboard')}
             />
-            <p className="text-xs text-[#64748b] ml-1">Intelligence That Powers Performance</p>
+            <p className="text-xs text-slate-500 ml-1 italic">Precision that powers performance</p>
           </div>
 
           {/* RTO Details */}
           {rtoInfo && (
-            <div className="mb-4 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
-              <p className="text-sm font-poppins font-semibold text-[#1e293b]">{rtoInfo.legalname}</p>
+            <div className="mb-4 p-3 bg-slate-800/60 border border-slate-700/50 rounded-lg">
+              <p className="text-sm font-sans font-semibold text-white">{rtoInfo.legalname}</p>
             </div>
           )}
 
           {isLoadingRTO && (
-            <div className="mb-4 p-3 bg-[#f8f9fb] border border-[#dbeafe] rounded-lg">
-              <p className="text-xs text-[#cbd5e1] animate-pulse">Loading RTO details...</p>
+            <div className="mb-4 p-3 bg-slate-800/60 border border-slate-700/50 rounded-lg">
+              <p className="text-xs text-slate-500 animate-pulse">Loading RTO details...</p>
             </div>
           )}
 
@@ -174,10 +174,10 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
                 onClick={() => handleMobileNavigate(item.id)}
                 className={`
                 w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all
-                font-poppins text-sm
+                font-sans text-sm
                 ${isActive
-                    ? 'bg-[#3b82f6] text-white shadow-soft'
-                    : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
+                    ? 'bg-teal-500/15 text-teal-400 border border-teal-500/20'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   }
               `}
               >
@@ -189,16 +189,16 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         </div>
 
         {/* Settings and Admin */}
-        <div className="p-4 border-t border-[#dbeafe] space-y-1">
+        <div className="p-4 border-t border-slate-700/50 space-y-1">
           <button
             onClick={() => handleMobileNavigate('settings')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === 'settings'
-                ? 'bg-[#e0f2fe] text-[#0284c7]'
-                : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
+                ? 'bg-teal-500/15 text-teal-400 border border-teal-500/20'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <Settings className="w-5 h-5" />
-            <span className="font-poppins text-sm">Settings</span>
+            <span className="font-sans text-sm">Settings</span>
           </button>
 
           {/* Admin - Only visible to admin users */}
@@ -206,12 +206,12 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
             <button
               onClick={() => handleMobileNavigate('maintenance')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === 'maintenance'
-                  ? 'bg-[#f3e8ff] text-[#7c3aed]'
-                  : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#1e293b]'
+                  ? 'bg-purple-500/15 text-purple-400 border border-purple-500/20'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
             >
               <Lock className="w-5 h-5" />
-              <span className="font-poppins text-sm">Admin</span>
+              <span className="font-sans text-sm">Admin</span>
             </button>
           )}
 
@@ -219,12 +219,12 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
             onClick={handleLogout}
             disabled={isLoggingOut}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isLoggingOut
-                ? 'text-[#94a3b8] bg-[#f1f5f9] cursor-not-allowed'
-                : 'text-[#ef4444] hover:bg-[#fee2e2] hover:text-[#dc2626]'
+                ? 'text-slate-600 bg-slate-800 cursor-not-allowed'
+                : 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
               }`}
           >
             <LogOut className="w-5 h-5" />
-            <span className="font-poppins text-sm">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
+            <span className="font-sans text-sm">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
           </button>
         </div>
       </nav>

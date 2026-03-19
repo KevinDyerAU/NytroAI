@@ -46,7 +46,7 @@ export function StatusBadge({ status, showIcon = true, size = 'md' }: StatusBadg
   return (
     <Badge 
       className={`
-        font-poppins border ${config.color}
+        font-sans border ${config.color}
         ${sizeClasses[size]} inline-flex items-center gap-1.5
       `}
     >

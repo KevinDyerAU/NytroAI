@@ -719,7 +719,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
     return (
       <div className="min-h-screen bg-[#f8f9fb] p-8">
         <div className="mb-8">
-          <h1 className="font-poppins text-[#1e293b] mb-2">Validate</h1>
+          <h1 className="font-sans text-[#1e293b] mb-2">Validate</h1>
           <p className="text-[#64748b]">Upload and validate your documents</p>
         </div>
         <div className="max-w-4xl mx-auto">
@@ -729,7 +729,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
                 <AlertCircle className="w-7 h-7" />
               </div>
               <div className="flex-1">
-                <h3 className="font-poppins text-[#991b1b] mb-2">
+                <h3 className="font-sans text-[#991b1b] mb-2">
                   RTO Data Not Found
                 </h3>
                 <p className="text-[#7f1d1d] mb-4">
@@ -753,7 +753,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
     <div className="min-h-screen bg-[#f8f9fb] p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-poppins text-[#1e293b] mb-2">
+        <h1 className="font-sans text-[#1e293b] mb-2">
           Validate
         </h1>
         <p className="text-[#64748b]">Upload and validate your documents</p>
@@ -768,7 +768,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
                 <XCircle className="w-7 h-7" />
               </div>
               <div className="flex-1">
-                <h3 className="font-poppins text-[#991b1b] mb-2">
+                <h3 className="font-sans text-[#991b1b] mb-2">
                   No Validation Credits Available
                 </h3>
                 <p className="text-sm text-[#7f1d1d] mb-3">
@@ -776,7 +776,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
                 </p>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-[#991b1b] font-medium">Current credits:</span>
-                  <span className="font-poppins text-[#ef4444]">
+                  <span className="font-sans text-[#ef4444]">
                     {validationCredits.current} / {validationCredits.total}
                   </span>
                 </div>
@@ -790,11 +790,11 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
         {/* Step 1: Validation Type */}
         <Card className={`border ${!hasValidationCredits ? 'border-[#fca5a5] opacity-60' : 'border-[#dbeafe]'} bg-white p-8 shadow-soft`}>
           <div className="flex items-center gap-3 mb-6">
-            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-poppins`}>
+            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-sans`}>
               1
             </div>
             <div>
-              <h2 className="font-poppins text-[#1e293b]">Select Validation Type</h2>
+              <h2 className="font-sans text-[#1e293b]">Select Validation Type</h2>
               <p className="text-sm text-[#64748b]">Choose the type of validation</p>
             </div>
           </div>
@@ -809,14 +809,14 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
             <TabsList className={`grid w-full grid-cols-2 bg-[#f1f5f9] ${!hasValidationCredits ? 'opacity-50 cursor-not-allowed' : ''}`}>
               <TabsTrigger 
                 value="unit"
-                className="data-[state=active]:bg-[#3b82f6] data-[state=active]:text-white font-poppins"
+                className="data-[state=active]:bg-[#3b82f6] data-[state=active]:text-white font-sans"
                 disabled={!hasValidationCredits}
               >
                 Unit Validation
               </TabsTrigger>
               <TabsTrigger 
                 value="learner"
-                className="data-[state=active]:bg-[#3b82f6] data-[state=active]:text-white font-poppins"
+                className="data-[state=active]:bg-[#3b82f6] data-[state=active]:text-white font-sans"
                 disabled={!hasValidationCredits}
               >
                 Learner Guide
@@ -844,11 +844,11 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
         {/* Step 2: Select Unit */}
         <Card className={`border ${!hasValidationCredits ? 'border-[#fca5a5] opacity-60' : selectedUnit ? 'border-[#22c55e]' : 'border-[#dbeafe]'} bg-white p-8 shadow-soft`}>
           <div className="flex items-center gap-3 mb-6">
-            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : selectedUnit ? 'bg-[#22c55e]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-poppins`}>
+            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : selectedUnit ? 'bg-[#22c55e]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-sans`}>
               {selectedUnit ? '✓' : '2'}
             </div>
             <div>
-              <h2 className="font-poppins text-[#1e293b]">Select Unit of Competency</h2>
+              <h2 className="font-sans text-[#1e293b]">Select Unit of Competency</h2>
               <p className="text-sm text-[#64748b]">Search and select the unit to validate against</p>
             </div>
           </div>
@@ -862,7 +862,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
                       <Target className="w-6 h-6 text-[#22c55e]" />
                     </div>
                     <div>
-                      <div className="font-poppins text-[#166534] mb-1">{selectedUnit.code}</div>
+                      <div className="font-sans text-[#166534] mb-1">{selectedUnit.code}</div>
                       <p className="text-sm text-[#64748b]">{selectedUnit.title}</p>
                       <p className="text-xs text-[#94a3b8] mt-1">{selectedUnit.sector}</p>
                     </div>
@@ -962,7 +962,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
                                   <Target className="w-5 h-5 text-[#3b82f6]" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="font-poppins text-[#1e293b]">{unit.code}</div>
+                                  <div className="font-sans text-[#1e293b]">{unit.code}</div>
                                   <p className="text-sm text-[#64748b] truncate">{unit.title}</p>
                                 </div>
                               </div>
@@ -989,11 +989,11 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
         {/* Step 3: File Upload */}
         <Card className={`border ${!hasValidationCredits ? 'border-[#fca5a5] opacity-60' : !selectedUnit ? 'border-[#dbeafe] opacity-50' : uploadedFiles.length > 0 ? 'border-[#22c55e]' : 'border-[#dbeafe]'} bg-white p-8 shadow-soft`}>
           <div className="flex items-center gap-3 mb-6">
-            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : uploadedFiles.length > 0 ? 'bg-[#22c55e]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-poppins`}>
+            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : uploadedFiles.length > 0 ? 'bg-[#22c55e]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-sans`}>
               {uploadedFiles.length > 0 ? '✓' : '3'}
             </div>
             <div>
-              <h2 className="font-poppins text-[#1e293b]">Upload Document</h2>
+              <h2 className="font-sans text-[#1e293b]">Upload Document</h2>
               <p className="text-sm text-[#64748b]">Select documents for validation</p>
             </div>
           </div>
@@ -1038,7 +1038,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
                   <div className="space-y-4">
                     <Upload className={`w-16 h-16 mx-auto ${!hasValidationCredits || !selectedUnit || !canAddMoreFiles ? 'text-[#cbd5e1]' : 'text-[#3b82f6]'}`} />
                     <div>
-                      <p className={`font-poppins mb-1 ${!hasValidationCredits || !selectedUnit || !canAddMoreFiles ? 'text-[#94a3b8]' : 'text-[#1e293b]'}`}>
+                      <p className={`font-sans mb-1 ${!hasValidationCredits || !selectedUnit || !canAddMoreFiles ? 'text-[#94a3b8]' : 'text-[#1e293b]'}`}>
                         {!hasValidationCredits ? 'No validation credits available' : !selectedUnit ? 'Select a unit first' : !canAddMoreFiles ? 'Maximum files reached' : 'Drop files here'}
                       </p>
                       <p className={`text-sm ${!hasValidationCredits || !selectedUnit || !canAddMoreFiles ? 'text-[#cbd5e1]' : 'text-[#64748b]'}`}>
@@ -1096,11 +1096,11 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
         {/* Step 4: Start Validation */}
         <Card className={`border ${!hasValidationCredits ? 'border-[#fca5a5] opacity-60' : selectedUnit && uploadedFiles.length > 0 ? 'border-[#3b82f6]' : 'border-[#dbeafe] opacity-50'} bg-white p-8 shadow-medium`}>
           <div className="flex items-center gap-3 mb-6">
-            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-poppins`}>
+            <div className={`w-10 h-10 rounded-lg ${!hasValidationCredits ? 'bg-[#cbd5e1]' : 'bg-[#3b82f6]'} text-white flex items-center justify-center font-sans`}>
               4
             </div>
             <div>
-              <h2 className="font-poppins text-[#1e293b]">Start Validation</h2>
+              <h2 className="font-sans text-[#1e293b]">Start Validation</h2>
               <p className="text-sm text-[#64748b]">Launch AI-powered validation process</p>
             </div>
           </div>
@@ -1110,19 +1110,19 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-[#64748b]">Validation Type:</span>
-                  <span className="ml-2 text-[#3b82f6] font-poppins block mt-1">
+                  <span className="ml-2 text-[#3b82f6] font-sans block mt-1">
                     {validationType === 'unit' ? 'Unit Validation' : 'Learner Guide'}
                   </span>
                 </div>
                 <div>
                   <span className="text-[#64748b]">Selected Unit:</span>
-                  <span className={`ml-2 font-poppins block mt-1 ${selectedUnit ? 'text-[#22c55e]' : 'text-[#cbd5e1]'}`}>
+                  <span className={`ml-2 font-sans block mt-1 ${selectedUnit ? 'text-[#22c55e]' : 'text-[#cbd5e1]'}`}>
                     {selectedUnit ? selectedUnit.code : 'Not selected'}
                   </span>
                 </div>
                 <div>
                   <span className="text-[#64748b]">Documents:</span>
-                  <span className={`ml-2 font-poppins block mt-1 ${uploadedFiles.length > 0 ? 'text-[#22c55e]' : 'text-[#cbd5e1]'}`}>
+                  <span className={`ml-2 font-sans block mt-1 ${uploadedFiles.length > 0 ? 'text-[#22c55e]' : 'text-[#cbd5e1]'}`}>
                     {uploadedFiles.length > 0 ? `${uploadedFiles.length} file(s)` : 'Pending'}
                   </span>
                 </div>
@@ -1169,7 +1169,7 @@ export function DocumentUpload({ selectedRTOId, onValidationSubmit, onCreditsCon
 
             {selectedUnit && uploadedFiles.length > 0 && uploadedFiles.every(f => !f.isUploading) && hasValidationCredits && (
               <p className="text-center text-xs text-[#64748b]">
-                Click to begin validating <span className="font-poppins text-[#3b82f6]">{uploadedFiles.length} file(s)</span> against <span className="font-poppins text-[#3b82f6]">{selectedUnit.code}</span>
+                Click to begin validating <span className="font-sans text-[#3b82f6]">{uploadedFiles.length} file(s)</span> against <span className="font-sans text-[#3b82f6]">{selectedUnit.code}</span>
               </p>
             )}
 

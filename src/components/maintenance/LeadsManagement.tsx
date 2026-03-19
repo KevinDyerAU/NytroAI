@@ -424,7 +424,7 @@ export function LeadsManagement() {
     <div className="space-y-6">
       {/* ─── Header ──────────────────────────────────────────────────── */}
       <div>
-        <h1 className="text-3xl font-poppins font-bold text-[#1e293b]">Leads Management</h1>
+        <h1 className="text-3xl font-sans font-bold text-[#1e293b]">Leads Management</h1>
         <p className="text-[#64748b] mt-1">Review leads, check documents, set unit codes, and approve validation runs</p>
       </div>
 
@@ -440,7 +440,7 @@ export function LeadsManagement() {
             <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Landed</p>
             <Flag className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-3xl font-poppins font-bold text-amber-700 mt-2">{stats.landed}</p>
+          <p className="text-3xl font-sans font-bold text-amber-700 mt-2">{stats.landed}</p>
           <p className="text-xs text-[#94a3b8] mt-1">Awaiting review</p>
         </button>
 
@@ -454,7 +454,7 @@ export function LeadsManagement() {
             <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Processing</p>
             <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
           </div>
-          <p className="text-3xl font-poppins font-bold text-blue-700 mt-2">{stats.processing}</p>
+          <p className="text-3xl font-sans font-bold text-blue-700 mt-2">{stats.processing}</p>
           <p className="text-xs text-[#94a3b8] mt-1">Validation running</p>
         </button>
 
@@ -468,7 +468,7 @@ export function LeadsManagement() {
             <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Completed</p>
             <CheckCircle className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="text-3xl font-poppins font-bold text-emerald-700 mt-2">{stats.completed}</p>
+          <p className="text-3xl font-sans font-bold text-emerald-700 mt-2">{stats.completed}</p>
           <p className="text-xs text-[#94a3b8] mt-1">Report ready</p>
         </button>
 
@@ -482,7 +482,7 @@ export function LeadsManagement() {
             <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Flagged</p>
             <AlertTriangle className="w-4 h-4 text-red-500" />
           </div>
-          <p className="text-3xl font-poppins font-bold text-red-700 mt-2">{stats.flagged}</p>
+          <p className="text-3xl font-sans font-bold text-red-700 mt-2">{stats.flagged}</p>
           <p className="text-xs text-[#94a3b8] mt-1">Unit not found</p>
         </button>
       </div>
@@ -600,7 +600,7 @@ export function LeadsManagement() {
             <div className="sticky top-0 bg-white border-b border-[#e2e8f0] px-6 py-4 z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-poppins font-bold text-[#1e293b]">
+                  <h2 className="text-lg font-sans font-bold text-[#1e293b]">
                     {selectedLead.first_name} {selectedLead.last_name}
                   </h2>
                   <p className="text-sm text-[#64748b]">Lead #{selectedLead.id}</p>

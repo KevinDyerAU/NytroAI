@@ -53,7 +53,7 @@ export function ResetPasswordPage() {
     >
       <form onSubmit={handleReset} className="space-y-6">
         <div>
-          <Label htmlFor="newPassword" className="text-[#1e293b] font-semibold">
+          <Label htmlFor="newPassword" className="text-slate-300 font-semibold">
             New Password
           </Label>
           <Input
@@ -62,17 +62,17 @@ export function ResetPasswordPage() {
             placeholder="••••••••"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="mt-2 border-[#dbeafe] focus:border-[#3b82f6]"
+            className="mt-2 bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400"
             required
             minLength={8}
           />
-          <p className="text-xs text-[#64748b] mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Must be at least 8 characters
           </p>
         </div>
 
         <div>
-          <Label htmlFor="confirmPassword" className="text-[#1e293b] font-semibold">
+          <Label htmlFor="confirmPassword" className="text-slate-300 font-semibold">
             Confirm Password
           </Label>
           <Input
@@ -81,7 +81,7 @@ export function ResetPasswordPage() {
             placeholder="••••••••"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="mt-2 border-[#dbeafe] focus:border-[#3b82f6]"
+            className="mt-2 bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400"
             required
             minLength={8}
           />
@@ -89,7 +89,7 @@ export function ResetPasswordPage() {
 
         <Button 
           type="submit" 
-          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-2 h-auto"
+          className="w-full bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 text-nytro-dark font-bold py-2 h-auto uppercase tracking-wide"
           disabled={isResetting}
         >
           {isResetting ? 'Resetting password...' : 'Reset Password'}

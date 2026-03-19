@@ -122,14 +122,14 @@ export function ValidationResults({
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="font-poppins text-[#1e293b] font-bold">{complianceScore}%</div>
+              <div className="font-sans text-[#1e293b] font-bold">{complianceScore}%</div>
               <div className="text-xs text-[#64748b]">Compliance</div>
             </div>
           </div>
         </Card>
 
         <Card className="border-l-4 border-[#22c55e] bg-white p-6 text-center shadow-soft">
-          <div className="font-poppins text-[#166534] mb-1 text-2xl font-bold">
+          <div className="font-sans text-[#166534] mb-1 text-2xl font-bold">
             {statusCounts.met}
           </div>
           <div className="text-sm text-[#64748b] uppercase">Met</div>
@@ -139,7 +139,7 @@ export function ValidationResults({
         </Card>
 
         <Card className="border-l-4 border-[#ef4444] bg-white p-6 text-center shadow-soft">
-          <div className="font-poppins text-[#991b1b] mb-1 text-2xl font-bold">
+          <div className="font-sans text-[#991b1b] mb-1 text-2xl font-bold">
             {statusCounts.notMet}
           </div>
           <div className="text-sm text-[#64748b] uppercase">Not Met</div>
@@ -149,7 +149,7 @@ export function ValidationResults({
         </Card>
 
         <Card className="border-l-4 border-[#f59e0b] bg-white p-6 text-center shadow-soft">
-          <div className="font-poppins text-[#92400e] mb-1 text-2xl font-bold">
+          <div className="font-sans text-[#92400e] mb-1 text-2xl font-bold">
             {statusCounts.partial}
           </div>
           <div className="text-sm text-[#64748b] uppercase">Partial</div>
@@ -159,7 +159,7 @@ export function ValidationResults({
         </Card>
 
         <Card className="border-l-4 border-[#64748b] bg-white p-6 text-center shadow-soft">
-          <div className="font-poppins text-[#1e293b] mb-1 text-2xl font-bold">
+          <div className="font-sans text-[#1e293b] mb-1 text-2xl font-bold">
             {statusCounts.total}
           </div>
           <div className="text-sm text-[#64748b] uppercase">Total</div>
@@ -169,7 +169,7 @@ export function ValidationResults({
 
       {/* Results Panel */}
       <Card className="border border-[#dbeafe] bg-white p-6 shadow-soft">
-        <h3 className="mb-6 uppercase tracking-wide font-poppins text-[#64748b]">
+        <h3 className="mb-6 uppercase tracking-wide font-sans text-[#64748b]">
           Detailed Validation Results
         </h3>
 
@@ -204,7 +204,7 @@ export function ValidationResults({
         {/* Results Count */}
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#dbeafe]">
           <p className="text-sm text-[#64748b]">
-            Showing <span className="text-[#3b82f6] font-poppins">{filteredResults.length}</span> of{' '}
+            Showing <span className="text-[#3b82f6] font-sans">{filteredResults.length}</span> of{' '}
             {statusCounts.total} requirements
           </p>
         </div>

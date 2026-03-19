@@ -380,11 +380,11 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {getRequirementType() && (
-              <div className="font-poppins font-semibold text-[#3b82f6]">
+              <div className="font-sans font-semibold text-[#3b82f6]">
                 {getRequirementType().split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
               </div>
             )}
-            <div className="font-poppins text-[#3b82f6]">
+            <div className="font-sans text-[#3b82f6]">
               {getRequirementNumber()}
             </div>
             <StatusBadge status={result.status} />
@@ -410,7 +410,7 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
         <div className="border-t border-[#dbeafe] p-4 md:p-6 space-y-4 md:space-y-6 bg-[#f8f9fb] animate-fade-in">
           {/* Status & Reasoning */}
           <div>
-            <h4 className="font-poppins text-[#1e293b] mb-2 flex items-center gap-2">
+            <h4 className="font-sans text-[#1e293b] mb-2 flex items-center gap-2">
               <FileText className="w-4 h-4 text-[#3b82f6]" />
               Status & Reasoning
             </h4>
@@ -431,7 +431,7 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
 
           {/* Evidence Section */}
           <div>
-            <h4 className="font-poppins text-[#1e293b] mb-2 flex items-center gap-2">
+            <h4 className="font-sans text-[#1e293b] mb-2 flex items-center gap-2">
               <FileText className="w-4 h-4 text-[#3b82f6]" />
               Evidence
             </h4>
@@ -455,7 +455,7 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
           {/* Recommendations Section - Show for learner_guide OR if recommendations exist */}
           {(isLearnerGuide() || result.recommendations) && (
             <div>
-              <h4 className="font-poppins text-[#3b82f6] mb-2 flex items-center gap-2">
+              <h4 className="font-sans text-[#3b82f6] mb-2 flex items-center gap-2">
                 <Lightbulb className="w-4 h-4" />
                 Recommendations
               </h4>
@@ -472,7 +472,7 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
           {/* AI Enhancement Section - Only show for non-assessment conditions/instructions */}
           {shouldShowSmartQuestions() && (
             <div>
-              <h4 className="font-poppins text-[#3b82f6] mb-2 flex items-center gap-2">
+              <h4 className="font-sans text-[#3b82f6] mb-2 flex items-center gap-2">
                 <Lightbulb className="w-4 h-4" />
                 AI Enhancement
                 {isEditing && (
@@ -667,7 +667,7 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
 
             <div>
               <label className="text-sm text-[#1e293b] mb-2 block">
-                Type <span className="font-poppins text-[#3b82f6]">confirm</span> to proceed:
+                Type <span className="font-sans text-[#3b82f6]">confirm</span> to proceed:
               </label>
               <Input
                 value={confirmText}
@@ -721,7 +721,7 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
               <AlertDialogDescription>Nytro is thinking and generating content</AlertDialogDescription>
             </AlertDialogHeader>
 
-            <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+            <h3 className="font-sans text-lg font-semibold text-[#1e293b] mb-3">
               Nytro is thinking...
             </h3>
 
@@ -777,7 +777,7 @@ export function ValidationCard({ result, isReportSigned = false, isValidationExp
               <AlertDialogDescription>Nytro is re-analyzing the requirement</AlertDialogDescription>
             </AlertDialogHeader>
 
-            <h3 className="font-poppins text-lg font-semibold text-[#1e293b] mb-3">
+            <h3 className="font-sans text-lg font-semibold text-[#1e293b] mb-3">
               Nytro is revalidating...
             </h3>
 

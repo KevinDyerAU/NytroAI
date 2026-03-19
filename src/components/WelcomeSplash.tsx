@@ -85,7 +85,7 @@ export function WelcomeSplash({ onComplete }: WelcomeSplashProps) {
           ></div>
         </div>
         
-        <div className="mt-4 font-poppins text-[#3b82f6]">
+        <div className="mt-4 font-sans text-[#3b82f6]">
           {progress}%
         </div>
       </div>

@@ -36,7 +36,7 @@ export function GlowButton({
       size={size}
       title={title}
       className={`
-        font-poppins transition-all
+        font-sans transition-all
         disabled:opacity-50 disabled:cursor-not-allowed
         ${variantStyles[variant]}
         ${className}

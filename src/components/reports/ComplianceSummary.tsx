@@ -15,7 +15,7 @@ export function ComplianceSummary({ stats }: ComplianceSummaryProps) {
   return (
     <Card className="border-2 border-[#dbeafe]">
       <CardHeader>
-        <CardTitle className="font-poppins text-[#1e293b]">Compliance Summary</CardTitle>
+        <CardTitle className="font-sans text-[#1e293b]">Compliance Summary</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">

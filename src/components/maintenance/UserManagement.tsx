@@ -286,7 +286,7 @@ export function UserManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">User Management</h2>
+          <h2 className="text-2xl font-sans font-bold text-[#1e293b]">User Management</h2>
           <p className="text-[#64748b] text-sm mt-1">
             Manage users and assign them to RTOs. {unassignedCount > 0 && (
               <span className="text-amber-600 font-medium">{unassignedCount} unassigned {unassignedCount === 1 ? 'user' : 'users'}</span>

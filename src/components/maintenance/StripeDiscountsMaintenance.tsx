@@ -275,19 +275,19 @@ export function StripeDiscountsMaintenance() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white border border-[#dbeafe] rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Total Codes</p>
-          <p className="text-2xl font-poppins font-bold text-[#1e293b] mt-1">{stats.total}</p>
+          <p className="text-2xl font-sans font-bold text-[#1e293b] mt-1">{stats.total}</p>
         </div>
         <div className="bg-white border border-green-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Active</p>
-          <p className="text-2xl font-poppins font-bold text-green-700 mt-1">{stats.active}</p>
+          <p className="text-2xl font-sans font-bold text-green-700 mt-1">{stats.active}</p>
         </div>
         <div className="bg-white border border-[#dbeafe] rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Total Uses</p>
-          <p className="text-2xl font-poppins font-bold text-[#1e293b] mt-1">{stats.totalUses}</p>
+          <p className="text-2xl font-sans font-bold text-[#1e293b] mt-1">{stats.totalUses}</p>
         </div>
         <div className="bg-white border border-amber-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Expired</p>
-          <p className="text-2xl font-poppins font-bold text-amber-700 mt-1">{stats.expired}</p>
+          <p className="text-2xl font-sans font-bold text-amber-700 mt-1">{stats.expired}</p>
         </div>
       </div>
 
@@ -487,7 +487,7 @@ export function StripeDiscountsMaintenance() {
           />
           <div className="relative bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-[#dbeafe]">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-poppins font-bold text-[#1e293b]">
+              <h3 className="text-lg font-sans font-bold text-[#1e293b]">
                 {editingId ? 'Edit Promo Code' : 'New Promo Code'}
               </h3>
               <button

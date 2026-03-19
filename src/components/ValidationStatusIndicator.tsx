@@ -215,7 +215,7 @@ export function ValidationStatusIndicator({
       <AlertDialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
         <AlertDialogContent className="bg-white border-[#dbeafe]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-poppins text-[#1e293b] flex items-center gap-2">
+            <AlertDialogTitle className="font-sans text-[#1e293b] flex items-center gap-2">
               <Info className="w-5 h-5 text-[#3b82f6]" />
               Validation Workflow Process
             </AlertDialogTitle>
@@ -248,7 +248,7 @@ export function ValidationStatusIndicator({
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-poppins text-[#1e293b]">
+                      <h4 className="font-sans text-[#1e293b]">
                         Stage {index + 1}: {stage.label}
                       </h4>
                       {isCurrentStage && (
@@ -271,12 +271,12 @@ export function ValidationStatusIndicator({
 
           <div className="bg-[#eff6ff] border border-[#3b82f6] rounded-lg p-4">
             <p className="text-sm text-[#64748b]">
-              <span className="font-poppins text-[#1e293b]">Current Progress:</span> {stageProgress}% complete
+              <span className="font-sans text-[#1e293b]">Current Progress:</span> {stageProgress}% complete
               {currentStage && ` - ${currentStage.label} stage`}
             </p>
             {(extractStatus || validationStatus) && (
               <p className="text-xs text-[#64748b] mt-2">
-                <span className="font-poppins">Database Status:</span> Extract: {extractStatus || 'N/A'} | Validation: {validationStatus || 'N/A'}
+                <span className="font-sans">Database Status:</span> Extract: {extractStatus || 'N/A'} | Validation: {validationStatus || 'N/A'}
               </p>
             )}
           </div>

@@ -273,7 +273,7 @@ export function RTOMaintenance() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">RTO Management</h2>
+        <h2 className="text-2xl font-sans font-bold text-[#1e293b]">RTO Management</h2>
         <Button
           onClick={handleCreate}
           className="bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold"
@@ -457,7 +457,7 @@ export function RTOMaintenance() {
 
       {showForm && (
         <Card className="border border-[#dbeafe] bg-white p-8">
-          <h3 className="text-xl font-poppins font-bold text-[#1e293b] mb-6">
+          <h3 className="text-xl font-sans font-bold text-[#1e293b] mb-6">
             {editingId ? 'Edit RTO' : 'Create New RTO'}
           </h3>
 

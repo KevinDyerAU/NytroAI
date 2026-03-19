@@ -113,7 +113,7 @@ export function ValidationReport({ validationId }: ValidationReportProps) {
       {/* Header */}
       <div className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold font-poppins text-[#1e293b] mb-2">
+          <h1 className="text-3xl font-bold font-sans text-[#1e293b] mb-2">
             Validation Report
           </h1>
           {report.detail.UnitOfCompetency && (
@@ -136,7 +136,7 @@ export function ValidationReport({ validationId }: ValidationReportProps) {
         {/* Document Information */}
         <Card className="border-2 border-[#dbeafe]">
           <CardHeader>
-            <CardTitle className="font-poppins text-[#1e293b]">Document Information</CardTitle>
+            <CardTitle className="font-sans text-[#1e293b]">Document Information</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">

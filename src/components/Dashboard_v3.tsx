@@ -289,7 +289,7 @@ export function Dashboard_v3({
     <div className="min-h-screen bg-[#f8f9fb] p-4 md:p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-poppins text-[#1e293b] mb-2">
+        <h1 className="font-sans text-2xl font-bold text-[#1e293b] mb-2">
           Dashboard Overview
         </h1>
       </div>
@@ -348,7 +348,7 @@ export function Dashboard_v3({
               <div className={`absolute top-0 left-0 right-0 h-1 ${isZero ? 'bg-gradient-to-r from-red-400 to-red-500' : isLow ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-blue-400 to-blue-500'}`} />
               
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[10px] uppercase tracking-wider font-poppins text-[#64748b] font-semibold">
+                <h3 className="text-[10px] uppercase tracking-wider font-sans text-[#64748b] font-semibold">
                   Validation Credits
                 </h3>
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isZero ? 'bg-red-50' : isLow ? 'bg-amber-50' : 'bg-blue-50'}`}>
@@ -358,7 +358,7 @@ export function Dashboard_v3({
 
               <div className="mb-3">
                 <div className="flex justify-between items-baseline">
-                  <span className={`font-poppins text-3xl font-bold ${isZero ? 'text-red-500' : isLow ? 'text-amber-600' : 'text-[#1e293b]'} ${(isZero || isLow) ? 'animate-pulse' : ''}`}>
+                  <span className={`font-sans text-3xl font-bold ${isZero ? 'text-red-500' : isLow ? 'text-amber-600' : 'text-[#1e293b]'} ${(isZero || isLow) ? 'animate-pulse' : ''}`}>
                     {vc}
                   </span>
                   <span className={`text-[10px] uppercase font-semibold tracking-wide ${isZero ? 'text-red-400' : isLow ? 'text-amber-500' : 'text-[#94a3b8]'}`}>

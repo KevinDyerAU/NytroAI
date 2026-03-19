@@ -9,16 +9,16 @@
 
 import ExcelJS from 'exceljs';
 import { ValidationEvidenceRecord } from '../types/rto';
-import nytroLogo from '../assets/IMG_5440.jpeg';
+import nytroLogo from '../assets/nytro-logo-dark.png';
 
 // Color scheme - matching website theme
 const COLORS = {
-  HEADER: '3b82f6',      // Blue (website primary blue)
-  TITLE: '1e40af',       // Dark Blue (website dark blue)
+  HEADER: '0F172A',      // Nytro Dark (sidebar/nav bg)
+  TITLE: '0F172A',       // Nytro Dark
   MET: 'C6EFCE',         // Light Green
   PARTIAL: 'FFEB9C',     // Light Yellow
   NOT_MET: 'FFC7CE',     // Light Red
-  COVER_BG: '0d9488',    // Teal (website gradient start)
+  COVER_BG: '0F172A',    // Nytro Dark (cover page)
 };
 
 export interface AssessmentReportParams {

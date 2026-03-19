@@ -116,20 +116,20 @@ export function RegisterForm() {
   if (alreadyExists) {
     return (
       <div className="text-center space-y-6 py-4">
-        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
-          <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto">
+          <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
           </svg>
         </div>
         <div>
-          <h3 className="text-xl font-bold text-[#1e293b] mb-2">Account Already Exists</h3>
-          <p className="text-[#64748b]">
-            An account with <strong className="text-[#1e293b]">{email}</strong> already exists.
+          <h3 className="text-xl font-bold text-white mb-2">Account Already Exists</h3>
+          <p className="text-slate-400">
+            An account with <strong className="text-white">{email}</strong> already exists.
           </p>
         </div>
         <a
           href="/validate"
-          className="inline-block bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-2 px-6 rounded-md transition-colors"
+          className="inline-block bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 text-nytro-dark font-bold py-2 px-6 rounded-md transition-all"
         >
           Sign In &amp; Upload Documents
         </a>
@@ -140,21 +140,21 @@ export function RegisterForm() {
   if (registrationComplete) {
     return (
       <div className="text-center space-y-6 py-4">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-          <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="w-16 h-16 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto">
+          <svg className="w-8 h-8 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <div>
-          <h3 className="text-xl font-bold text-[#1e293b] mb-2">Account Created!</h3>
-          <p className="text-[#64748b]">
-            We've sent a verification email to <strong className="text-[#1e293b]">{email}</strong>.
+          <h3 className="text-xl font-bold text-white mb-2">Account Created!</h3>
+          <p className="text-slate-400">
+            We've sent a verification email to <strong className="text-white">{email}</strong>.
             Please check your inbox and click the link to activate your account.
           </p>
         </div>
-        <p className="text-sm text-[#64748b]">
+        <p className="text-sm text-slate-400">
           Once verified, you can{' '}
-          <a href="/" className="text-[#3b82f6] hover:underline font-semibold">sign in</a>{' '}
+          <a href="/" className="text-teal-400 hover:text-teal-300 font-semibold transition-colors">sign in</a>{' '}
           to access the full Nytro platform.
         </p>
       </div>
@@ -164,7 +164,7 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleRegister} className="space-y-6">
       <div>
-        <Label htmlFor="fullName" className="text-[#1e293b] font-semibold">
+        <Label htmlFor="fullName" className="text-slate-300 font-semibold">
           Full Name
         </Label>
         <Input
@@ -173,13 +173,13 @@ export function RegisterForm() {
           placeholder="John Doe"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="mt-2 border-[#dbeafe] focus:border-[#3b82f6]"
+          className="mt-2 bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400"
           required
         />
       </div>
 
       <div>
-        <Label htmlFor="email" className="text-[#1e293b] font-semibold">
+        <Label htmlFor="email" className="text-slate-300 font-semibold">
           Email
         </Label>
         <Input
@@ -188,32 +188,32 @@ export function RegisterForm() {
           placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-2 border-[#dbeafe] focus:border-[#3b82f6]"
+          className="mt-2 bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400"
           required
         />
       </div>
 
       <div>
-        <Label htmlFor="password" className="text-[#1e293b] font-semibold">
+        <Label htmlFor="password" className="text-slate-300 font-semibold">
           Password
         </Label>
         <Input
           id="password"
           type="password"
-          placeholder="••���•••••"
+          placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-2 border-[#dbeafe] focus:border-[#3b82f6]"
+          className="mt-2 bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400"
           required
           minLength={8}
         />
-        <p className="text-xs text-[#64748b] mt-1">
+        <p className="text-xs text-slate-500 mt-1">
           Must be at least 8 characters
         </p>
       </div>
 
       <div>
-        <Label htmlFor="confirmPassword" className="text-[#1e293b] font-semibold">
+        <Label htmlFor="confirmPassword" className="text-slate-300 font-semibold">
           Confirm Password
         </Label>
         <Input
@@ -222,7 +222,7 @@ export function RegisterForm() {
           placeholder="••••••••"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          className="mt-2 border-[#dbeafe] focus:border-[#3b82f6]"
+          className="mt-2 bg-slate-700/50 border-slate-600 text-white placeholder-slate-500 focus:border-teal-400 focus:ring-teal-400"
           required
           minLength={8}
         />
@@ -234,25 +234,25 @@ export function RegisterForm() {
           type="checkbox"
           checked={agreedToTerms}
           onChange={(e) => setAgreedToTerms(e.target.checked)}
-          className="mt-1 w-4 h-4 rounded border-[#dbeafe] accent-[#3b82f6]"
+          className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-700 accent-teal-400"
           required
         />
-        <Label htmlFor="terms" className="text-sm text-[#64748b] cursor-pointer">
+        <Label htmlFor="terms" className="text-sm text-slate-400 cursor-pointer">
           I agree to the Terms of Service and Privacy Policy
         </Label>
       </div>
 
       <Button
         type="submit"
-        className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold py-2 h-auto"
+        className="w-full bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 text-nytro-dark font-bold py-2 h-auto uppercase tracking-wide"
         disabled={isLoading || rtosLoading}
       >
         {isLoading ? 'Creating account...' : 'Create Account'}
       </Button>
 
-      <p className="text-sm text-center text-[#64748b]">
+      <p className="text-sm text-center text-slate-400">
         Already have an account?{' '}
-        <a href="/login" className="text-[#3b82f6] hover:underline font-semibold">
+        <a href="/login" className="text-teal-400 hover:text-teal-300 font-semibold transition-colors">
           Sign in
         </a>
       </p>

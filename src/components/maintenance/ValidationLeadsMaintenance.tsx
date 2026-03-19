@@ -392,23 +392,23 @@ export function ValidationLeadsMaintenance() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white border border-[#dbeafe] rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Total Leads</p>
-          <p className="text-2xl font-poppins font-bold text-[#1e293b] mt-1">{stats.total}</p>
+          <p className="text-2xl font-sans font-bold text-[#1e293b] mt-1">{stats.total}</p>
         </div>
         <div className="bg-white border border-green-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Paid</p>
-          <p className="text-2xl font-poppins font-bold text-green-700 mt-1">{stats.paid}</p>
+          <p className="text-2xl font-sans font-bold text-green-700 mt-1">{stats.paid}</p>
         </div>
         <div className="bg-white border border-amber-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Pending</p>
-          <p className="text-2xl font-poppins font-bold text-amber-700 mt-1">{stats.pending}</p>
+          <p className="text-2xl font-sans font-bold text-amber-700 mt-1">{stats.pending}</p>
         </div>
         <div className="bg-white border border-red-200 rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Flagged</p>
-          <p className="text-2xl font-poppins font-bold text-red-700 mt-1">{stats.flagged}</p>
+          <p className="text-2xl font-sans font-bold text-red-700 mt-1">{stats.flagged}</p>
         </div>
         <div className="bg-white border border-[#dbeafe] rounded-xl p-4 shadow-sm">
           <p className="text-xs text-[#64748b] font-medium uppercase tracking-wide">Revenue</p>
-          <p className="text-2xl font-poppins font-bold text-[#1e293b] mt-1">
+          <p className="text-2xl font-sans font-bold text-[#1e293b] mt-1">
             ${stats.revenue.toFixed(2)}
           </p>
         </div>
@@ -622,7 +622,7 @@ export function ValidationLeadsMaintenance() {
             {/* Header */}
             <div className="sticky top-0 bg-white border-b border-[#dbeafe] px-6 py-4 flex items-center justify-between z-10">
               <div>
-                <h3 className="text-lg font-poppins font-bold text-[#1e293b]">
+                <h3 className="text-lg font-sans font-bold text-[#1e293b]">
                   Lead #{selectedLead.id}
                 </h3>
                 <p className="text-xs text-[#94a3b8]">

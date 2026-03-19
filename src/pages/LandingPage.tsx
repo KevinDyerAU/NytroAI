@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { HeroScene } from '../components/QuantumScene';
 import { LoginDialog } from '../components/auth/LoginDialog';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
-import nytroLogo from '../assets/IMG_5440.jpeg';
+import nytroLogo from '../assets/nytro-logo-dark.png';
 import nytroWizardVideo from '../assets/NytroWizardClip.MP4';
 
 export const LandingPage: React.FC = () => {

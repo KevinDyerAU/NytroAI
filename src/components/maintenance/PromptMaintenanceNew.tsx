@@ -546,7 +546,7 @@ export function PromptMaintenanceNew() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">
+          <h2 className="text-2xl font-sans font-bold text-[#1e293b]">
             Prompt Management
           </h2>
           <p className="text-sm text-gray-600 mt-1">

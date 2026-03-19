@@ -246,7 +246,7 @@ export function UnitOfCompetencyMaintenance() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">Units of Competency Management</h2>
+        <h2 className="text-2xl font-sans font-bold text-[#1e293b]">Units of Competency Management</h2>
         <Button
           onClick={handleCreate}
           className="bg-[#10b981] hover:bg-[#059669] text-white font-semibold"
@@ -401,7 +401,7 @@ export function UnitOfCompetencyMaintenance() {
 
       {showForm && (
         <Card className="border border-[#dbeafe] bg-white p-8">
-          <h3 className="text-xl font-poppins font-bold text-[#1e293b] mb-6">
+          <h3 className="text-xl font-sans font-bold text-[#1e293b] mb-6">
             {editingId ? 'Edit Unit of Competency' : 'Create New Unit of Competency'}
           </h3>
 
@@ -517,7 +517,7 @@ export function UnitOfCompetencyMaintenance() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 border border-[#dbeafe]">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-xl font-poppins font-bold text-[#1e293b]">{detailUnit.unitCode} - {detailUnit.Title}</h3>
+                <h3 className="text-xl font-sans font-bold text-[#1e293b]">{detailUnit.unitCode} - {detailUnit.Title}</h3>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="px-2 py-0.5 rounded bg-[#e0f2fe] text-[#0369a1] text-xs">Type: {detailUnit.Type || '-'}</span>
                   <span className={`px-2 py-0.5 rounded text-xs ${detailUnit.Status === 'Active' ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fee2e2] text-[#991b1b]'}`}>Status: {detailUnit.Status || '-'}</span>

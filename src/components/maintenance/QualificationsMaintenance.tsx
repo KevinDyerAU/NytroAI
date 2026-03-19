@@ -238,7 +238,7 @@ export function QualificationsMaintenance() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-poppins font-bold text-[#1e293b]">Qualifications Management</h2>
+        <h2 className="text-2xl font-sans font-bold text-[#1e293b]">Qualifications Management</h2>
         <Button
           onClick={handleCreate}
           className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-semibold"
@@ -378,7 +378,7 @@ export function QualificationsMaintenance() {
 
       {showForm && (
         <Card className="border border-[#dbeafe] bg-white p-8">
-          <h3 className="text-xl font-poppins font-bold text-[#1e293b] mb-6">
+          <h3 className="text-xl font-sans font-bold text-[#1e293b] mb-6">
             {editingId ? 'Edit Qualification' : 'Create New Qualification'}
           </h3>
 
