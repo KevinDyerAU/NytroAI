@@ -555,8 +555,8 @@ export function PromptMaintenanceNew() {
           </p>
         </div>
         <Button
-          disabled
-          className="bg-[#10b981] hover:bg-[#059669] text-white font-semibold opacity-50 cursor-not-allowed"
+          onClick={handleCreate}
+          className="bg-[#10b981] hover:bg-[#059669] text-white font-semibold"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Prompt
@@ -911,9 +911,9 @@ export function PromptMaintenanceNew() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleEdit(prompt)}
-                          title="View Prompt"
+                          title="Edit Prompt"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
                       </div>
                     </td>
@@ -961,12 +961,13 @@ export function PromptMaintenanceNew() {
       {showForm && (
         <Card className="border border-[#dbeafe] bg-white p-6">
           <h3 className="text-xl font-semibold mb-2">
-            {editingId ? "View Prompt" : "Create New Prompt"}
+            {editingId ? "Edit Prompt" : "Create New Prompt"}
           </h3>
           {editingId && (
             <p className="text-sm text-blue-600 bg-blue-50 p-2 rounded mb-4">
-              ℹ️ <strong>Viewing Prompt:</strong> Prompts are currently in
-              read-only mode for admins.
+              ℹ️ <strong>Versioning:</strong> Changing the prompt text will
+              automatically create a new version. Updating only metadata
+              (name, description, active/default) will save in-place.
             </p>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -1058,7 +1059,6 @@ export function PromptMaintenanceNew() {
                   setFormData({ ...formData, name: e.target.value })
                 }
                 placeholder="KE Unit Validation v1.0"
-                disabled={!!editingId}
               />
             </div>
 
@@ -1071,7 +1071,6 @@ export function PromptMaintenanceNew() {
                 }
                 placeholder="Brief description of what this prompt does"
                 rows={2}
-                disabled={!!editingId}
               />
             </div>
 
@@ -1087,7 +1086,6 @@ export function PromptMaintenanceNew() {
                 }
                 placeholder="You are an expert RTO assessor..."
                 rows={5}
-                disabled={!!editingId}
               />
             </div>
 
@@ -1100,7 +1098,6 @@ export function PromptMaintenanceNew() {
                 }
                 placeholder="Validate the following requirement: {{requirement_text}}..."
                 rows={12}
-                disabled={!!editingId}
               />
             </div>
 
@@ -1112,7 +1109,6 @@ export function PromptMaintenanceNew() {
                   onChange={(e) =>
                     setFormData({ ...formData, is_active: e.target.checked })
                   }
-                  disabled={!!editingId}
                 />
                 <span className="text-sm">Active</span>
               </label>
@@ -1123,7 +1119,6 @@ export function PromptMaintenanceNew() {
                   onChange={(e) =>
                     setFormData({ ...formData, is_default: e.target.checked })
                   }
-                  disabled={!!editingId}
                 />
                 <span className="text-sm">Default</span>
               </label>
@@ -1137,15 +1132,17 @@ export function PromptMaintenanceNew() {
               >
                 Close
               </Button>
-              {!editingId && (
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-[#10b981] hover:bg-[#059669]"
-                >
-                  {isLoading ? "Saving..." : "Create"}
-                </Button>
-              )}
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="bg-[#10b981] hover:bg-[#059669]"
+              >
+                {isLoading
+                  ? "Saving..."
+                  : editingId
+                    ? "Save Changes"
+                    : "Create"}
+              </Button>
             </div>
           </form>
         </Card>
