@@ -19,11 +19,9 @@ import {
   TrendingUp,
   Zap,
   Trash2,
-  RotateCcw,
   AlertTriangle
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
-import { triggerDocumentProcessing } from '../lib/n8nApi';
 
 interface ValidationStatus {
   file_name: string;
@@ -284,72 +282,6 @@ export function Dashboard_v3({
     }
   };
 
-  const [retryingIds, setRetryingIds] = useState<Set<number>>(new Set());
-
-  const handleRetryValidation = async (e: React.MouseEvent, validation: any) => {
-    e.stopPropagation();
-    const validationId = validation.id;
-    
-    setRetryingIds(prev => new Set(prev).add(validationId));
-    
-    try {
-      // 1. Fetch storage paths from documents table for this validation
-      const { data: docs, error: docsError } = await supabase
-        .from('documents')
-        .select('storage_path')
-        .eq('validation_detail_id', validationId);
-
-      if (docsError) throw new Error(`Failed to fetch documents: ${docsError.message}`);
-      
-      const storagePaths = (docs || []).map((d: any) => d.storage_path).filter(Boolean);
-      
-      if (storagePaths.length === 0) {
-        toast.error('No documents found for this validation. Cannot retry.');
-        return;
-      }
-
-      // 2. Reset status in DB
-      const { error: updateError } = await supabase
-        .from('validation_detail')
-        .update({
-          extractStatus: 'Pending',
-          validation_status: 'Pending',
-          last_error: null,
-          validation_progress: 0,
-          completed_count: 0,
-          validation_count: 0,
-        })
-        .eq('id', validationId);
-
-      if (updateError) throw new Error(`Failed to reset validation: ${updateError.message}`);
-
-      // 3. Optimistically update local state
-      setValidations(prev => prev.map(v => 
-        v.id === validationId 
-          ? { ...v, extract_status: 'Pending', validation_status: 'Pending', last_error: null, error_message: null, validation_progress: 0, completed_count: 0, validation_count: 0 }
-          : v
-      ));
-
-      // 4. Re-trigger n8n document processing
-      await triggerDocumentProcessing(validationId, storagePaths);
-      
-      toast.success(`Validation for ${validation.unit_code || 'Unknown'} has been re-triggered`, {
-        description: 'Processing will resume in the background.',
-      });
-    } catch (err) {
-      console.error('[Dashboard] Retry validation error:', err);
-      toast.error('Failed to retry validation', {
-        description: err instanceof Error ? err.message : 'Unknown error',
-      });
-    } finally {
-      setRetryingIds(prev => {
-        const next = new Set(prev);
-        next.delete(validationId);
-        return next;
-      });
-    }
-  };
-
   // Only show loading screen on initial load
   if (isLoading && isInitialLoad) {
     return (
@@ -520,7 +452,6 @@ export function Dashboard_v3({
 
               // Detect failed state
               const isFailed = extractStatus === 'Failed' || validationStatus.toLowerCase() === 'failed';
-              const isRetrying = retryingIds.has(validation.id);
 
               // Detect stuck state (in-progress for >30 min with no progress)
               const isStuck = (() => {
@@ -597,43 +528,30 @@ export function Dashboard_v3({
                   key={validation.id}
                   className={`p-4 border-l-4 ${borderColor} ${bgColor} border border-[#e2e8f0] rounded-lg hover:shadow-md transition-all cursor-pointer`}
                   onClick={() => !isFailed && onValidationClick?.(validation as any)}
-                  title={isFailed ? 'This validation has failed. Use Retry or Delete.' : 'Click to view validation results in Results Explorer'}
+                  title={isFailed ? 'This validation has failed. Delete and start again.' : 'Click to view validation results in Results Explorer'}
                 >
                   {/* Error Banner */}
                   {isFailed && (
                     <div className="flex items-center gap-3 mb-3 p-2.5 bg-red-100 border border-red-200 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-red-800">Validation Failed</p>
+                        <p className="text-xs font-semibold text-red-800">Validation Failed — please delete and start again</p>
                         {validation.last_error && (
                           <p className="text-xs text-red-600 truncate mt-0.5" title={validation.last_error}>{validation.last_error}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {canDelete && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-7 px-2.5 text-xs bg-white border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
-                          onClick={(e) => handleRetryValidation(e, validation)}
-                          disabled={isRetrying}
-                          title="Reset and re-trigger this validation"
+                          onClick={(e) => handleDeleteValidation(e, validation.id, validation)}
+                          title="Delete this failed validation"
                         >
-                          <RotateCcw className={`w-3.5 h-3.5 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
-                          {isRetrying ? 'Retrying...' : 'Retry'}
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />
+                          Delete
                         </Button>
-                        {canDelete && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 px-2.5 text-xs bg-white border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
-                            onClick={(e) => handleDeleteValidation(e, validation.id, validation)}
-                            title="Delete this failed validation"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-1" />
-                            Delete
-                          </Button>
-                        )}
-                      </div>
+                      )}
                     </div>
                   )}
 
@@ -642,18 +560,17 @@ export function Dashboard_v3({
                     <div className="flex items-center gap-3 mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                       <p className="text-xs text-amber-800 flex-1">
-                        <strong>Possible stall detected</strong> — This validation has not progressed for over 30 minutes.
+                        <strong>Possible stall detected</strong> — This validation has not progressed for over 30 minutes. You may want to delete and start again.
                       </p>
                       <Button
                         variant="outline"
                         size="sm"
                         className="h-7 px-2.5 text-xs bg-white border-amber-300 text-amber-700 hover:bg-amber-50"
-                        onClick={(e) => handleRetryValidation(e, validation)}
-                        disabled={isRetrying}
-                        title="Reset and re-trigger this validation"
+                        onClick={(e) => handleDeleteValidation(e, validation.id, validation)}
+                        title="Delete this stalled validation"
                       >
-                        <RotateCcw className={`w-3.5 h-3.5 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
-                        {isRetrying ? 'Retrying...' : 'Retry'}
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                        Delete
                       </Button>
                     </div>
                   )}
