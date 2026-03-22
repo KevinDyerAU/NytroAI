@@ -368,7 +368,7 @@ export function ResultsExplorer_v2({
           setValidationEvidenceData(response.data);
 
           // Update total if found in polling response
-          if (response.totalRequirements) {
+          if (response.totalRequirements !== undefined && response.totalRequirements !== null) {
             setSessionTotal(response.totalRequirements);
           }
 
@@ -475,8 +475,8 @@ export function ResultsExplorer_v2({
           setValidationEvidenceData(response.data);
           setEvidenceError(null);
           setIsProcessing(false);
-          // NEW: Capture total from response if available
-          if (response.totalRequirements) {
+          // Capture total from response — always set if defined (even if 0)
+          if (response.totalRequirements !== undefined && response.totalRequirements !== null) {
             setSessionTotal(response.totalRequirements);
           }
           // Only mark as loaded after successful data fetch
@@ -690,7 +690,7 @@ export function ResultsExplorer_v2({
         {/* Results count and active progress indicator */}
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium text-gray-700">
-            Showing <span className="text-[#3b82f6] font-bold">{filteredResults.length}</span> of {Math.max(sessionTotal || currentRecord?.num_of_req || 0, validationEvidenceData.length)} requirements
+            Showing <span className="text-[#3b82f6] font-bold">{filteredResults.length}</span> of {Math.max(sessionTotal ?? currentRecord?.num_of_req ?? 0, validationEvidenceData.length)} requirements
           </p>
 
           {selectedValidation && selectedValidation.progress > 0 && selectedValidation.progress < 100 && (
