@@ -18,9 +18,12 @@ import {
   FileText,
   TrendingUp,
   Zap,
-  Trash2
+  Trash2,
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import type { ValidationRecord } from '../types/rto';
+import { triggerDocumentProcessing } from '../lib/n8nApi';
 
 interface ValidationStatus {
   file_name: string;
@@ -251,9 +254,17 @@ export function Dashboard_v3({
     });
   };
 
-  const handleDeleteValidation = async (e: React.MouseEvent, validationId: string) => {
+  const handleDeleteValidation = async (e: React.MouseEvent, validationId: string, validation?: any) => {
     e.stopPropagation();
-    if (!isAdmin) return;
+    
+    // Admin can delete anything; non-admin can only delete their own failed validations
+    const isFailed = validation && (
+      validation.extract_status === 'Failed' || 
+      validation.validation_status?.toLowerCase() === 'failed'
+    );
+    const isOwnValidation = validation?.user_id === userId;
+    
+    if (!isAdmin && !(isFailed && isOwnValidation)) return;
     
     if (window.confirm("Are you sure you want to delete this validation? This action cannot be undone.")) {
       try {
@@ -270,6 +281,72 @@ export function Dashboard_v3({
         console.error("Error deleting validation:", err);
         toast.error("Failed to delete validation");
       }
+    }
+  };
+
+  const [retryingIds, setRetryingIds] = useState<Set<number>>(new Set());
+
+  const handleRetryValidation = async (e: React.MouseEvent, validation: any) => {
+    e.stopPropagation();
+    const validationId = validation.id;
+    
+    setRetryingIds(prev => new Set(prev).add(validationId));
+    
+    try {
+      // 1. Fetch storage paths from documents table for this validation
+      const { data: docs, error: docsError } = await supabase
+        .from('documents')
+        .select('storage_path')
+        .eq('validation_detail_id', validationId);
+
+      if (docsError) throw new Error(`Failed to fetch documents: ${docsError.message}`);
+      
+      const storagePaths = (docs || []).map((d: any) => d.storage_path).filter(Boolean);
+      
+      if (storagePaths.length === 0) {
+        toast.error('No documents found for this validation. Cannot retry.');
+        return;
+      }
+
+      // 2. Reset status in DB
+      const { error: updateError } = await supabase
+        .from('validation_detail')
+        .update({
+          extractStatus: 'Pending',
+          validation_status: 'Pending',
+          last_error: null,
+          validation_progress: 0,
+          completed_count: 0,
+          validation_count: 0,
+        })
+        .eq('id', validationId);
+
+      if (updateError) throw new Error(`Failed to reset validation: ${updateError.message}`);
+
+      // 3. Optimistically update local state
+      setValidations(prev => prev.map(v => 
+        v.id === validationId 
+          ? { ...v, extract_status: 'Pending', validation_status: 'Pending', last_error: null, error_message: null, validation_progress: 0, completed_count: 0, validation_count: 0 }
+          : v
+      ));
+
+      // 4. Re-trigger n8n document processing
+      await triggerDocumentProcessing(validationId, storagePaths);
+      
+      toast.success(`Validation for ${validation.unit_code || 'Unknown'} has been re-triggered`, {
+        description: 'Processing will resume in the background.',
+      });
+    } catch (err) {
+      console.error('[Dashboard] Retry validation error:', err);
+      toast.error('Failed to retry validation', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    } finally {
+      setRetryingIds(prev => {
+        const next = new Set(prev);
+        next.delete(validationId);
+        return next;
+      });
     }
   };
 
@@ -441,22 +518,39 @@ export function Dashboard_v3({
               const extractStatus = validation.extract_status || 'Pending';
               const validationStatus = validation.validation_status || 'Pending';
 
+              // Detect failed state
+              const isFailed = extractStatus === 'Failed' || validationStatus.toLowerCase() === 'failed';
+              const isRetrying = retryingIds.has(validation.id);
+
+              // Detect stuck state (in-progress for >30 min with no progress)
+              const isStuck = (() => {
+                if (isFailed || validationStatus === 'Finalised') return false;
+                const isProcessing = extractStatus === 'ProcessingInBackground' || extractStatus === 'DocumentProcessing' || validationStatus === 'In Progress';
+                if (!isProcessing) return false;
+                const lastUpdate = validation.last_updated_at || validation.created_at;
+                const minutesSinceUpdate = (Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60);
+                return minutesSinceUpdate > 30;
+              })();
+
+              // Can this user delete? Admin always; non-admin only their own failed
+              const canDelete = isAdmin || (isFailed && validation.user_id === userId);
+
               // REQ: Requirements stage - complete when extraction has started or completed
-              const reqComplete = extractStatus !== 'Pending';
+              const reqComplete = extractStatus !== 'Pending' && !isFailed;
 
               // DOC: Document processing - complete when extraction is completed
-              const docComplete = extractStatus === 'Completed' ||
+              const docComplete = !isFailed && (extractStatus === 'Completed' ||
                 validationStatus === 'In Progress' ||
-                validationStatus === 'Finalised';
+                validationStatus === 'Finalised');
 
               // REV: Under Review - complete when validation has results (completed_count > 0 or progress > 0)
-              const revComplete = (validation.completed_count || 0) > 0 || progress > 0 || validationStatus === 'Finalised';
+              const revComplete = !isFailed && ((validation.completed_count || 0) > 0 || progress > 0 || validationStatus === 'Finalised');
 
               // REP: Report - complete only when validation_status is Finalised (report generated)
-              const repComplete = validationStatus === 'Finalised';
+              const repComplete = !isFailed && validationStatus === 'Finalised';
 
               // Calculate stage-based progress (25% per stage)
-              const stageProgress = (reqComplete ? 25 : 0) + (docComplete ? 25 : 0) + (revComplete ? 25 : 0) + (repComplete ? 25 : 0);
+              const stageProgress = isFailed ? 0 : (reqComplete ? 25 : 0) + (docComplete ? 25 : 0) + (revComplete ? 25 : 0) + (repComplete ? 25 : 0);
 
               // Format date like Results Explorer
               const formatDate = (dateString: string) => {
@@ -482,31 +576,94 @@ export function Dashboard_v3({
               const expiryStatus = getExpiryStatus();
 
               // Status indicator component with tooltip
-              const StatusPill = ({ label, isComplete, tooltip }: { label: string; isComplete: boolean; tooltip: string }) => (
+              const StatusPill = ({ label, isComplete, isFailed: pillFailed, tooltip }: { label: string; isComplete: boolean; isFailed?: boolean; tooltip: string }) => (
                 <div
-                  className="flex items-center gap-1.5 px-3 py-1 bg-[#f1f5f9] rounded-full cursor-help"
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full cursor-help ${pillFailed ? 'bg-red-50' : 'bg-[#f1f5f9]'}`}
                   title={tooltip}
                 >
                   <div
-                    className={`w-2 h-2 rounded-full ${isComplete ? 'bg-[#22c55e]' : 'bg-[#cbd5e1]'}`}
+                    className={`w-2 h-2 rounded-full ${pillFailed ? 'bg-red-500' : isComplete ? 'bg-[#22c55e]' : 'bg-[#cbd5e1]'}`}
                   />
-                  <span className="text-xs font-medium text-[#64748b]">{label}</span>
+                  <span className={`text-xs font-medium ${pillFailed ? 'text-red-600' : 'text-[#64748b]'}`}>{label}</span>
                 </div>
               );
+
+              // Row border color
+              const borderColor = isFailed ? 'border-l-red-500' : isStuck ? 'border-l-amber-400' : 'border-l-[#3b82f6]';
+              const bgColor = isFailed ? 'bg-red-50/50' : 'bg-white';
 
               return (
                 <div
                   key={validation.id}
-                  className="p-4 border-l-4 border-l-[#3b82f6] bg-white border border-[#e2e8f0] rounded-lg hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => onValidationClick?.(validation as any)}
-                  title="Click to view validation results in Results Explorer"
+                  className={`p-4 border-l-4 ${borderColor} ${bgColor} border border-[#e2e8f0] rounded-lg hover:shadow-md transition-all cursor-pointer`}
+                  onClick={() => !isFailed && onValidationClick?.(validation as any)}
+                  title={isFailed ? 'This validation has failed. Use Retry or Delete.' : 'Click to view validation results in Results Explorer'}
                 >
+                  {/* Error Banner */}
+                  {isFailed && (
+                    <div className="flex items-center gap-3 mb-3 p-2.5 bg-red-100 border border-red-200 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-red-800">Validation Failed</p>
+                        {validation.last_error && (
+                          <p className="text-xs text-red-600 truncate mt-0.5" title={validation.last_error}>{validation.last_error}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs bg-white border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          onClick={(e) => handleRetryValidation(e, validation)}
+                          disabled={isRetrying}
+                          title="Reset and re-trigger this validation"
+                        >
+                          <RotateCcw className={`w-3.5 h-3.5 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+                          {isRetrying ? 'Retrying...' : 'Retry'}
+                        </Button>
+                        {canDelete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2.5 text-xs bg-white border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                            onClick={(e) => handleDeleteValidation(e, validation.id, validation)}
+                            title="Delete this failed validation"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stuck Warning Banner */}
+                  {isStuck && !isFailed && (
+                    <div className="flex items-center gap-3 mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <p className="text-xs text-amber-800 flex-1">
+                        <strong>Possible stall detected</strong> — This validation has not progressed for over 30 minutes.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs bg-white border-amber-300 text-amber-700 hover:bg-amber-50"
+                        onClick={(e) => handleRetryValidation(e, validation)}
+                        disabled={isRetrying}
+                        title="Reset and re-trigger this validation"
+                      >
+                        <RotateCcw className={`w-3.5 h-3.5 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+                        {isRetrying ? 'Retrying...' : 'Retry'}
+                      </Button>
+                    </div>
+                  )}
+
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     {/* Left side: Unit Code, Type, Date - fixed width */}
                     <div className="flex flex-wrap items-center gap-2 md:gap-4 md:min-w-[480px]">
                       <div className="flex items-center gap-2">
                         <span className="text-xs md:text-sm text-[#64748b]">Unit:</span>
-                        <span className="font-bold text-[#1e293b] text-base md:text-lg">{validation.unit_code || 'N/A'}</span>
+                        <span className={`font-bold text-base md:text-lg ${isFailed ? 'text-red-800' : 'text-[#1e293b]'}`}>{validation.unit_code || 'N/A'}</span>
                       </div>
                       <div className="hidden md:block h-6 w-px bg-[#e2e8f0]" />
                       <div className="flex items-center gap-2">
@@ -517,10 +674,13 @@ export function Dashboard_v3({
                       <div className="flex items-center gap-2">
                         <span className="text-xs md:text-sm text-[#64748b]">Date:</span>
                         <span className="text-xs md:text-sm font-medium text-[#1e293b]">{formatDate(validation.created_at)}</span>
-                        {expiryStatus === 'expired' && (
+                        {isFailed && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">Failed</span>
+                        )}
+                        {!isFailed && expiryStatus === 'expired' && (
                           <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full" title="Validation expired (>48 hours). AI features disabled.">Expired</span>
                         )}
-                        {expiryStatus === 'expiring' && (
+                        {!isFailed && expiryStatus === 'expiring' && (
                           <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full" title="Validation expiring soon (<12 hours remaining)">Expiring</span>
                         )}
                       </div>
@@ -529,10 +689,10 @@ export function Dashboard_v3({
 
                     {/* Progress Bar - fixed width for alignment */}
                     <div className="w-[180px] hidden md:block flex-shrink-0">
-                      <div className="h-2 bg-[#e2e8f0] rounded-full overflow-hidden">
+                      <div className={`h-2 rounded-full overflow-hidden ${isFailed ? 'bg-red-200' : 'bg-[#e2e8f0]'}`}>
                         <div
-                          className="h-full bg-[#3b82f6] rounded-full transition-all duration-300"
-                          style={{ width: `${stageProgress}%` }}
+                          className={`h-full rounded-full transition-all duration-300 ${isFailed ? 'bg-red-500' : 'bg-[#3b82f6]'}`}
+                          style={{ width: `${isFailed ? 100 : stageProgress}%` }}
                         />
                       </div>
                     </div>
@@ -542,30 +702,35 @@ export function Dashboard_v3({
                       <StatusPill
                         label="REQ"
                         isComplete={reqComplete}
-                        tooltip={reqComplete ? 'Requirements: Extraction started' : 'Requirements: Waiting to start'}
+                        isFailed={isFailed}
+                        tooltip={isFailed ? 'Requirements: Failed' : reqComplete ? 'Requirements: Extraction started' : 'Requirements: Waiting to start'}
                       />
                       <StatusPill
                         label="DOC"
                         isComplete={docComplete}
-                        tooltip={docComplete ? 'Documents: Processing complete' : 'Documents: Processing in progress'}
+                        isFailed={isFailed}
+                        tooltip={isFailed ? 'Documents: Failed' : docComplete ? 'Documents: Processing complete' : 'Documents: Processing in progress'}
                       />
                       <StatusPill
                         label="REV"
                         isComplete={revComplete}
-                        tooltip={revComplete ? 'Review: Validation results available' : 'Review: Validation in progress'}
+                        isFailed={isFailed}
+                        tooltip={isFailed ? 'Review: Failed' : revComplete ? 'Review: Validation results available' : 'Review: Validation in progress'}
                       />
                       <StatusPill
                         label="REP"
                         isComplete={repComplete}
-                        tooltip={repComplete ? 'Report: Generated and finalised' : 'Report: Not yet generated'}
+                        isFailed={isFailed}
+                        tooltip={isFailed ? 'Report: Failed' : repComplete ? 'Report: Generated and finalised' : 'Report: Not yet generated'}
                       />
-                      {isAdmin && (
+                      {/* Action buttons for non-failed rows */}
+                      {!isFailed && canDelete && (
                         <div className="ml-2 border-l border-gray-200 pl-2">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0"
-                            onClick={(e) => handleDeleteValidation(e, validation.id)}
+                            onClick={(e) => handleDeleteValidation(e, validation.id, validation)}
                             title="Delete Validation"
                           >
                             <Trash2 className="w-4 h-4" />

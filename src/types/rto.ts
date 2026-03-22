@@ -401,6 +401,8 @@ export interface ValidationRecord {
   validation_count?: number;
   validation_progress?: number;
   error_message?: string | null;
+  last_error?: string | null;
+  last_updated_at?: string | null;
   user_id?: string | null; // User who created this validation
 }
 
@@ -459,13 +461,14 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
       // Prioritize validation_total (Stage 3/Unified) over numOfReq (Stage 2/Legacy) 
       // then fallback to the summary's reqTotal
       let numOfReq = record.validation_total || record.numOfReq || record.num_of_req || record.validation_summary?.reqTotal || 0;
-      const validationCount = record.validation_count || record.completed_count || 0;
+      const rawCount = record.validation_count || record.completed_count || 0;
+      const validationCount = numOfReq > 0 ? Math.min(rawCount, numOfReq) : rawCount;
 
       const calculatedProgress = numOfReq > 0
-        ? Math.round((validationCount / numOfReq) * 100)
+        ? Math.min(100, Math.round((validationCount / numOfReq) * 100))
         : 0;
       const progress = record.validation_progress !== undefined && record.validation_progress !== null
-        ? record.validation_progress
+        ? Math.min(100, record.validation_progress)
         : calculatedProgress;
 
       return {
@@ -484,7 +487,9 @@ export async function getActiveValidationsByRTO(rtoCode: string): Promise<Valida
         created_at: record.created_at,
         summary_id: record.summary_id || 0,
         validation_type: record.validation_type?.code || null,
-        error_message: null,
+        error_message: record.last_error || null,
+        last_error: record.last_error || null,
+        last_updated_at: record.last_updated_at || null,
         user_id: record.user_id || record.validation_summary?.user_id || null,
       };
     });
@@ -586,13 +591,14 @@ export async function getUserValidationsByRTO(
     // Map database columns to ValidationRecord interface
     const records: ValidationRecord[] = filteredData.map((record: any) => {
       let numOfReq = record.validation_total || record.numOfReq || record.num_of_req || record.validation_summary?.reqTotal || 0;
-      const validationCount = record.validation_count || record.completed_count || 0;
+      const rawCount = record.validation_count || record.completed_count || 0;
+      const validationCount = numOfReq > 0 ? Math.min(rawCount, numOfReq) : rawCount;
 
       const calculatedProgress = numOfReq > 0
-        ? Math.round((validationCount / numOfReq) * 100)
+        ? Math.min(100, Math.round((validationCount / numOfReq) * 100))
         : 0;
       const progress = record.validation_progress !== undefined && record.validation_progress !== null
-        ? record.validation_progress
+        ? Math.min(100, record.validation_progress)
         : calculatedProgress;
 
       return {
@@ -611,7 +617,9 @@ export async function getUserValidationsByRTO(
         created_at: record.created_at,
         summary_id: record.summary_id || 0,
         validation_type: record.validation_type?.code || null,
-        error_message: null,
+        error_message: record.last_error || null,
+        last_error: record.last_error || null,
+        last_updated_at: record.last_updated_at || null,
         user_id: record.user_id || record.validation_summary?.user_id || null,
       };
     });
