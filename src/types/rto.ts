@@ -242,36 +242,10 @@ export async function getValidationCredits(rtoCode: string): Promise<{ current: 
 
 export async function addValidationCredits(rtoCode: string, amount: number, reason?: string): Promise<{ success: boolean; message: string; newBalance?: number }> {
   try {
-    // First, get the RTO to find its ID
-    const { data: rtoData, error: rtoError } = await supabase
-      .from('RTO')
-      .select('id')
-      .eq('code', rtoCode)
-      .single();
-
-    if (rtoError || !rtoData) {
-      console.error('Error finding RTO:', rtoError);
-      return { success: false, message: 'RTO not found' };
-    }
-
-    const rtoId = rtoData.id;
-
-    // Clear old transaction history
-    const { error: deleteError } = await supabase
-      .from('credit_transactions')
-      .delete()
-      .eq('rto_id', rtoId);
-
-    if (deleteError) {
-      console.error('Error clearing transactions:', deleteError);
-      // Continue anyway, as this is not critical
-    }
-
-    // Add new credits
     const { data, error } = await supabase.rpc('add_validation_credits', {
-      rto_code: rtoCode,
-      amount: amount,
-      reason: reason || 'Credits added via settings',
+      p_rto_code: rtoCode,
+      p_amount: amount,
+      p_reason: reason || 'Credits added via settings',
     });
 
     if (error) {
@@ -331,36 +305,11 @@ export async function consumeValidationCredit(
 
 export async function removeValidationCredits(rtoCode: string, amount: number, reason?: string): Promise<{ success: boolean; message: string; newBalance?: number }> {
   try {
-    // First, get the RTO to find its ID
-    const { data: rtoData, error: rtoError } = await supabase
-      .from('RTO')
-      .select('id')
-      .eq('code', rtoCode)
-      .single();
-
-    if (rtoError || !rtoData) {
-      console.error('Error finding RTO:', rtoError);
-      return { success: false, message: 'RTO not found' };
-    }
-
-    const rtoId = rtoData.id;
-
-    // Clear old transaction history
-    const { error: deleteError } = await supabase
-      .from('credit_transactions')
-      .delete()
-      .eq('rto_id', rtoId);
-
-    if (deleteError) {
-      console.error('Error clearing transactions:', deleteError);
-      // Continue anyway, as this is not critical
-    }
-
-    // Remove credits
+    // Remove credits (pass negative amount)
     const { data, error } = await supabase.rpc('add_validation_credits', {
-      rto_code: rtoCode,
-      amount: -amount,
-      reason: reason || `Credits removed by admin - ${amount} validation credits`,
+      p_rto_code: rtoCode,
+      p_amount: -amount,
+      p_reason: reason || `Credits removed by admin - ${amount} validation credits`,
     });
 
     if (error) {

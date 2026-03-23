@@ -21,6 +21,7 @@ interface UserCredit {
   email: string;
   full_name: string | null;
   rto_code: string | null;
+  rto_id: number | null;
   validationCredits: number;
 }
 
@@ -94,31 +95,50 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       // Get all users with their credits
       const { data: userProfiles, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('id, email, full_name, rto_code');
+        .select('id, email, full_name, rto_code, rto_id');
 
       if (profilesError) throw profilesError;
 
-      // Get user credits
+      // Get user credits (for non-RTO / $99 users)
       const { data: userCredits, error: creditsError } = await supabase
         .from('user_credits')
         .select('user_id, validation_credits');
 
       if (creditsError) throw creditsError;
 
-      // Create a map of user credits
-      const creditsMap = new Map<string, number>();
+      // Get RTO validation credits (for RTO users — shared pool)
+      const { data: rtoCredits, error: rtoCreditsError } = await supabase
+        .from('validation_credits')
+        .select('rto_id, current_credits');
+
+      if (rtoCreditsError) console.error('Error fetching RTO credits:', rtoCreditsError);
+
+      // Build maps
+      const userCreditsMap = new Map<string, number>();
       (userCredits || []).forEach((uc: any) => {
-        creditsMap.set(uc.user_id, uc.validation_credits || 0);
+        userCreditsMap.set(uc.user_id, uc.validation_credits || 0);
       });
 
-      // Combine user profiles with credits
+      // Map rto_id → current_credits from the shared pool
+      const rtoIdToCredits = new Map<number, number>();
+      (rtoCredits || []).forEach((rc: any) => {
+        rtoIdToCredits.set(rc.rto_id, rc.current_credits || 0);
+      });
+
+      // Combine user profiles with the correct credit source
       const combined: UserCredit[] = (userProfiles || []).map((profile: any) => {
-        const validationCredits = creditsMap.get(profile.id) || 0;
+        // RTO users get credits from the shared RTO pool (match on rto_id, not rto_code)
+        const hasRTO = !!profile.rto_id;
+        const validationCredits = hasRTO
+          ? (rtoIdToCredits.get(profile.rto_id) ?? 0)
+          : (userCreditsMap.get(profile.id) ?? 0);
+
         return {
           id: profile.id,
           email: profile.email,
           full_name: profile.full_name,
           rto_code: profile.rto_code,
+          rto_id: profile.rto_id,
           validationCredits,
         };
       });
@@ -707,31 +727,38 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                         <div className="flex items-center gap-2">
                           <Zap className="w-4 h-4 text-[#3b82f6]" />
                           <span className="font-semibold text-[#1e293b]">{u.validationCredits}</span>
+                          {u.rto_id && (
+                            <span className="text-xs text-[#64748b] bg-[#f1f5f9] px-2 py-0.5 rounded">RTO pool</span>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedUser(u);
-                              setUserFormData({ operation: 'add', amount: '', reason: '' });
-                              setShowUserForm(true);
-                            }}
-                            className="px-3 py-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold rounded transition-colors text-sm"
-                          >
-                            Add
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedUser(u);
-                              setUserFormData({ operation: 'remove', amount: '', reason: '' });
-                              setShowUserForm(true);
-                            }}
-                            className="px-3 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-semibold rounded transition-colors text-sm"
-                          >
-                            Remove
-                          </button>
-                        </div>
+                        {u.rto_id ? (
+                          <span className="text-xs text-[#64748b] italic">Manage via RTO Credits</span>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedUser(u);
+                                setUserFormData({ operation: 'add', amount: '', reason: '' });
+                                setShowUserForm(true);
+                              }}
+                              className="px-3 py-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold rounded transition-colors text-sm"
+                            >
+                              Add
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(u);
+                                setUserFormData({ operation: 'remove', amount: '', reason: '' });
+                                setShowUserForm(true);
+                              }}
+                              className="px-3 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-semibold rounded transition-colors text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
