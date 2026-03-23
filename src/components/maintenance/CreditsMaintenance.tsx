@@ -22,6 +22,7 @@ interface UserCredit {
   full_name: string | null;
   rto_code: string | null;
   rto_id: number | null;
+  rto_name: string | null;
   validationCredits: number;
 }
 
@@ -113,22 +114,31 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
 
       if (rtoCreditsError) console.error('Error fetching RTO credits:', rtoCreditsError);
 
+      // Get RTO names for display
+      const { data: rtoList } = await supabase
+        .from('RTO')
+        .select('id, code, legalname');
+
       // Build maps
       const userCreditsMap = new Map<string, number>();
       (userCredits || []).forEach((uc: any) => {
         userCreditsMap.set(uc.user_id, uc.validation_credits || 0);
       });
 
-      // Map rto_id → current_credits from the shared pool
       const rtoIdToCredits = new Map<number, number>();
       (rtoCredits || []).forEach((rc: any) => {
         rtoIdToCredits.set(rc.rto_id, rc.current_credits || 0);
       });
 
+      const rtoIdToInfo = new Map<number, { code: string; name: string }>();
+      (rtoList || []).forEach((r: any) => {
+        rtoIdToInfo.set(r.id, { code: r.code, name: r.legalname });
+      });
+
       // Combine user profiles with the correct credit source
       const combined: UserCredit[] = (userProfiles || []).map((profile: any) => {
-        // RTO users get credits from the shared RTO pool (match on rto_id, not rto_code)
         const hasRTO = !!profile.rto_id;
+        const rtoInfo = hasRTO ? rtoIdToInfo.get(profile.rto_id) : null;
         const validationCredits = hasRTO
           ? (rtoIdToCredits.get(profile.rto_id) ?? 0)
           : (userCreditsMap.get(profile.id) ?? 0);
@@ -137,8 +147,9 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
           id: profile.id,
           email: profile.email,
           full_name: profile.full_name,
-          rto_code: profile.rto_code,
+          rto_code: rtoInfo?.code || profile.rto_code || null,
           rto_id: profile.rto_id,
+          rto_name: rtoInfo?.name || null,
           validationCredits,
         };
       });
@@ -707,7 +718,16 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                     <tr key={u.id} className="border-b border-[#e2e8f0] hover:bg-[#f8f9fb]">
                       <td className="py-3 px-4 text-[#1e293b] font-semibold">{u.email}</td>
                       <td className="py-3 px-4 text-[#64748b]">{u.full_name || '-'}</td>
-                      <td className="py-3 px-4 text-[#64748b]">{u.rto_code || '-'}</td>
+                      <td className="py-3 px-4 text-[#64748b]">
+                        {u.rto_id ? (
+                          <div>
+                            <span>{u.rto_name || u.rto_code || 'Unknown RTO'}</span>
+                            {u.rto_code && <span className="text-xs text-[#94a3b8] ml-1">({u.rto_code})</span>}
+                          </div>
+                        ) : (
+                          <span className="text-xs italic">Individual</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <Zap className="w-4 h-4 text-[#3b82f6]" />
