@@ -370,59 +370,20 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       const amount = Number(userFormData.amount);
       const actionWord = userFormData.operation === 'add' ? 'allocation' : 'removal';
       const reason = userFormData.reason || `Admin ${actionWord} of ${amount} validation credits`;
-      const isRTOUser = !!selectedUser.rto_id;
+      const rpcAmount = userFormData.operation === 'add' ? amount : -amount;
 
-      if (isRTOUser) {
-        // RTO users: modify the shared RTO pool via add_validation_credits RPC
-        // Look up the RTO code from the RTO table
-        const { data: rtoData, error: rtoError } = await supabase
-          .from('RTO')
-          .select('code')
-          .eq('id', selectedUser.rto_id)
-          .single();
+      const { data, error } = await supabase.rpc('admin_modify_credits', {
+        p_user_id: selectedUser.id,
+        p_amount: rpcAmount,
+        p_reason: reason,
+      });
 
-        if (rtoError || !rtoData) throw new Error('Could not find RTO for user');
+      if (error) throw error;
 
-        const rpcAmount = userFormData.operation === 'add' ? amount : -amount;
-        const { data, error } = await supabase.rpc('add_validation_credits', {
-          p_rto_code: rtoData.code,
-          p_amount: rpcAmount,
-          p_reason: reason,
-        });
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.success) throw new Error(result?.message || 'Failed to update credits');
 
-        if (error) throw error;
-        const result = Array.isArray(data) ? data[0] : data;
-        if (!result?.success) throw new Error(result?.message || 'Failed to update credits');
-
-        toast.success(`${userFormData.operation === 'add' ? 'Added' : 'Removed'} ${amount} RTO pool credits (${selectedUser.email})`);
-      } else if (userFormData.operation === 'add') {
-        // Non-RTO users: add individual credits
-        const { data, error } = await supabase.rpc('add_user_credits', {
-          p_user_id: selectedUser.id,
-          p_validation_credits: amount,
-          p_ai_credits: 0,
-          p_reason: reason,
-        });
-
-        if (error) throw error;
-        toast.success(`Added ${amount} validation credits to ${selectedUser.email}`);
-      } else {
-        // Non-RTO users: remove individual credits
-        const currentBalance = selectedUser.validationCredits;
-        
-        if (amount > currentBalance) {
-          toast.error(`Cannot remove more credits than available (${currentBalance})`);
-          return;
-        }
-
-        const { error } = await supabase
-          .from('user_credits')
-          .update({ validation_credits: currentBalance - amount })
-          .eq('user_id', selectedUser.id);
-
-        if (error) throw error;
-        toast.success(`Removed ${amount} validation credits from ${selectedUser.email}`);
-      }
+      toast.success(`${userFormData.operation === 'add' ? 'Added' : 'Removed'} ${amount} credits for ${selectedUser.email} (new balance: ${result.new_balance})`);
 
       loadUsers();
       setUserFormData({ operation: 'add', amount: '', reason: '' });
@@ -433,7 +394,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
         onCreditsModified();
       }
     } catch (error) {
-      toast.error(`Error ${userFormData.operation}ing user credits`);
+      toast.error(`Error ${userFormData.operation}ing credits`);
       console.error(error);
     } finally {
       setUsersLoading(false);
