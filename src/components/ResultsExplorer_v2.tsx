@@ -646,19 +646,7 @@ export function ResultsExplorer_v2({
               <RefreshCw className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">Refresh</span>
             </Button>
-            {/* Chat with Documents Button */}
-            {currentRecord && selectedValidation && (
-              <Button
-                onClick={() => setShowAIChat(true)}
-                size="sm"
-                className="bg-[#dbeafe] text-[#3b82f6] border-[#93c5fd] hover:bg-[#bfdbfe] hover:border-[#3b82f6] disabled:opacity-50"
-                disabled={isValidationExpired}
-                title={isValidationExpired ? "Validation expired (>48 hours). AI features disabled." : "Chat with AI about the uploaded documents"}
-              >
-                <MessageSquare className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">Chat with Documents</span>
-              </Button>
-            )}
+            {/* Chat with Documents Button - hidden */}
             {/* Report Generation with Popup */}
             {currentRecord && selectedValidation && (
               <ResultsExplorerActions
