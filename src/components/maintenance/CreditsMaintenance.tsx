@@ -370,9 +370,33 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
       const amount = Number(userFormData.amount);
       const actionWord = userFormData.operation === 'add' ? 'allocation' : 'removal';
       const reason = userFormData.reason || `Admin ${actionWord} of ${amount} validation credits`;
+      const isRTOUser = !!selectedUser.rto_id;
 
-      if (userFormData.operation === 'add') {
-        // Use RPC function to add credits
+      if (isRTOUser) {
+        // RTO users: modify the shared RTO pool via add_validation_credits RPC
+        // Look up the RTO code from the RTO table
+        const { data: rtoData, error: rtoError } = await supabase
+          .from('RTO')
+          .select('code')
+          .eq('id', selectedUser.rto_id)
+          .single();
+
+        if (rtoError || !rtoData) throw new Error('Could not find RTO for user');
+
+        const rpcAmount = userFormData.operation === 'add' ? amount : -amount;
+        const { data, error } = await supabase.rpc('add_validation_credits', {
+          p_rto_code: rtoData.code,
+          p_amount: rpcAmount,
+          p_reason: reason,
+        });
+
+        if (error) throw error;
+        const result = Array.isArray(data) ? data[0] : data;
+        if (!result?.success) throw new Error(result?.message || 'Failed to update credits');
+
+        toast.success(`${userFormData.operation === 'add' ? 'Added' : 'Removed'} ${amount} RTO pool credits (${selectedUser.email})`);
+      } else if (userFormData.operation === 'add') {
+        // Non-RTO users: add individual credits
         const { data, error } = await supabase.rpc('add_user_credits', {
           p_user_id: selectedUser.id,
           p_validation_credits: amount,
@@ -383,7 +407,7 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
         if (error) throw error;
         toast.success(`Added ${amount} validation credits to ${selectedUser.email}`);
       } else {
-        // Direct update to remove credits
+        // Non-RTO users: remove individual credits
         const currentBalance = selectedUser.validationCredits;
         
         if (amount > currentBalance) {
