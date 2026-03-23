@@ -733,32 +733,28 @@ export function CreditsMaintenance({ onCreditsModified }: CreditMaintenanceProps
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        {u.rto_id ? (
-                          <span className="text-xs text-[#64748b] italic">Manage via RTO Credits</span>
-                        ) : (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedUser(u);
-                                setUserFormData({ operation: 'add', amount: '', reason: '' });
-                                setShowUserForm(true);
-                              }}
-                              className="px-3 py-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold rounded transition-colors text-sm"
-                            >
-                              Add
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedUser(u);
-                                setUserFormData({ operation: 'remove', amount: '', reason: '' });
-                                setShowUserForm(true);
-                              }}
-                              className="px-3 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-semibold rounded transition-colors text-sm"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setUserFormData({ operation: 'add', amount: '', reason: '' });
+                              setShowUserForm(true);
+                            }}
+                            className="px-3 py-2 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-semibold rounded transition-colors text-sm"
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setUserFormData({ operation: 'remove', amount: '', reason: '' });
+                              setShowUserForm(true);
+                            }}
+                            className="px-3 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-semibold rounded transition-colors text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
